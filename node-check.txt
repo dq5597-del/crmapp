@@ -1,0 +1,9 @@
+=== Node.js 安�?檢查 ===
+MISS:  C:\Program Files\nodejs\node.exe
+MISS:  C:\Program Files (x86)\nodejs\node.exe
+MISS:  C:\Users\10319\AppData\Local\Programs\nodejs\node.exe
+MISS:  C:\Users\10319\AppData\Roaming\npm\node.exe
+MISS:  C:\nodejs\node.exe
+
+MSI 檔�?: True
+PATH ??nodejs: False

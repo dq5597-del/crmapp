@@ -1,0 +1,7 @@
+GitBash Result:
+NPM=bash: npm: command not found
+NODE=bash: node: command not found
+NPMPATH=which: no npm in (/c/Users/10319/bin:/mingw64/bin:/usr/local/bin:/usr/bin:/bin:/mingw64/bin:/usr/bin:/c/Users/10319/bin:/c/Windows/system32:/c/Windows:/c/Windows/System32/Wbem:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Windows/System32/OpenSSH:/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/c/Program Files/dotnet:/c/WINDOWS/system32:/c/WINDOWS:/c/WINDOWS/System32/Wbem:/c/WINDOWS/System32/WindowsPowerShell/v1.0:/c/WINDOWS/System32/OpenSSH:/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit:/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/c/Program Files/Docker/Docker/resources/bin:/cmd:/c/Users/10319/AppData/Local/Microsoft/WindowsApps:/c/Users/10319/AppData/Local/Programs/Microsoft VS Code/bin:/usr/bin/vendor_perl:/usr/bin/core_perl)
+cat: /c/Users/10319/.bashrc: No such file or directory
+ERR: bash: cannot set terminal process group (-1): Inappropriate ioctl for device
+ERR: bash: no job control in this shell

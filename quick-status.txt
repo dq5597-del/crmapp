@@ -1,0 +1,6 @@
+NodeDir:  False
+node.exe: False
+npm.cmd:  False
+zip file: False
+crm.ps1:  False
+extract:  False

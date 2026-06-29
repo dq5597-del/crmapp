@@ -1,0 +1,13 @@
+=== %LOCALAPPDATA%\Programs subfolders ===
+  Common
+  Microsoft VS Code
+  Notion
+
+=== node.exe search in Programs subfolders ===
+
+=== C:\Program Files folders with 'node' ===
+
+=== %APPDATA% folders with 'node' or 'npm' ===
+
+=== 'where node' with full PATH ===
+資訊: 找不到提供模式的檔案。

@@ -1,0 +1,142 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  'https://lasqylrdqokumzwojfjf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxhc3F5bHJkcW9rdW16d29qZmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk5NzI0MjIsImV4cCI6MjA2NTU0ODQyMn0.yQ1FBbqWAMJ4OU5i-P_x-agQbuaRLxfx6lGfCfhknr0'
+)
+
+const categories = [
+  // 智慧環控
+  { main_category: '智慧環控', sub_category: '多功能簡報切換器', sort_order: 10 },
+  { main_category: '智慧環控', sub_category: '影像處理器', sort_order: 11 },
+  { main_category: '智慧環控', sub_category: '環控主機', sort_order: 12 },
+  { main_category: '智慧環控', sub_category: '擴充盒', sort_order: 13 },
+  { main_category: '智慧環控', sub_category: '協定閘道器', sort_order: 14 },
+  { main_category: '智慧環控', sub_category: '觸控面板/排程面板', sort_order: 20 },
+  { main_category: '智慧環控', sub_category: '按鍵面板', sort_order: 21 },
+  { main_category: '智慧環控', sub_category: '無線觸控器/App', sort_order: 22 },
+  { main_category: '智慧環控', sub_category: '光照感測器', sort_order: 30 },
+  { main_category: '智慧環控', sub_category: '佔用感測器', sort_order: 31 },
+  { main_category: '智慧環控', sub_category: 'CO2/TVOC/PM2.5感測', sort_order: 32 },
+  { main_category: '智慧環控', sub_category: '溫溼度感測器', sort_order: 33 },
+  { main_category: '智慧環控', sub_category: '門磁/震動感測器', sort_order: 34 },
+  { main_category: '智慧環控', sub_category: '漏水/水位感測器', sort_order: 35 },
+  { main_category: '智慧環控', sub_category: '噪音計', sort_order: 36 },
+  { main_category: '智慧環控', sub_category: '電錶/電流鉗', sort_order: 37 },
+  { main_category: '智慧環控', sub_category: '燈光控制', sort_order: 40 },
+  { main_category: '智慧環控', sub_category: '電動窗簾/幕/升降', sort_order: 41 },
+  { main_category: '智慧環控', sub_category: '門禁/電鎖', sort_order: 42 },
+  { main_category: '智慧環控', sub_category: 'IR發射/學習器', sort_order: 43 },
+  { main_category: '智慧環控', sub_category: '可控PDU/能源管理', sort_order: 50 },
+  { main_category: '智慧環控', sub_category: 'UPS/監控卡', sort_order: 51 },
+  { main_category: '智慧環控', sub_category: 'PoE交換器/注入器', sort_order: 52 },
+  { main_category: '智慧環控', sub_category: '工業交換器/環網', sort_order: 53 },
+  { main_category: '智慧環控', sub_category: '環控線材與配件', sort_order: 60 },
+  { main_category: '智慧環控', sub_category: '面板盒/底盒/DIN導軌盒', sort_order: 61 },
+  { main_category: '智慧環控', sub_category: '傳輸/延長器(RS-232/IR/USB)', sort_order: 62 },
+  { main_category: '智慧環控', sub_category: '網路與環控測試儀', sort_order: 63 },
+
+  // 會議系統
+  { main_category: '會議系統', sub_category: '會議麥克風系統', sort_order: 10 },
+  { main_category: '會議系統', sub_category: '吸頂式麥克風', sort_order: 11 },
+  { main_category: '會議系統', sub_category: '無線視頻會議系統', sort_order: 12 },
+  { main_category: '會議系統', sub_category: '視訊會議攝影機', sort_order: 13 },
+  { main_category: '會議系統', sub_category: '商用/觸控顯示器', sort_order: 20 },
+  { main_category: '會議系統', sub_category: 'LED無縫電視牆', sort_order: 21 },
+  { main_category: '會議系統', sub_category: '專業投影機', sort_order: 22 },
+  { main_category: '會議系統', sub_category: '電動布幕', sort_order: 23 },
+  { main_category: '會議系統', sub_category: '電動線拉布幕', sort_order: 24 },
+  { main_category: '會議系統', sub_category: '氣壓型布幕', sort_order: 25 },
+  { main_category: '會議系統', sub_category: '框幕', sort_order: 26 },
+
+  // 公共廣播 (PA系統)
+  { main_category: '公共廣播(PA系統)', sub_category: 'IP電話總機', sort_order: 10 },
+  { main_category: '公共廣播(PA系統)', sub_category: '電話廣播系統', sort_order: 11 },
+  { main_category: '公共廣播(PA系統)', sub_category: '鐘聲音樂排程器', sort_order: 12 },
+  { main_category: '公共廣播(PA系統)', sub_category: '喇叭分區選擇器', sort_order: 13 },
+  { main_category: '公共廣播(PA系統)', sub_category: '音源播放器', sort_order: 14 },
+  { main_category: '公共廣播(PA系統)', sub_category: '廣播擴大機', sort_order: 20 },
+  { main_category: '公共廣播(PA系統)', sub_category: '專業廣播喇叭', sort_order: 30 },
+  { main_category: '公共廣播(PA系統)', sub_category: '手拉式擴音機', sort_order: 40 },
+  { main_category: '公共廣播(PA系統)', sub_category: '手提式擴音器', sort_order: 41 },
+  { main_category: '公共廣播(PA系統)', sub_category: '無線喊話器', sort_order: 42 },
+  { main_category: '公共廣播(PA系統)', sub_category: '大聲公', sort_order: 43 },
+
+  // 個人影音/配件
+  { main_category: '個人影音/配件', sub_category: '藍牙耳機', sort_order: 10 },
+  { main_category: '個人影音/配件', sub_category: '監聽耳機', sort_order: 11 },
+  { main_category: '個人影音/配件', sub_category: '耳機麥克風', sort_order: 12 },
+  { main_category: '個人影音/配件', sub_category: '人聲麥克風', sort_order: 13 },
+  { main_category: '個人影音/配件', sub_category: '高音質劇院聲霸(Soundbar)', sort_order: 20 },
+  { main_category: '個人影音/配件', sub_category: '藍牙喇叭', sort_order: 21 },
+  { main_category: '個人影音/配件', sub_category: '監聽喇叭', sort_order: 22 },
+  { main_category: '個人影音/配件', sub_category: '直播混音器', sort_order: 30 },
+  { main_category: '個人影音/配件', sub_category: '專業導播機', sort_order: 31 },
+  { main_category: '個人影音/配件', sub_category: '媒體播放器', sort_order: 32 },
+  { main_category: '個人影音/配件', sub_category: '錄音介面', sort_order: 33 },
+
+  // 專業音響 (商用/舞台)
+  { main_category: '專業音響(商用/舞台)', sub_category: '數位混音器', sort_order: 10 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '類比混音器', sort_order: 11 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '數位訊號處理器(DSP)', sort_order: 12 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '有線/無線麥克風', sort_order: 13 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '商用擴大機', sort_order: 20 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '舞台擴大機', sort_order: 21 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '商用喇叭', sort_order: 30 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '舞台喇叭', sort_order: 31 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '行動音箱(手提式)', sort_order: 40 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '行動音箱(手拉式)', sort_order: 41 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '行動音箱(肩背式)', sort_order: 42 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '麥克風周邊配件', sort_order: 50 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '音訊線材/轉接/延伸', sort_order: 51 },
+  { main_category: '專業音響(商用/舞台)', sub_category: '支架與防護配件', sort_order: 52 },
+
+  // 卡拉OK
+  { main_category: '卡拉OK', sub_category: '卡拉OK套組', sort_order: 10 },
+  { main_category: '卡拉OK', sub_category: '攜便式卡拉OK', sort_order: 11 },
+  { main_category: '卡拉OK', sub_category: '卡拉OK點歌機', sort_order: 12 },
+  { main_category: '卡拉OK', sub_category: '卡拉OK擴大機', sort_order: 20 },
+  { main_category: '卡拉OK', sub_category: '卡拉OK喇叭', sort_order: 30 },
+
+  // 專業影像設備
+  { main_category: '專業影像設備', sub_category: '專業投影機', sort_order: 10 },
+  { main_category: '專業影像設備', sub_category: '廣告機/數位看板', sort_order: 11 },
+  { main_category: '專業影像設備', sub_category: '觸控顯示器', sort_order: 12 },
+  { main_category: '專業影像設備', sub_category: '商業顯示器', sort_order: 13 },
+  { main_category: '專業影像設備', sub_category: '實物投影機', sort_order: 14 },
+  { main_category: '專業影像設備', sub_category: 'LED無縫電視牆', sort_order: 15 },
+  { main_category: '專業影像設備', sub_category: '矩陣式影音切換器', sort_order: 20 },
+  { main_category: '專業影像設備', sub_category: 'KVM切換器', sort_order: 21 },
+  { main_category: '專業影像設備', sub_category: '分布式影音(AV-over-IP)', sort_order: 22 },
+  { main_category: '專業影像設備', sub_category: '影像擷取卡/盒', sort_order: 23 },
+  { main_category: '專業影像設備', sub_category: 'PTZ攝影機', sort_order: 30 },
+  { main_category: '專業影像設備', sub_category: 'PTZ攝影機控制器', sort_order: 31 },
+  { main_category: '專業影像設備', sub_category: '串流媒體/直播機', sort_order: 32 },
+  { main_category: '專業影像設備', sub_category: 'IP攝影機', sort_order: 40 },
+  { main_category: '專業影像設備', sub_category: 'NVR儲存設備', sort_order: 41 },
+  { main_category: '專業影像設備', sub_category: '顯示器架', sort_order: 50 },
+  { main_category: '專業影像設備', sub_category: '影像訊號測試儀', sort_order: 51 },
+  { main_category: '專業影像設備', sub_category: '影像線材/轉接/延伸', sort_order: 52 },
+
+  // 通用配件
+  { main_category: '通用配件', sub_category: '機櫃(AV Rack)', sort_order: 10 },
+  { main_category: '通用配件', sub_category: '時序控制器', sort_order: 11 },
+  { main_category: '通用配件', sub_category: '電源供應濾波器', sort_order: 12 },
+  { main_category: '通用配件', sub_category: 'UPS不斷電系統', sort_order: 13 },
+  { main_category: '通用配件', sub_category: '網路交換器', sort_order: 14 },
+  { main_category: '通用配件', sub_category: 'OIP橋接器', sort_order: 15 },
+]
+
+console.log(`準備寫入 ${categories.length} 筆分類...`)
+
+const { data, error } = await supabase
+  .from('product_categories')
+  .insert(categories)
+  .select('id')
+
+if (error) {
+  console.error('Error:', error.message)
+  console.error('Details:', error.details)
+} else {
+  console.log(`✅ 成功寫入 ${data.length} 筆分類`)
+}

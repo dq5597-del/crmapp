@@ -1,0 +1,18 @@
+=== WindowsApps ===
+  (checked 34 files)
+
+=== VS Code Settings ===
+NOT FOUND: C:\Users\10319\AppData\Roaming\Code\User\settings.json
+
+=== VS Code Folder ===
+EXISTS: C:\Users\10319\AppData\Local\Programs\Microsoft VS Code
+  Code.exe FOUND
+
+=== nvm settings ===
+NOT FOUND: C:\Users\10319\AppData\Roaming\nvm\settings.txt
+
+=== Extra Checks ===
+C:\Users\10319\AppData\Local\Programs\Microsoft VS Code\resources\app\node_modules\.bin\npm.cmd = False
+C:\Users\10319\AppData\Local\Programs\Microsoft VS Code\resources\app\out\vs\workbench\contrib\terminal\browser\terminal.contribution.js = False
+C:\Program Files\Docker\Docker\resources\bin\node.exe = False
+C:\Program Files\Docker\Docker\resources\bin\npm.cmd = False

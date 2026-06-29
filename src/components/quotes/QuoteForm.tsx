@@ -1,0 +1,675 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
+import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
+import { Plus, Trash2, Clock, X, Tag } from 'lucide-react'
+
+interface ProductCategory {
+  id: string
+  main_category: string
+  sub_category: string
+}
+
+interface QuoteItemForm {
+  id?: string
+  product_id: string | null
+  product_name: string
+  item_notes: string
+  model: string
+  unit: string
+  quantity: number
+  unit_price: number
+  provide_catalog: boolean
+  provide_manual: boolean
+}
+
+interface QuoteFormProps {
+  initialQuote?: Partial<Quote>
+  initialItems?: QuoteItem[]
+  prefillClientId?: string
+  prefillClientName?: string
+  prefillPhone?: string
+  prefillContact?: string
+  onSuccess?: () => void
+}
+
+const emptyItem = (): QuoteItemForm => ({
+  product_id: null, product_name: '', item_notes: '', model: '', unit: '台',
+  quantity: 1, unit_price: 0, provide_catalog: false, provide_manual: false,
+})
+
+// ============================================================
+// 快速新增產品 Modal
+// ============================================================
+interface QuickAddProductModalProps {
+  initialName: string
+  categories: ProductCategory[]
+  onClose: () => void
+  onCreated: (product: Product) => void
+}
+
+function QuickAddProductModal({ initialName, categories, onClose, onCreated }: QuickAddProductModalProps) {
+  const supabase = createClient()
+  const [mainCat, setMainCat] = useState('')
+  const [form, setForm] = useState({
+    category_id: '' as string,
+    brand: '',
+    product_name: initialName,
+    model: '',
+    unit: '台',
+    list_price: 0,
+    cost_price: 0,
+    is_active: true,
+  })
+  const [saving, setSaving] = useState(false)
+
+  const mainCats = Array.from(new Set(categories.map(c => c.main_category)))
+  const subCats = categories.filter(c => c.main_category === mainCat)
+
+  function handleMainCatChange(val: string) {
+    setMainCat(val)
+    setForm(p => ({ ...p, category_id: '' }))
+  }
+
+  async function handleSave() {
+    if (!form.product_name.trim()) return
+    setSaving(true)
+    const payload = { ...form, category_id: form.category_id || null, notes: null, stock_qty: 0 }
+    const { data, error } = await supabase.from('products').insert(payload).select('*').single()
+    if (!error && data) {
+      onCreated(data as Product)
+    }
+    setSaving(false)
+  }
+
+  const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="font-semibold text-gray-900">快速新增產品</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">大分類</label>
+              <select value={mainCat} onChange={e => handleMainCatChange(e.target.value)} className={inputClass}>
+                <option value="">— 請選擇 —</option>
+                {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">子分類</label>
+              <select value={form.category_id} onChange={e => setForm(p => ({ ...p, category_id: e.target.value }))} className={inputClass} disabled={!mainCat}>
+                <option value="">— 請選擇 —</option>
+                {subCats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">品牌</label>
+              <input value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value }))} className={inputClass} placeholder="Yamaha" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">單位</label>
+              <input value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))} className={inputClass} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">產品名稱 *</label>
+            <input value={form.product_name} onChange={e => setForm(p => ({ ...p, product_name: e.target.value }))} className={inputClass} placeholder="請輸入產品名稱" autoFocus />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">規格型號</label>
+            <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} className={inputClass} placeholder="選填" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">定價（售價）</label>
+              <input type="number" value={form.list_price} onChange={e => setForm(p => ({ ...p, list_price: Number(e.target.value) }))} className={inputClass} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-600 mb-1 block">進貨價（成本）</label>
+              <input type="number" value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: Number(e.target.value) }))} className={inputClass} />
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+          <p className="text-xs text-gray-400">儲存後自動帶入報價品項</p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+            <button onClick={handleSave} disabled={saving || !form.product_name.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+              {saving ? '新增中...' : '新增並帶入'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// QuoteForm
+// ============================================================
+export default function QuoteForm({
+  initialQuote, initialItems,
+  prefillClientId, prefillClientName, prefillPhone, prefillContact,
+  onSuccess
+}: QuoteFormProps) {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [settings, setSettings] = useState<SystemSettings | null>(null)
+  const [clients, setClients] = useState<any[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [productSearch, setProductSearch] = useState<Record<number, string>>({})
+  const [productDropdown, setProductDropdown] = useState<number | null>(null)
+  const [catFilter, setCatFilter] = useState<string>('')   // 分類篩選（主分類名稱）
+  const [historyPanel, setHistoryPanel] = useState<number | null>(null)
+  const [historyData, setHistoryData] = useState<Record<number, { order_no: string; client_name: string; date: string; quantity: number; unit_price: number }[]>>({})
+  const [historyLoading, setHistoryLoading] = useState<number | null>(null)
+  const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)  // 哪個品項要快速新增
+
+  const [header, setHeader] = useState({
+    quote_no: initialQuote?.quote_no ?? '',
+    client_id: initialQuote?.client_id ?? prefillClientId ?? '',
+    client_name_display: initialQuote?.client_id ? '' : (prefillClientName ?? ''),
+    project_name: initialQuote?.project_name ?? '',
+    contact_name: initialQuote?.contact_name ?? prefillContact ?? '',
+    client_phone: initialQuote?.client_phone ?? prefillPhone ?? '',
+    valid_until: initialQuote?.valid_until ?? '',
+    delivery_days: initialQuote?.delivery_days ?? 14,
+    payment_terms: initialQuote?.payment_terms ?? '',
+    bank_account: initialQuote?.bank_account ?? '',
+    notes: initialQuote?.notes ?? '',
+  })
+
+  const [items, setItems] = useState<QuoteItemForm[]>(
+    initialItems?.map(i => ({
+      id: i.id,
+      product_id: i.product_id,
+      product_name: i.product_name,
+      item_notes: i.item_notes ?? '',
+      model: i.model ?? '',
+      unit: i.unit,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+      provide_catalog: i.provide_catalog,
+      provide_manual: i.provide_manual,
+    })) ?? [emptyItem()]
+  )
+
+  useEffect(() => {
+    loadSettings()
+    loadClients()
+    loadProducts()
+    if (!initialQuote?.quote_no) generateQuoteNo()
+  }, [])
+
+  useEffect(() => {
+    if (settings && !initialQuote?.valid_until && !header.valid_until) {
+      const d = new Date()
+      d.setDate(d.getDate() + (settings.valid_days ?? 30))
+      setHeader(p => ({ ...p, valid_until: d.toISOString().split('T')[0], payment_terms: settings.payment_terms ?? '', bank_account: settings.bank_account ?? '', delivery_days: settings.delivery_days ?? 14, notes: settings.quote_notes ?? '' }))
+    }
+  }, [settings])
+
+  async function loadSettings() {
+    const { data } = await supabase.from('system_settings').select('*').single()
+    setSettings(data)
+  }
+
+  async function loadClients() {
+    const { data } = await supabase.from('clients').select('id, company_name, contact_name, phone').order('company_name')
+    setClients(data ?? [])
+  }
+
+  async function loadProducts() {
+    const [pRes, cRes] = await Promise.all([
+      supabase.from('products').select('*, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name'),
+      supabase.from('product_categories').select('id, main_category, sub_category').order('main_category').order('sub_category'),
+    ])
+    setProducts(pRes.data ?? [])
+    setCategories(cRes.data ?? [])
+  }
+
+  async function generateQuoteNo() {
+    const res = await fetch('/api/quotes/generate-no')
+    const { quote_no } = await res.json()
+    setHeader(p => ({ ...p, quote_no }))
+  }
+
+  function onClientSelect(clientId: string) {
+    const c = clients.find(c => c.id === clientId)
+    if (c) {
+      setHeader(p => ({
+        ...p, client_id: c.id, client_name_display: c.company_name,
+        contact_name: p.contact_name || (c.contact_name ?? ''),
+        client_phone: p.client_phone || (c.phone ?? ''),
+      }))
+    }
+  }
+
+  function onProductSelect(idx: number, product: Product) {
+    setItems(prev => prev.map((item, i) => i !== idx ? item : {
+      ...item, product_id: product.id, product_name: product.product_name,
+      model: product.model ?? '', unit: product.unit, unit_price: product.list_price,
+    }))
+    setProductDropdown(null)
+    setProductSearch(p => ({ ...p, [idx]: '' }))
+  }
+
+  function addItem() { setItems(prev => [...prev, emptyItem()]) }
+  function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
+  function setItem<K extends keyof QuoteItemForm>(idx: number, key: K, val: QuoteItemForm[K]) {
+    setItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, [key]: val }))
+  }
+
+  const subtotal = items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0)
+  const taxAmount = Math.round(subtotal * 0.05)
+  const totalAmount = subtotal + taxAmount
+
+  // 分類篩選的主分類列表
+  const mainCats = [...new Set(categories.map(c => c.main_category))]
+
+  const filteredProducts = (idx: number) => {
+    const q = (productSearch[idx] ?? '').toLowerCase()
+    let list = products
+
+    // 分類篩選
+    if (catFilter) {
+      list = list.filter(p => {
+        const pc = (p as any).product_categories
+        return pc?.main_category === catFilter
+      })
+    }
+
+    // 文字搜尋
+    if (q) {
+      list = list.filter(p => {
+        const pc = (p as any).product_categories
+        const catStr = `${pc?.main_category ?? ''} ${pc?.sub_category ?? ''}`.toLowerCase()
+        return (
+          p.product_name.toLowerCase().includes(q) ||
+          (p.model?.toLowerCase() ?? '').includes(q) ||
+          (p.brand?.toLowerCase() ?? '').includes(q) ||
+          catStr.includes(q)
+        )
+      })
+    }
+
+    return list.slice(0, 20)
+  }
+
+  async function fetchHistory(idx: number, productId: string) {
+    if (historyData[idx]) { setHistoryPanel(historyPanel === idx ? null : idx); return }
+    setHistoryLoading(idx)
+    setHistoryPanel(idx)
+    const res = await fetch(`/api/products/${productId}/price-history`)
+    const { history } = await res.json()
+    setHistoryData(p => ({ ...p, [idx]: history ?? [] }))
+    setHistoryLoading(null)
+  }
+
+  async function handleSave(newStatus?: string) {
+    if (!header.quote_no) { setError('請等待報價單號產生'); return }
+    if (!header.client_id && !header.client_name_display) { setError('請選擇客戶'); return }
+    if (items.some(i => !i.product_name.trim())) { setError('請填寫所有品項的產品名稱'); return }
+
+    setSaving(true)
+    setError('')
+
+    const quotePayload = {
+      quote_no: header.quote_no,
+      client_id: header.client_id || null,
+      project_name: header.project_name || null,
+      contact_name: header.contact_name || null,
+      client_phone: header.client_phone || null,
+      valid_until: header.valid_until || null,
+      delivery_days: Number(header.delivery_days) || null,
+      payment_terms: header.payment_terms || null,
+      bank_account: header.bank_account || null,
+      notes: header.notes || null,
+      subtotal, tax_amount: taxAmount, total_amount: totalAmount,
+      status: newStatus ?? (initialQuote?.status ?? '草稿'),
+    }
+
+    let quoteId = initialQuote?.id
+
+    if (quoteId) {
+      const { error: e } = await supabase.from('quotes').update(quotePayload).eq('id', quoteId)
+      if (e) { setError('儲存失敗：' + e.message); setSaving(false); return }
+      await supabase.from('quote_items').delete().eq('quote_id', quoteId)
+    } else {
+      const { data, error: e } = await supabase.from('quotes').insert(quotePayload).select('id').single()
+      if (e || !data) { setError('儲存失敗：' + e?.message); setSaving(false); return }
+      quoteId = data.id
+    }
+
+    const itemsPayload = items.map((item, i) => ({
+      quote_id: quoteId,
+      seq_no: i + 1,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      item_notes: item.item_notes || null,
+      model: item.model || null,
+      unit: item.unit,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      provide_catalog: item.provide_catalog,
+      provide_manual: item.provide_manual,
+    }))
+
+    const { error: itemsErr } = await supabase.from('quote_items').insert(itemsPayload)
+    if (itemsErr) { setError('品項儲存失敗：' + itemsErr.message); setSaving(false); return }
+
+    if (onSuccess) { onSuccess() } else { router.push(`/quotes/${quoteId}`) }
+  }
+
+  const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
+  const tdInput = 'w-full px-2 py-1.5 border border-gray-200 rounded text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500'
+
+  return (
+    <div className="space-y-5">
+      {/* 快速新增產品 Modal */}
+      {quickAddIdx !== null && (
+        <QuickAddProductModal
+          initialName={productSearch[quickAddIdx] ?? ''}
+          categories={categories}
+          onClose={() => setQuickAddIdx(null)}
+          onCreated={async (product) => {
+            // 更新產品清單並帶入品項
+            await loadProducts()
+            onProductSelect(quickAddIdx, product)
+            setQuickAddIdx(null)
+          }}
+        />
+      )}
+
+      {/* 客戶資訊 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
+        <h2 className="font-semibold text-gray-900">客戶資訊</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>報價單號</label>
+            <input value={header.quote_no} readOnly className={inputClass + ' bg-gray-50 text-gray-500 cursor-default'} />
+          </div>
+          <div>
+            <label className={labelClass}>單位名稱 *</label>
+            <select value={header.client_id} onChange={e => onClientSelect(e.target.value)} className={inputClass}>
+              <option value="">請選擇客戶</option>
+              {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>聯絡人姓名</label>
+            <input value={header.contact_name} onChange={e => setHeader(p => ({ ...p, contact_name: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>客戶電話</label>
+            <input value={header.client_phone} onChange={e => setHeader(p => ({ ...p, client_phone: e.target.value }))} className={inputClass} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>案名</label>
+            <input value={header.project_name} onChange={e => setHeader(p => ({ ...p, project_name: e.target.value }))} className={inputClass} placeholder="例：禮堂音響設備更新" />
+          </div>
+        </div>
+      </div>
+
+      {/* 品項明細 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">品項明細</h2>
+          <button onClick={addItem} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
+            <Plus size={14} /> 新增品項
+          </button>
+        </div>
+
+        {/* 分類篩選列 */}
+        {mainCats.length > 0 && (
+          <div className="flex gap-1.5 px-5 py-2.5 border-b border-gray-100 flex-wrap items-center">
+            <Tag size={13} className="text-gray-400 shrink-0" />
+            <button onClick={() => setCatFilter('')} className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${!catFilter ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:border-blue-300'}`}>全部</button>
+            {mainCats.map(m => (
+              <button key={m} onClick={() => setCatFilter(catFilter === m ? '' : m)} className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${catFilter === m ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:border-blue-300'}`}>{m}</button>
+            ))}
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[200px]">品名</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[160px]">品項備註</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
+                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-16">單位</th>
+                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-16">數量</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-28">單價</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-28">小計</th>
+                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">型錄</th>
+                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">說明書</th>
+                <th className="w-8"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {items.map((item, idx) => {
+                const results = filteredProducts(idx)
+                const searchStr = productSearch[idx] ?? ''
+
+                return (
+                  <tr key={idx} className="hover:bg-blue-50/30 group">
+                    <td className="px-3 py-2 text-xs text-gray-400 text-center">{idx + 1}</td>
+
+                    {/* 品名 — 含產品搜尋 dropdown */}
+                    <td className="px-3 py-2 relative">
+                      <div className="relative">
+                        <input
+                          value={productDropdown === idx ? searchStr || item.product_name : item.product_name}
+                          onFocus={() => { setProductDropdown(idx); setProductSearch(p => ({ ...p, [idx]: '' })) }}
+                          onChange={e => {
+                            setProductSearch(p => ({ ...p, [idx]: e.target.value }))
+                            setItem(idx, 'product_name', e.target.value)
+                          }}
+                          onBlur={() => setTimeout(() => setProductDropdown(null), 200)}
+                          placeholder="輸入或搜尋"
+                          className={tdInput}
+                        />
+                        {productDropdown === idx && (
+                          <div className="absolute top-full left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 w-80 max-h-56 overflow-y-auto">
+                            {results.length > 0 ? (
+                              results.map(p => {
+                                const pc = (p as any).product_categories
+                                return (
+                                  <button key={p.id} type="button" onMouseDown={() => onProductSelect(idx, p)}
+                                    className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-none">
+                                    <div className="font-medium text-gray-900">{p.product_name}</div>
+                                    <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                                      {pc && <span className="text-blue-500">{pc.main_category} · {pc.sub_category}</span>}
+                                      {pc && <span className="text-gray-300">|</span>}
+                                      <span>{p.brand} {p.model}</span>
+                                      <span className="text-gray-300">|</span>
+                                      <span className={p.stock_qty <= 0 ? 'text-red-500 font-medium' : ''}>
+                                        庫存 {p.stock_qty}
+                                      </span>
+                                      <span className="text-gray-300">|</span>
+                                      <span>NT${p.list_price.toLocaleString()}</span>
+                                    </div>
+                                  </button>
+                                )
+                              })
+                            ) : (
+                              <div className="px-3 py-2 text-sm text-gray-400">
+                                找不到符合的產品
+                              </div>
+                            )}
+                            {/* 快速新增產品 */}
+                            <button
+                              type="button"
+                              onMouseDown={() => { setQuickAddIdx(idx); setProductDropdown(null) }}
+                              className="w-full text-left px-3 py-2.5 text-sm text-blue-600 font-medium hover:bg-blue-50 border-t border-gray-100 flex items-center gap-1.5"
+                            >
+                              <Plus size={13} /> 新增「{searchStr || '產品'}」到產品資料庫
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* 品項備註 */}
+                    <td className="px-3 py-2">
+                      <input value={item.item_notes} onChange={e => setItem(idx, 'item_notes', e.target.value)} placeholder="備註說明" className={tdInput} />
+                    </td>
+
+                    {/* 型號 */}
+                    <td className="px-3 py-2">
+                      <input value={item.model} onChange={e => setItem(idx, 'model', e.target.value)} className={tdInput} />
+                    </td>
+
+                    {/* 單位 */}
+                    <td className="px-3 py-2">
+                      <input value={item.unit} onChange={e => setItem(idx, 'unit', e.target.value)} className={tdInput + ' text-center'} />
+                    </td>
+
+                    {/* 數量 */}
+                    <td className="px-3 py-2">
+                      <input type="number" min="0" step="0.01" value={item.quantity} onChange={e => setItem(idx, 'quantity', Number(e.target.value))} className={tdInput + ' text-center'} />
+                    </td>
+
+                    {/* 單價 + 歷史售價 */}
+                    <td className="px-3 py-2 relative">
+                      <div className="flex gap-1 items-center">
+                        <input type="number" min="0" value={item.unit_price} onChange={e => setItem(idx, 'unit_price', Number(e.target.value))} className={tdInput + ' text-right flex-1'} />
+                        {item.product_id && (
+                          <button type="button" onClick={() => fetchHistory(idx, item.product_id!)} title="歷史售價" className="p-1 text-gray-400 hover:text-blue-600 shrink-0">
+                            <Clock size={13} />
+                          </button>
+                        )}
+                      </div>
+                      {/* 歷史售價 panel */}
+                      {historyPanel === idx && (
+                        <div className="absolute top-full right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 mt-1 text-xs">
+                          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+                            <span className="font-semibold text-gray-700">歷史售價</span>
+                            <button onClick={() => setHistoryPanel(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                          </div>
+                          {historyLoading === idx ? (
+                            <div className="px-3 py-4 text-center text-gray-400">載入中...</div>
+                          ) : (historyData[idx] ?? []).length === 0 ? (
+                            <div className="px-3 py-4 text-center text-gray-400">無歷史紀錄</div>
+                          ) : (
+                            <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
+                              {(historyData[idx] ?? []).map((h, hi) => (
+                                <button key={hi} type="button" onClick={() => { setItem(idx, 'unit_price', h.unit_price); setHistoryPanel(null) }}
+                                  className="w-full text-left px-3 py-2 hover:bg-blue-50 flex justify-between items-center">
+                                  <div>
+                                    <div className="text-gray-700 font-medium">{h.client_name}</div>
+                                    <div className="text-gray-400">{h.date} · {h.order_no} · ×{h.quantity}</div>
+                                  </div>
+                                  <div className="text-blue-600 font-semibold ml-2">NT${h.unit_price.toLocaleString()}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* 小計 */}
+                    <td className="px-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
+                      {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
+                    </td>
+
+                    {/* 型錄 */}
+                    <td className="px-2 py-2 text-center">
+                      <input type="checkbox" checked={item.provide_catalog} onChange={e => setItem(idx, 'provide_catalog', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
+                    </td>
+
+                    {/* 說明書 */}
+                    <td className="px-2 py-2 text-center">
+                      <input type="checkbox" checked={item.provide_manual} onChange={e => setItem(idx, 'provide_manual', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
+                    </td>
+
+                    {/* 刪除 */}
+                    <td className="px-2 py-2 text-center">
+                      <button onClick={() => removeItem(idx)} disabled={items.length === 1}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 disabled:opacity-20 transition-opacity">
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-gray-200 bg-gray-50">
+                <td colSpan={7} className="px-3 py-2.5 text-right text-xs text-gray-500">小計（未稅）</td>
+                <td className="px-3 py-2.5 text-right font-semibold text-gray-700">{subtotal.toLocaleString()}</td>
+                <td colSpan={3} />
+              </tr>
+              <tr className="bg-gray-50">
+                <td colSpan={7} className="px-3 py-2 text-right text-xs text-gray-500">稅額（5%）</td>
+                <td className="px-3 py-2 text-right text-gray-600">{taxAmount.toLocaleString()}</td>
+                <td colSpan={3} />
+              </tr>
+              <tr className="bg-gray-50 border-t border-gray-200">
+                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
+                <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
+                <td colSpan={3} />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* 報價條款 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
+        <h2 className="font-semibold text-gray-900">報價條款</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>有效期限</label>
+            <input type="date" value={header.valid_until} onChange={e => setHeader(p => ({ ...p, valid_until: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>交貨工期（天）</label>
+            <input type="number" min="0" value={header.delivery_days} onChange={e => setHeader(p => ({ ...p, delivery_days: Number(e.target.value) }))} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>付款條件</label>
+            <input value={header.payment_terms} onChange={e => setHeader(p => ({ ...p, payment_terms: e.target.value }))} className={inputClass} placeholder="例：30天月結" />
+          </div>
+          <div>
+            <label className={labelClass}>匯款帳號</label>
+            <input value={header.bank_account} onChange={e => setHeader(p => ({ ...p, bank_account: e.target.value }))} className={inputClass} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>備註</label>
+            <textarea value={header.notes} onChange={e => setHeader(p => ({ ...p, notes: e.target.value }))} rows={4} className={inputClass + ' resize-none'} placeholder="其他條款說明..." />
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>}
+
+      <div className="flex justify-end gap-3">
+        <button onClick={() => router.back()} className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
+        <button onClick={() => handleSave('草稿')} disabled={saving} className="px-5 py-2.5 border border-blue-200 bg-blue-50 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-100 disabled:opacity-50">儲存草稿</button>
+        <button onClick={() => handleSave('已確認')} disabled={saving} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-sm font-medium">
+          {saving ? '儲存中...' : '確認報價'}
+        </button>
+      </div>
+    </div>
+  )
+}
