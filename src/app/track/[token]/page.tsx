@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase-server'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { CheckCircle, Clock, Wrench, Building2, Package, AlertCircle } from 'lucide-react'
 
@@ -38,7 +38,7 @@ const STATUS_MESSAGES: Record<string, string> = {
 }
 
 export default async function TrackPage({ params }: { params: { token: string } }) {
-  const supabase = createClient()
+  const supabase = createServerSupabaseClient()
 
   const { data: req } = await supabase
     .from('service_requests')
