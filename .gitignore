@@ -32,3 +32,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local debug/log files
+dev-log.txt
+gitbash-result.txt
+node-check.txt
+node-search.txt
+path-info*.txt
+quick-status.txt
+status.txt
+*.vbs
+deploy-setup.bat
