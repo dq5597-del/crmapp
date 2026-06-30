@@ -9,15 +9,25 @@ export async function GET(req: NextRequest) {
   const startDate = `${year}-01-01`
   const endDate = `${year}-12-31`
 
-  // 收入：從 quotes 抓已確認/已完成的報價單
-  const { data: quotes, error: qErr } = await supabase
-    .from('quotes')
-    .select('total_amount, created_at, status')
-    .gte('created_at', startDate)
-    .lte('created_at', endDate + 'T23:59:59')
-    .in('status', ['已確認', '已完成', '已結案'])
+  // 收入：優先使用 accounting_income 表（含手動 + 從報價單匯入）
+  const { data: incomeRows, error: iErr } = await supabase
+    .from('accounting_income')
+    .select('untaxed_amount, total_amount, invoice_date, category')
+    .eq('year', year)
 
-  if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 })
+  // fallback：若 income 表完全沒資料，則從 quotes 抓（向後相容）
+  let useQuotesFallback = !iErr && (!incomeRows || incomeRows.length === 0)
+
+  const { data: quotes } = useQuotesFallback
+    ? await supabase
+        .from('quotes')
+        .select('total_amount, created_at, status')
+        .gte('created_at', startDate)
+        .lte('created_at', endDate + 'T23:59:59')
+        .in('status', ['已確認', '已完成', '已結案'])
+    : { data: [] }
+
+  if (iErr) return NextResponse.json({ error: iErr.message }, { status: 500 })
 
   // 支出
   const { data: expenses, error: eErr } = await supabase
@@ -27,15 +37,22 @@ export async function GET(req: NextRequest) {
 
   if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
 
-  // 整理：依月份分組
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
 
   const revenueByMonth: Record<number, number> = {}
   months.forEach(m => { revenueByMonth[m] = 0 })
-  ;(quotes || []).forEach(q => {
-    const m = new Date(q.created_at).getMonth() + 1
-    revenueByMonth[m] = (revenueByMonth[m] || 0) + Number(q.total_amount)
-  })
+
+  if (!useQuotesFallback) {
+    ;(incomeRows || []).forEach((r: any) => {
+      const m = r.invoice_date ? new Date(r.invoice_date).getMonth() + 1 : 0
+      if (m > 0) revenueByMonth[m] = (revenueByMonth[m] || 0) + Number(r.untaxed_amount)
+    })
+  } else {
+    ;(quotes || []).forEach((q: any) => {
+      const m = new Date(q.created_at).getMonth() + 1
+      revenueByMonth[m] = (revenueByMonth[m] || 0) + Number(q.total_amount)
+    })
+  }
 
   const expenseByMonth: Record<number, number> = {}
   const expenseByCategory: Record<string, number> = {}
@@ -46,7 +63,6 @@ export async function GET(req: NextRequest) {
     expenseByCategory[e.category] = (expenseByCategory[e.category] || 0) + Number(e.untaxed_amount)
   })
 
-  // 雙月分組
   const bimonthly = [
     { label: '1-2月', months: [1, 2] },
     { label: '3-4月', months: [3, 4] },
