@@ -13,7 +13,7 @@ const navItems = [
   { href: '/',                 label: '戰情室',   icon: LayoutDashboard },
   { href: '/clients',          label: '客戶資料', icon: Users },
   { href: '/quotes',           label: '報價單',   icon: FileText },
-  { href: '/sales-orders',     label: '銷貨單',   icon: ShoppingCart },
+  { href: '/sales-orders',     label: '銀貨單',   icon: ShoppingCart },
   { href: '/service-requests', label: '叫修管理', icon: Wrench },
   { href: '/purchase-orders',  label: '訂購單',   icon: Truck },
   { href: '/receivables',      label: '應收帳款', icon: CreditCard },
@@ -99,4 +99,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="px-3 pb-4 border-t border-gray-700 pt-3 shrink-0">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <LogOut size={18} />
+            登出
+          </button>
+        </div>
+      </aside>
+    </>
+  )
+}
