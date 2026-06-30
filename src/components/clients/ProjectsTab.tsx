@@ -16,17 +16,27 @@ const STATUS_COLORS: Record<string, string> = {
   '取消':   'bg-gray-100 text-gray-600',
 }
 
-const BLUE  = { header: 'bg-blue-600',    light: 'bg-blue-50',    border: 'border-blue-200',    text: 'text-blue-700'    }
-const GREEN = { header: 'bg-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' }
-const ORG   = { header: 'bg-orange-500',  light: 'bg-orange-50',  border: 'border-orange-200',  text: 'text-orange-700'  }
+const BLUE   = { header: 'bg-blue-600',    light: 'bg-blue-50',    border: 'border-blue-200',    text: 'text-blue-700'    }
+const GREEN  = { header: 'bg-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' }
+const ORG    = { header: 'bg-orange-500',  light: 'bg-orange-50',  border: 'border-orange-200',  text: 'text-orange-700'  }
+const PURPLE = { header: 'bg-purple-600',  light: 'bg-purple-50',  border: 'border-purple-200',  text: 'text-purple-700'  }
 
-const CAT_LABELS: Record<number, string> = { 1: '施工前', 2: '施工中', 3: '完工' }
 const BUCKET = 'project-photos'
+
+type PhotoCat = { value: number; label: string }
+const CATS_MAIN:  PhotoCat[] = [{ value: 1, label: '施工前' }, { value: 2, label: '施工中' }, { value: 3, label: '完工' }]
+const CATS_SPACE: PhotoCat[] = [{ value: 4, label: '空間照片' }]
+const CATS_POWER: PhotoCat[] = [{ value: 5, label: '電力照片' }]
+const CATS_ACOU:  PhotoCat[] = [{ value: 6, label: '環境照片' }]
+const CATS_CONS:  PhotoCat[] = [{ value: 7, label: '施工照片' }]
+const CATS_CTRL:  PhotoCat[] = [{ value: 8, label: '舊有設備' }, { value: 9, label: '新設設備' }]
+const CATS_RACK:  PhotoCat[] = [{ value: 10, label: '舊有設備' }, { value: 11, label: '新設設備' }]
+const CATS_SITE:  PhotoCat[] = [{ value: 12, label: '舊有設備' }, { value: 13, label: '新設設備' }]
 
 type Photo = {
   id: string
   project_id: string
-  category: 1 | 2 | 3
+  category: number
   storage_path: string
   notes: string
   created_at: string
@@ -76,12 +86,15 @@ const emptyProject: ProjectForm = {
 }
 
 // ── Photo Section (inline, embedded in edit form) ────────────
-function PhotoSection({ projectId, supabase, onBeforeUpload }: {
+function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   projectId: string
   supabase: ReturnType<typeof createClient>
+  cats: PhotoCat[]
   onBeforeUpload?: () => Promise<boolean>
 }) {
-  const [cat, setCat] = useState<1 | 2 | 3>(1)
+  const [catIdx, setCatIdx] = useState(0)
+  const cat = cats[catIdx]?.value ?? cats[0].value
+  const catLabel = cats[catIdx]?.label ?? cats[0].label
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -93,9 +106,11 @@ function PhotoSection({ projectId, supabase, onBeforeUpload }: {
 
   async function fetchPhotos() {
     setLoading(true)
+    const catValues = cats.map(c => c.value)
     const { data } = await supabase
       .from('project_photos').select('*')
       .eq('project_id', projectId)
+      .in('category', catValues)
       .order('created_at')
     const list = (data ?? []) as Photo[]
     setPhotos(list)
@@ -145,70 +160,37 @@ function PhotoSection({ projectId, supabase, onBeforeUpload }: {
 
   return (
     <div>
-      {/* Category Tabs */}
-      <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-3">
-        {([1, 2, 3] as const).map(c => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setCat(c)}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              cat === c
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            {CAT_LABELS[c]}
-            <span className="ml-1 text-xs opacity-70">
-              ({photos.filter(p => p.category === c).length})
-            </span>
-          </button>
-        ))}
-      </div>
+      {/* Category Tabs — only when multiple cats */}
+      {cats.length > 1 && (
+        <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-3">
+          {cats.map((c, i) => (
+            <button key={c.value} type="button" onClick={() => setCatIdx(i)}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                catIdx === i ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}>
+              {c.label}
+              <span className="ml-1 text-xs opacity-70">({photos.filter(p => p.category === c.value).length})</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Upload Controls */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <input
-          ref={camRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={e => {
-            const f = e.target.files?.[0]
-            if (f) handleUpload(f)
-            e.target.value = ''
-          }}
-        />
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={e => {
-            const f = e.target.files?.[0]
-            if (f) handleUpload(f)
-            e.target.value = ''
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => camRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors"
-        >
+        <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
+        <button type="button" onClick={() => camRef.current?.click()} disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
           <Camera size={14} /> 拍照上傳
         </button>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium disabled:opacity-60 transition-colors"
-        >
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
           <ImageIcon size={14} /> 開啟舊檔
         </button>
         {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
-        <span className="ml-auto text-xs text-gray-400">上傳至「{CAT_LABELS[cat]}」</span>
+        <span className="ml-auto text-xs text-gray-400">上傳至「{catLabel}」</span>
       </div>
 
       {/* Photo Grid */}
@@ -216,44 +198,62 @@ function PhotoSection({ projectId, supabase, onBeforeUpload }: {
         <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
       ) : catPhotos.length === 0 ? (
         <div className="text-center py-6 text-gray-400 text-sm">
-          尚無「{CAT_LABELS[cat]}」照片，點上方按鈕新增
+          尚無「{catLabel}」照片，點上方按鈕新增
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {catPhotos.map(photo => (
             <div key={photo.id} className="flex flex-col gap-1.5">
               <div className="relative group">
-                <img
-                  src={getUrl(photo.storage_path)}
-                  alt={localNotes[photo.id] || '照片'}
-                  className="w-full aspect-square object-cover rounded-xl border border-gray-100 bg-gray-50"
-                  loading="lazy"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleDelete(photo)}
-                  className="absolute top-1.5 right-1.5 bg-black/50 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="刪除照片"
-                >
+                <img src={getUrl(photo.storage_path)} alt={localNotes[photo.id] || '照片'}
+                  className="w-full aspect-square object-cover rounded-xl border border-gray-100 bg-gray-50" loading="lazy" />
+                <button type="button" onClick={() => handleDelete(photo)}
+                  className="absolute top-1.5 right-1.5 bg-black/50 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity" title="刪除照片">
                   <X size={11} />
                 </button>
                 <div className="absolute bottom-1.5 left-1.5 text-[10px] text-white bg-black/40 rounded px-1.5 py-0.5">
                   {new Date(photo.created_at).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
                 </div>
               </div>
-              {/* Notes per photo */}
-              <textarea
-                rows={2}
-                value={localNotes[photo.id] ?? ''}
+              <textarea rows={2} value={localNotes[photo.id] ?? ''}
                 onChange={e => setLocalNotes(prev => ({ ...prev, [photo.id]: e.target.value }))}
-                onBlur={() => saveNotes(photo.id)}
-                placeholder="照片備註..."
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
-              />
+                onBlur={() => saveNotes(photo.id)} placeholder="照片備註..."
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
             </div>
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Equipment Photo Section (控制台/機櫃/現場設備) ─────────────
+const EQUIP_SUBS = [
+  { key: 'ctrl', label: '控制台',   cats: CATS_CTRL },
+  { key: 'rack', label: '機櫃設備', cats: CATS_RACK },
+  { key: 'site', label: '現場設備', cats: CATS_SITE },
+] as const
+
+function EquipmentSection({ projectId, supabase, onBeforeUpload }: {
+  projectId: string
+  supabase: ReturnType<typeof createClient>
+  onBeforeUpload?: () => Promise<boolean>
+}) {
+  const [subIdx, setSubIdx] = useState(0)
+  const sub = EQUIP_SUBS[subIdx]
+  return (
+    <div>
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {EQUIP_SUBS.map((s, i) => (
+          <button key={s.key} type="button" onClick={() => setSubIdx(i)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              subIdx === i ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <PhotoSection key={sub.key} projectId={projectId} supabase={supabase} cats={sub.cats} onBeforeUpload={onBeforeUpload} />
     </div>
   )
 }
@@ -539,6 +539,10 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
                 <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
               </div>
+              <div className="mt-4 pt-4 border-t border-emerald-200">
+                <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              </div>
             </Accordion>
 
             <Accordion title="⑤ 下類 — 電力與網路" color={GREEN}>
@@ -550,6 +554,10 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
                 <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
               </div>
+              <div className="mt-4 pt-4 border-t border-emerald-200">
+                <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              </div>
             </Accordion>
 
             <Accordion title="⑥ 下類 — 聲學與環境" color={GREEN}>
@@ -559,6 +567,10 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
                 <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
                 <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
+              </div>
+              <div className="mt-4 pt-4 border-t border-emerald-200">
+                <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
 
@@ -575,6 +587,10 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
                 <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
                 <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
+              </div>
+              <div className="mt-4 pt-4 border-t border-orange-200">
+                <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
 
@@ -595,10 +611,19 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
               </Field>
             </Accordion>
 
+            <Accordion title="🔧 設備類 — 現場設備記錄" color={PURPLE}>
+              <EquipmentSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
             <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
               <PhotoSection
                 projectId={editingId as string}
                 supabase={supabase}
+                cats={CATS_MAIN}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
