@@ -263,7 +263,10 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const [showDD, setShowDD] = useState(false)
   const [customLabel, setCustomLabel] = useState('')
   const [placing, setPlacing] = useState(false)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const dragOffset = useRef({ dx: 0, dy: 0 })
+  const didDrag = useRef(false)
 
   useEffect(() => { fetchMarkers(); fetchProducts() }, [projectId])
   useEffect(() => { if (Number(initLength) > 0) setRoomL(Number(initLength)) }, [initLength])
@@ -283,7 +286,48 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
 
   const selectedProduct = products.find(p => p.id === selProductId)
 
+  function getSvgPt(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current!
+    const pt = svg.createSVGPoint()
+    pt.x = e.clientX; pt.y = e.clientY
+    return pt.matrixTransform(svg.getScreenCTM()!.inverse())
+  }
+
+  function handleMarkerMouseDown(e: React.MouseEvent<SVGGElement>, m: EquipMarker) {
+    e.stopPropagation()
+    if (!svgRef.current) return
+    const svgPt = getSvgPt(e as unknown as React.MouseEvent<SVGSVGElement>)
+    const mx = (m.x_pct / 100) * roomL
+    const my = (m.y_pct / 100) * roomW
+    dragOffset.current = { dx: svgPt.x - mx, dy: svgPt.y - my }
+    didDrag.current = false
+    setDraggingId(m.id)
+    setSelId(m.id)
+  }
+
+  function handleSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (!draggingId || !svgRef.current) return
+    const svgPt = getSvgPt(e)
+    const newX = Math.max(1, Math.min(99, ((svgPt.x - dragOffset.current.dx) / roomL) * 100))
+    const newY = Math.max(1, Math.min(99, ((svgPt.y - dragOffset.current.dy) / roomW) * 100))
+    didDrag.current = true
+    setMarkers(prev => prev.map(m => m.id === draggingId ? { ...m, x_pct: newX, y_pct: newY } : m))
+  }
+
+  async function handleSvgMouseUp() {
+    if (!draggingId) return
+    const id = draggingId
+    setDraggingId(null)
+    if (!didDrag.current) return
+    const marker = markers.find(m => m.id === id)
+    if (!marker) return
+    await supabase.from('project_equipment_markers')
+      .update({ x_pct: marker.x_pct, y_pct: marker.y_pct })
+      .eq('id', id)
+  }
+
   async function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (didDrag.current) { didDrag.current = false; return }
     if (!svgRef.current) return
     if ((e.target as Element).closest('.marker-g')) return
     if (onBeforeUpload && !(await onBeforeUpload())) return
@@ -406,9 +450,12 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
           </div>
         )}
         <svg ref={svgRef} onClick={handleSvgClick}
+          onMouseMove={handleSvgMouseMove}
+          onMouseUp={handleSvgMouseUp}
+          onMouseLeave={handleSvgMouseUp}
           viewBox={`0 0 ${roomL} ${roomW}`}
-          className="w-full cursor-crosshair select-none block"
-          style={{ maxHeight: '60vh' }}>
+          className="w-full select-none block"
+          style={{ maxHeight: '60vh', cursor: draggingId ? 'grabbing' : 'crosshair' }}>
 
           {/* Background */}
           <rect x={0} y={0} width={roomL} height={roomW} fill="#f8fafc" />
@@ -446,8 +493,9 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
             const isSel = selId === m.id
             return (
               <g key={m.id} className="marker-g"
-                onClick={e => { e.stopPropagation(); setSelId(isSel ? null : m.id) }}
-                style={{ cursor: 'pointer' }}>
+                onMouseDown={e => handleMarkerMouseDown(e, m)}
+                onClick={e => { e.stopPropagation(); if (!didDrag.current) setSelId(isSel ? null : m.id) }}
+                style={{ cursor: draggingId === m.id ? 'grabbing' : 'grab' }}>
                 {/* Label */}
                 <text x={mx} y={my - r - roomL * 0.005}
                   textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
@@ -496,7 +544,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         ))}
         {markers.length > 0 && (
           <span className="text-xs text-gray-400 ml-auto">
-            共 {markers.length} 個標記・點擊可刪除
+            共 {markers.length} 個標記・拖拉可移動・點選後可刪除
           </span>
         )}
       </div>
@@ -749,213 +797,4 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="專案名稱 *" span2>
                   <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
                 </Field>
-                <Field label="場景名稱">
-                  <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
-                </Field>
-                <Field label="使用者類型">
-                  <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
-                </Field>
-                <Field label="專案狀態">
-                  <select value={form.status} onChange={setP('status')} className={inp}>
-                    {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </Field>
-                <Field label="預算（NT$）">
-                  <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
-                </Field>
-                <Field label="施工日期">
-                  <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
-                </Field>
-                <Field label="預計完工日">
-                  <input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} />
-                </Field>
-                <Field label="說明／備注" span2>
-                  <textarea rows={2} value={form.description} onChange={setP('description')} className={ta} />
-                </Field>
-              </div>
-            </Accordion>
-
-            <Accordion title="② 上類 — 需求分析" color={BLUE}>
-              <div className="grid grid-cols-1 gap-3">
-                <Field label="主要功能定位">
-                  <input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="設備需求"><textarea rows={2} value={form.equipment_needs} onChange={setP('equipment_needs')} className={ta} /></Field>
-                  <Field label="音響需求"><textarea rows={2} value={form.audio_needs} onChange={setP('audio_needs')} className={ta} /></Field>
-                  <Field label="影像需求"><textarea rows={2} value={form.video_needs} onChange={setP('video_needs')} className={ta} /></Field>
-                  <Field label="互動需求"><textarea rows={2} value={form.interaction_needs} onChange={setP('interaction_needs')} className={ta} /></Field>
-                  <Field label="控制需求"><textarea rows={2} value={form.control_needs} onChange={setP('control_needs')} className={ta} /></Field>
-                  <Field label="其他需求"><textarea rows={2} value={form.other_needs} onChange={setP('other_needs')} className={ta} /></Field>
-                </div>
-                <Field label="場地規格">
-                  <textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} />
-                </Field>
-              </div>
-            </Accordion>
-
-            <Accordion title="③ 下類 — 場勘基本資訊" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
-                <Field label="場勘負責人"><input value={survey.surveyor} onChange={setS('surveyor')} className={inp} /></Field>
-                <Field label="現場聯絡姓名"><input value={survey.contact_name} onChange={setS('contact_name')} className={inp} /></Field>
-                <Field label="現場聯絡電話"><input value={survey.contact_phone} onChange={setS('contact_phone')} className={inp} /></Field>
-                <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
-              </div>
-            </Accordion>
-
-            <Accordion title="④ 下類 — 空間規格資訊" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
-                <Field label="長度（公尺）"><input type="number" value={survey.space_length} onChange={setS('space_length')} className={inp} /></Field>
-                <Field label="寬度（公尺）"><input type="number" value={survey.space_width} onChange={setS('space_width')} className={inp} /></Field>
-                <Field label="高度（公尺）"><input type="number" value={survey.space_height} onChange={setS('space_height')} className={inp} /></Field>
-                <Field label="容納人數"><input type="number" value={survey.capacity} onChange={setS('capacity')} className={inp} /></Field>
-                <Field label="天花板類型/材質"><input value={survey.ceiling_type} onChange={setS('ceiling_type')} className={inp} /></Field>
-                <Field label="牆面材質"><input value={survey.wall_material} onChange={setS('wall_material')} className={inp} /></Field>
-                <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
-                <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-emerald-200">
-                <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
-
-            <Accordion title="⑤ 下類 — 電力與網路" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
-                <Field label="現有插座數量位置"><input value={survey.outlet_count} onChange={setS('outlet_count')} className={inp} /></Field>
-                <Field label="電壓容量說明"><input value={survey.voltage_capacity} onChange={setS('voltage_capacity')} className={inp} /></Field>
-                <Field label="電源射頻干擾情況"><input value={survey.rf_interference} onChange={setS('rf_interference')} className={inp} /></Field>
-                <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
-                <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-emerald-200">
-                <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
-
-            <Accordion title="⑥ 下類 — 聲學與環境" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
-                <Field label="環境噪音（dB）"><input type="number" value={survey.ambient_noise_db} onChange={setS('ambient_noise_db')} className={inp} /></Field>
-                <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
-                <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
-                <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
-              </div>
-              <div className="mt-4 pt-4 border-t border-emerald-200">
-                <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
-
-            <Accordion title="⑦ 中類 — 施工條件限制" color={ORG}>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 flex gap-6 flex-wrap">
-                  <BoolField label="是否禁止酷孔打牆壁" value={survey.no_drilling} onChange={setSB('no_drilling')} />
-                  <BoolField label="是否需要採購/代購材料設備" value={survey.need_procurement} onChange={setSB('need_procurement')} />
-                </div>
-                <Field label="特殊施工時間限制"><input value={survey.special_construction_time} onChange={setS('special_construction_time')} className={inp} /></Field>
-                <Field label="懸挂載重限制"><input value={survey.hanging_limits} onChange={setS('hanging_limits')} className={inp} /></Field>
-                <Field label="現場施工限制說明" span2><textarea rows={2} value={survey.construction_issues} onChange={setS('construction_issues')} className={ta} /></Field>
-                <Field label="搜運時間（分鐘）"><input type="number" value={survey.travel_time_minutes} onChange={setS('travel_time_minutes')} className={inp} /></Field>
-                <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
-                <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
-                <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
-              </div>
-              <div className="mt-4 pt-4 border-t border-orange-200">
-                <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
-
-            <Accordion title="⑧ 中類 — 現況設備補充" color={ORG}>
-              <div className="grid grid-cols-1 gap-3">
-                <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
-                <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
-                <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
-                <Field label="客戶期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
-                <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
-                <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
-              </div>
-            </Accordion>
-
-            <Accordion title="⑨ 中類 — 場勘備註" color={ORG}>
-              <Field label="場勘備註內容">
-                <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
-              </Field>
-            </Accordion>
-
-            <Accordion title="🔧 設備類 — 現場設備記錄" color={PURPLE}>
-              <EquipmentSection
-                projectId={editingId as string}
-                supabase={supabase}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
-
-            <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
-              <EquipmentMapSection
-                projectId={editingId as string}
-                supabase={supabase}
-                initLength={survey.space_length}
-                initWidth={survey.space_width}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
-
-            <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
-              <PhotoSection
-                projectId={editingId as string}
-                supabase={supabase}
-                cats={CATS_MAIN}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
-
-          </div>
-
-          <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
-            <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-white">取消</button>
-            <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-              {saving ? '儲存中...' : '儲存專案'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-center py-8 text-gray-400 text-sm">載入中...</div>
-      ) : projects.length === 0 ? (
-        <div className="text-center py-8 text-gray-400 text-sm">尚無專案紀錄</div>
-      ) : (
-        projects.map(p => (
-          <div key={p.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <div className="flex items-center gap-2 min-w-0">
-                <Briefcase size={14} className="text-gray-400 shrink-0" />
-                <span className="font-semibold text-gray-900 truncate">{p.project_name}</span>
-                {p.scene_name && <span className="text-xs text-gray-500 truncate">（{p.scene_name}）</span>}
-                <span className={`text-xs px-2 py-0.5 rounded-lg font-medium shrink-0 ${STATUS_COLORS[p.status]}`}>{p.status}</span>
-              </div>
-              <div className="flex gap-1 shrink-0 ml-2">
-                <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={13} /></button>
-                <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={13} /></button>
-              </div>
-            </div>
-            <div className="px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-              {p.user_type && <span>類型：{p.user_type}</span>}
-              {p.start_date && <span>施工：{formatDate(p.start_date)}</span>}
-              {p.end_date && <span>完工：{formatDate(p.end_date)}</span>}
-              {p.budget && <span>預算：NT${Number(p.budget).toLocaleString()}</span>}
-              {p.main_function && <span>功能：{p.main_function}</span>}
-            </div>
-          </div>
-        ))
-      )}
-
-    </div>
-  )
-}
+                <Field label="
