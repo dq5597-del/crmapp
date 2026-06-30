@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
-  Settings, LogOut, ChevronRight, Truck, X, Building2, Warehouse, CreditCard, Receipt, Wrench
+  Settings, LogOut, ChevronRight, Truck, X, Building2, Warehouse, CreditCard, Receipt, Wrench, BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,8 +20,10 @@ const navItems = [
   { href: '/payables',         label: '應付帳款', icon: Receipt },
   { href: '/vendors',          label: '廠商建檔', icon: Building2 },
   { href: '/inventory',        label: '庫存管理', icon: Warehouse },
-  { href: '/products',         label: '產品管理', icon: Package },
-  { href: '/settings',         label: '系統設定', icon: Settings },
+  { href: '/products',                label: '產品管理', icon: Package },
+  { href: '/accounting/expenses',    label: '支出記錄', icon: BookOpen },
+  { href: '/accounting/pnl',        label: '損益表',   icon: BookOpen },
+  { href: '/settings',              label: '系統設定', icon: Settings },
 ]
 
 interface SidebarProps {
@@ -97,13 +99,4 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="px-3 pb-4 border-t border-gray-700 pt-3 shrink-0">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-          >
-            <LogOut size={18} />
-            登出
-          </button>
-        </div>
-      </aside>
-    </>
-  )
-}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:

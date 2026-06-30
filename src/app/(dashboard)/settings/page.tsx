@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { SystemSettings, UserProfile } from '@/types'
-import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database } from 'lucide-react'
+import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database, Tag } from 'lucide-react'
 
 export default function SettingsPage() {
   const supabase = createClient()
@@ -11,7 +11,10 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [tab, setTab] = useState<'company' | 'users' | 'backup'>('company')
+  const [tab, setTab] = useState<'company' | 'users' | 'backup' | 'categories'>('company')
+  const [expCategories, setExpCategories] = useState<{ id: string; name: string }[]>([])
+  const [newCatName, setNewCatName] = useState('')
+  const [catSaving, setCatSaving] = useState(false)
   // 備份還原狀態
   const [backingUp, setBackingUp] = useState(false)
   const [restoring, setRestoring] = useState(false)
@@ -60,7 +63,29 @@ export default function SettingsPage() {
       setUsers(uRes.data ?? [])
       setLoading(false)
     })
+    fetchExpCategories()
   }, [])
+
+  async function fetchExpCategories() {
+    const res = await fetch('/api/accounting/categories')
+    const data = await res.json()
+    setExpCategories(data.categories || [])
+  }
+
+  async function addCategory() {
+    if (!newCatName.trim()) return
+    setCatSaving(true)
+    await fetch('/api/accounting/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCatName.trim() }) })
+    setNewCatName('')
+    await fetchExpCategories()
+    setCatSaving(false)
+  }
+
+  async function deleteCategory(id: string) {
+    if (!confirm('確定刪除此科目？')) return
+    await fetch('/api/accounting/categories', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    fetchExpCategories()
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -146,6 +171,7 @@ export default function SettingsPage() {
         {[
           { key: 'company', label: '公司設定', icon: Settings },
           { key: 'users', label: '帳號管理', icon: Users },
+          { key: 'categories', label: '支出科目', icon: Tag },
           { key: 'backup', label: '備份還原', icon: Database },
         ].map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key as any)}
@@ -300,6 +326,37 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {tab === 'categories' && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+          <h2 className="font-semibold text-gray-900">支出科目管理</h2>
+          <p className="text-xs text-gray-400">這些科目會出現在支出記錄的「科目」下拉選單中，可自由新增或刪除。</p>
+          <div className="flex gap-2">
+            <input
+              value={newCatName}
+              onChange={e => setNewCatName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addCategory()}
+              placeholder="輸入新科目名稱"
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm"
+            />
+            <button onClick={addCategory} disabled={catSaving || !newCatName.trim()}
+              className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 disabled:opacity-50">
+              <Plus size={14} /> 新增
+            </button>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {expCategories.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">尚無科目</p>}
+            {expCategories.map(cat => (
+              <div key={cat.id} className="flex items-center justify-between py-2.5">
+                <span className="text-sm text-gray-800">{cat.name}</span>
+                <button onClick={() => deleteCategory(cat.id)} className="text-gray-300 hover:text-red-500 transition">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {tab === 'backup' && (
         <div className="space-y-4">
           {/* 備份 */}
@@ -329,53 +386,4 @@ export default function SettingsPage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-amber-50 rounded-xl">
-                <Upload size={22} className="text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">還原備份</h3>
-                <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 rounded-xl p-3 mb-4">
-                  <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-                  <span>還原會清除所有現有資料後重新匯入，操作前請確認已備份最新資料。</span>
-                </div>
-                <label className={`flex items-center gap-2 border-2 border-dashed border-gray-200 hover:border-blue-400 rounded-xl px-5 py-3 cursor-pointer text-sm text-gray-600 hover:text-blue-600 transition w-fit ${restoring ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <Upload size={15} />
-                  {restoring ? '還原中，請稍候...' : '選擇備份檔案（.json）'}
-                  <input
-                    type="file"
-                    accept=".json"
-                    className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) { handleRestore(f); e.target.value = '' } }}
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* 還原結果 */}
-          {restoreLog && (
-            <div className={`rounded-2xl p-5 border ${restoreLog.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-              <div className="flex items-center gap-2 font-semibold mb-3 text-sm">
-                {restoreLog.ok
-                  ? <><CheckCircle2 size={16} className="text-green-600" /><span className="text-green-800">還原成功</span></>
-                  : <><AlertTriangle size={16} className="text-red-600" /><span className="text-red-800">還原時發生錯誤</span></>
-                }
-                {restoreLog.restoredFrom && <span className="font-normal text-gray-500 ml-auto">備份時間：{new Date(restoreLog.restoredFrom).toLocaleString('zh-TW')}</span>}
-              </div>
-              {restoreLog.errors.length > 0 && (
-                <div className="mb-2">
-                  {restoreLog.errors.map((e, i) => <p key={i} className="text-xs text-red-700">❌ {e}</p>)}
-                </div>
-              )}
-              <details className="text-xs text-gray-500">
-                <summary className="cursor-pointer hover:text-gray-700">查看詳細記錄（{restoreLog.log.length} 步驟）</summary>
-                <div className="mt-2 space-y-0.5 font-mono">
-                  {restoreLog.log.map((l, i) => <p key={i}>✓ {l}</p>)}
-                </div>
-              </details>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
+                <Uploa
