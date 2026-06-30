@@ -75,10 +75,9 @@ const emptyProject: ProjectForm = {
   video_needs: '', control_needs: '', other_needs: '', venue_specs: '',
 }
 
-// ── Photo Modal ──────────────────────────────────────────────
-function PhotoModal({ project, onClose, supabase }: {
-  project: any
-  onClose: () => void
+// ── Photo Section (inline, embedded in edit form) ────────────
+function PhotoSection({ projectId, supabase }: {
+  projectId: string
   supabase: ReturnType<typeof createClient>
 }) {
   const [cat, setCat] = useState<1 | 2 | 3>(1)
@@ -89,13 +88,13 @@ function PhotoModal({ project, onClose, supabase }: {
   const camRef  = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { fetchPhotos() }, [])
+  useEffect(() => { fetchPhotos() }, [projectId])
 
   async function fetchPhotos() {
     setLoading(true)
     const { data } = await supabase
       .from('project_photos').select('*')
-      .eq('project_id', project.id)
+      .eq('project_id', projectId)
       .order('created_at')
     const list = (data ?? []) as Photo[]
     setPhotos(list)
@@ -113,11 +112,11 @@ function PhotoModal({ project, onClose, supabase }: {
     setUploading(true)
     try {
       const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
-      const path = `${project.id}/${cat}/${Date.now()}.${ext}`
+      const path = `${projectId}/${cat}/${Date.now()}.${ext}`
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
       if (error) throw error
       await supabase.from('project_photos').insert({
-        project_id: project.id, category: cat, storage_path: path, notes: '',
+        project_id: projectId, category: cat, storage_path: path, notes: '',
       })
       await fetchPhotos()
     } catch (e: any) {
@@ -142,136 +141,116 @@ function PhotoModal({ project, onClose, supabase }: {
   const catPhotos = photos.filter(p => p.category === cat)
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-3 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-4">
-
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <div>
-            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Camera size={18} className="text-blue-600" /> 照片紀錄
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">{project.project_name}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1">
-            <X size={20} />
+    <div>
+      {/* Category Tabs */}
+      <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-3">
+        {([1, 2, 3] as const).map(c => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setCat(c)}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+              cat === c
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {CAT_LABELS[c]}
+            <span className="ml-1 text-xs opacity-70">
+              ({photos.filter(p => p.category === c).length})
+            </span>
           </button>
-        </div>
+        ))}
+      </div>
 
-        {/* Category Tabs */}
-        <div className="flex border-b border-gray-100">
-          {([1, 2, 3] as const).map(c => (
-            <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                cat === c
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/40'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {CAT_LABELS[c]}
-              <span className="ml-1 text-xs opacity-60">
-                ({photos.filter(p => p.category === c).length})
-              </span>
-            </button>
+      {/* Upload Controls */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <input
+          ref={camRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) handleUpload(f)
+            e.target.value = ''
+          }}
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) handleUpload(f)
+            e.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => camRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors"
+        >
+          <Camera size={14} /> 拍照上傳
+        </button>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium disabled:opacity-60 transition-colors"
+        >
+          <ImageIcon size={14} /> 開啟舊檔
+        </button>
+        {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
+        <span className="ml-auto text-xs text-gray-400">上傳至「{CAT_LABELS[cat]}」</span>
+      </div>
+
+      {/* Photo Grid */}
+      {loading ? (
+        <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
+      ) : catPhotos.length === 0 ? (
+        <div className="text-center py-6 text-gray-400 text-sm">
+          尚無「{CAT_LABELS[cat]}」照片，點上方按鈕新增
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {catPhotos.map(photo => (
+            <div key={photo.id} className="flex flex-col gap-1.5">
+              <div className="relative group">
+                <img
+                  src={getUrl(photo.storage_path)}
+                  alt={localNotes[photo.id] || '照片'}
+                  className="w-full aspect-square object-cover rounded-xl border border-gray-100 bg-gray-50"
+                  loading="lazy"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleDelete(photo)}
+                  className="absolute top-1.5 right-1.5 bg-black/50 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="刪除照片"
+                >
+                  <X size={11} />
+                </button>
+                <div className="absolute bottom-1.5 left-1.5 text-[10px] text-white bg-black/40 rounded px-1.5 py-0.5">
+                  {new Date(photo.created_at).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
+                </div>
+              </div>
+              {/* Notes per photo */}
+              <textarea
+                rows={2}
+                value={localNotes[photo.id] ?? ''}
+                onChange={e => setLocalNotes(prev => ({ ...prev, [photo.id]: e.target.value }))}
+                onBlur={() => saveNotes(photo.id)}
+                placeholder="照片備註..."
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+              />
+            </div>
           ))}
         </div>
-
-        {/* Upload Controls */}
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-          {/* Hidden file inputs */}
-          <input
-            ref={camRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={e => {
-              const f = e.target.files?.[0]
-              if (f) handleUpload(f)
-              e.target.value = ''
-            }}
-          />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={e => {
-              const f = e.target.files?.[0]
-              if (f) handleUpload(f)
-              e.target.value = ''
-            }}
-          />
-          <button
-            onClick={() => camRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors"
-          >
-            <Camera size={15} /> 拍照上傳
-          </button>
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium disabled:opacity-60 transition-colors"
-          >
-            <ImageIcon size={15} /> 開啟舊檔
-          </button>
-          {uploading && (
-            <span className="text-xs text-gray-500 animate-pulse">上傳中...</span>
-          )}
-          <span className="ml-auto text-xs text-gray-400">
-            上傳至「{CAT_LABELS[cat]}」分類
-          </span>
-        </div>
-
-        {/* Photo Grid */}
-        <div className="p-4 min-h-[220px]">
-          {loading ? (
-            <div className="text-center py-12 text-gray-400 text-sm">載入中...</div>
-          ) : catPhotos.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-sm">
-              尚無「{CAT_LABELS[cat]}」照片，點上方按鈕新增
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {catPhotos.map(photo => (
-                <div key={photo.id} className="flex flex-col gap-1.5">
-                  {/* Image */}
-                  <div className="relative group">
-                    <img
-                      src={getUrl(photo.storage_path)}
-                      alt={localNotes[photo.id] || '照片'}
-                      className="w-full aspect-square object-cover rounded-xl border border-gray-100 bg-gray-50"
-                      loading="lazy"
-                    />
-                    <button
-                      onClick={() => handleDelete(photo)}
-                      className="absolute top-1.5 right-1.5 bg-black/50 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="刪除照片"
-                    >
-                      <X size={11} />
-                    </button>
-                    <div className="absolute bottom-1.5 left-1.5 text-[10px] text-white bg-black/40 rounded px-1.5 py-0.5">
-                      {new Date(photo.created_at).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
-                    </div>
-                  </div>
-                  {/* Notes */}
-                  <textarea
-                    rows={2}
-                    value={localNotes[photo.id] ?? ''}
-                    onChange={e => setLocalNotes(prev => ({ ...prev, [photo.id]: e.target.value }))}
-                    onBlur={() => saveNotes(photo.id)}
-                    placeholder="備註..."
-                    className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -325,7 +304,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
   const [survey, setSurvey] = useState<SurveyForm>(emptySurvey)
   const [surveyId, setSurveyId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [photoProject, setPhotoProject] = useState<any>(null)
 
   useEffect(() => { fetchProjects() }, [clientId])
 
@@ -591,6 +569,12 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
               </Field>
             </Accordion>
 
+            {editingId !== 'new' && (
+              <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
+                <PhotoSection projectId={editingId as string} supabase={supabase} />
+              </Accordion>
+            )}
+
           </div>
 
           <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
@@ -617,13 +601,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <span className={`text-xs px-2 py-0.5 rounded-lg font-medium shrink-0 ${STATUS_COLORS[p.status]}`}>{p.status}</span>
               </div>
               <div className="flex gap-1 shrink-0 ml-2">
-                <button
-                  onClick={() => setPhotoProject(p)}
-                  className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"
-                  title="照片紀錄"
-                >
-                  <Camera size={13} />
-                </button>
                 <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={13} /></button>
                 <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={13} /></button>
               </div>
@@ -639,14 +616,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
         ))
       )}
 
-      {/* Photo Modal */}
-      {photoProject && (
-        <PhotoModal
-          project={photoProject}
-          onClose={() => setPhotoProject(null)}
-          supabase={supabase}
-        />
-      )}
     </div>
   )
 }
