@@ -372,6 +372,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
   async function handleSave() {
     if (!form.project_name.trim()) return
     setSaving(true)
+    let createdId: string | null = null
     try {
       const projectPayload = {
         ...form,
@@ -383,6 +384,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
       if (editingId === 'new') {
         const { data } = await supabase.from('projects').insert({ ...projectPayload, client_id: clientId }).select('id').single()
         projectId = data?.id ?? null
+        createdId = projectId
       } else {
         await supabase.from('projects').update(projectPayload).eq('id', editingId)
       }
@@ -406,7 +408,12 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
       }
     } finally {
       setSaving(false)
-      setEditingId(null)
+      // 新增專案後留在編輯模式（讓照片區出現），更新專案則關閉表單
+      if (createdId) {
+        setEditingId(createdId)
+      } else {
+        setEditingId(null)
+      }
       fetchProjects()
     }
   }
