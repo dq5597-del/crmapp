@@ -76,9 +76,10 @@ const emptyProject: ProjectForm = {
 }
 
 // ── Photo Section (inline, embedded in edit form) ────────────
-function PhotoSection({ projectId, supabase }: {
+function PhotoSection({ projectId, supabase, onBeforeUpload }: {
   projectId: string
   supabase: ReturnType<typeof createClient>
+  onBeforeUpload?: () => Promise<boolean>
 }) {
   const [cat, setCat] = useState<1 | 2 | 3>(1)
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -109,15 +110,17 @@ function PhotoSection({ projectId, supabase }: {
   }
 
   async function handleUpload(file: File) {
+    if (onBeforeUpload && !(await onBeforeUpload())) return
     setUploading(true)
     try {
       const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
       const path = `${projectId}/${cat}/${Date.now()}.${ext}`
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
       if (error) throw error
-      await supabase.from('project_photos').insert({
+      const { error: dbErr } = await supabase.from('project_photos').insert({
         project_id: projectId, category: cat, storage_path: path, notes: '',
       })
+      if (dbErr) throw dbErr
       await fetchPhotos()
     } catch (e: any) {
       alert('上傳失敗: ' + e.message)
@@ -371,6 +374,28 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
     }
   }
 
+  async function ensureSaved(): Promise<boolean> {
+    if (!isNewProject) return true
+    const name = form.project_name.trim()
+    if (!name) {
+      alert('請先填寫「專案名稱」再上傳照片')
+      return false
+    }
+    const payload = {
+      ...form,
+      id: editingId,
+      client_id: clientId,
+      budget: form.budget ? Number(form.budget) : null,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+    }
+    const { error } = await supabase.from('projects').insert(payload)
+    if (error) { alert('建立專案失敗: ' + error.message); return false }
+    setIsNewProject(false)
+    fetchProjects()
+    return true
+  }
+
   async function handleSave() {
     if (!form.project_name.trim()) return
     setSaving(true)
@@ -571,7 +596,11 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
             </Accordion>
 
             <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
-              <PhotoSection projectId={editingId as string} supabase={supabase} />
+              <PhotoSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
             </Accordion>
 
           </div>
