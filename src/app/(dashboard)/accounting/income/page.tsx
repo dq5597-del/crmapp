@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, X, Save, RefreshCw } from 'lucide-react'
 
 const INVOICE_TYPES = ['三聯式', '二聯式', '電子發票', '無']
-const INCOME_CATEGORIES = ['銷售收入', '維修服務收入', '其他服務收入', '租金收入', '其他收入']
 
 type Income = {
   id: string
@@ -43,6 +42,7 @@ export default function IncomePage() {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
   const [income, setIncome] = useState<Income[]>([])
+  const [incomeCategories, setIncomeCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Income | null>(null)
@@ -50,7 +50,17 @@ export default function IncomePage() {
   const [saving, setSaving] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
+  useEffect(() => {
+    fetchIncomeCategories()
+  }, [])
+
   useEffect(() => { fetchIncome() }, [year])
+
+  async function fetchIncomeCategories() {
+    const res = await fetch('/api/accounting/income-categories')
+    const data = await res.json()
+    setIncomeCategories((data.categories || []).map((c: any) => c.name))
+  }
 
   async function fetchIncome() {
     setLoading(true)
@@ -124,18 +134,27 @@ export default function IncomePage() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">收入記錄</h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {income.length} 筆｜未稅合計 NT${total.toLocaleString()}</p>
         </div>
         <div className="flex gap-2">
-          <select value={year} onChange={e => setYear(Number(e.target.value))} className="text-sm border border-gray-200 rounded-lg px-3 py-2">
+          <select
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-2"
+          >
             {[currentYear, currentYear - 1, currentYear - 2].map(y => (
               <option key={y} value={y}>{y} 年</option>
             ))}
           </select>
-          <button onClick={handleSync} disabled={syncing} className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-sm px-3 py-2 rounded-xl hover:bg-gray-50 disabled:opacity-50">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-sm px-3 py-2 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+          >
             <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
             從報價單匯入
           </button>
@@ -145,6 +164,7 @@ export default function IncomePage() {
         </div>
       </div>
 
+      {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -195,6 +215,7 @@ export default function IncomePage() {
         </div>
       </div>
 
+      {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-6">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4">
@@ -205,55 +226,68 @@ export default function IncomePage() {
             <div className="p-6 grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">發票型式</label>
-                <select value={form.invoice_type} onChange={e => handleChange('invoice_type', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <select value={form.invoice_type} onChange={e => handleChange('invoice_type', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
                   {INVOICE_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">發票日期</label>
-                <input type="date" value={form.invoice_date} onChange={e => handleChange('invoice_date', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <input type="date" value={form.invoice_date} onChange={e => handleChange('invoice_date', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">發票號碼</label>
-                <input value={form.invoice_no} onChange={e => handleChange('invoice_no', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="AB-12345678" />
+                <input value={form.invoice_no} onChange={e => handleChange('invoice_no', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="AB-12345678" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">客戶名稱</label>
-                <input value={form.client_name} onChange={e => handleChange('client_name', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="客戶公司名稱" />
+                <input value={form.client_name} onChange={e => handleChange('client_name', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="客戶公司名稱" />
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-gray-500 mb-1 block">品名/說明</label>
-                <input value={form.description} onChange={e => handleChange('description', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="商品或服務說明" />
+                <input value={form.description} onChange={e => handleChange('description', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="商品或服務說明" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">科目</label>
-                <select value={form.category} onChange={e => handleChange('category', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                  {INCOME_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                <select value={form.category} onChange={e => handleChange('category', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                  <option value="">請選擇科目</option>
+                  {incomeCategories.map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">未稅金額</label>
-                <input type="number" value={form.untaxed_amount} onChange={e => handleChange('untaxed_amount', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <input type="number" value={form.untaxed_amount} onChange={e => handleChange('untaxed_amount', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">稅額 (5%)</label>
-                <input readOnly value={form.tax_amount} className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400" />
+                <input readOnly value={form.tax_amount}
+                  className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">含稅總額</label>
-                <input readOnly value={form.total_amount} className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700" />
+                <input readOnly value={form.total_amount}
+                  className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">收款日期</label>
-                <input type="date" value={form.collected_date} onChange={e => handleChange('collected_date', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <input type="date" value={form.collected_date} onChange={e => handleChange('collected_date', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">收款帳號</label>
-                <input value={form.payment_account} onChange={e => handleChange('payment_account', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="銀行帳號後5碼" />
+                <input value={form.payment_account} onChange={e => handleChange('payment_account', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="銀行帳號後5碼" />
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-gray-500 mb-1 block">備註</label>
-                <input value={form.note} onChange={e => handleChange('note', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <input value={form.note} onChange={e => handleChange('note', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
             <div className="px-6 py-4 border-t flex justify-end gap-3">
