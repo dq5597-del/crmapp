@@ -41,6 +41,71 @@ const emptyItem = (): QuoteItemForm => ({
 })
 
 // ============================================================
+// 快速新增客戶 Modal
+// ============================================================
+interface QuickAddClientModalProps {
+  initialName: string
+  onClose: () => void
+  onCreated: (client: any) => void
+}
+
+function QuickAddClientModal({ initialName, onClose, onCreated }: QuickAddClientModalProps) {
+  const supabase = createClient()
+  const [form, setForm] = useState({
+    company_name: initialName,
+    contact_name: '',
+    phone: '',
+    address: '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!form.company_name.trim()) return
+    setSaving(true)
+    const { data, error } = await supabase.from('clients').insert(form).select('*').single()
+    if (!error && data) onCreated(data)
+    setSaving(false)
+  }
+
+  const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="font-semibold text-gray-900">快速新增客戶</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">單位名稱 *</label>
+            <input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} className={inputClass} placeholder="公司或單位名稱" autoFocus />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">聯絡人</label>
+            <input value={form.contact_name} onChange={e => setForm(p => ({ ...p, contact_name: e.target.value }))} className={inputClass} placeholder="聯絡人姓名" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">電話</label>
+            <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} className={inputClass} placeholder="連絡電話" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">地址</label>
+            <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} className={inputClass} placeholder="地址（選填）" />
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+          <button onClick={handleSave} disabled={saving || !form.company_name.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            {saving ? '新增中...' : '新增並帶入'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
 // 快速新增產品 Modal
 // ============================================================
 interface QuickAddProductModalProps {
@@ -179,6 +244,9 @@ export default function QuoteForm({
   const [historyData, setHistoryData] = useState<Record<number, { order_no: string; client_name: string; date: string; quantity: number; unit_price: number }[]>>({})
   const [historyLoading, setHistoryLoading] = useState<number | null>(null)
   const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)  // 哪個品項要快速新增
+  const [clientSearch, setClientSearch] = useState('')
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
+  const [showQuickAddClient, setShowQuickAddClient] = useState(false)
 
   const [header, setHeader] = useState({
     quote_no: initialQuote?.quote_no ?? '',
@@ -278,6 +346,14 @@ export default function QuoteForm({
   const subtotal = items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0)
   const taxAmount = Math.round(subtotal * 0.05)
   const totalAmount = subtotal + taxAmount
+
+  // 客戶搜尋過濾
+  const filteredClients = clientSearch
+    ? clients.filter(c =>
+        c.company_name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+        (c.contact_name ?? '').toLowerCase().includes(clientSearch.toLowerCase())
+      )
+    : clients
 
   // 分類篩選的主分類列表
   const mainCats = [...new Set(categories.map(c => c.main_category))]
@@ -382,6 +458,20 @@ export default function QuoteForm({
 
   return (
     <div className="space-y-5">
+      {/* 快速新增客戶 Modal */}
+      {showQuickAddClient && (
+        <QuickAddClientModal
+          initialName={clientSearch}
+          onClose={() => setShowQuickAddClient(false)}
+          onCreated={async (client) => {
+            await loadClients()
+            setHeader(p => ({ ...p, client_id: client.id, client_name_display: client.company_name, contact_name: p.contact_name || (client.contact_name ?? ''), client_phone: p.client_phone || (client.phone ?? '') }))
+            setClientSearch('')
+            setShowQuickAddClient(false)
+          }}
+        />
+      )}
+
       {/* 快速新增產品 Modal */}
       {quickAddIdx !== null && (
         <QuickAddProductModal
@@ -405,12 +495,56 @@ export default function QuoteForm({
             <label className={labelClass}>報價單號</label>
             <input value={header.quote_no} readOnly className={inputClass + ' bg-gray-50 text-gray-500 cursor-default'} />
           </div>
-          <div>
+          <div className="relative">
             <label className={labelClass}>單位名稱 *</label>
-            <select value={header.client_id} onChange={e => onClientSelect(e.target.value)} className={inputClass}>
-              <option value="">請選擇客戶</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-            </select>
+            <input
+              value={clientSearch || header.client_name_display}
+              onChange={e => {
+                const val = e.target.value
+                setClientSearch(val)
+                setHeader(p => ({ ...p, client_id: '', client_name_display: val }))
+                setShowClientDropdown(true)
+              }}
+              onFocus={() => setShowClientDropdown(true)}
+              onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
+              className={inputClass}
+              placeholder="輸入搜尋或新增客戶"
+              autoComplete="off"
+            />
+            {showClientDropdown && (
+              <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+                {filteredClients.length > 0 && filteredClients.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onMouseDown={() => {
+                      onClientSelect(c.id)
+                      setClientSearch('')
+                      setShowClientDropdown(false)
+                    }}
+                    className="w-full px-3 py-2.5 text-sm text-left hover:bg-blue-50 flex flex-col border-b border-gray-50 last:border-0"
+                  >
+                    <span className="font-medium text-gray-900">{c.company_name}</span>
+                    {c.contact_name && <span className="text-xs text-gray-400">{c.contact_name}</span>}
+                  </button>
+                ))}
+                {clientSearch && !filteredClients.some(c => c.company_name === clientSearch) && (
+                  <button
+                    type="button"
+                    onMouseDown={() => {
+                      setShowClientDropdown(false)
+                      setShowQuickAddClient(true)
+                    }}
+                    className="w-full px-3 py-2.5 text-sm text-left text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 border-t border-gray-100"
+                  >
+                    <span className="text-base leading-none">＋</span> 新增客戶「{clientSearch}」
+                  </button>
+                )}
+                {!clientSearch && filteredClients.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-gray-400">無客戶資料</div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className={labelClass}>聯絡人姓名</label>
