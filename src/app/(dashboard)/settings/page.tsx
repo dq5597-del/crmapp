@@ -15,7 +15,6 @@ export default function SettingsPage() {
   const [expCategories, setExpCategories] = useState<{ id: string; name: string }[]>([])
   const [newCatName, setNewCatName] = useState('')
   const [catSaving, setCatSaving] = useState(false)
-  // 備份還原狀態
   const [backingUp, setBackingUp] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [restoreLog, setRestoreLog] = useState<{ ok: boolean; log: string[]; errors: string[]; restoredFrom?: string } | null>(null)
@@ -32,7 +31,6 @@ export default function SettingsPage() {
     valid_days: 30,
     quote_notes: '',
   })
-  // 動態備註清單
   const [noteItems, setNoteItems] = useState<string[]>([])
 
   useEffect(() => {
@@ -55,7 +53,6 @@ export default function SettingsPage() {
           valid_days: sRes.data.valid_days ?? 30,
           quote_notes: sRes.data.quote_notes ?? '',
         })
-        // 載入動態備註清單
         const rawItems = (sRes.data as any).default_note_items
         if (Array.isArray(rawItems)) setNoteItems(rawItems)
         else setNoteItems([])
@@ -82,7 +79,7 @@ export default function SettingsPage() {
   }
 
   async function deleteCategory(id: string) {
-    if (!confirm('確定刪除此科目？')) return
+    if (!confirm('ç¢ºå®åªé¤æ­¤ç§ç®ï¼')) return
     await fetch('/api/accounting/categories', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     fetchExpCategories()
   }
@@ -96,7 +93,7 @@ export default function SettingsPage() {
       } as any).eq('id', settings.id)
     }
     setSaving(false)
-    alert('✅ 已儲存系統設定')
+    alert('å·²å²å­ç³»çµ±è¨­å®')
   }
 
   async function handleBackup() {
@@ -112,13 +109,13 @@ export default function SettingsPage() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e: any) {
-      alert('備份失敗：' + e.message)
+      alert('åä»½å¤±æï¼' + e.message)
     }
     setBackingUp(false)
   }
 
   async function handleRestore(file: File) {
-    if (!confirm(`⚠️ 確定要還原備份「${file.name}」？\n\n這將會清除所有現有資料後重新匯入，此操作無法復原！`)) return
+    if (!confirm(`ç¢ºå®è¦éååä»½ã${file.name}ãï¼éå°ææ¸é¤ææç¾æè³æå¾éæ°å¯å¥ï¼æ­¤æä½ç¡æ³å¾©åï¼`)) return
     setRestoring(true)
     setRestoreLog(null)
     try {
@@ -132,7 +129,7 @@ export default function SettingsPage() {
       const result = await res.json()
       setRestoreLog(result)
     } catch (e: any) {
-      setRestoreLog({ ok: false, log: [], errors: ['還原失敗：' + e.message] })
+      setRestoreLog({ ok: false, log: [], errors: ['éåå¤±æï¼' + e.message] })
     }
     setRestoring(false)
   }
@@ -154,7 +151,7 @@ export default function SettingsPage() {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: role as any } : u))
   }
 
-  if (loading) return <div className="p-8 text-center text-gray-400">載入中...</div>
+  if (loading) return <div className="p-8 text-center text-gray-400">è¼å¥ä¸­...</div>
 
   const inputClass = "w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
   const labelClass = "block text-sm font-medium text-gray-700 mb-1.5"
@@ -163,16 +160,15 @@ export default function SettingsPage() {
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Settings size={20} className="text-gray-600" />
-        <h1 className="text-xl font-bold text-gray-900">系統設定</h1>
+        <h1 className="text-xl font-bold text-gray-900">ç³»çµ±è¨­å®</h1>
       </div>
 
-      {/* Tab */}
       <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1">
         {[
-          { key: 'company', label: '公司設定', icon: Settings },
-          { key: 'users', label: '帳號管理', icon: Users },
-          { key: 'categories', label: '支出科目', icon: Tag },
-          { key: 'backup', label: '備份還原', icon: Database },
+          { key: 'company', label: 'å¬å¸è¨­å®', icon: Settings },
+          { key: 'users', label: 'å¸³èç®¡ç', icon: Users },
+          { key: 'categories', label: 'æ¯åºç§ç®', icon: Tag },
+          { key: 'backup', label: 'åä»½éå', icon: Database },
         ].map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key as any)}
             className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition ${tab === key ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
@@ -183,81 +179,78 @@ export default function SettingsPage() {
 
       {tab === 'company' && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-5">
-          <h2 className="font-semibold text-gray-900">公司資訊</h2>
+          <h2 className="font-semibold text-gray-900">å¬å¸è³è¨</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className={labelClass}>公司名稱</label>
+              <label className={labelClass}>å¬å¸åç¨±</label>
               <input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>公司電話</label>
+              <label className={labelClass}>å¬å¸é»è©±</label>
               <input value={form.company_phone} onChange={e => setForm(p => ({ ...p, company_phone: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>公司 Email</label>
+              <label className={labelClass}>å¬å¸ Email</label>
               <input value={form.company_email} onChange={e => setForm(p => ({ ...p, company_email: e.target.value }))} className={inputClass} />
             </div>
             <div className="sm:col-span-2">
-              <label className={labelClass}>公司地址</label>
+              <label className={labelClass}>å¬å¸å°å</label>
               <input value={form.company_address} onChange={e => setForm(p => ({ ...p, company_address: e.target.value }))} className={inputClass} />
             </div>
           </div>
 
           <hr className="border-gray-100" />
-          <h2 className="font-semibold text-gray-900">匯款資訊</h2>
+          <h2 className="font-semibold text-gray-900">å¯æ¬¾è³è¨</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>銀行名稱</label>
-              <input value={form.bank_name} onChange={e => setForm(p => ({ ...p, bank_name: e.target.value }))} className={inputClass} placeholder="第一銀行花蓮分行" />
+              <label className={labelClass}>éè¡åç¨±</label>
+              <input value={form.bank_name} onChange={e => setForm(p => ({ ...p, bank_name: e.target.value }))} className={inputClass} placeholder="ç¬¬ä¸éè¡è±è®åè¡" />
             </div>
             <div>
-              <label className={labelClass}>帳號</label>
+              <label className={labelClass}>å¸³è</label>
               <input value={form.bank_account} onChange={e => setForm(p => ({ ...p, bank_account: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>戶名</label>
+              <label className={labelClass}>æ¶å</label>
               <input value={form.bank_account_name} onChange={e => setForm(p => ({ ...p, bank_account_name: e.target.value }))} className={inputClass} />
             </div>
           </div>
 
           <hr className="border-gray-100" />
-          <h2 className="font-semibold text-gray-900">報價單預設值</h2>
+          <h2 className="font-semibold text-gray-900">å ±å¹å®é è¨­å¼</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>預設付款條件</label>
-              <input value={form.payment_terms} onChange={e => setForm(p => ({ ...p, payment_terms: e.target.value }))} className={inputClass} placeholder="30天月結" />
+              <label className={labelClass}>é è¨­ä»æ¬¾æ¢ä»¶</label>
+              <input value={form.payment_terms} onChange={e => setForm(p => ({ ...p, payment_terms: e.target.value }))} className={inputClass} placeholder="30å¤©æçµ" />
             </div>
             <div>
-              <label className={labelClass}>預設交貨工期（天）</label>
+              <label className={labelClass}>é è¨­äº¤è²¨å·¥æï¼å¤©ï¼</label>
               <input type="number" value={form.delivery_days} onChange={e => setForm(p => ({ ...p, delivery_days: Number(e.target.value) }))} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>報價有效天數</label>
+              <label className={labelClass}>å ±å¹ææå¤©æ¸</label>
               <input type="number" value={form.valid_days} onChange={e => setForm(p => ({ ...p, valid_days: Number(e.target.value) }))} className={inputClass} />
             </div>
             <div className="sm:col-span-2">
-              <label className={labelClass}>報價單預設備註（固定文字，附加在每張報價單最後）</label>
+              <label className={labelClass}>å ±å¹å®é è¨­åè¨»</label>
               <textarea value={form.quote_notes} onChange={e => setForm(p => ({ ...p, quote_notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
             </div>
           </div>
 
           <hr className="border-gray-100" />
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">印列備註條目</h2>
-            <button
-              type="button"
-              onClick={addNoteItem}
-              className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              <Plus size={15} />新增條目
+            <h2 className="font-semibold text-gray-900">å°ååè¨»æ¢ç®</h2>
+            <button type="button" onClick={addNoteItem}
+              className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+              <Plus size={15} />æ°å¢æ¢ç®
             </button>
           </div>
-          <p className="text-xs text-gray-400 -mt-3">每條會在印列時依序出現在「備註事項」，可自由新增、刪除、修改</p>
+          <p className="text-xs text-gray-400 -mt-3">æ¯æ¢æå¨å°åæä¾åºåºç¾å¨åè¨»äºé ï¼å¯èªç±æ°å¢ãåªé¤ãä¿®æ¹</p>
 
           <div className="space-y-2">
             {noteItems.length === 0 && (
               <p className="text-sm text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-xl">
-                尚無備註條目，點「新增條目」加入
+                å°ç¡åè¨»æ¢ç®ï¼é»ãæ°å¢æ¢ç®ãå å¥
               </p>
             )}
             {noteItems.map((item, idx) => (
@@ -267,13 +260,10 @@ export default function SettingsPage() {
                   value={item}
                   onChange={e => updateNoteItem(idx, e.target.value)}
                   className={inputClass + ' flex-1'}
-                  placeholder={`備註條目 ${idx + 1}`}
+                  placeholder={`åè¨»æ¢ç® ${idx + 1}`}
                 />
-                <button
-                  type="button"
-                  onClick={() => removeNoteItem(idx)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition shrink-0"
-                >
+                <button type="button" onClick={() => removeNoteItem(idx)}
+                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition shrink-0">
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -281,9 +271,10 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex justify-end pt-2">
-            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium disabled:opacity-60">
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium disabled:opacity-60">
               <Save size={15} />
-              {saving ? '儲存中...' : '儲存設定'}
+              {saving ? 'å²å­ä¸­...' : 'å²å­è¨­å®'}
             </button>
           </div>
         </div>
@@ -291,29 +282,26 @@ export default function SettingsPage() {
 
       {tab === 'users' && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h2 className="font-semibold text-gray-900 mb-4">帳號管理</h2>
+          <h2 className="font-semibold text-gray-900 mb-4">å¸³èç®¡ç</h2>
           {users.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-8">尚無帳號資料</p>
+            <p className="text-gray-400 text-sm text-center py-8">å°ç¡å¸³èè³æ</p>
           ) : (
             <div className="space-y-3">
               {users.map(u => (
                 <div key={u.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl">
                   <div>
-                    <div className="font-medium text-gray-900">{u.full_name ?? '未設定名稱'}</div>
+                    <div className="font-medium text-gray-900">{u.full_name ?? 'æªè¨­å®åç¨±'}</div>
                     <div className="text-xs text-gray-500">ID: {u.id.slice(0, 8)}...</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {u.is_active ? '啟用' : '停用'}
+                      {u.is_active ? 'åç¨' : 'åç¨'}
                     </span>
-                    <select
-                      value={u.role}
-                      onChange={e => handleRoleChange(u.id, e.target.value)}
-                      className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="user">一般使用者</option>
-                      <option value="manager">主管</option>
-                      <option value="admin">管理員</option>
+                    <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)}
+                      className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="user">ä¸è¬ä½¿ç¨è</option>
+                      <option value="manager">ä¸»ç®¡</option>
+                      <option value="admin">ç®¡çå¡</option>
                     </select>
                   </div>
                 </div>
@@ -321,30 +309,30 @@ export default function SettingsPage() {
             </div>
           )}
           <p className="text-xs text-gray-400 mt-4">
-            新增使用者：請到 Supabase Dashboard → Authentication → Users → Invite user
+            æ°å¢ä½¿ç¨èï¼è«å° Supabase Dashboard â Authentication â Users â Invite user
           </p>
         </div>
       )}
 
       {tab === 'categories' && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-          <h2 className="font-semibold text-gray-900">支出科目管理</h2>
-          <p className="text-xs text-gray-400">這些科目會出現在支出記錄的「科目」下拉選單中，可自由新增或刪除。</p>
+          <h2 className="font-semibold text-gray-900">æ¯åºç§ç®ç®¡ç</h2>
+          <p className="text-xs text-gray-400">éäºç§ç®æåºç¾å¨æ¯åºè¨éçãç§ç®ãä¸æé¸å®ä¸­ï¼å¯èªç±æ°å¢æåªé¤ã</p>
           <div className="flex gap-2">
             <input
               value={newCatName}
               onChange={e => setNewCatName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addCategory()}
-              placeholder="輸入新科目名稱"
+              placeholder="è¼¸å¥æ°ç§ç®åç¨±"
               className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm"
             />
             <button onClick={addCategory} disabled={catSaving || !newCatName.trim()}
               className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 disabled:opacity-50">
-              <Plus size={14} /> 新增
+              <Plus size={14} /> æ°å¢
             </button>
           </div>
           <div className="divide-y divide-gray-50">
-            {expCategories.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">尚無科目</p>}
+            {expCategories.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">å°ç¡ç§ç®</p>}
             {expCategories.map(cat => (
               <div key={cat.id} className="flex items-center justify-between py-2.5">
                 <span className="text-sm text-gray-800">{cat.name}</span>
@@ -359,31 +347,80 @@ export default function SettingsPage() {
 
       {tab === 'backup' && (
         <div className="space-y-4">
-          {/* 備份 */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-blue-50 rounded-xl">
                 <Download size={22} className="text-blue-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">匯出備份</h3>
+                <h3 className="font-semibold text-gray-900 mb-1">å¯åºåä»½</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  將所有客戶、報價單、產品、廠商等資料匯出為 JSON 檔案，建議定期備份保存。
+                  å°ææå®¢æ¶ãå ±å¹å®ãç¢åãå» åç­è³æå¯åºçº JSON æªæ¡ï¼å»ºè­°å®æåä»½ä¿å­ã
                 </p>
-                <button
-                  onClick={handleBackup}
-                  disabled={backingUp}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl text-sm font-medium"
-                >
+                <button onClick={handleBackup} disabled={backingUp}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl text-sm font-medium">
                   <Download size={15} />
-                  {backingUp ? '備份中...' : '立即備份下載'}
+                  {backingUp ? 'åä»½ä¸­...' : 'ç«å³åä»½ä¸è¼'}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* 還原 */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-amber-50 rounded-xl">
-                <Uploa
+                <Upload size={22} className="text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-1">éååä»½</h3>
+                <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 rounded-xl p-3 mb-4">
+                  <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                  <span>éåææ¸é¤ææç¾æè³æå¾éæ°å¯å¥ï¼æä½åè«ç¢ºèªå·²åä»½ææ°è³æã</span>
+                </div>
+                <label className={`flex items-center gap-2 border-2 border-dashed border-gray-200 hover:border-blue-400 rounded-xl px-5 py-3 cursor-pointer text-sm text-gray-600 hover:text-blue-600 transition w-fit ${restoring ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <Upload size={15} />
+                  {restoring ? 'éåä¸­ï¼è«ç¨å...' : 'é¸æåä»½æªæ¡ï¼.jsonï¼'}
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) { handleRestore(f); e.target.value = '' } }}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {restoreLog && (
+            <div className={`rounded-2xl p-5 border ${restoreLog.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div className="flex items-center gap-2 font-semibold mb-3 text-sm">
+                {restoreLog.ok
+                  ? <><CheckCircle2 size={16} className="text-green-600" /><span className="text-green-800">éåæå</span></>
+                  : <><AlertTriangle size={16} className="text-red-600" /><span className="text-red-800">éåæç¼çé¯èª¤</span></>
+                }
+                {restoreLog.restoredFrom && (
+                  <span className="font-normal text-gray-500 ml-auto">
+                    åä»½æéï¼{new Date(restoreLog.restoredFrom).toLocaleString('zh-TW')}
+                  </span>
+                )}
+              </div>
+              {restoreLog.errors.length > 0 && (
+                <div className="mb-2">
+                  {restoreLog.errors.map((e, i) => <p key={i} className="text-xs text-red-700">â {e}</p>)}
+                </div>
+              )}
+              <details className="text-xs text-gray-500">
+                <summary className="cursor-pointer hover:text-gray-700">
+                  æ¥çè©³ç´°è¨éï¼{restoreLog.log.length} æ­¥é©ï¼
+                </summary>
+                <div className="mt-2 space-y-0.5 font-mono">
+                  {restoreLog.log.map((l, i) => <p key={i}>â {l}</p>)}
+                </div>
+              </details>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
