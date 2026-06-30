@@ -299,7 +299,8 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
   const supabase = createClient()
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [isNewProject, setIsNewProject] = useState(false)
   const [form, setForm] = useState<ProjectForm>(emptyProject)
   const [survey, setSurvey] = useState<SurveyForm>(emptySurvey)
   const [surveyId, setSurveyId] = useState<string | null>(null)
@@ -365,14 +366,14 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
       setForm(emptyProject)
       setSurvey(emptySurvey)
       setSurveyId(null)
-      setEditingId('new')
+      setIsNewProject(true)
+      setEditingId(crypto.randomUUID())
     }
   }
 
   async function handleSave() {
     if (!form.project_name.trim()) return
     setSaving(true)
-    let createdId: string | null = null
     try {
       const projectPayload = {
         ...form,
@@ -380,18 +381,16 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
         start_date: form.start_date || null,
         end_date: form.end_date || null,
       }
-      let projectId = editingId === 'new' ? null : editingId
-      if (editingId === 'new') {
-        const { data } = await supabase.from('projects').insert({ ...projectPayload, client_id: clientId }).select('id').single()
-        projectId = data?.id ?? null
-        createdId = projectId
+      if (isNewProject) {
+        await supabase.from('projects').insert({ id: editingId, ...projectPayload, client_id: clientId })
+        setIsNewProject(false)
       } else {
         await supabase.from('projects').update(projectPayload).eq('id', editingId)
       }
-      if (projectId) {
+      if (editingId) {
         const surveyPayload = {
           ...survey,
-          project_id: projectId,
+          project_id: editingId,
           space_length: survey.space_length ? Number(survey.space_length) : null,
           space_width: survey.space_width ? Number(survey.space_width) : null,
           space_height: survey.space_height ? Number(survey.space_height) : null,
@@ -408,12 +407,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
       }
     } finally {
       setSaving(false)
-      // 新增專案後留在編輯模式（讓照片區出現），更新專案則關閉表單
-      if (createdId) {
-        setEditingId(createdId)
-      } else {
-        setEditingId(null)
-      }
+      setEditingId(null)
       fetchProjects()
     }
   }
@@ -443,7 +437,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
       {editingId !== null && (
         <div className="border border-gray-200 rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
-            <span className="font-semibold text-gray-800 text-sm">{editingId === 'new' ? '新增專案' : '編輯專案'}</span>
+            <span className="font-semibold text-gray-800 text-sm">{isNewProject ? '新增專案' : '編輯專案'}</span>
             <button onClick={() => setEditingId(null)}><X size={16} className="text-gray-400" /></button>
           </div>
           <div className="p-4 space-y-3">
@@ -576,14 +570,9 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
               </Field>
             </Accordion>
 
-            {(
-              <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
-                {editingId === 'new'
-                  ? <p className="text-sm text-gray-400 text-center py-6">請先填寫專案名稱並按下「儲存」，即可上傳照片</p>
-                  : <PhotoSection projectId={editingId as string} supabase={supabase} />
-                }
-              </Accordion>
-            )}
+            <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
+              <PhotoSection projectId={editingId as string} supabase={supabase} />
+            </Accordion>
 
           </div>
 
