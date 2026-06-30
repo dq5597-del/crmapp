@@ -227,6 +227,283 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   )
 }
 
+// ── Equipment Map (現場設備標示圖) ─────────────────────────────
+const EQUIP_TYPES = [
+  { key: 'network', label: '網路設備', color: '#ef4444' },
+  { key: 'info',    label: '資訊設備', color: '#f97316' },
+  { key: 'audio',   label: '音響設備', color: '#eab308' },
+  { key: 'video',   label: '影像設備', color: '#22c55e' },
+  { key: 'env',     label: '環控設備', color: '#3b82f6' },
+  { key: 'phone',   label: '電話設備', color: '#6366f1' },
+  { key: 'aircon',  label: '空調設備', color: '#a855f7' },
+] as const
+
+type EquipMarker = {
+  id: string; project_id: string; product_id: string | null
+  equipment_type: string; label: string; x_pct: number; y_pct: number
+  notes: string; created_at: string
+}
+type SimpleProd = { id: string; product_name: string; brand: string | null; model: string | null }
+
+function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBeforeUpload }: {
+  projectId: string
+  supabase: ReturnType<typeof createClient>
+  initLength: string
+  initWidth: string
+  onBeforeUpload?: () => Promise<boolean>
+}) {
+  const [roomL, setRoomL] = useState(Number(initLength) || 10)
+  const [roomW, setRoomW] = useState(Number(initWidth) || 8)
+  const [markers, setMarkers] = useState<EquipMarker[]>([])
+  const [selId, setSelId] = useState<string | null>(null)
+  const [selType, setSelType] = useState<string>(EQUIP_TYPES[0].key)
+  const [products, setProducts] = useState<SimpleProd[]>([])
+  const [selProductId, setSelProductId] = useState<string | null>(null)
+  const [prodSearch, setProdSearch] = useState('')
+  const [showDD, setShowDD] = useState(false)
+  const [customLabel, setCustomLabel] = useState('')
+  const [placing, setPlacing] = useState(false)
+  const svgRef = useRef<SVGSVGElement>(null)
+
+  useEffect(() => { fetchMarkers(); fetchProducts() }, [projectId])
+  useEffect(() => { if (Number(initLength) > 0) setRoomL(Number(initLength)) }, [initLength])
+  useEffect(() => { if (Number(initWidth) > 0) setRoomW(Number(initWidth)) }, [initWidth])
+
+  async function fetchMarkers() {
+    const { data } = await supabase.from('project_equipment_markers')
+      .select('*').eq('project_id', projectId).order('created_at')
+    setMarkers((data ?? []) as EquipMarker[])
+  }
+
+  async function fetchProducts() {
+    const { data } = await supabase.from('products')
+      .select('id, product_name, brand, model').eq('is_active', true).order('product_name')
+    setProducts((data ?? []) as SimpleProd[])
+  }
+
+  const selectedProduct = products.find(p => p.id === selProductId)
+
+  async function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (!svgRef.current) return
+    if ((e.target as Element).closest('.marker-g')) return
+    if (onBeforeUpload && !(await onBeforeUpload())) return
+    const svg = svgRef.current
+    const pt = svg.createSVGPoint()
+    pt.x = e.clientX; pt.y = e.clientY
+    const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
+    const xPct = Math.max(1, Math.min(99, (svgPt.x / roomL) * 100))
+    const yPct = Math.max(1, Math.min(99, (svgPt.y / roomW) * 100))
+    setPlacing(true)
+    const label = (selectedProduct?.product_name ?? customLabel).trim()
+      || (EQUIP_TYPES.find(t => t.key === selType)?.label ?? selType)
+    const { data, error } = await supabase.from('project_equipment_markers').insert({
+      project_id: projectId, product_id: selProductId,
+      equipment_type: selType, label, x_pct: xPct, y_pct: yPct, notes: '',
+    }).select().single()
+    if (error) alert('新增標記失敗: ' + error.message)
+    else setMarkers(prev => [...prev, data as EquipMarker])
+    setPlacing(false)
+  }
+
+  async function handleDeleteMarker(id: string) {
+    await supabase.from('project_equipment_markers').delete().eq('id', id)
+    setMarkers(prev => prev.filter(m => m.id !== id))
+    setSelId(null)
+  }
+
+  const filteredProds = products.filter(p =>
+    !prodSearch || p.product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
+    (p.brand ?? '').toLowerCase().includes(prodSearch.toLowerCase())
+  )
+
+  const gridX = Array.from({ length: Math.floor(roomL) - 1 }, (_, i) => i + 1)
+  const gridY = Array.from({ length: Math.floor(roomW) - 1 }, (_, i) => i + 1)
+  const r = Math.min(roomL, roomW) * 0.045
+
+  return (
+    <div className="space-y-3">
+      {/* Room dimensions */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs text-gray-500 font-medium">房間尺寸</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-400">長</span>
+          <input type="number" min={1} max={200} step={0.5} value={roomL}
+            onChange={e => setRoomL(Number(e.target.value) || 10)}
+            className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
+          <span className="text-xs text-gray-400">m</span>
+        </div>
+        <span className="text-gray-300">×</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-400">寬</span>
+          <input type="number" min={1} max={200} step={0.5} value={roomW}
+            onChange={e => setRoomW(Number(e.target.value) || 8)}
+            className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
+          <span className="text-xs text-gray-400">m</span>
+        </div>
+        <span className="text-xs text-gray-400">（自動從④場勘帶入，可手動覆蓋）</span>
+      </div>
+
+      {/* Equipment type selector */}
+      <div>
+        <p className="text-xs text-gray-500 mb-1.5">選擇設備類型，再點擊地圖放置標記</p>
+        <div className="flex flex-wrap gap-1.5">
+          {EQUIP_TYPES.map(t => (
+            <button key={t.key} type="button" onClick={() => setSelType(t.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                selType === t.key ? 'text-white shadow-sm scale-105' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+              }`}
+              style={selType === t.key ? { backgroundColor: t.color, borderColor: t.color } : {}}>
+              <span className="w-2 h-2 rounded-full inline-block flex-shrink-0"
+                style={{ backgroundColor: t.color }} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Product selector + custom label */}
+      <div className="flex gap-3 flex-wrap items-start">
+        <div className="relative flex-1 min-w-[180px]">
+          <label className="text-xs text-gray-500 mb-1 block">產品（從資料庫搜尋）</label>
+          <input
+            value={selProductId ? (selectedProduct?.product_name ?? '') : prodSearch}
+            onChange={e => { setProdSearch(e.target.value); setSelProductId(null); setShowDD(true) }}
+            onFocus={() => setShowDD(true)}
+            onBlur={() => setTimeout(() => setShowDD(false), 150)}
+            placeholder="搜尋產品名稱..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 pr-7" />
+          {selProductId && (
+            <button type="button" onClick={() => { setSelProductId(null); setProdSearch('') }}
+              className="absolute right-2 top-[30px] text-gray-400 hover:text-gray-600"><X size={13} /></button>
+          )}
+          {showDD && !selProductId && filteredProds.length > 0 && (
+            <div className="absolute z-20 top-full mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
+              {filteredProds.slice(0, 20).map(p => (
+                <button key={p.id} type="button"
+                  onMouseDown={() => { setSelProductId(p.id); setProdSearch(''); setShowDD(false) }}
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm">
+                  <span className="font-medium text-gray-900">{p.product_name}</span>
+                  {p.brand && <span className="text-xs text-gray-400 ml-2">{p.brand} {p.model}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-[130px]">
+          <label className="text-xs text-gray-500 mb-1 block">或自訂標籤</label>
+          <input value={customLabel} onChange={e => setCustomLabel(e.target.value)}
+            disabled={!!selProductId}
+            placeholder={selProductId ? '使用產品名稱' : '自訂...'}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-400" />
+        </div>
+      </div>
+
+      {/* SVG floor plan */}
+      <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-slate-50 relative">
+        {placing && (
+          <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 pointer-events-none">
+            <span className="text-xs text-gray-500">放置中...</span>
+          </div>
+        )}
+        <svg ref={svgRef} onClick={handleSvgClick}
+          viewBox={`0 0 ${roomL} ${roomW}`}
+          className="w-full cursor-crosshair select-none block"
+          style={{ maxHeight: '60vh' }}>
+
+          {/* Background */}
+          <rect x={0} y={0} width={roomL} height={roomW} fill="#f8fafc" />
+
+          {/* Grid lines (1m) */}
+          {gridX.map(x => (
+            <line key={`gx${x}`} x1={x} y1={0} x2={x} y2={roomW}
+              stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
+          ))}
+          {gridY.map(y => (
+            <line key={`gy${y}`} x1={0} y1={y} x2={roomL} y2={y}
+              stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
+          ))}
+
+          {/* Room border */}
+          <rect x={0} y={0} width={roomL} height={roomW} fill="none"
+            stroke="#94a3b8" strokeWidth={roomL * 0.008} />
+
+          {/* Corner dimension labels inside */}
+          <text x={roomL * 0.5} y={roomW * 0.04 + r * 0.5}
+            textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui">
+            {roomL}m
+          </text>
+          <text x={r * 0.6} y={roomW * 0.5}
+            textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui"
+            transform={`rotate(-90, ${r * 0.6}, ${roomW * 0.5})`}>
+            {roomW}m
+          </text>
+
+          {/* Markers */}
+          {markers.map(m => {
+            const mx = (m.x_pct / 100) * roomL
+            const my = (m.y_pct / 100) * roomW
+            const col = EQUIP_TYPES.find(t => t.key === m.equipment_type)?.color ?? '#6b7280'
+            const isSel = selId === m.id
+            return (
+              <g key={m.id} className="marker-g"
+                onClick={e => { e.stopPropagation(); setSelId(isSel ? null : m.id) }}
+                style={{ cursor: 'pointer' }}>
+                {/* Label */}
+                <text x={mx} y={my - r - roomL * 0.005}
+                  textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
+                  fontWeight="600" fontFamily="system-ui"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                  {m.label}
+                </text>
+                {/* Circle */}
+                <circle cx={mx} cy={my} r={r} fill={col}
+                  stroke={isSel ? '#1e293b' : 'white'}
+                  strokeWidth={isSel ? r * 0.25 : r * 0.12}
+                  opacity={0.92} />
+                {/* Delete button (when selected) */}
+                {isSel && (
+                  <g onClick={e => { e.stopPropagation(); handleDeleteMarker(m.id) }}
+                    style={{ cursor: 'pointer' }}>
+                    <circle cx={mx + r * 0.85} cy={my - r * 0.85} r={r * 0.5}
+                      fill="#ef4444" />
+                    <text x={mx + r * 0.85} y={my - r * 0.85 + r * 0.22}
+                      textAnchor="middle" fontSize={r * 0.75} fill="white" fontWeight="bold"
+                      style={{ userSelect: 'none', pointerEvents: 'none' }}>×</text>
+                  </g>
+                )}
+              </g>
+            )
+          })}
+        </svg>
+
+        {markers.length === 0 && (
+          <div className="absolute bottom-3 inset-x-0 flex justify-center pointer-events-none">
+            <span className="text-xs text-gray-400 bg-white/80 px-3 py-1 rounded-full">
+              點擊地圖任意位置放置設備標記
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Legend + count */}
+      <div className="flex items-start gap-x-4 gap-y-1.5 flex-wrap">
+        {EQUIP_TYPES.map(t => (
+          <div key={t.key} className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0"
+              style={{ backgroundColor: t.color }} />
+            {t.label}
+          </div>
+        ))}
+        {markers.length > 0 && (
+          <span className="text-xs text-gray-400 ml-auto">
+            共 {markers.length} 個標記・點擊可刪除
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Equipment Photo Section (控制台/機櫃/現場設備) ─────────────
 const EQUIP_SUBS = [
   { key: 'ctrl', label: '控制台',   cats: CATS_CTRL },
@@ -615,6 +892,16 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
               <EquipmentSection
                 projectId={editingId as string}
                 supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
+              <EquipmentMapSection
+                projectId={editingId as string}
+                supabase={supabase}
+                initLength={survey.space_length}
+                initWidth={survey.space_width}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
