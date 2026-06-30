@@ -576,9 +576,12 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
               </Field>
             </Accordion>
 
-            {editingId !== 'new' && (
+            {(
               <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
-                <PhotoSection projectId={editingId as string} supabase={supabase} />
+                {editingId === 'new'
+                  ? <p className="text-sm text-gray-400 text-center py-6">請先填寫專案名稱並按下「儲存」，即可上傳照片</p>
+                  : <PhotoSection projectId={editingId as string} supabase={supabase} />
+                }
               </Accordion>
             )}
 
