@@ -660,7 +660,7 @@ export default function QuoteForm({
                     </td>
 
                     {/* 數量 */}
-                    <td className="pl-1 pr-2 py-2">
+                    <td className="pl-1 pr-1 py-2">
                       <input type="number" min="0" step="1"
                         value={item.quantity === 0 ? '' : item.quantity}
                         onChange={e => setItem(idx, 'quantity', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
@@ -669,7 +669,7 @@ export default function QuoteForm({
                     </td>
 
                     {/* 單價 + 歷史售價 */}
-                    <td className="px-3 py-2 relative">
+                    <td className="pl-1 pr-3 py-2 relative">
                       <div className="flex gap-1 items-center justify-end">
                         <input type="number" min="0"
                           value={item.unit_price === 0 ? '' : item.unit_price}
