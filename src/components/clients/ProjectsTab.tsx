@@ -278,6 +278,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [drawTool, setDrawTool] = useState<DrawTool>('circle')
   const [previewShape, setPreviewShape] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+  const [rectSizeCm, setRectSizeCm] = useState<{ w: string; h: string } | null>(null)
 
   const svgRef = useRef<SVGSVGElement>(null)
   const draggingIdRef = useRef<string | null>(null)
@@ -290,6 +291,17 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   useEffect(() => { fetchMarkers(); fetchProducts() }, [projectId])
   useEffect(() => { if (Number(initLength) > 0) setRoomL(Number(initLength)) }, [initLength])
   useEffect(() => { if (Number(initWidth) > 0) setRoomW(Number(initWidth)) }, [initWidth])
+  useEffect(() => {
+    const sel = markers.find(m => m.id === selId)
+    if (sel && (sel.shape_type ?? 'circle') === 'rect') {
+      setRectSizeCm({
+        w: String(Math.round((sel.w_pct ?? 10) / 100 * roomL * 100)),
+        h: String(Math.round((sel.h_pct ?? 10) / 100 * roomW * 100)),
+      })
+    } else {
+      setRectSizeCm(null)
+    }
+  }, [selId, markers, roomL, roomW])
 
   async function fetchMarkers() {
     const { data } = await supabase.from('project_equipment_markers')
@@ -459,6 +471,15 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
     await supabase.from('project_equipment_markers').delete().eq('id', id)
     setMarkers(prev => prev.filter(mk => mk.id !== id))
     setSelId(null)
+  }
+
+  async function handleRectSizeSave(id: string, wCm: string, hCm: string) {
+    const w = Math.max(1, Number(wCm) || 1)
+    const h = Math.max(1, Number(hCm) || 1)
+    const w_pct = (w / 100 / roomL) * 100
+    const h_pct = (h / 100 / roomW) * 100
+    setMarkers(prev => prev.map(mk => mk.id === id ? { ...mk, w_pct, h_pct } as EquipMarker : mk))
+    await supabase.from('project_equipment_markers').update({ w_pct, h_pct }).eq('id', id)
   }
 
   const filteredProds = products.filter(p =>
@@ -661,11 +682,6 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                   </text>
                   {isSel && (
                     <>
-                      <g onClick={e => { e.stopPropagation(); handleDeleteMarker(mk.id) }} style={{ cursor: 'pointer' }}>
-                        <circle cx={rx + rw} cy={ry} r={hR} fill="#ef4444" />
-                        <text x={rx + rw} y={ry + hR * 0.3} textAnchor="middle" fontSize={hR * 1.5}
-                          fill="white" fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
-                      </g>
                       <circle cx={rx} cy={ry} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
                         onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-tl') }}
                         style={{ cursor: 'nw-resize' }} />
@@ -700,13 +716,22 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                   <line x1={x1} y1={y1} x2={x2} y2={y2}
                     stroke={col} strokeWidth={lineW * 2}
                     markerEnd={shType === 'arrow' ? `url(#arr-${mk.equipment_type})` : undefined} />
-                  {mk.label && (
-                    <text x={lmx} y={lmy - lineW * 2}
-                      textAnchor="middle" fontSize={r * 0.75} fill={col} fontWeight="600" fontFamily="system-ui"
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}>
-                      {mk.label}
-                    </text>
-                  )}
+                  {mk.label && (() => {
+                    const isVert = Math.abs(y2 - y1) > Math.abs(x2 - x1)
+                    const textAngle = isVert ? -90 : 0
+                    const offAmt = r * 1.5
+                    const textX = lmx + (isVert ? offAmt : 0)
+                    const textY = lmy + (isVert ? 0 : -offAmt)
+                    return (
+                      <text x={textX} y={textY}
+                        textAnchor="middle" dominantBaseline="middle"
+                        fontSize={r * 0.75} fill={col} fontWeight="600" fontFamily="system-ui"
+                        transform={textAngle !== 0 ? `rotate(${textAngle}, ${textX}, ${textY})` : undefined}
+                        style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                        {mk.label}
+                      </text>
+                    )
+                  })()}
                   {isSel && (
                     <>
                       <g onClick={e => { e.stopPropagation(); handleDeleteMarker(mk.id) }} style={{ cursor: 'pointer' }}>
@@ -765,6 +790,34 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
           </div>
         )}
       </div>
+
+      {/* Selected rect size panel */}
+      {selId && rectSizeCm && (
+        <div className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs flex-wrap">
+          <span className="text-gray-500 font-medium shrink-0">選取矩形：</span>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-400">寬</span>
+            <input type="number" min={1} max={99999} value={rectSizeCm.w}
+              onChange={e => setRectSizeCm(v => v ? { ...v, w: e.target.value } : v)}
+              onBlur={() => handleRectSizeSave(selId, rectSizeCm.w, rectSizeCm.h)}
+              className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            <span className="text-gray-400">cm</span>
+          </div>
+          <span className="text-gray-300">×</span>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-400">高</span>
+            <input type="number" min={1} max={99999} value={rectSizeCm.h}
+              onChange={e => setRectSizeCm(v => v ? { ...v, h: e.target.value } : v)}
+              onBlur={() => handleRectSizeSave(selId, rectSizeCm.w, rectSizeCm.h)}
+              className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            <span className="text-gray-400">cm</span>
+          </div>
+          <button type="button" onClick={() => handleDeleteMarker(selId)}
+            className="ml-auto flex items-center gap-1 px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded text-xs font-medium">
+            刪除矩形
+          </button>
+        </div>
+      )}
 
       {/* Legend + count */}
       <div className="flex items-start gap-x-4 gap-y-1.5 flex-wrap">
