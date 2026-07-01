@@ -239,11 +239,11 @@ export default function QuoteForm({
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [productSearch, setProductSearch] = useState<Record<number, string>>({})
   const [productDropdown, setProductDropdown] = useState<number | null>(null)
-  const [catFilter, setCatFilter] = useState<string>('')   // 分類篩選（主分類名稱）
+  const [catFilter, setCatFilter] = useState<string>('')
   const [historyPanel, setHistoryPanel] = useState<number | null>(null)
   const [historyData, setHistoryData] = useState<Record<number, { order_no: string; client_name: string; date: string; quantity: number; unit_price: number }[]>>({})
   const [historyLoading, setHistoryLoading] = useState<number | null>(null)
-  const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)  // 哪個品項要快速新增
+  const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [showQuickAddClient, setShowQuickAddClient] = useState(false)
@@ -347,7 +347,6 @@ export default function QuoteForm({
   const taxAmount = Math.round(subtotal * 0.05)
   const totalAmount = subtotal + taxAmount
 
-  // 客戶搜尋過濾
   const filteredClients = clientSearch
     ? clients.filter(c =>
         c.company_name.toLowerCase().includes(clientSearch.toLowerCase()) ||
@@ -355,14 +354,12 @@ export default function QuoteForm({
       )
     : clients
 
-  // 分類篩選的主分類列表
   const mainCats = [...new Set(categories.map(c => c.main_category))]
 
   const filteredProducts = (idx: number) => {
     const q = (productSearch[idx] ?? '').toLowerCase()
     let list = products
 
-    // 分類篩選
     if (catFilter) {
       list = list.filter(p => {
         const pc = (p as any).product_categories
@@ -370,7 +367,6 @@ export default function QuoteForm({
       })
     }
 
-    // 文字搜尋
     if (q) {
       list = list.filter(p => {
         const pc = (p as any).product_categories
@@ -458,7 +454,6 @@ export default function QuoteForm({
 
   return (
     <div className="space-y-5">
-      {/* 快速新增客戶 Modal */}
       {showQuickAddClient && (
         <QuickAddClientModal
           initialName={clientSearch}
@@ -472,14 +467,12 @@ export default function QuoteForm({
         />
       )}
 
-      {/* 快速新增產品 Modal */}
       {quickAddIdx !== null && (
         <QuickAddProductModal
           initialName={productSearch[quickAddIdx] ?? ''}
           categories={categories}
           onClose={() => setQuickAddIdx(null)}
           onCreated={async (product) => {
-            // 更新產品清單並帶入品項
             await loadProducts()
             onProductSelect(quickAddIdx, product)
             setQuickAddIdx(null)
@@ -570,7 +563,6 @@ export default function QuoteForm({
           </button>
         </div>
 
-        {/* 分類篩選列 */}
         {mainCats.length > 0 && (
           <div className="flex gap-1.5 px-5 py-2.5 border-b border-gray-100 flex-wrap items-center">
             <Tag size={13} className="text-gray-400 shrink-0" />
@@ -589,8 +581,8 @@ export default function QuoteForm({
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[200px]">品名</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[160px]">品項備註</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-20">單位</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-20">數量</th>
+                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-24">單位</th>
+                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-24">數量</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[180px]">單價</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">型錄</th>
@@ -607,7 +599,7 @@ export default function QuoteForm({
                   <tr key={idx} className="hover:bg-blue-50/30 group">
                     <td className="px-3 py-2 text-xs text-gray-400 text-center">{idx + 1}</td>
 
-                    {/* 品名 — 含產品搜尋 dropdown */}
+                    {/* 品名 */}
                     <td className="px-3 py-2 relative">
                       <div className="relative">
                         <input
@@ -645,11 +637,8 @@ export default function QuoteForm({
                                 )
                               })
                             ) : (
-                              <div className="px-3 py-2 text-sm text-gray-400">
-                                找不到符合的產品
-                              </div>
+                              <div className="px-3 py-2 text-sm text-gray-400">找不到符合的產品</div>
                             )}
-                            {/* 快速新增產品 */}
                             <button
                               type="button"
                               onMouseDown={() => { setQuickAddIdx(idx); setProductDropdown(null) }}
@@ -700,7 +689,6 @@ export default function QuoteForm({
                           </button>
                         )}
                       </div>
-                      {/* 歷史售價 panel */}
                       {historyPanel === idx && (
                         <div className="absolute top-full right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 mt-1 text-xs">
                           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl">
@@ -729,7 +717,7 @@ export default function QuoteForm({
                       )}
                     </td>
 
-                    {/* 小計 */}
+                    {/* 總計 */}
                     <td className="px-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
                       {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
                     </td>
