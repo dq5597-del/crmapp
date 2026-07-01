@@ -591,7 +591,7 @@ export default function QuoteForm({
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
                 <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-20">單位</th>
                 <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-20">數量</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">單價</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[180px]">單價</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">型錄</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">說明書</th>
@@ -693,7 +693,7 @@ export default function QuoteForm({
                           value={item.unit_price === 0 ? '' : item.unit_price}
                           onChange={e => setItem(idx, 'unit_price', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
                           onFocus={e => e.target.select()}
-                          className={tdInput + ' text-right flex-1'} />
+                          className={tdInput + ' text-right flex-1 min-w-[120px]'} />
                         {item.product_id && (
                           <button type="button" onClick={() => fetchHistory(idx, item.product_id!)} title="歷史售價" className="p-1 text-gray-400 hover:text-blue-600 shrink-0">
                             <Clock size={13} />
