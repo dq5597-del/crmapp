@@ -580,8 +580,8 @@ export default function QuoteForm({
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[220px]">品名</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[90px]">單位</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[90px]">數量</th>
+                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">單位</th>
+                <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">數量</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[146px]">單價</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
                 <th className="w-8"></th>
@@ -655,12 +655,12 @@ export default function QuoteForm({
                     </td>
 
                     {/* 單位 */}
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2">
                       <input value={item.unit} onChange={e => setItem(idx, 'unit', e.target.value)} onFocus={e => e.target.select()} className={tdInput + ' text-center'} />
                     </td>
 
                     {/* 數量 */}
-                    <td className="px-3 py-2">
+                    <td className="pl-1 pr-2 py-2">
                       <input type="number" min="0" step="1"
                         value={item.quantity === 0 ? '' : item.quantity}
                         onChange={e => setItem(idx, 'quantity', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
