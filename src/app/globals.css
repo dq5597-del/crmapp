@@ -19,3 +19,14 @@
     scrollbar-color: #cbd5e1 transparent;
   }
 }
+
+/* 隠藏 number input 的上下選擇箭頭圖示（spinner） */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
