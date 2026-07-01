@@ -582,7 +582,7 @@ export default function QuoteForm({
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
                 <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[90px]">單位</th>
                 <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[90px]">數量</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[130px]">單價</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[146px]">單價</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
                 <th className="w-8"></th>
               </tr>
@@ -670,12 +670,12 @@ export default function QuoteForm({
 
                     {/* 單價 + 歷史售價 */}
                     <td className="px-3 py-2 relative">
-                      <div className="flex gap-1 items-center">
+                      <div className="flex gap-1 items-center justify-end">
                         <input type="number" min="0"
                           value={item.unit_price === 0 ? '' : item.unit_price}
                           onChange={e => setItem(idx, 'unit_price', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
                           onFocus={e => e.target.select()}
-                          className={tdInput + ' text-right shrink-0'} style={{ width: 80 }} />
+                          className={tdInput + ' text-right shrink-0'} style={{ width: 96 }} />
                         {item.product_id && (
                           <button type="button" onClick={() => fetchHistory(idx, item.product_id!)} title="歷史售價" className="p-1 text-gray-400 hover:text-blue-600 shrink-0">
                             <Clock size={13} />
