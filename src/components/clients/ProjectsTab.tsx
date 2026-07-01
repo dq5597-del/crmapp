@@ -160,7 +160,6 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
 
   return (
     <div>
-      {/* Category Tabs — only when multiple cats */}
       {cats.length > 1 && (
         <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-3">
           {cats.map((c, i) => (
@@ -174,8 +173,6 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
           ))}
         </div>
       )}
-
-      {/* Upload Controls */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
@@ -192,14 +189,10 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
         {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
         <span className="ml-auto text-xs text-gray-400">上傳至「{catLabel}」</span>
       </div>
-
-      {/* Photo Grid */}
       {loading ? (
         <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
       ) : catPhotos.length === 0 ? (
-        <div className="text-center py-6 text-gray-400 text-sm">
-          尚無「{catLabel}」照片，點上方按鈕新增
-        </div>
+        <div className="text-center py-6 text-gray-400 text-sm">尚無「{catLabel}」照片，點上方按鈕新增</div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {catPhotos.map(photo => (
@@ -227,7 +220,7 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   )
 }
 
-// ── Equipment Map (現場設備標示圖) ─────────────────────────────
+// ── Equipment Map ─────────────────────────────
 const EQUIP_TYPES = [
   { key: 'network', label: '網路設備', color: '#ef4444' },
   { key: 'info',    label: '資訊設備', color: '#f97316' },
@@ -279,6 +272,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const [drawTool, setDrawTool] = useState<DrawTool>('circle')
   const [previewShape, setPreviewShape] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const [rectSizeCm, setRectSizeCm] = useState<{ w: string; h: string } | null>(null)
+  const [editMarker, setEditMarker] = useState<{ label: string; equipment_type: string } | null>(null)
 
   const svgRef = useRef<SVGSVGElement>(null)
   const draggingIdRef = useRef<string | null>(null)
@@ -287,6 +281,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const draggingPosRef = useRef<Partial<EquipMarker>>({})
   const didDragRef = useRef(false)
   const drawStartRef = useRef<{ x: number; y: number } | null>(null)
+  const touchTapRef = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => { fetchMarkers(); fetchProducts() }, [projectId])
   useEffect(() => { if (Number(initLength) > 0) setRoomL(Number(initLength)) }, [initLength])
@@ -324,6 +319,33 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
     return pt.matrixTransform(svg.getScreenCTM()!.inverse())
   }
 
+  function getSvgPtFromTouch(touch: Touch) {
+    const svg = svgRef.current!
+    const pt = svg.createSVGPoint()
+    pt.x = touch.clientX; pt.y = touch.clientY
+    return pt.matrixTransform(svg.getScreenCTM()!.inverse())
+  }
+
+  function handleMarkerTouchStart(e: React.TouchEvent, m: EquipMarker, mode: DragMode = 'move') {
+    e.stopPropagation()
+    if (!svgRef.current) return
+    const svgPt = getSvgPtFromTouch(e.touches[0])
+    draggingIdRef.current = m.id
+    dragModeRef.current = mode
+    didDragRef.current = false
+    draggingPosRef.current = { ...m }
+    setDraggingId(m.id)
+    setSelId(m.id)
+    if (mode === 'move') {
+      dragOffsetRef.current = {
+        dx: svgPt.x - (m.x_pct / 100) * roomL,
+        dy: svgPt.y - (m.y_pct / 100) * roomW,
+      }
+    } else {
+      dragOffsetRef.current = { dx: 0, dy: 0 }
+    }
+  }
+
   function handleMarkerMouseDown(e: React.MouseEvent, m: EquipMarker, mode: DragMode = 'move') {
     e.stopPropagation()
     if (!svgRef.current) return
@@ -353,20 +375,28 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
     setPreviewShape({ x1: svgPt.x, y1: svgPt.y, x2: svgPt.x, y2: svgPt.y })
   }
 
-  function handleSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+  function handleSvgTouchStart(e: React.TouchEvent<SVGSVGElement>) {
+    if ((e.target as Element).closest('.marker-g')) return
     if (!svgRef.current) return
-    const svgPt = getSvgPt(e)
+    const svgPt = getSvgPtFromTouch(e.touches[0])
+    if (drawTool === 'circle') {
+      touchTapRef.current = { x: svgPt.x, y: svgPt.y }
+      return
+    }
+    drawStartRef.current = { x: svgPt.x, y: svgPt.y }
+    setPreviewShape({ x1: svgPt.x, y1: svgPt.y, x2: svgPt.x, y2: svgPt.y })
+  }
 
+  function applyMoveAt(svgX: number, svgY: number) {
     if (draggingIdRef.current) {
       didDragRef.current = true
       const mode = dragModeRef.current
       const pos = { ...draggingPosRef.current }
-      const pX = (svgPt.x / roomL) * 100
-      const pY = (svgPt.y / roomW) * 100
-
+      const pX = (svgX / roomL) * 100
+      const pY = (svgY / roomW) * 100
       if (mode === 'move') {
-        pos.x_pct = Math.max(0, Math.min(100, (svgPt.x - dragOffsetRef.current.dx) / roomL * 100))
-        pos.y_pct = Math.max(0, Math.min(100, (svgPt.y - dragOffsetRef.current.dy) / roomW * 100))
+        pos.x_pct = Math.max(0, Math.min(100, (svgX - dragOffsetRef.current.dx) / roomL * 100))
+        pos.y_pct = Math.max(0, Math.min(100, (svgY - dragOffsetRef.current.dy) / roomW * 100))
       } else if (mode === 'p1') {
         pos.x_pct = Math.max(0, Math.min(100, pX))
         pos.y_pct = Math.max(0, Math.min(100, pY))
@@ -389,15 +419,25 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
       } else if (mode === 'resize-br') {
         pos.w_pct = Math.max(2, pX - pos.x_pct!); pos.h_pct = Math.max(2, pY - pos.y_pct!)
       }
-
       draggingPosRef.current = pos
       setMarkers(prev => prev.map(mk => mk.id === draggingIdRef.current ? { ...mk, ...pos } as EquipMarker : mk))
       return
     }
-
     if (drawStartRef.current) {
-      setPreviewShape({ x1: drawStartRef.current.x, y1: drawStartRef.current.y, x2: svgPt.x, y2: svgPt.y })
+      setPreviewShape({ x1: drawStartRef.current.x, y1: drawStartRef.current.y, x2: svgX, y2: svgY })
     }
+  }
+
+  function handleSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (!svgRef.current) return
+    const svgPt = getSvgPt(e)
+    applyMoveAt(svgPt.x, svgPt.y)
+  }
+
+  function handleSvgTouchMove(e: React.TouchEvent<SVGSVGElement>) {
+    if (!svgRef.current || !e.touches[0]) return
+    const svgPt = getSvgPtFromTouch(e.touches[0])
+    applyMoveAt(svgPt.x, svgPt.y)
   }
 
   async function handleSvgMouseUp() {
@@ -414,7 +454,6 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         .eq('id', id)
       return
     }
-
     if (drawStartRef.current && previewShape) {
       const { x1, y1, x2, y2 } = previewShape
       if (Math.abs(x2 - x1) < roomL * 0.015 && Math.abs(y2 - y1) < roomW * 0.015) {
@@ -444,6 +483,30 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
     }
     drawStartRef.current = null
     setPreviewShape(null)
+  }
+
+  async function handleSvgTouchEnd(e: React.TouchEvent<SVGSVGElement>) {
+    if (touchTapRef.current && drawTool === 'circle' && !didDragRef.current) {
+      const { x, y } = touchTapRef.current
+      touchTapRef.current = null
+      if (onBeforeUpload && !(await onBeforeUpload())) return
+      const xPct = Math.max(1, Math.min(99, (x / roomL) * 100))
+      const yPct = Math.max(1, Math.min(99, (y / roomW) * 100))
+      setPlacing(true)
+      const label = (selectedProduct?.product_name ?? customLabel).trim()
+        || (EQUIP_TYPES.find(t => t.key === selType)?.label ?? selType)
+      const { data, error } = await supabase.from('project_equipment_markers').insert({
+        project_id: projectId, product_id: selProductId,
+        equipment_type: selType, label, shape_type: 'circle',
+        x_pct: xPct, y_pct: yPct, notes: '',
+      }).select().single()
+      if (error) alert('新增失敗: ' + error.message)
+      else setMarkers(prev => [...prev, data as EquipMarker])
+      setPlacing(false)
+      return
+    }
+    touchTapRef.current = null
+    await handleSvgMouseUp()
   }
 
   async function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
@@ -482,6 +545,12 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
     await supabase.from('project_equipment_markers').update({ w_pct, h_pct }).eq('id', id)
   }
 
+  async function handleMarkerSave(id: string, label: string, equipment_type: string) {
+    setMarkers(prev => prev.map(mk => mk.id === id ? { ...mk, label, equipment_type } as EquipMarker : mk))
+    await supabase.from('project_equipment_markers').update({ label, equipment_type }).eq('id', id)
+    setEditMarker(null)
+  }
+
   const filteredProds = products.filter(p =>
     !prodSearch || p.product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
     (p.brand ?? '').toLowerCase().includes(prodSearch.toLowerCase())
@@ -496,7 +565,6 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
 
   return (
     <div className="space-y-3">
-      {/* Room dimensions */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs text-gray-500 font-medium">房間尺寸</span>
         <div className="flex items-center gap-1.5">
@@ -517,7 +585,6 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         <span className="text-xs text-gray-400">（自動從④場勘帶入，可手動覆蓋）</span>
       </div>
 
-      {/* Draw tool selector */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs text-gray-500 font-medium shrink-0">繪圖工具</span>
         <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
@@ -533,7 +600,6 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         <span className="text-xs text-gray-400">{DRAW_TOOLS.find(dt => dt.key === drawTool)?.hint}</span>
       </div>
 
-      {/* Equipment type selector */}
       <div>
         <p className="text-xs text-gray-500 mb-1.5">設備類型（決定顏色）</p>
         <div className="flex flex-wrap gap-1.5">
@@ -550,7 +616,6 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         </div>
       </div>
 
-      {/* Product selector + custom label */}
       <div className="flex gap-3 flex-wrap items-start">
         <div className="relative flex-1 min-w-[180px]">
           <label className="text-xs text-gray-500 mb-1 block">產品（從資料庫搜尋）</label>
@@ -587,7 +652,6 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         </div>
       </div>
 
-      {/* SVG floor plan */}
       <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-slate-50 relative">
         {placing && (
           <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 pointer-events-none">
@@ -600,10 +664,12 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
           onMouseMove={handleSvgMouseMove}
           onMouseUp={handleSvgMouseUp}
           onMouseLeave={handleSvgMouseUp}
+          onTouchStart={handleSvgTouchStart}
+          onTouchMove={handleSvgTouchMove}
+          onTouchEnd={handleSvgTouchEnd}
           viewBox={`0 0 ${roomL} ${roomW}`}
           className="w-full select-none block"
-          style={{ maxHeight: '60vh', cursor: draggingId ? 'grabbing' : 'crosshair' }}>
-
+          style={{ maxHeight: '60vh', cursor: draggingId ? 'grabbing' : 'crosshair', touchAction: 'none' }}>
           <defs>
             {EQUIP_TYPES.map(et => (
               <marker key={et.key} id={`arr-${et.key}`}
@@ -612,54 +678,31 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
               </marker>
             ))}
           </defs>
-
           <rect x={0} y={0} width={roomL} height={roomW} fill="#f8fafc" />
           {gridX.map(x => (
-            <line key={`gx${x}`} x1={x} y1={0} x2={x} y2={roomW}
-              stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
+            <line key={`gx${x}`} x1={x} y1={0} x2={x} y2={roomW} stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
           ))}
           {gridY.map(y => (
-            <line key={`gy${y}`} x1={0} y1={y} x2={roomL} y2={y}
-              stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
+            <line key={`gy${y}`} x1={0} y1={y} x2={roomL} y2={y} stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
           ))}
-          <rect x={0} y={0} width={roomL} height={roomW} fill="none"
-            stroke="#94a3b8" strokeWidth={roomL * 0.008} />
-          <text x={roomL * 0.5} y={roomW * 0.04 + r * 0.5}
-            textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui">
-            {roomL}m
-          </text>
-          <text x={r * 0.6} y={roomW * 0.5}
-            textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui"
-            transform={`rotate(-90, ${r * 0.6}, ${roomW * 0.5})`}>
-            {roomW}m
-          </text>
-
+          <rect x={0} y={0} width={roomL} height={roomW} fill="none" stroke="#94a3b8" strokeWidth={roomL * 0.008} />
+          <text x={roomL * 0.5} y={roomW * 0.04 + r * 0.5} textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui">{roomL}m</text>
+          <text x={r * 0.6} y={roomW * 0.5} textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui" transform={`rotate(-90, ${r * 0.6}, ${roomW * 0.5})`}>{roomW}m</text>
           {previewShape && drawTool === 'rect' && (
-            <rect
-              x={Math.min(previewShape.x1, previewShape.x2)}
-              y={Math.min(previewShape.y1, previewShape.y2)}
-              width={Math.abs(previewShape.x2 - previewShape.x1)}
-              height={Math.abs(previewShape.y2 - previewShape.y1)}
-              fill={curSelColor} fillOpacity={0.15}
-              stroke={curSelColor} strokeWidth={lineW * 1.5}
-              strokeDasharray={`${lineW * 3} ${lineW}`}
-              style={{ pointerEvents: 'none' }} />
+            <rect x={Math.min(previewShape.x1, previewShape.x2)} y={Math.min(previewShape.y1, previewShape.y2)}
+              width={Math.abs(previewShape.x2 - previewShape.x1)} height={Math.abs(previewShape.y2 - previewShape.y1)}
+              fill={curSelColor} fillOpacity={0.15} stroke={curSelColor} strokeWidth={lineW * 1.5}
+              strokeDasharray={`${lineW * 3} ${lineW}`} style={{ pointerEvents: 'none' }} />
           )}
           {previewShape && (drawTool === 'line' || drawTool === 'arrow') && (
-            <line
-              x1={previewShape.x1} y1={previewShape.y1}
-              x2={previewShape.x2} y2={previewShape.y2}
-              stroke={curSelColor} strokeWidth={lineW * 2}
-              strokeDasharray={`${lineW * 3} ${lineW}`}
-              markerEnd={drawTool === 'arrow' ? `url(#arr-${selType})` : undefined}
-              style={{ pointerEvents: 'none' }} />
+            <line x1={previewShape.x1} y1={previewShape.y1} x2={previewShape.x2} y2={previewShape.y2}
+              stroke={curSelColor} strokeWidth={lineW * 2} strokeDasharray={`${lineW * 3} ${lineW}`}
+              markerEnd={drawTool === 'arrow' ? `url(#arr-${selType})` : undefined} style={{ pointerEvents: 'none' }} />
           )}
-
           {markers.map(mk => {
             const col = EQUIP_TYPES.find(et => et.key === mk.equipment_type)?.color ?? '#6b7280'
             const isSel = selId === mk.id
             const shType = mk.shape_type ?? 'circle'
-
             if (shType === 'rect') {
               const rx = (mk.x_pct / 100) * roomL
               const ry = (mk.y_pct / 100) * roomW
@@ -668,38 +711,36 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
               return (
                 <g key={mk.id} className="marker-g"
                   onMouseDown={e => handleMarkerMouseDown(e, mk, 'move')}
+                  onTouchStart={e => handleMarkerTouchStart(e, mk, 'move')}
                   onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
                   style={{ cursor: draggingId === mk.id ? 'grabbing' : 'move' }}>
-                  <rect x={rx} y={ry} width={rw} height={rh}
-                    fill={col} fillOpacity={0.18}
-                    stroke={col} strokeWidth={lineW * 1.5} rx={lineW} />
-                  <text x={rx + rw / 2} y={ry + rh / 2}
-                    textAnchor="middle" dominantBaseline="middle"
-                    fontSize={Math.min(r * 0.85, rw * 0.15, rh * 0.35)}
-                    fill={col} fontWeight="600" fontFamily="system-ui"
-                    style={{ userSelect: 'none', pointerEvents: 'none' }}>
-                    {mk.label}
-                  </text>
+                  <rect x={rx} y={ry} width={rw} height={rh} fill={col} fillOpacity={0.18} stroke={col} strokeWidth={lineW * 1.5} rx={lineW} />
+                  <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
+                    fontSize={Math.min(r * 0.85, rw * 0.15, rh * 0.35)} fill={col} fontWeight="600" fontFamily="system-ui"
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}>{mk.label}</text>
                   {isSel && (
                     <>
                       <circle cx={rx} cy={ry} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
                         onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-tl') }}
+                        onTouchStart={e => { e.stopPropagation(); handleMarkerTouchStart(e, mk, 'resize-tl') }}
                         style={{ cursor: 'nw-resize' }} />
                       <circle cx={rx + rw} cy={ry + rh} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
                         onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-br') }}
+                        onTouchStart={e => { e.stopPropagation(); handleMarkerTouchStart(e, mk, 'resize-br') }}
                         style={{ cursor: 'se-resize' }} />
                       <circle cx={rx + rw} cy={ry} r={hR * 0.7} fill="white" stroke={col} strokeWidth={lineW}
                         onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-tr') }}
+                        onTouchStart={e => { e.stopPropagation(); handleMarkerTouchStart(e, mk, 'resize-tr') }}
                         style={{ cursor: 'ne-resize' }} />
                       <circle cx={rx} cy={ry + rh} r={hR * 0.7} fill="white" stroke={col} strokeWidth={lineW}
                         onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-bl') }}
+                        onTouchStart={e => { e.stopPropagation(); handleMarkerTouchStart(e, mk, 'resize-bl') }}
                         style={{ cursor: 'sw-resize' }} />
                     </>
                   )}
                 </g>
               )
             }
-
             if (shType === 'line' || shType === 'arrow') {
               const x1 = (mk.x_pct / 100) * roomL
               const y1 = (mk.y_pct / 100) * roomW
@@ -710,11 +751,11 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
               return (
                 <g key={mk.id} className="marker-g"
                   onMouseDown={e => handleMarkerMouseDown(e, mk, 'move')}
+                  onTouchStart={e => handleMarkerTouchStart(e, mk, 'move')}
                   onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
                   style={{ cursor: draggingId === mk.id ? 'grabbing' : 'grab' }}>
                   <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={lineW * 6} />
-                  <line x1={x1} y1={y1} x2={x2} y2={y2}
-                    stroke={col} strokeWidth={lineW * 2}
+                  <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={col} strokeWidth={lineW * 2}
                     markerEnd={shType === 'arrow' ? `url(#arr-${mk.equipment_type})` : undefined} />
                   {mk.label && (() => {
                     const isVert = Math.abs(y2 - y1) > Math.abs(x2 - x1)
@@ -723,13 +764,10 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                     const textX = lmx + (isVert ? offAmt : 0)
                     const textY = lmy + (isVert ? 0 : -offAmt)
                     return (
-                      <text x={textX} y={textY}
-                        textAnchor="middle" dominantBaseline="middle"
+                      <text x={textX} y={textY} textAnchor="middle" dominantBaseline="middle"
                         fontSize={r * 0.75} fill={col} fontWeight="600" fontFamily="system-ui"
                         transform={textAngle !== 0 ? `rotate(${textAngle}, ${textX}, ${textY})` : undefined}
-                        style={{ userSelect: 'none', pointerEvents: 'none' }}>
-                        {mk.label}
-                      </text>
+                        style={{ userSelect: 'none', pointerEvents: 'none' }}>{mk.label}</text>
                     )
                   })()}
                   {isSel && (
@@ -741,47 +779,40 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                       </g>
                       <circle cx={x1} cy={y1} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
                         onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'p1') }}
+                        onTouchStart={e => { e.stopPropagation(); handleMarkerTouchStart(e, mk, 'p1') }}
                         style={{ cursor: 'crosshair' }} />
                       <circle cx={x2} cy={y2} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
                         onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'p2') }}
+                        onTouchStart={e => { e.stopPropagation(); handleMarkerTouchStart(e, mk, 'p2') }}
                         style={{ cursor: 'crosshair' }} />
                     </>
                   )}
                 </g>
               )
             }
-
-            // Default: circle
             const mx = (mk.x_pct / 100) * roomL
             const my = (mk.y_pct / 100) * roomW
             return (
               <g key={mk.id} className="marker-g"
                 onMouseDown={e => handleMarkerMouseDown(e, mk, 'move')}
+                onTouchStart={e => handleMarkerTouchStart(e, mk, 'move')}
                 onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
                 style={{ cursor: draggingId === mk.id ? 'grabbing' : 'grab' }}>
-                <text x={mx} y={my - r - lineW}
-                  textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
-                  fontWeight="600" fontFamily="system-ui"
-                  style={{ userSelect: 'none', pointerEvents: 'none' }}>
-                  {mk.label}
-                </text>
+                <text x={mx} y={my - r - lineW} textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
+                  fontWeight="600" fontFamily="system-ui" style={{ userSelect: 'none', pointerEvents: 'none' }}>{mk.label}</text>
                 <circle cx={mx} cy={my} r={r} fill={col}
-                  stroke={isSel ? '#1e293b' : 'white'}
-                  strokeWidth={isSel ? r * 0.25 : r * 0.12}
-                  opacity={0.92} />
+                  stroke={isSel ? '#1e293b' : 'white'} strokeWidth={isSel ? r * 0.25 : r * 0.12} opacity={0.92} />
                 {isSel && (
                   <g onClick={e => { e.stopPropagation(); handleDeleteMarker(mk.id) }} style={{ cursor: 'pointer' }}>
                     <circle cx={mx + r * 0.85} cy={my - r * 0.85} r={r * 0.5} fill="#ef4444" />
-                    <text x={mx + r * 0.85} y={my - r * 0.85 + r * 0.22}
-                      textAnchor="middle" fontSize={r * 0.75} fill="white" fontWeight="bold"
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
+                    <text x={mx + r * 0.85} y={my - r * 0.85 + r * 0.22} textAnchor="middle" fontSize={r * 0.75}
+                      fill="white" fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
                   </g>
                 )}
               </g>
             )
           })}
         </svg>
-
         {markers.length === 0 && !previewShape && (
           <div className="absolute bottom-3 inset-x-0 flex justify-center pointer-events-none">
             <span className="text-xs text-gray-400 bg-white/80 px-3 py-1 rounded-full">
@@ -791,54 +822,89 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         )}
       </div>
 
-      {/* Selected rect size panel */}
-      {selId && rectSizeCm && (
-        <div className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs flex-wrap">
-          <span className="text-gray-500 font-medium shrink-0">選取矩形：</span>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-400">寬</span>
-            <input type="number" min={1} max={99999} value={rectSizeCm.w}
-              onChange={e => setRectSizeCm(v => v ? { ...v, w: e.target.value } : v)}
-              onBlur={() => handleRectSizeSave(selId, rectSizeCm.w, rectSizeCm.h)}
-              className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
-            <span className="text-gray-400">cm</span>
+      {selId && (() => {
+        const selMk = markers.find(m => m.id === selId)
+        if (!selMk) return null
+        const isRect = selMk.shape_type === 'rect'
+        const eqType = EQUIP_TYPES.find(t => t.key === selMk.equipment_type)
+        return (
+          <div className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: eqType?.color ?? '#64748b' }} />
+              <span className="font-medium text-gray-700">{selMk.label || eqType?.label || selMk.equipment_type}</span>
+              <span className="text-gray-400">({eqType?.label ?? selMk.equipment_type})</span>
+              <button type="button"
+                onClick={() => setEditMarker({ label: selMk.label, equipment_type: selMk.equipment_type })}
+                className="ml-1 flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-xs font-medium">
+                ✏️ 編輯
+              </button>
+              <button type="button" onClick={() => handleDeleteMarker(selId)}
+                className="ml-auto flex items-center gap-1 px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded text-xs font-medium">
+                🗑 刪除
+              </button>
+            </div>
+            {editMarker && (
+              <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-200">
+                <input type="text" placeholder="標籤名稱" value={editMarker.label}
+                  onChange={e => setEditMarker(v => v ? { ...v, label: e.target.value } : v)}
+                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 w-32" />
+                <select value={editMarker.equipment_type}
+                  onChange={e => setEditMarker(v => v ? { ...v, equipment_type: e.target.value } : v)}
+                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400">
+                  {EQUIP_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                </select>
+                <button type="button"
+                  onClick={() => handleMarkerSave(selId, editMarker.label, editMarker.equipment_type)}
+                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium">
+                  儲存
+                </button>
+                <button type="button" onClick={() => setEditMarker(null)}
+                  className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-xs">
+                  取消
+                </button>
+              </div>
+            )}
+            {isRect && rectSizeCm && (
+              <div className="flex items-center gap-3 flex-wrap pt-1 border-t border-gray-200">
+                <span className="text-gray-500 shrink-0">尺寸：</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">寬</span>
+                  <input type="number" min={1} max={99999} value={rectSizeCm.w}
+                    onChange={e => setRectSizeCm(v => v ? { ...v, w: e.target.value } : v)}
+                    onBlur={() => handleRectSizeSave(selId, rectSizeCm.w, rectSizeCm.h)}
+                    className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  <span className="text-gray-400">cm</span>
+                </div>
+                <span className="text-gray-300">×</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">高</span>
+                  <input type="number" min={1} max={99999} value={rectSizeCm.h}
+                    onChange={e => setRectSizeCm(v => v ? { ...v, h: e.target.value } : v)}
+                    onBlur={() => handleRectSizeSave(selId, rectSizeCm.w, rectSizeCm.h)}
+                    className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  <span className="text-gray-400">cm</span>
+                </div>
+              </div>
+            )}
           </div>
-          <span className="text-gray-300">×</span>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-400">高</span>
-            <input type="number" min={1} max={99999} value={rectSizeCm.h}
-              onChange={e => setRectSizeCm(v => v ? { ...v, h: e.target.value } : v)}
-              onBlur={() => handleRectSizeSave(selId, rectSizeCm.w, rectSizeCm.h)}
-              className="w-16 px-2 py-1 border border-gray-200 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400" />
-            <span className="text-gray-400">cm</span>
-          </div>
-          <button type="button" onClick={() => handleDeleteMarker(selId)}
-            className="ml-auto flex items-center gap-1 px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded text-xs font-medium">
-            刪除矩形
-          </button>
-        </div>
-      )}
+        )
+      })()}
 
-      {/* Legend + count */}
       <div className="flex items-start gap-x-4 gap-y-1.5 flex-wrap">
         {EQUIP_TYPES.map(et => (
           <div key={et.key} className="flex items-center gap-1 text-xs text-gray-500">
-            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0"
-              style={{ backgroundColor: et.color }} />
+            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: et.color }} />
             {et.label}
           </div>
         ))}
         {markers.length > 0 && (
-          <span className="text-xs text-gray-400 ml-auto">
-            共 {markers.length} 個標記・拖拉可移動・點選後可刪除
-          </span>
+          <span className="text-xs text-gray-400 ml-auto">共 {markers.length} 個標記・拖拉可移動・點選後可刪除</span>
         )}
       </div>
     </div>
   )
 }
 
-// ── Equipment Photo Section (控制台/機櫃/現場設備) ─────────────
 const EQUIP_SUBS = [
   { key: 'ctrl', label: '控制台',   cats: CATS_CTRL },
   { key: 'rack', label: '機櫃設備', cats: CATS_RACK },
@@ -869,7 +935,6 @@ function EquipmentSection({ projectId, supabase, onBeforeUpload }: {
   )
 }
 
-// ── Accordion ───────────────────────────────────────────────
 function Accordion({ title, color, defaultOpen = false, children }: {
   title: string; color: typeof BLUE; defaultOpen?: boolean; children: React.ReactNode
 }) {
@@ -908,7 +973,6 @@ function BoolField({ label, value, onChange }: { label: string; value: boolean; 
   )
 }
 
-// ── Main Component ───────────────────────────────────────────
 export default function ProjectsTab({ clientId }: { clientId: string }) {
   const supabase = createClient()
   const [projects, setProjects] = useState<any[]>([])
@@ -988,18 +1052,10 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
   async function ensureSaved(): Promise<boolean> {
     if (!isNewProject) return true
     const name = form.project_name.trim()
-    if (!name) {
-      alert('請先填寫「專案名稱」再上傳照片')
-      return false
-    }
-    const payload = {
-      ...form,
-      id: editingId,
-      client_id: clientId,
+    if (!name) { alert('請先填寫「專案名稱」再上傳照片'); return false }
+    const payload = { ...form, id: editingId, client_id: clientId,
       budget: form.budget ? Number(form.budget) : null,
-      start_date: form.start_date || null,
-      end_date: form.end_date || null,
-    }
+      start_date: form.start_date || null, end_date: form.end_date || null }
     const { error } = await supabase.from('projects').insert(payload)
     if (error) { alert('建立專案失敗: ' + error.message); return false }
     setIsNewProject(false)
@@ -1011,12 +1067,8 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
     if (!form.project_name.trim()) return
     setSaving(true)
     try {
-      const projectPayload = {
-        ...form,
-        budget: form.budget ? Number(form.budget) : null,
-        start_date: form.start_date || null,
-        end_date: form.end_date || null,
-      }
+      const projectPayload = { ...form, budget: form.budget ? Number(form.budget) : null,
+        start_date: form.start_date || null, end_date: form.end_date || null }
       if (isNewProject) {
         await supabase.from('projects').insert({ id: editingId, ...projectPayload, client_id: clientId })
         setIsNewProject(false)
@@ -1024,17 +1076,14 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
         await supabase.from('projects').update(projectPayload).eq('id', editingId)
       }
       if (editingId) {
-        const surveyPayload = {
-          ...survey,
-          project_id: editingId,
+        const surveyPayload = { ...survey, project_id: editingId,
           space_length: survey.space_length ? Number(survey.space_length) : null,
           space_width: survey.space_width ? Number(survey.space_width) : null,
           space_height: survey.space_height ? Number(survey.space_height) : null,
           capacity: survey.capacity ? Number(survey.capacity) : null,
           travel_time_minutes: survey.travel_time_minutes ? Number(survey.travel_time_minutes) : null,
           ambient_noise_db: survey.ambient_noise_db ? Number(survey.ambient_noise_db) : null,
-          survey_date: survey.survey_date || null,
-        }
+          survey_date: survey.survey_date || null }
         if (surveyId) {
           await fetch('/api/site-surveys', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: surveyId, ...surveyPayload }) })
         } else {
@@ -1042,9 +1091,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
         }
       }
     } finally {
-      setSaving(false)
-      setEditingId(null)
-      fetchProjects()
+      setSaving(false); setEditingId(null); fetchProjects()
     }
   }
 
@@ -1058,8 +1105,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
     setForm(p => ({ ...p, [k]: e.target.value }))
   const setS = (k: keyof SurveyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setSurvey(p => ({ ...p, [k]: e.target.value }))
-  const setSB = (k: keyof SurveyForm) => (v: boolean) =>
-    setSurvey(p => ({ ...p, [k]: v }))
+  const setSB = (k: keyof SurveyForm) => (v: boolean) => setSurvey(p => ({ ...p, [k]: v }))
 
   return (
     <div className="space-y-3">
@@ -1069,7 +1115,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
           <Plus size={14} /> 新增專案
         </button>
       </div>
-
       {editingId !== null && (
         <div className="border border-gray-200 rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
@@ -1077,43 +1122,21 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
             <button onClick={() => setEditingId(null)}><X size={16} className="text-gray-400" /></button>
           </div>
           <div className="p-4 space-y-3">
-
             <Accordion title="① 上類 — 基本資訊" color={BLUE} defaultOpen>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="專案名稱 *" span2>
-                  <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
-                </Field>
-                <Field label="場景名稱">
-                  <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
-                </Field>
-                <Field label="使用者類型">
-                  <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
-                </Field>
-                <Field label="專案狀態">
-                  <select value={form.status} onChange={setP('status')} className={inp}>
-                    {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </Field>
-                <Field label="預算（NT$）">
-                  <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
-                </Field>
-                <Field label="施工日期">
-                  <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
-                </Field>
-                <Field label="預計完工日">
-                  <input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} />
-                </Field>
-                <Field label="說明／備注" span2>
-                  <textarea rows={2} value={form.description} onChange={setP('description')} className={ta} />
-                </Field>
+                <Field label="專案名稱 *" span2><input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" /></Field>
+                <Field label="場景名稱"><input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" /></Field>
+                <Field label="使用者類型"><input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" /></Field>
+                <Field label="專案狀態"><select value={form.status} onChange={setP('status')} className={inp}>{STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
+                <Field label="預算（NT$）"><input type="number" value={form.budget} onChange={setP('budget')} className={inp} /></Field>
+                <Field label="施工日期"><input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} /></Field>
+                <Field label="預計完工日"><input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} /></Field>
+                <Field label="說明／備注" span2><textarea rows={2} value={form.description} onChange={setP('description')} className={ta} /></Field>
               </div>
             </Accordion>
-
             <Accordion title="② 上類 — 需求分析" color={BLUE}>
               <div className="grid grid-cols-1 gap-3">
-                <Field label="主要功能定位">
-                  <input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" />
-                </Field>
+                <Field label="主要功能定位"><input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" /></Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="設備需求"><textarea rows={2} value={form.equipment_needs} onChange={setP('equipment_needs')} className={ta} /></Field>
                   <Field label="音響需求"><textarea rows={2} value={form.audio_needs} onChange={setP('audio_needs')} className={ta} /></Field>
@@ -1122,12 +1145,9 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                   <Field label="控制需求"><textarea rows={2} value={form.control_needs} onChange={setP('control_needs')} className={ta} /></Field>
                   <Field label="其他需求"><textarea rows={2} value={form.other_needs} onChange={setP('other_needs')} className={ta} /></Field>
                 </div>
-                <Field label="場地規格">
-                  <textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} />
-                </Field>
+                <Field label="場地規格"><textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} /></Field>
               </div>
             </Accordion>
-
             <Accordion title="③ 下類 — 場勘基本資訊" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
@@ -1137,7 +1157,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
               </div>
             </Accordion>
-
             <Accordion title="④ 下類 — 空間規格資訊" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
@@ -1155,7 +1174,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
-
             <Accordion title="⑤ 下類 — 電力與網路" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
@@ -1170,7 +1188,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
-
             <Accordion title="⑥ 下類 — 聲學與環境" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
@@ -1184,7 +1201,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
-
             <Accordion title="⑦ 中類 — 施工條件限制" color={ORG}>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 flex gap-6 flex-wrap">
@@ -1204,7 +1220,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
-
             <Accordion title="⑧ 中類 — 現況設備補充" color={ORG}>
               <div className="grid grid-cols-1 gap-3">
                 <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
@@ -1215,42 +1230,21 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
               </div>
             </Accordion>
-
             <Accordion title="⑨ 中類 — 場勘備註" color={ORG}>
-              <Field label="場勘備註內容">
-                <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
-              </Field>
+              <Field label="場勘備註內容"><textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} /></Field>
             </Accordion>
-
             <Accordion title="🔧 設備類 — 現場設備記錄" color={PURPLE}>
-              <EquipmentSection
-                projectId={editingId as string}
-                supabase={supabase}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
+              <EquipmentSection projectId={editingId as string} supabase={supabase} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
             </Accordion>
-
             <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
-              <EquipmentMapSection
-                projectId={editingId as string}
-                supabase={supabase}
-                initLength={survey.space_length}
-                initWidth={survey.space_width}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
+              <EquipmentMapSection projectId={editingId as string} supabase={supabase}
+                initLength={survey.space_length} initWidth={survey.space_width}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined} />
             </Accordion>
-
             <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
-              <PhotoSection
-                projectId={editingId as string}
-                supabase={supabase}
-                cats={CATS_MAIN}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
+              <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_MAIN} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
             </Accordion>
-
           </div>
-
           <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
             <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-white">取消</button>
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
@@ -1259,7 +1253,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       )}
-
       {loading ? (
         <div className="text-center py-8 text-gray-400 text-sm">載入中...</div>
       ) : projects.length === 0 ? (
@@ -1289,7 +1282,6 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
           </div>
         ))
       )}
-
     </div>
   )
 }
