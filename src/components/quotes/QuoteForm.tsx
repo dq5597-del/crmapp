@@ -589,10 +589,10 @@ export default function QuoteForm({
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[200px]">品名</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[160px]">品項備註</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-16">單位</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-16">數量</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-28">單價</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-28">小計</th>
+                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-24">單位</th>
+                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-24">數量</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">單價</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">型錄</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">說明書</th>
                 <th className="w-8"></th>
@@ -679,7 +679,7 @@ export default function QuoteForm({
 
                     {/* 數量 */}
                     <td className="px-3 py-2">
-                      <input type="number" min="0" step="0.01" value={item.quantity} onChange={e => setItem(idx, 'quantity', Number(e.target.value))} className={tdInput + ' text-center'} />
+                      <input type="number" min="0" step="1" value={item.quantity} onChange={e => setItem(idx, 'quantity', Number(e.target.value))} className={tdInput + ' text-center'} />
                     </td>
 
                     {/* 單價 + 歷史售價 */}
@@ -721,7 +721,7 @@ export default function QuoteForm({
                       )}
                     </td>
 
-                    {/* 小計 */}
+                    {/* 總計 */}
                     <td className="px-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
                       {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
                     </td>
