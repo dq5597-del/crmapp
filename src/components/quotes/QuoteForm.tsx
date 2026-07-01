@@ -669,7 +669,7 @@ export default function QuoteForm({
                     </td>
 
                     {/* 單價 + 歷史售價 */}
-                    <td className="pl-1 pr-3 py-2 relative">
+                    <td className="pl-1 pr-1 py-2 relative">
                       <div className="flex gap-1 items-center justify-end">
                         <input type="number" min="0"
                           value={item.unit_price === 0 ? '' : item.unit_price}
@@ -711,7 +711,7 @@ export default function QuoteForm({
                     </td>
 
                     {/* 總計 */}
-                    <td className="px-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
+                    <td className="pl-1 pr-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
                       {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
                     </td>
 
