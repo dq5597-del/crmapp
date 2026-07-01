@@ -582,7 +582,7 @@ export default function QuoteForm({
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">單位</th>
                 <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">數量</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[146px]">單價</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[96px]">單價</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
                 <th className="w-8"></th>
               </tr>
