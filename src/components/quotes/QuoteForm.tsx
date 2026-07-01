@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
@@ -578,15 +578,12 @@ export default function QuoteForm({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[200px]">品名</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[160px]">品項備註</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[220px]">品名</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
                 <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[90px]">單位</th>
                 <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[90px]">數量</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[130px]">單價</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
-                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">型錄</th>
-                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">說明書</th>
                 <th className="w-8"></th>
               </tr>
             </thead>
@@ -596,7 +593,8 @@ export default function QuoteForm({
                 const searchStr = productSearch[idx] ?? ''
 
                 return (
-                  <tr key={idx} className="hover:bg-blue-50/30 group">
+                  <Fragment key={idx}>
+                  <tr className="hover:bg-blue-50/30 group">
                     <td className="px-3 py-2 text-xs text-gray-400 text-center">{idx + 1}</td>
 
                     {/* 品名 */}
@@ -649,11 +647,6 @@ export default function QuoteForm({
                           </div>
                         )}
                       </div>
-                    </td>
-
-                    {/* 品項備註 */}
-                    <td className="px-3 py-2">
-                      <input value={item.item_notes} onChange={e => setItem(idx, 'item_notes', e.target.value)} placeholder="備註說明" className={tdInput} />
                     </td>
 
                     {/* 型號 */}
@@ -722,16 +715,6 @@ export default function QuoteForm({
                       {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
                     </td>
 
-                    {/* 型錄 */}
-                    <td className="px-2 py-2 text-center">
-                      <input type="checkbox" checked={item.provide_catalog} onChange={e => setItem(idx, 'provide_catalog', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
-                    </td>
-
-                    {/* 說明書 */}
-                    <td className="px-2 py-2 text-center">
-                      <input type="checkbox" checked={item.provide_manual} onChange={e => setItem(idx, 'provide_manual', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
-                    </td>
-
                     {/* 刪除 */}
                     <td className="px-2 py-2 text-center">
                       <button onClick={() => removeItem(idx)} disabled={items.length === 1}
@@ -740,24 +723,48 @@ export default function QuoteForm({
                       </button>
                     </td>
                   </tr>
+
+                  <tr className="border-b border-gray-100">
+                    <td />
+                    <td colSpan={6} className="px-3 pb-2 pt-0">
+                      <div className="flex items-center gap-3">
+                        <input
+                          value={item.item_notes}
+                          onChange={e => setItem(idx, 'item_notes', e.target.value)}
+                          placeholder="品項備註（選填）"
+                          className={tdInput + ' flex-1'}
+                        />
+                        <label className="flex items-center gap-1 text-xs text-gray-500 shrink-0 whitespace-nowrap">
+                          <input type="checkbox" checked={item.provide_catalog} onChange={e => setItem(idx, 'provide_catalog', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
+                          型錄
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-gray-500 shrink-0 whitespace-nowrap">
+                          <input type="checkbox" checked={item.provide_manual} onChange={e => setItem(idx, 'provide_manual', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
+                          說明書
+                        </label>
+                      </div>
+                    </td>
+                    <td />
+                  </tr>
+                  </Fragment>
                 )
               })}
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={7} className="px-3 py-2.5 text-right text-xs text-gray-500">小計（未稅）</td>
+                <td colSpan={6} className="px-3 py-2.5 text-right text-xs text-gray-500">小計（未稅）</td>
                 <td className="px-3 py-2.5 text-right font-semibold text-gray-700">{subtotal.toLocaleString()}</td>
-                <td colSpan={3} />
+                <td colSpan={1} />
               </tr>
               <tr className="bg-gray-50">
-                <td colSpan={7} className="px-3 py-2 text-right text-xs text-gray-500">稅額（5%）</td>
+                <td colSpan={6} className="px-3 py-2 text-right text-xs text-gray-500">稅額（5%）</td>
                 <td className="px-3 py-2 text-right text-gray-600">{taxAmount.toLocaleString()}</td>
-                <td colSpan={3} />
+                <td colSpan={1} />
               </tr>
               <tr className="bg-gray-50 border-t border-gray-200">
-                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
+                <td colSpan={6} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
                 <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
-                <td colSpan={3} />
+                <td colSpan={1} />
               </tr>
             </tfoot>
           </table>
