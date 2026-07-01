@@ -682,7 +682,7 @@ export default function QuoteForm({
                           value={item.unit_price === 0 ? '' : item.unit_price}
                           onChange={e => setItem(idx, 'unit_price', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
                           onFocus={e => e.target.select()}
-                          className={tdInput + ' text-right flex-1 min-w-[120px]'} />
+                          className={tdInput + ' text-right shrink-0'} style={{ width: 80 }} />
                         {item.product_id && (
                           <button type="button" onClick={() => fetchHistory(idx, item.product_id!)} title="歷史售價" className="p-1 text-gray-400 hover:text-blue-600 shrink-0">
                             <Clock size={13} />
