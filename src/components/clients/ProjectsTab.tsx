@@ -263,7 +263,10 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const [showDD, setShowDD] = useState(false)
   const [customLabel, setCustomLabel] = useState('')
   const [placing, setPlacing] = useState(false)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const dragOffset = useRef({ dx: 0, dy: 0 })
+  const didDrag = useRef(false)
 
   useEffect(() => { fetchMarkers(); fetchProducts() }, [projectId])
   useEffect(() => { if (Number(initLength) > 0) setRoomL(Number(initLength)) }, [initLength])
@@ -283,7 +286,48 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
 
   const selectedProduct = products.find(p => p.id === selProductId)
 
+  function getSvgPt(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current!
+    const pt = svg.createSVGPoint()
+    pt.x = e.clientX; pt.y = e.clientY
+    return pt.matrixTransform(svg.getScreenCTM()!.inverse())
+  }
+
+  function handleMarkerMouseDown(e: React.MouseEvent<SVGGElement>, m: EquipMarker) {
+    e.stopPropagation()
+    if (!svgRef.current) return
+    const svgPt = getSvgPt(e as unknown as React.MouseEvent<SVGSVGElement>)
+    const mx = (m.x_pct / 100) * roomL
+    const my = (m.y_pct / 100) * roomW
+    dragOffset.current = { dx: svgPt.x - mx, dy: svgPt.y - my }
+    didDrag.current = false
+    setDraggingId(m.id)
+    setSelId(m.id)
+  }
+
+  function handleSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (!draggingId || !svgRef.current) return
+    const svgPt = getSvgPt(e)
+    const newX = Math.max(1, Math.min(99, ((svgPt.x - dragOffset.current.dx) / roomL) * 100))
+    const newY = Math.max(1, Math.min(99, ((svgPt.y - dragOffset.current.dy) / roomW) * 100))
+    didDrag.current = true
+    setMarkers(prev => prev.map(m => m.id === draggingId ? { ...m, x_pct: newX, y_pct: newY } : m))
+  }
+
+  async function handleSvgMouseUp() {
+    if (!draggingId) return
+    const id = draggingId
+    setDraggingId(null)
+    if (!didDrag.current) return
+    const marker = markers.find(m => m.id === id)
+    if (!marker) return
+    await supabase.from('project_equipment_markers')
+      .update({ x_pct: marker.x_pct, y_pct: marker.y_pct })
+      .eq('id', id)
+  }
+
   async function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (didDrag.current) { didDrag.current = false; return }
     if (!svgRef.current) return
     if ((e.target as Element).closest('.marker-g')) return
     if (onBeforeUpload && !(await onBeforeUpload())) return
@@ -406,9 +450,12 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
           </div>
         )}
         <svg ref={svgRef} onClick={handleSvgClick}
+          onMouseMove={handleSvgMouseMove}
+          onMouseUp={handleSvgMouseUp}
+          onMouseLeave={handleSvgMouseUp}
           viewBox={`0 0 ${roomL} ${roomW}`}
-          className="w-full cursor-crosshair select-none block"
-          style={{ maxHeight: '60vh' }}>
+          className="w-full select-none block"
+          style={{ maxHeight: '60vh', cursor: draggingId ? 'grabbing' : 'crosshair' }}>
 
           {/* Background */}
           <rect x={0} y={0} width={roomL} height={roomW} fill="#f8fafc" />
@@ -446,8 +493,9 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
             const isSel = selId === m.id
             return (
               <g key={m.id} className="marker-g"
-                onClick={e => { e.stopPropagation(); setSelId(isSel ? null : m.id) }}
-                style={{ cursor: 'pointer' }}>
+                onMouseDown={e => handleMarkerMouseDown(e, m)}
+                onClick={e => { e.stopPropagation(); if (!didDrag.current) setSelId(isSel ? null : m.id) }}
+                style={{ cursor: draggingId === m.id ? 'grabbing' : 'grab' }}>
                 {/* Label */}
                 <text x={mx} y={my - r - roomL * 0.005}
                   textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
@@ -496,7 +544,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         ))}
         {markers.length > 0 && (
           <span className="text-xs text-gray-400 ml-auto">
-            共 {markers.length} 個標記・點擊可刪除
+            共 {markers.length} 個標記・拖拉可移動・點選後可刪除
           </span>
         )}
       </div>
