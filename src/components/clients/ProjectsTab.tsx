@@ -240,10 +240,22 @@ const EQUIP_TYPES = [
 
 type EquipMarker = {
   id: string; project_id: string; product_id: string | null
-  equipment_type: string; label: string; x_pct: number; y_pct: number
+  equipment_type: string; label: string
+  x_pct: number; y_pct: number
+  x2_pct: number | null; y2_pct: number | null
+  w_pct: number | null; h_pct: number | null
+  shape_type: 'circle' | 'rect' | 'line' | 'arrow'
   notes: string; created_at: string
 }
 type SimpleProd = { id: string; product_name: string; brand: string | null; model: string | null }
+type DragMode = 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br' | 'p1' | 'p2'
+type DrawTool = 'circle' | 'rect' | 'line' | 'arrow'
+const DRAW_TOOLS: { key: DrawTool; label: string; hint: string }[] = [
+  { key: 'circle', label: '⬤ 圓點', hint: '點擊放置圓點標記' },
+  { key: 'rect',   label: '▬ 矩形', hint: '拖拉繪製矩形/長條形' },
+  { key: 'line',   label: '— 線段', hint: '拖拉繪製線段' },
+  { key: 'arrow',  label: '→ 箭頭', hint: '拖拉繪製箭頭' },
+]
 
 function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBeforeUpload }: {
   projectId: string
@@ -264,12 +276,16 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const [customLabel, setCustomLabel] = useState('')
   const [placing, setPlacing] = useState(false)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [drawTool, setDrawTool] = useState<DrawTool>('circle')
+  const [previewShape, setPreviewShape] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+
   const svgRef = useRef<SVGSVGElement>(null)
-  const dragOffset = useRef({ dx: 0, dy: 0 })
-  const didDrag = useRef(false)
-  // Use refs for drag state so event handlers always see current values (no stale closure)
   const draggingIdRef = useRef<string | null>(null)
-  const draggingPosRef = useRef({ x_pct: 0, y_pct: 0 })
+  const dragModeRef = useRef<DragMode>('move')
+  const dragOffsetRef = useRef({ dx: 0, dy: 0 })
+  const draggingPosRef = useRef<Partial<EquipMarker>>({})
+  const didDragRef = useRef(false)
+  const drawStartRef = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => { fetchMarkers(); fetchProducts() }, [projectId])
   useEffect(() => { if (Number(initLength) > 0) setRoomL(Number(initLength)) }, [initLength])
@@ -289,56 +305,141 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
 
   const selectedProduct = products.find(p => p.id === selProductId)
 
-  function getSvgPt(e: React.MouseEvent<SVGSVGElement>) {
+  function getSvgPt(e: React.MouseEvent) {
     const svg = svgRef.current!
     const pt = svg.createSVGPoint()
     pt.x = e.clientX; pt.y = e.clientY
     return pt.matrixTransform(svg.getScreenCTM()!.inverse())
   }
 
-  function handleMarkerMouseDown(e: React.MouseEvent<SVGGElement>, m: EquipMarker) {
+  function handleMarkerMouseDown(e: React.MouseEvent, m: EquipMarker, mode: DragMode = 'move') {
     e.stopPropagation()
     if (!svgRef.current) return
-    const svgPt = getSvgPt(e as unknown as React.MouseEvent<SVGSVGElement>)
-    const mx = (m.x_pct / 100) * roomL
-    const my = (m.y_pct / 100) * roomW
-    dragOffset.current = { dx: svgPt.x - mx, dy: svgPt.y - my }
-    didDrag.current = false
+    const svgPt = getSvgPt(e)
     draggingIdRef.current = m.id
+    dragModeRef.current = mode
+    didDragRef.current = false
+    draggingPosRef.current = { ...m }
     setDraggingId(m.id)
     setSelId(m.id)
+    if (mode === 'move') {
+      dragOffsetRef.current = {
+        dx: svgPt.x - (m.x_pct / 100) * roomL,
+        dy: svgPt.y - (m.y_pct / 100) * roomW,
+      }
+    } else {
+      dragOffsetRef.current = { dx: 0, dy: 0 }
+    }
+  }
+
+  function handleSvgMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+    if ((e.target as Element).closest('.marker-g')) return
+    if (drawTool === 'circle') return
+    if (!svgRef.current) return
+    const svgPt = getSvgPt(e)
+    drawStartRef.current = { x: svgPt.x, y: svgPt.y }
+    setPreviewShape({ x1: svgPt.x, y1: svgPt.y, x2: svgPt.x, y2: svgPt.y })
   }
 
   function handleSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
-    if (!draggingIdRef.current || !svgRef.current) return
+    if (!svgRef.current) return
     const svgPt = getSvgPt(e)
-    const newX = Math.max(1, Math.min(99, ((svgPt.x - dragOffset.current.dx) / roomL) * 100))
-    const newY = Math.max(1, Math.min(99, ((svgPt.y - dragOffset.current.dy) / roomW) * 100))
-    didDrag.current = true
-    draggingPosRef.current = { x_pct: newX, y_pct: newY }
-    setMarkers(prev => prev.map(m => m.id === draggingIdRef.current ? { ...m, x_pct: newX, y_pct: newY } : m))
+
+    if (draggingIdRef.current) {
+      didDragRef.current = true
+      const mode = dragModeRef.current
+      const pos = { ...draggingPosRef.current }
+      const pX = (svgPt.x / roomL) * 100
+      const pY = (svgPt.y / roomW) * 100
+
+      if (mode === 'move') {
+        pos.x_pct = Math.max(0, Math.min(100, (svgPt.x - dragOffsetRef.current.dx) / roomL * 100))
+        pos.y_pct = Math.max(0, Math.min(100, (svgPt.y - dragOffsetRef.current.dy) / roomW * 100))
+      } else if (mode === 'p1') {
+        pos.x_pct = Math.max(0, Math.min(100, pX))
+        pos.y_pct = Math.max(0, Math.min(100, pY))
+      } else if (mode === 'p2') {
+        pos.x2_pct = Math.max(0, Math.min(100, pX))
+        pos.y2_pct = Math.max(0, Math.min(100, pY))
+      } else if (mode === 'resize-tl') {
+        const rX = pos.x_pct! + (pos.w_pct ?? 10)
+        const rY = pos.y_pct! + (pos.h_pct ?? 10)
+        pos.x_pct = Math.min(pX, rX - 2); pos.y_pct = Math.min(pY, rY - 2)
+        pos.w_pct = Math.max(2, rX - pX);  pos.h_pct = Math.max(2, rY - pY)
+      } else if (mode === 'resize-tr') {
+        const rY = pos.y_pct! + (pos.h_pct ?? 10)
+        pos.y_pct = Math.min(pY, rY - 2)
+        pos.w_pct = Math.max(2, pX - pos.x_pct!); pos.h_pct = Math.max(2, rY - pY)
+      } else if (mode === 'resize-bl') {
+        const rX = pos.x_pct! + (pos.w_pct ?? 10)
+        pos.x_pct = Math.min(pX, rX - 2)
+        pos.w_pct = Math.max(2, rX - pX); pos.h_pct = Math.max(2, pY - pos.y_pct!)
+      } else if (mode === 'resize-br') {
+        pos.w_pct = Math.max(2, pX - pos.x_pct!); pos.h_pct = Math.max(2, pY - pos.y_pct!)
+      }
+
+      draggingPosRef.current = pos
+      setMarkers(prev => prev.map(mk => mk.id === draggingIdRef.current ? { ...mk, ...pos } as EquipMarker : mk))
+      return
+    }
+
+    if (drawStartRef.current) {
+      setPreviewShape({ x1: drawStartRef.current.x, y1: drawStartRef.current.y, x2: svgPt.x, y2: svgPt.y })
+    }
   }
 
   async function handleSvgMouseUp() {
-    if (!draggingIdRef.current) return
-    const id = draggingIdRef.current
-    draggingIdRef.current = null
-    setDraggingId(null)
-    if (!didDrag.current) return
-    await supabase.from('project_equipment_markers')
-      .update({ x_pct: draggingPosRef.current.x_pct, y_pct: draggingPosRef.current.y_pct })
-      .eq('id', id)
+    if (draggingIdRef.current) {
+      const id = draggingIdRef.current
+      draggingIdRef.current = null
+      setDraggingId(null)
+      if (!didDragRef.current) return
+      const pos = draggingPosRef.current
+      await supabase.from('project_equipment_markers')
+        .update({ x_pct: pos.x_pct, y_pct: pos.y_pct,
+          x2_pct: pos.x2_pct ?? null, y2_pct: pos.y2_pct ?? null,
+          w_pct: pos.w_pct ?? null, h_pct: pos.h_pct ?? null })
+        .eq('id', id)
+      return
+    }
+
+    if (drawStartRef.current && previewShape) {
+      const { x1, y1, x2, y2 } = previewShape
+      if (Math.abs(x2 - x1) < roomL * 0.015 && Math.abs(y2 - y1) < roomW * 0.015) {
+        drawStartRef.current = null; setPreviewShape(null); return
+      }
+      if (onBeforeUpload && !(await onBeforeUpload())) {
+        drawStartRef.current = null; setPreviewShape(null); return
+      }
+      setPlacing(true)
+      const label = (selectedProduct?.product_name ?? customLabel).trim()
+        || (EQUIP_TYPES.find(t => t.key === selType)?.label ?? selType)
+      const ins: Record<string, unknown> = {
+        project_id: projectId, product_id: selProductId,
+        equipment_type: selType, label, shape_type: drawTool, notes: '',
+      }
+      if (drawTool === 'rect') {
+        ins.x_pct = (Math.min(x1, x2) / roomL) * 100; ins.y_pct = (Math.min(y1, y2) / roomW) * 100
+        ins.w_pct = (Math.abs(x2 - x1) / roomL) * 100; ins.h_pct = (Math.abs(y2 - y1) / roomW) * 100
+      } else {
+        ins.x_pct = (x1 / roomL) * 100; ins.y_pct = (y1 / roomW) * 100
+        ins.x2_pct = (x2 / roomL) * 100; ins.y2_pct = (y2 / roomW) * 100
+      }
+      const { data, error } = await supabase.from('project_equipment_markers').insert(ins).select().single()
+      if (error) alert('新增失敗: ' + error.message)
+      else setMarkers(prev => [...prev, data as EquipMarker])
+      setPlacing(false)
+    }
+    drawStartRef.current = null
+    setPreviewShape(null)
   }
 
   async function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
-    if (didDrag.current) { didDrag.current = false; return }
-    if (!svgRef.current) return
+    if (drawTool !== 'circle') return
+    if (didDragRef.current) { didDragRef.current = false; return }
     if ((e.target as Element).closest('.marker-g')) return
     if (onBeforeUpload && !(await onBeforeUpload())) return
-    const svg = svgRef.current
-    const pt = svg.createSVGPoint()
-    pt.x = e.clientX; pt.y = e.clientY
-    const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
+    const svgPt = getSvgPt(e)
     const xPct = Math.max(1, Math.min(99, (svgPt.x / roomL) * 100))
     const yPct = Math.max(1, Math.min(99, (svgPt.y / roomW) * 100))
     setPlacing(true)
@@ -346,7 +447,8 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
       || (EQUIP_TYPES.find(t => t.key === selType)?.label ?? selType)
     const { data, error } = await supabase.from('project_equipment_markers').insert({
       project_id: projectId, product_id: selProductId,
-      equipment_type: selType, label, x_pct: xPct, y_pct: yPct, notes: '',
+      equipment_type: selType, label, shape_type: 'circle',
+      x_pct: xPct, y_pct: yPct, notes: '',
     }).select().single()
     if (error) alert('新增標記失敗: ' + error.message)
     else setMarkers(prev => [...prev, data as EquipMarker])
@@ -355,7 +457,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
 
   async function handleDeleteMarker(id: string) {
     await supabase.from('project_equipment_markers').delete().eq('id', id)
-    setMarkers(prev => prev.filter(m => m.id !== id))
+    setMarkers(prev => prev.filter(mk => mk.id !== id))
     setSelId(null)
   }
 
@@ -367,6 +469,9 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const gridX = Array.from({ length: Math.floor(roomL) - 1 }, (_, i) => i + 1)
   const gridY = Array.from({ length: Math.floor(roomW) - 1 }, (_, i) => i + 1)
   const r = Math.min(roomL, roomW) * 0.045
+  const lineW = Math.min(roomL, roomW) * 0.006
+  const hR = r * 0.42
+  const curSelColor = EQUIP_TYPES.find(t => t.key === selType)?.color ?? '#6b7280'
 
   return (
     <div className="space-y-3">
@@ -391,19 +496,34 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         <span className="text-xs text-gray-400">（自動從④場勘帶入，可手動覆蓋）</span>
       </div>
 
+      {/* Draw tool selector */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs text-gray-500 font-medium shrink-0">繪圖工具</span>
+        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+          {DRAW_TOOLS.map(dt => (
+            <button key={dt.key} type="button" onClick={() => setDrawTool(dt.key)} title={dt.hint}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                drawTool === dt.key ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {dt.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-gray-400">{DRAW_TOOLS.find(dt => dt.key === drawTool)?.hint}</span>
+      </div>
+
       {/* Equipment type selector */}
       <div>
-        <p className="text-xs text-gray-500 mb-1.5">選擇設備類型，再點擊地圖放置標記</p>
+        <p className="text-xs text-gray-500 mb-1.5">設備類型（決定顏色）</p>
         <div className="flex flex-wrap gap-1.5">
-          {EQUIP_TYPES.map(t => (
-            <button key={t.key} type="button" onClick={() => setSelType(t.key)}
+          {EQUIP_TYPES.map(et => (
+            <button key={et.key} type="button" onClick={() => setSelType(et.key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
-                selType === t.key ? 'text-white shadow-sm scale-105' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                selType === et.key ? 'text-white shadow-sm scale-105' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
               }`}
-              style={selType === t.key ? { backgroundColor: t.color, borderColor: t.color } : {}}>
-              <span className="w-2 h-2 rounded-full inline-block flex-shrink-0"
-                style={{ backgroundColor: t.color }} />
-              {t.label}
+              style={selType === et.key ? { backgroundColor: et.color, borderColor: et.color } : {}}>
+              <span className="w-2 h-2 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: et.color }} />
+              {et.label}
             </button>
           ))}
         </div>
@@ -453,7 +573,9 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
             <span className="text-xs text-gray-500">放置中...</span>
           </div>
         )}
-        <svg ref={svgRef} onClick={handleSvgClick}
+        <svg ref={svgRef}
+          onClick={handleSvgClick}
+          onMouseDown={handleSvgMouseDown}
           onMouseMove={handleSvgMouseMove}
           onMouseUp={handleSvgMouseUp}
           onMouseLeave={handleSvgMouseUp}
@@ -461,10 +583,16 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
           className="w-full select-none block"
           style={{ maxHeight: '60vh', cursor: draggingId ? 'grabbing' : 'crosshair' }}>
 
-          {/* Background */}
-          <rect x={0} y={0} width={roomL} height={roomW} fill="#f8fafc" />
+          <defs>
+            {EQUIP_TYPES.map(et => (
+              <marker key={et.key} id={`arr-${et.key}`}
+                markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L0,8 L8,4 z" fill={et.color} />
+              </marker>
+            ))}
+          </defs>
 
-          {/* Grid lines (1m) */}
+          <rect x={0} y={0} width={roomL} height={roomW} fill="#f8fafc" />
           {gridX.map(x => (
             <line key={`gx${x}`} x1={x} y1={0} x2={x} y2={roomW}
               stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
@@ -473,12 +601,8 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
             <line key={`gy${y}`} x1={0} y1={y} x2={roomL} y2={y}
               stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
           ))}
-
-          {/* Room border */}
           <rect x={0} y={0} width={roomL} height={roomW} fill="none"
             stroke="#94a3b8" strokeWidth={roomL * 0.008} />
-
-          {/* Corner dimension labels inside */}
           <text x={roomL * 0.5} y={roomW * 0.04 + r * 0.5}
             textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui">
             {roomL}m
@@ -489,38 +613,143 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
             {roomW}m
           </text>
 
-          {/* Markers */}
-          {markers.map(m => {
-            const mx = (m.x_pct / 100) * roomL
-            const my = (m.y_pct / 100) * roomW
-            const col = EQUIP_TYPES.find(t => t.key === m.equipment_type)?.color ?? '#6b7280'
-            const isSel = selId === m.id
+          {previewShape && drawTool === 'rect' && (
+            <rect
+              x={Math.min(previewShape.x1, previewShape.x2)}
+              y={Math.min(previewShape.y1, previewShape.y2)}
+              width={Math.abs(previewShape.x2 - previewShape.x1)}
+              height={Math.abs(previewShape.y2 - previewShape.y1)}
+              fill={curSelColor} fillOpacity={0.15}
+              stroke={curSelColor} strokeWidth={lineW * 1.5}
+              strokeDasharray={`${lineW * 3} ${lineW}`}
+              style={{ pointerEvents: 'none' }} />
+          )}
+          {previewShape && (drawTool === 'line' || drawTool === 'arrow') && (
+            <line
+              x1={previewShape.x1} y1={previewShape.y1}
+              x2={previewShape.x2} y2={previewShape.y2}
+              stroke={curSelColor} strokeWidth={lineW * 2}
+              strokeDasharray={`${lineW * 3} ${lineW}`}
+              markerEnd={drawTool === 'arrow' ? `url(#arr-${selType})` : undefined}
+              style={{ pointerEvents: 'none' }} />
+          )}
+
+          {markers.map(mk => {
+            const col = EQUIP_TYPES.find(et => et.key === mk.equipment_type)?.color ?? '#6b7280'
+            const isSel = selId === mk.id
+            const shType = mk.shape_type ?? 'circle'
+
+            if (shType === 'rect') {
+              const rx = (mk.x_pct / 100) * roomL
+              const ry = (mk.y_pct / 100) * roomW
+              const rw = ((mk.w_pct ?? 10) / 100) * roomL
+              const rh = ((mk.h_pct ?? 10) / 100) * roomW
+              return (
+                <g key={mk.id} className="marker-g"
+                  onMouseDown={e => handleMarkerMouseDown(e, mk, 'move')}
+                  onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
+                  style={{ cursor: draggingId === mk.id ? 'grabbing' : 'move' }}>
+                  <rect x={rx} y={ry} width={rw} height={rh}
+                    fill={col} fillOpacity={0.18}
+                    stroke={col} strokeWidth={lineW * 1.5} rx={lineW} />
+                  <text x={rx + rw / 2} y={ry + rh / 2}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={Math.min(r * 0.85, rw * 0.15, rh * 0.35)}
+                    fill={col} fontWeight="600" fontFamily="system-ui"
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                    {mk.label}
+                  </text>
+                  {isSel && (
+                    <>
+                      <g onClick={e => { e.stopPropagation(); handleDeleteMarker(mk.id) }} style={{ cursor: 'pointer' }}>
+                        <circle cx={rx + rw} cy={ry} r={hR} fill="#ef4444" />
+                        <text x={rx + rw} y={ry + hR * 0.3} textAnchor="middle" fontSize={hR * 1.5}
+                          fill="white" fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
+                      </g>
+                      <circle cx={rx} cy={ry} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
+                        onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-tl') }}
+                        style={{ cursor: 'nw-resize' }} />
+                      <circle cx={rx + rw} cy={ry + rh} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
+                        onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-br') }}
+                        style={{ cursor: 'se-resize' }} />
+                      <circle cx={rx + rw} cy={ry} r={hR * 0.7} fill="white" stroke={col} strokeWidth={lineW}
+                        onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-tr') }}
+                        style={{ cursor: 'ne-resize' }} />
+                      <circle cx={rx} cy={ry + rh} r={hR * 0.7} fill="white" stroke={col} strokeWidth={lineW}
+                        onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'resize-bl') }}
+                        style={{ cursor: 'sw-resize' }} />
+                    </>
+                  )}
+                </g>
+              )
+            }
+
+            if (shType === 'line' || shType === 'arrow') {
+              const x1 = (mk.x_pct / 100) * roomL
+              const y1 = (mk.y_pct / 100) * roomW
+              const x2 = ((mk.x2_pct ?? mk.x_pct + 10) / 100) * roomL
+              const y2 = ((mk.y2_pct ?? mk.y_pct) / 100) * roomW
+              const lmx = (x1 + x2) / 2
+              const lmy = (y1 + y2) / 2
+              return (
+                <g key={mk.id} className="marker-g"
+                  onMouseDown={e => handleMarkerMouseDown(e, mk, 'move')}
+                  onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
+                  style={{ cursor: draggingId === mk.id ? 'grabbing' : 'grab' }}>
+                  <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={lineW * 6} />
+                  <line x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke={col} strokeWidth={lineW * 2}
+                    markerEnd={shType === 'arrow' ? `url(#arr-${mk.equipment_type})` : undefined} />
+                  {mk.label && (
+                    <text x={lmx} y={lmy - lineW * 2}
+                      textAnchor="middle" fontSize={r * 0.75} fill={col} fontWeight="600" fontFamily="system-ui"
+                      style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                      {mk.label}
+                    </text>
+                  )}
+                  {isSel && (
+                    <>
+                      <g onClick={e => { e.stopPropagation(); handleDeleteMarker(mk.id) }} style={{ cursor: 'pointer' }}>
+                        <circle cx={lmx} cy={lmy} r={hR} fill="#ef4444" />
+                        <text x={lmx} y={lmy + hR * 0.3} textAnchor="middle" fontSize={hR * 1.5}
+                          fill="white" fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
+                      </g>
+                      <circle cx={x1} cy={y1} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
+                        onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'p1') }}
+                        style={{ cursor: 'crosshair' }} />
+                      <circle cx={x2} cy={y2} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
+                        onMouseDown={e => { e.stopPropagation(); handleMarkerMouseDown(e, mk, 'p2') }}
+                        style={{ cursor: 'crosshair' }} />
+                    </>
+                  )}
+                </g>
+              )
+            }
+
+            // Default: circle
+            const mx = (mk.x_pct / 100) * roomL
+            const my = (mk.y_pct / 100) * roomW
             return (
-              <g key={m.id} className="marker-g"
-                onMouseDown={e => handleMarkerMouseDown(e, m)}
-                onClick={e => { e.stopPropagation(); if (!didDrag.current) setSelId(isSel ? null : m.id) }}
-                style={{ cursor: draggingId === m.id ? 'grabbing' : 'grab' }}>
-                {/* Label */}
-                <text x={mx} y={my - r - roomL * 0.005}
+              <g key={mk.id} className="marker-g"
+                onMouseDown={e => handleMarkerMouseDown(e, mk, 'move')}
+                onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
+                style={{ cursor: draggingId === mk.id ? 'grabbing' : 'grab' }}>
+                <text x={mx} y={my - r - lineW}
                   textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
                   fontWeight="600" fontFamily="system-ui"
                   style={{ userSelect: 'none', pointerEvents: 'none' }}>
-                  {m.label}
+                  {mk.label}
                 </text>
-                {/* Circle */}
                 <circle cx={mx} cy={my} r={r} fill={col}
                   stroke={isSel ? '#1e293b' : 'white'}
                   strokeWidth={isSel ? r * 0.25 : r * 0.12}
                   opacity={0.92} />
-                {/* Delete button (when selected) */}
                 {isSel && (
-                  <g onClick={e => { e.stopPropagation(); handleDeleteMarker(m.id) }}
-                    style={{ cursor: 'pointer' }}>
-                    <circle cx={mx + r * 0.85} cy={my - r * 0.85} r={r * 0.5}
-                      fill="#ef4444" />
+                  <g onClick={e => { e.stopPropagation(); handleDeleteMarker(mk.id) }} style={{ cursor: 'pointer' }}>
+                    <circle cx={mx + r * 0.85} cy={my - r * 0.85} r={r * 0.5} fill="#ef4444" />
                     <text x={mx + r * 0.85} y={my - r * 0.85 + r * 0.22}
                       textAnchor="middle" fontSize={r * 0.75} fill="white" fontWeight="bold"
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}>×</text>
+                      style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
                   </g>
                 )}
               </g>
@@ -528,10 +757,10 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
           })}
         </svg>
 
-        {markers.length === 0 && (
+        {markers.length === 0 && !previewShape && (
           <div className="absolute bottom-3 inset-x-0 flex justify-center pointer-events-none">
             <span className="text-xs text-gray-400 bg-white/80 px-3 py-1 rounded-full">
-              點擊地圖任意位置放置設備標記
+              {drawTool === 'circle' ? '點擊地圖放置圓點標記' : '在地圖上拖拉繪製'}
             </span>
           </div>
         )}
@@ -539,11 +768,11 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
 
       {/* Legend + count */}
       <div className="flex items-start gap-x-4 gap-y-1.5 flex-wrap">
-        {EQUIP_TYPES.map(t => (
-          <div key={t.key} className="flex items-center gap-1 text-xs text-gray-500">
+        {EQUIP_TYPES.map(et => (
+          <div key={et.key} className="flex items-center gap-1 text-xs text-gray-500">
             <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0"
-              style={{ backgroundColor: t.color }} />
-            {t.label}
+              style={{ backgroundColor: et.color }} />
+            {et.label}
           </div>
         ))}
         {markers.length > 0 && (
