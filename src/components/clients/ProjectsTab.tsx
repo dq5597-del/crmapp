@@ -267,6 +267,9 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   const svgRef = useRef<SVGSVGElement>(null)
   const dragOffset = useRef({ dx: 0, dy: 0 })
   const didDrag = useRef(false)
+  // Use refs for drag state so event handlers always see current values (no stale closure)
+  const draggingIdRef = useRef<string | null>(null)
+  const draggingPosRef = useRef({ x_pct: 0, y_pct: 0 })
 
   useEffect(() => { fetchMarkers(); fetchProducts() }, [projectId])
   useEffect(() => { if (Number(initLength) > 0) setRoomL(Number(initLength)) }, [initLength])
@@ -301,28 +304,29 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
     const my = (m.y_pct / 100) * roomW
     dragOffset.current = { dx: svgPt.x - mx, dy: svgPt.y - my }
     didDrag.current = false
+    draggingIdRef.current = m.id
     setDraggingId(m.id)
     setSelId(m.id)
   }
 
   function handleSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
-    if (!draggingId || !svgRef.current) return
+    if (!draggingIdRef.current || !svgRef.current) return
     const svgPt = getSvgPt(e)
     const newX = Math.max(1, Math.min(99, ((svgPt.x - dragOffset.current.dx) / roomL) * 100))
     const newY = Math.max(1, Math.min(99, ((svgPt.y - dragOffset.current.dy) / roomW) * 100))
     didDrag.current = true
-    setMarkers(prev => prev.map(m => m.id === draggingId ? { ...m, x_pct: newX, y_pct: newY } : m))
+    draggingPosRef.current = { x_pct: newX, y_pct: newY }
+    setMarkers(prev => prev.map(m => m.id === draggingIdRef.current ? { ...m, x_pct: newX, y_pct: newY } : m))
   }
 
   async function handleSvgMouseUp() {
-    if (!draggingId) return
-    const id = draggingId
+    if (!draggingIdRef.current) return
+    const id = draggingIdRef.current
+    draggingIdRef.current = null
     setDraggingId(null)
     if (!didDrag.current) return
-    const marker = markers.find(m => m.id === id)
-    if (!marker) return
     await supabase.from('project_equipment_markers')
-      .update({ x_pct: marker.x_pct, y_pct: marker.y_pct })
+      .update({ x_pct: draggingPosRef.current.x_pct, y_pct: draggingPosRef.current.y_pct })
       .eq('id', id)
   }
 
