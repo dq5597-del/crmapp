@@ -8,7 +8,7 @@ function numToChineseCapital(amount: number): string {
   const unitsCn = ['', '拾', '佰', '仟']
   const bigUnitsCn = ['', '萬', '億', '兆']
   const n = Math.floor(Math.abs(amount))
-  if (n === 0) return '新臺幣零元整'
+  if (n === 0) return '零元整'
 
   let numStr = String(n)
   const groups: string[] = []
@@ -41,7 +41,7 @@ function numToChineseCapital(amount: number): string {
     }
   })
   result = result.replace(/零+$/, '')
-  return `新臺幣${result}元整`
+  return `${result}元整`
 }
 
 export default async function QuotePrintPage({ params }: { params: { id: string } }) {
@@ -109,9 +109,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .num { text-align: right; }
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
-        .total-label-cell { font-weight: 700; font-size: 15px; padding: 8px; }
-        .total-chinese { font-weight: 400; font-size: 11px; color: #555; margin-top: 3px; }
-        .total-amount-cell { font-weight: 700; font-size: 15px; text-align: right; padding: 8px; }
+        .total-row td { font-weight: 700; font-size: 13px; }
         .notes-section { margin-top: 18px; }
         .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
@@ -187,12 +185,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             ))}
           </tbody>
           <tfoot>
-            <tr>
-              <td colSpan={4} className="total-label-cell">
-                總金額
-                <div className="total-chinese">{totalChinese}</div>
-              </td>
-              <td colSpan={3} className="total-amount-cell">NT$ {fmt(Number(quote.total_amount))}</td>
+            <tr className="total-row">
+              <td colSpan={4}>總金額　{totalChinese}</td>
+              <td colSpan={3} className="num">NT$ {fmt(Number(quote.total_amount))}</td>
             </tr>
           </tfoot>
         </table>
