@@ -96,9 +96,12 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .app-shell { background: #fff !important; }
         body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', '微軟正黑體', sans-serif; font-size: 12px; color: #000; margin: 0; background: #fff; }
         .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; background: #fff; }
-        .header-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
-        .logo-box { width: 64px; height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-        .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .logo { display: flex; align-items: center; gap: 8px; width: 150px; flex-shrink: 0; }
+        .logo-mark { background: #2a9d94; color: #fff; font-weight: 700; font-size: 17px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; letter-spacing: -0.5px; }
+        .logo-text-cn { font-size: 13px; font-weight: 700; color: #111; line-height: 1.3; }
+        .logo-text-en { font-size: 6px; font-weight: 700; letter-spacing: 0.5px; color: #111; white-space: nowrap; }
+        .header-spacer { width: 150px; flex-shrink: 0; }
         .title-block { flex: 1; text-align: center; }
         h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
         .sub-header { text-align: center; font-size: 12px; color: #333; margin-bottom: 16px; }
@@ -121,12 +124,18 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
       <div className="page">
         {/* Header: logo + title */}
         <div className="header-row">
-          <div className="logo-box" />
+          <div className="logo">
+            <div className="logo-mark">GH</div>
+            <div>
+              <div className="logo-text-cn">光輝影音科技</div>
+              <div className="logo-text-en">AUDIO VISUAL SYSTEM INTEGRATION</div>
+            </div>
+          </div>
           <div className="title-block">
             <h1>估 價 單</h1>
             <div className="sub-header">供應商：{company}{companyPhone ? `　電話：${companyPhone}` : ''}{companyAddress ? `　地址：${companyAddress}` : ''}</div>
           </div>
-          <div className="logo-box" />
+          <div className="header-spacer" />
         </div>
 
         {/* Client + quote info */}
