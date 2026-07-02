@@ -578,7 +578,7 @@ export default function QuoteForm({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[220px]">品名</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[300px]">品名</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">單位</th>
                 <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">數量</th>
