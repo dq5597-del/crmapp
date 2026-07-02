@@ -56,9 +56,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   if (!quote) return notFound()
 
   const clientName = (quote as any).clients?.company_name ?? ''
-  const company = settings?.company_name ?? '光輝實業社'
-  const companyPhone = settings?.company_phone ?? '0980-566-799'
-  const companyAddress = settings?.company_address ?? ''
+  const clientAddress = (quote as any).clients?.address ?? ''
   const bankInfo = settings?.bank_name
     ? `${settings.bank_name}（代號：${settings.bank_code ?? ''}）／戶名：${settings.bank_account_name ?? ''}／帳號：${settings.bank_account ?? ''}`
     : ''
@@ -133,25 +131,23 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           </div>
           <div className="title-block">
             <h1>估 價 單</h1>
-            <div className="sub-header">供應商：{company}{companyPhone ? `　電話：${companyPhone}` : ''}{companyAddress ? `　地址：${companyAddress}` : ''}</div>
+            {quote.project_name && <div className="sub-header">{quote.project_name}</div>}
           </div>
           <div className="header-spacer" />
         </div>
 
         {/* Client + quote info (merged into 2 rows) */}
         <div className="info-row">
-          <span>客戶名稱：<strong>{clientName}</strong></span>
+          <span>
+            客戶名稱：<strong>{clientName}</strong>
+            {quote.contact_name && `　聯絡人：${quote.contact_name}`}
+            {quote.client_phone && `　電話：${quote.client_phone}`}
+          </span>
           <span>單據日期：{quote.created_at ? new Date(quote.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
         </div>
         <div className="info-row">
-          <span>
-            {quote.contact_name && `聯絡人：${quote.contact_name}　`}
-            {quote.client_phone && `電話：${quote.client_phone}`}
-          </span>
-          <span>
-            {quote.project_name && `案名：${quote.project_name}　`}
-            單號：{quote.quote_no}
-          </span>
+          <span>{clientAddress && `地址：${clientAddress}`}</span>
+          <span>單號：{quote.quote_no}</span>
         </div>
 
         {/* Items table */}
