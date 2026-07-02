@@ -129,6 +129,10 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
     is_active: true,
   })
   const [saving, setSaving] = useState(false)
+  const [isNewMain, setIsNewMain] = useState(false)
+  const [newMainCat, setNewMainCat] = useState('')
+  const [isNewSub, setIsNewSub] = useState(false)
+  const [newSubCat, setNewSubCat] = useState('')
 
   const mainCats = Array.from(new Set(categories.map(c => c.main_category)))
   const subCats = categories.filter(c => c.main_category === mainCat)
@@ -138,10 +142,51 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
     setForm(p => ({ ...p, category_id: '' }))
   }
 
+  function handleMainCatSelect(val: string) {
+    if (val === '__new__') {
+      setIsNewMain(true)
+      setMainCat('')
+      setForm(p => ({ ...p, category_id: '' }))
+      setIsNewSub(true)
+      setNewSubCat('')
+    } else {
+      handleMainCatChange(val)
+    }
+  }
+
+  function cancelNewMain() {
+    setIsNewMain(false)
+    setNewMainCat('')
+    setIsNewSub(false)
+    setNewSubCat('')
+  }
+
+  function handleSubCatSelect(val: string) {
+    if (val === '__new__') {
+      setIsNewSub(true)
+      setNewSubCat('')
+    } else {
+      setForm(p => ({ ...p, category_id: val }))
+    }
+  }
+
+  const canSave = form.product_name.trim() !== '' && (!isNewMain || newMainCat.trim() !== '') && (!isNewSub || newSubCat.trim() !== '')
+
   async function handleSave() {
-    if (!form.product_name.trim()) return
+    if (!canSave) return
     setSaving(true)
-    const payload = { ...form, category_id: form.category_id || null, notes: null, stock_qty: 0 }
+    let categoryId = form.category_id
+    if (isNewMain || isNewSub) {
+      const finalMain = isNewMain ? newMainCat.trim() : mainCat
+      const finalSub = newSubCat.trim()
+      const { data: catData, error: catError } = await supabase.from('product_categories')
+        .insert({ main_category: finalMain, sub_category: finalSub })
+        .select('id')
+        .single()
+      if (catError || !catData) { setSaving(false); return }
+      categoryId = (catData as any).id
+    }
+    const payload = { ...form, category_id: categoryId || null, notes: null, stock_qty: 0 }
     const { data, error } = await supabase.from('products').insert(payload).select('*').single()
     if (!error && data) {
       onCreated(data as Product)
@@ -163,17 +208,35 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-600 mb-1 block">大分類</label>
-              <select value={mainCat} onChange={e => handleMainCatChange(e.target.value)} className={inputClass}>
-                <option value="">— 請選擇 —</option>
-                {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              {isNewMain ? (
+                <div className="flex gap-1">
+                  <input value={newMainCat} onChange={e => setNewMainCat(e.target.value)} className={inputClass} placeholder="輸入新大分類名稱" autoFocus />
+                  <button type="button" onClick={cancelNewMain} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
+                </div>
+              ) : (
+                <select value={mainCat} onChange={e => handleMainCatSelect(e.target.value)} className={inputClass}>
+                  <option value="">— 請選擇 —</option>
+                  {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
+                  <option value="__new__">+ 新增大分類</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="text-xs text-gray-600 mb-1 block">子分類</label>
-              <select value={form.category_id} onChange={e => setForm(p => ({ ...p, category_id: e.target.value }))} className={inputClass} disabled={!mainCat}>
-                <option value="">— 請選擇 —</option>
-                {subCats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
-              </select>
+              {isNewSub ? (
+                <div className="flex gap-1">
+                  <input value={newSubCat} onChange={e => setNewSubCat(e.target.value)} className={inputClass} placeholder="輸入新子分類名稱" />
+                  {!isNewMain && (
+                    <button type="button" onClick={() => { setIsNewSub(false); setNewSubCat('') }} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
+                  )}
+                </div>
+              ) : (
+                <select value={form.category_id} onChange={e => handleSubCatSelect(e.target.value)} className={inputClass} disabled={!mainCat}>
+                  <option value="">— 請選擇 —</option>
+                  {subCats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
+                  <option value="__new__">+ 新增子分類</option>
+                </select>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -210,7 +273,7 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
           <p className="text-xs text-gray-400">儲存後自動帶入報價品項</p>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
-            <button onClick={handleSave} disabled={saving || !form.product_name.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving || !canSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
               {saving ? '新增中...' : '新增並帶入'}
             </button>
           </div>
