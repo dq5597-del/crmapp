@@ -2,21 +2,40 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote } from '@/types'
 import { QUOTE_STATUS_COLORS, formatDate, formatCurrency } from '@/lib/utils'
-import { Plus, Search, FileText } from 'lucide-react'
+import { Plus, Search, FileText, Copy } from 'lucide-react'
 
 const STATUS_OPTIONS = ['全部', '草稿', '已確認', '已轉銷貨單', '已轉訂購單', '作廢']
 
 export default function QuotesPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [quotes, setQuotes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('全部')
+  const [copyingId, setCopyingId] = useState<string | null>(null)
 
   useEffect(() => { fetchQuotes() }, [statusFilter])
+
+  async function handleCopy(e: React.MouseEvent, quoteId: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (copyingId) return
+    setCopyingId(quoteId)
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/duplicate`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '複製失敗')
+      router.push(`/quotes/${data.id}`)   // 進入新複製單（草稿）編輯頁
+    } catch (err: any) {
+      alert(err.message ?? '複製失敗，請稍後再試')
+      setCopyingId(null)
+    }
+  }
 
   async function fetchQuotes() {
     setLoading(true)
@@ -76,11 +95,12 @@ export default function QuotesPage() {
                   <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">建立日期</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">沒有符合的報價單</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-gray-400">沒有符合的報價單</td></tr>
                 ) : (
                   filtered.map(q => (
                     <tr key={q.id} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
@@ -97,6 +117,17 @@ export default function QuotesPage() {
                         <span className={`text-xs px-2 py-1 rounded-lg font-medium ${QUOTE_STATUS_COLORS[q.status]}`}>{q.status}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-500">{formatDate(q.created_at)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={(e) => handleCopy(e, q.id)}
+                          disabled={copyingId === q.id}
+                          title="複製此報價單（日期改今天、單號重新產生）"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 transition-colors"
+                        >
+                          <Copy size={13} />
+                          {copyingId === q.id ? '複製中…' : '複製'}
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
