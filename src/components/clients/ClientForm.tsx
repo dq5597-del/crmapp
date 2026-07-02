@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Client, ClientStatus } from '@/types'
 import { Camera, Loader2, CheckCircle } from 'lucide-react'
+import AppearanceTagPicker from '@/components/ui/AppearanceTagPicker'
 
 const STATUS_OPTIONS: ClientStatus[] = ['有需求', '規劃中', '服務未完成', '已完成', '暫緩']
 
@@ -171,9 +172,9 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
           <input value={form.address} onChange={e => set('address', e.target.value)} className={inputClass} placeholder="花蓮市中正路1號" />
         </div>
 
-        <div>
+        <div className="sm:col-span-2">
           <label className={labelClass}>長相 / 特徵</label>
-          <input value={form.appearance} onChange={e => set('appearance', e.target.value)} className={inputClass} placeholder="業務助記" />
+          <AppearanceTagPicker key={initialData?.id ?? 'new'} value={form.appearance} onChange={v => set('appearance', v)} />
         </div>
 
         <div>
