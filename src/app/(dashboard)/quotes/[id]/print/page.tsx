@@ -138,29 +138,21 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           <div className="header-spacer" />
         </div>
 
-        {/* Client + quote info */}
+        {/* Client + quote info (merged into 2 rows) */}
         <div className="info-row">
           <span>客戶名稱：<strong>{clientName}</strong></span>
           <span>單據日期：{quote.created_at ? new Date(quote.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
         </div>
-        {(quote.contact_name || quote.client_phone) && (
-          <div className="info-row">
-            {quote.contact_name && <span>聯絡人：{quote.contact_name}</span>}
-            {quote.client_phone && <span>電話：{quote.client_phone}</span>}
-          </div>
-        )}
-        {quote.project_name && (
-          <div className="info-row">
-            <span>案名：{quote.project_name}</span>
-            <span>單號：{quote.quote_no}</span>
-          </div>
-        )}
-        {!quote.project_name && (
-          <div className="info-row">
-            <span></span>
-            <span>單號：{quote.quote_no}</span>
-          </div>
-        )}
+        <div className="info-row">
+          <span>
+            {quote.contact_name && `聯絡人：${quote.contact_name}　`}
+            {quote.client_phone && `電話：${quote.client_phone}`}
+          </span>
+          <span>
+            {quote.project_name && `案名：${quote.project_name}　`}
+            單號：{quote.quote_no}
+          </span>
+        </div>
 
         {/* Items table */}
         <table>
