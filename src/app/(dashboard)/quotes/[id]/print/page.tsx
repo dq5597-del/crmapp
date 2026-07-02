@@ -129,18 +129,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             ))}
           </tbody>
           <tfoot>
-            <tr>
-              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8, color: '#444' }}>小計（未稅）</td>
-              <td className="num" style={{ border: '1px solid #aaa' }}>{fmt(Number(quote.subtotal))}</td>
-              <td style={{ border: 'none' }}></td>
-            </tr>
-            <tr>
-              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8, color: '#444' }}>營業稅（5%）</td>
-              <td className="num" style={{ border: '1px solid #aaa' }}>{fmt(Number(quote.tax_amount))}</td>
-              <td style={{ border: 'none' }}></td>
-            </tr>
             <tr className="total-row">
-              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8 }}>小計（含 5% 營業稅）</td>
+              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8 }}>含稅總金額</td>
               <td className="num" style={{ border: '2px solid #555' }}>NT$ {fmt(Number(quote.total_amount))}</td>
               <td style={{ border: 'none' }}></td>
             </tr>
@@ -157,15 +147,6 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           </div>
         )}
 
-        {/* Signatures */}
-        <div className="sig-row">
-          {['業務', '審核', '客戶確認'].map(label => (
-            <div key={label} className="sig-box">
-              <div className="sig-line" />
-              <div className="sig-label">{label}</div>
-            </div>
-          ))}
-        </div>
       </div>
     </>
   )
