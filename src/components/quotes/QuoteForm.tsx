@@ -344,8 +344,8 @@ export default function QuoteForm({
   }
 
   const subtotal = items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0)
-  const taxAmount = Math.round(subtotal * 0.05)
-  const totalAmount = subtotal + taxAmount
+  const taxAmount = 0
+  const totalAmount = subtotal
 
   const filteredClients = clientSearch
     ? clients.filter(c =>
@@ -582,8 +582,8 @@ export default function QuoteForm({
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">單位</th>
                 <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">數量</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[96px]">單價</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">總計</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[96px]">含稅單價</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">含稅總計</th>
                 <th className="w-8"></th>
               </tr>
             </thead>
@@ -751,16 +751,6 @@ export default function QuoteForm({
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={6} className="px-3 py-2.5 text-right text-xs text-gray-500">小計（未稅）</td>
-                <td className="px-3 py-2.5 text-right font-semibold text-gray-700">{subtotal.toLocaleString()}</td>
-                <td colSpan={1} />
-              </tr>
-              <tr className="bg-gray-50">
-                <td colSpan={6} className="px-3 py-2 text-right text-xs text-gray-500">稅額（5%）</td>
-                <td className="px-3 py-2 text-right text-gray-600">{taxAmount.toLocaleString()}</td>
-                <td colSpan={1} />
-              </tr>
               <tr className="bg-gray-50 border-t border-gray-200">
                 <td colSpan={6} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
                 <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
