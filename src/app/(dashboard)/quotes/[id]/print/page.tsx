@@ -1,6 +1,48 @@
+import { Fragment } from 'react'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
+
+function numToChineseCapital(amount: number): string {
+  const digitsCn = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖']
+  const unitsCn = ['', '拾', '佰', '仟']
+  const bigUnitsCn = ['', '萬', '億', '兆']
+  const n = Math.floor(Math.abs(amount))
+  if (n === 0) return '新臺幣零元整'
+
+  let numStr = String(n)
+  const groups: string[] = []
+  while (numStr.length > 0) {
+    groups.unshift(numStr.slice(-4))
+    numStr = numStr.slice(0, -4)
+  }
+
+  let result = ''
+  groups.forEach((group, idx) => {
+    let groupResult = ''
+    let zeroFlag = false
+    for (let i = 0; i < group.length; i++) {
+      const digit = parseInt(group[i], 10)
+      const unitIdx = group.length - 1 - i
+      if (digit === 0) {
+        zeroFlag = true
+      } else {
+        if (zeroFlag) {
+          groupResult += '零'
+          zeroFlag = false
+        }
+        groupResult += digitsCn[digit] + unitsCn[unitIdx]
+      }
+    }
+    if (groupResult) {
+      result += groupResult + bigUnitsCn[groups.length - 1 - idx]
+    } else if (result) {
+      result += '零'
+    }
+  })
+  result = result.replace(/零+$/, '')
+  return `新臺幣${result}元整`
+}
 
 export default async function QuotePrintPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -39,6 +81,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   noteItems.push(...defaultNoteItems.filter((n: string) => n?.trim()))
   if (quote.notes) noteItems.push(quote.notes)
 
+  const totalChinese = numToChineseCapital(Number(quote.total_amount))
+
   return (
     <>
       <style>{`
@@ -48,9 +92,15 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           @page { margin: 15mm 14mm; size: A4; }
         }
         * { box-sizing: border-box; }
+        html, body { background: #fff; }
+        .app-shell { background: #fff !important; }
         body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', '微軟正黑體', sans-serif; font-size: 12px; color: #000; margin: 0; background: #fff; }
-        .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; }
-        h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 0 0 4px; }
+        .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; background: #fff; }
+        .header-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
+        .logo-box { width: 64px; height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .title-block { flex: 1; text-align: center; }
+        h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
         .sub-header { text-align: center; font-size: 12px; color: #333; margin-bottom: 16px; }
         .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; }
@@ -58,23 +108,28 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         td { border: 1px solid #aaa; padding: 5px 6px; font-size: 12px; vertical-align: top; }
         .num { text-align: right; }
         .center { text-align: center; }
-        .total-row td { font-weight: 700; font-size: 13px; border-top: 2px solid #555; }
+        .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
+        .total-label-cell { font-weight: 700; font-size: 15px; padding: 8px; }
+        .total-chinese { font-weight: 400; font-size: 11px; color: #555; margin-top: 3px; }
+        .total-amount-cell { font-weight: 700; font-size: 15px; text-align: right; padding: 8px; }
         .notes-section { margin-top: 18px; }
         .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
         .notes-section li { font-size: 12px; line-height: 1.9; }
-        .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; margin-top: 36px; padding-top: 8px; }
-        .sig-box { text-align: center; }
-        .sig-line { border-bottom: 1px solid #666; height: 44px; margin-bottom: 4px; }
-        .sig-label { font-size: 11px; color: #555; }
       `}</style>
 
       <PrintButtons />
 
       <div className="page">
-        {/* Title */}
-        <h1>估 價 單</h1>
-        <div className="sub-header">供應商：{company}{companyPhone ? `　電話：${companyPhone}` : ''}{companyAddress ? `　地址：${companyAddress}` : ''}</div>
+        {/* Header: logo + title */}
+        <div className="header-row">
+          <div className="logo-box" />
+          <div className="title-block">
+            <h1>估 價 單</h1>
+            <div className="sub-header">供應商：{company}{companyPhone ? `　電話：${companyPhone}` : ''}{companyAddress ? `　地址：${companyAddress}` : ''}</div>
+          </div>
+          <div className="logo-box" />
+        </div>
 
         {/* Client + quote info */}
         <div className="info-row">
@@ -111,28 +166,33 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <th style={{ width: 44 }}>數量</th>
               <th style={{ width: 88 }}>單價</th>
               <th style={{ width: 96 }}>金額</th>
-              <th style={{ textAlign: 'left', width: 130 }}>備註</th>
             </tr>
           </thead>
           <tbody>
             {(items ?? []).map((item: any) => (
-              <tr key={item.id}>
-                <td className="center">{item.seq_no}</td>
-                <td style={{ fontWeight: 500 }}>{item.product_name}</td>
-                <td style={{ color: '#444' }}>{item.model ?? ''}</td>
-                <td className="center">{item.unit}</td>
-                <td className="center">{item.quantity}</td>
-                <td className="num">{fmt(Number(item.unit_price))}</td>
-                <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
-                <td style={{ color: '#555', fontSize: 11 }}>{item.item_notes ?? ''}</td>
-              </tr>
+              <Fragment key={item.id}>
+                <tr>
+                  <td className="center">{item.seq_no}</td>
+                  <td style={{ fontWeight: 500 }}>{item.product_name}</td>
+                  <td style={{ color: '#444' }}>{item.model ?? ''}</td>
+                  <td className="center">{item.unit}</td>
+                  <td className="center">{item.quantity}</td>
+                  <td className="num">{fmt(Number(item.unit_price))}</td>
+                  <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
+                </tr>
+                <tr className="notes-row">
+                  <td colSpan={7}>備註：{item.item_notes ?? '—'}</td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
           <tfoot>
-            <tr className="total-row">
-              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8 }}>含稅總金額</td>
-              <td className="num" style={{ border: '2px solid #555' }}>NT$ {fmt(Number(quote.total_amount))}</td>
-              <td style={{ border: 'none' }}></td>
+            <tr>
+              <td colSpan={4} className="total-label-cell">
+                總金額
+                <div className="total-chinese">{totalChinese}</div>
+              </td>
+              <td colSpan={3} className="total-amount-cell">NT$ {fmt(Number(quote.total_amount))}</td>
             </tr>
           </tfoot>
         </table>
