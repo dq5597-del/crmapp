@@ -112,7 +112,7 @@ interface QuickAddProductModalProps {
   initialName: string
   categories: ProductCategory[]
   onClose: () => void
-  onCreated: (product: Product) => void
+  onCreated: (product: Product, itemNotes: string) => void
 }
 
 function QuickAddProductModal({ initialName, categories, onClose, onCreated }: QuickAddProductModalProps) {
@@ -129,6 +129,7 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
     is_active: true,
   })
   const [saving, setSaving] = useState(false)
+  const [itemNotes, setItemNotes] = useState('')
   const [isNewMain, setIsNewMain] = useState(false)
   const [newMainCat, setNewMainCat] = useState('')
   const [isNewSub, setIsNewSub] = useState(false)
@@ -189,7 +190,7 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
     const payload = { ...form, category_id: categoryId || null, notes: null, stock_qty: 0 }
     const { data, error } = await supabase.from('products').insert(payload).select('*').single()
     if (!error && data) {
-      onCreated(data as Product)
+      onCreated(data as Product, itemNotes.trim())
     }
     setSaving(false)
   }
@@ -256,6 +257,10 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
           <div>
             <label className="text-xs text-gray-600 mb-1 block">規格型號</label>
             <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} className={inputClass} placeholder="選填" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">品項備註（僅套用本次報價項目）</label>
+            <input value={itemNotes} onChange={e => setItemNotes(e.target.value)} className={inputClass} placeholder="選填" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -535,9 +540,10 @@ export default function QuoteForm({
           initialName={productSearch[quickAddIdx] ?? ''}
           categories={categories}
           onClose={() => setQuickAddIdx(null)}
-          onCreated={async (product) => {
+          onCreated={async (product, itemNotes) => {
             await loadProducts()
             onProductSelect(quickAddIdx, product)
+            if (itemNotes) setItem(quickAddIdx, 'item_notes', itemNotes)
             setQuickAddIdx(null)
           }}
         />
