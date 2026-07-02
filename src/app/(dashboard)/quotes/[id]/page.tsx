@@ -320,15 +320,7 @@ export default function QuoteDetailPage() {
         {/* Totals */}
         <div className="border-t border-gray-100 p-4 flex justify-end">
           <div className="space-y-1 text-sm min-w-[220px]">
-            <div className="flex justify-between text-gray-600">
-              <span>小計（未稅）</span>
-              <span>{formatCurrency(quote.subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>稅額（5%）</span>
-              <span>{formatCurrency(quote.tax_amount)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-base text-gray-900 border-t pt-1 mt-1">
+            <div className="flex justify-between font-bold text-base text-gray-900">
               <span>含稅總金額</span>
               <span className="text-blue-700">{formatCurrency(quote.total_amount)}</span>
             </div>
