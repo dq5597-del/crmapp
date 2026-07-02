@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 // 長相／特徵標籤組 —— 供業務快速勾選認人，勿加入性向等敏感個資標籤
 export const APPEARANCE_TAG_GROUPS: { label: string; options: string[] }[] = [
@@ -34,11 +35,23 @@ interface Props {
   onChange: (v: string) => void
 }
 
+// 收合式下拉多選：關閉時只佔一行（跟一般輸入框同高），適合手機版；
+// 點開才展開分類勾選面板，選外面自動收合。
 export default function AppearanceTagPicker({ value, onChange }: Props) {
   // 內部 state 只在掛載時解析一次；父層若切換編輯對象請帶 key 讓元件重新掛載
   const initial = parseValue(value)
   const [tags, setTags] = useState<string[]>(initial.tags)
   const [extra, setExtra] = useState(initial.extra)
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [])
 
   function toggle(tag: string) {
     const next = tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag]
@@ -51,38 +64,55 @@ export default function AppearanceTagPicker({ value, onChange }: Props) {
     onChange(buildValue(tags, v))
   }
 
+  const summary = [...tags, extra].filter(Boolean).join('、')
+
   return (
-    <div className="space-y-2">
-      {APPEARANCE_TAG_GROUPS.map(group => (
-        <div key={group.label} className="flex items-start gap-2">
-          <span className="text-xs text-gray-400 w-16 shrink-0 pt-1.5">{group.label}</span>
-          <div className="flex flex-wrap gap-1.5">
-            {group.options.map(opt => {
-              const active = tags.includes(opt)
-              return (
-                <button
-                  type="button"
-                  key={opt}
-                  onClick={() => toggle(opt)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                    active
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'
-                  }`}
-                >
-                  {opt}
-                </button>
-              )
-            })}
-          </div>
+    <div className="relative" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <span className={summary ? 'text-gray-900 truncate' : 'text-gray-400'}>
+          {summary || '點選長相 / 特徵標籤'}
+        </span>
+        <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1.5 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-3 space-y-2 max-h-72 overflow-y-auto">
+          {APPEARANCE_TAG_GROUPS.map(group => (
+            <div key={group.label} className="flex items-start gap-2">
+              <span className="text-xs text-gray-400 w-16 shrink-0 pt-1.5">{group.label}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {group.options.map(opt => {
+                  const active = tags.includes(opt)
+                  return (
+                    <button
+                      type="button"
+                      key={opt}
+                      onClick={() => toggle(opt)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                        active
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          <input
+            value={extra}
+            onChange={e => handleExtraChange(e.target.value)}
+            placeholder="其他補充（自由輸入）"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
-      ))}
-      <input
-        value={extra}
-        onChange={e => handleExtraChange(e.target.value)}
-        placeholder="其他補充（自由輸入）"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+      )}
     </div>
   )
 }
