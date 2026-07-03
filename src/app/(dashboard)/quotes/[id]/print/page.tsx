@@ -95,10 +95,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', '微軟正黑體', sans-serif; font-size: 12px; color: #000; margin: 0; background: #fff; }
         .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; background: #fff; }
         .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-        .logo { display: flex; align-items: center; gap: 10px; width: 210px; flex-shrink: 0; }
-        .logo-mark { background: #2a9d94; color: #fff; font-weight: 700; font-size: 22px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; letter-spacing: -0.5px; }
-        .logo-text-cn { font-size: 21px; font-weight: 700; color: #111; line-height: 1.15; white-space: nowrap; }
-        .logo-text-en { font-size: 7px; font-weight: 700; letter-spacing: 1px; color: #111; white-space: nowrap; margin-top: 3px; }
+        .logo { display: flex; align-items: center; width: 210px; flex-shrink: 0; }
+        .logo-img { width: 100%; height: auto; display: block; }
         .header-spacer { width: 210px; flex-shrink: 0; }
         .title-block { flex: 1; text-align: center; }
         h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
@@ -126,11 +124,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         {/* Header: logo + title */}
         <div className="header-row">
           <div className="logo">
-            <div className="logo-mark">GH</div>
-            <div>
-              <div className="logo-text-cn">光輝影音科技</div>
-              <div className="logo-text-en">AUDIO VISUAL SYSTEM INTEGRATION</div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.jpg" alt="光輝影音科技" className="logo-img" />
           </div>
           <div className="title-block">
             <h1>估 價 單</h1>
