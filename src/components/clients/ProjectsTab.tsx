@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ProjectStatus } from '@/types'
-import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 const STATUS_OPTIONS: ProjectStatus[] = ['規劃中', '進行中', '施工中', '完工', '暫停', '取消']
@@ -160,6 +160,7 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
 
   return (
     <div>
+      {/* Category Tabs — only when multiple cats */}
       {cats.length > 1 && (
         <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-3">
           {cats.map((c, i) => (
@@ -173,6 +174,8 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
           ))}
         </div>
       )}
+
+      {/* Upload Controls */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
@@ -189,10 +192,14 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
         {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
         <span className="ml-auto text-xs text-gray-400">上傳至「{catLabel}」</span>
       </div>
+
+      {/* Photo Grid */}
       {loading ? (
         <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
       ) : catPhotos.length === 0 ? (
-        <div className="text-center py-6 text-gray-400 text-sm">尚無「{catLabel}」照片，點上方按鈕新增</div>
+        <div className="text-center py-6 text-gray-400 text-sm">
+          尚無「{catLabel}」照片，點上方按鈕新增
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {catPhotos.map(photo => (
@@ -220,7 +227,150 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   )
 }
 
-// ── Equipment Map ─────────────────────────────
+// ── File Section (客戶提供的檔案) ──────────────────────────
+const FILE_BUCKET = 'project-files'
+
+type ProjectFile = {
+  id: string
+  project_id: string
+  file_name: string
+  storage_path: string
+  file_size: number | null
+  mime_type: string | null
+  notes: string
+  created_at: string
+}
+
+function formatFileSize(bytes: number | null) {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function fileIcon(mime: string | null) {
+  if (!mime) return '📄'
+  if (mime.startsWith('image/')) return '🖼️'
+  if (mime === 'application/pdf') return '📕'
+  if (mime.includes('word')) return '📝'
+  if (mime.includes('sheet') || mime.includes('excel')) return '📊'
+  return '📄'
+}
+
+function FileSection({ projectId, supabase, onBeforeUpload }: {
+  projectId: string
+  supabase: ReturnType<typeof createClient>
+  onBeforeUpload?: () => Promise<boolean>
+}) {
+  const [files, setFiles] = useState<ProjectFile[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { fetchFiles() }, [projectId])
+
+  async function fetchFiles() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('project_files').select('*')
+      .eq('project_id', projectId)
+      .order('created_at')
+    const list = (data ?? []) as ProjectFile[]
+    setFiles(list)
+    const n: Record<string, string> = {}
+    list.forEach(f => { n[f.id] = f.notes ?? '' })
+    setLocalNotes(n)
+    setLoading(false)
+  }
+
+  function getUrl(path: string) {
+    return supabase.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl
+  }
+
+  async function handleUpload(file: File) {
+    if (onBeforeUpload && !(await onBeforeUpload())) return
+    setUploading(true)
+    try {
+      const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+      const path = `${projectId}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}${ext ? '.' + ext : ''}`
+      const { error } = await supabase.storage.from(FILE_BUCKET).upload(path, file, { upsert: false })
+      if (error) throw error
+      const { error: dbErr } = await supabase.from('project_files').insert({
+        project_id: projectId, file_name: file.name, storage_path: path,
+        file_size: file.size, mime_type: file.type || null, notes: '',
+      })
+      if (dbErr) throw dbErr
+      await fetchFiles()
+    } catch (e: any) {
+      alert('上傳失敗: ' + e.message)
+    }
+    setUploading(false)
+  }
+
+  async function handleDelete(f: ProjectFile) {
+    if (!confirm(`確認刪除「${f.file_name}」？`)) return
+    await supabase.storage.from(FILE_BUCKET).remove([f.storage_path])
+    await supabase.from('project_files').delete().eq('id', f.id)
+    setFiles(prev => prev.filter(x => x.id !== f.id))
+  }
+
+  async function saveNotes(fileId: string) {
+    await supabase.from('project_files')
+      .update({ notes: localNotes[fileId] ?? '' })
+      .eq('id', fileId)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <input ref={fileRef} type="file" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
+          <Upload size={14} /> 上傳檔案
+        </button>
+        {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
+      </div>
+
+      {loading ? (
+        <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
+      ) : files.length === 0 ? (
+        <div className="text-center py-6 text-gray-400 text-sm">
+          尚無客戶提供的檔案，點上方按鈕新增
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {files.map(f => (
+            <div key={f.id} className="flex items-start gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+              <span className="text-xl shrink-0">{fileIcon(f.mime_type)}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <a href={getUrl(f.storage_path)} target="_blank" rel="noopener noreferrer"
+                    className="text-sm font-medium text-blue-600 hover:underline truncate">{f.file_name}</a>
+                  <span className="text-xs text-gray-400 shrink-0">{formatFileSize(f.file_size)}</span>
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {new Date(f.created_at).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
+                  </span>
+                </div>
+                <textarea rows={1} value={localNotes[f.id] ?? ''}
+                  onChange={e => setLocalNotes(prev => ({ ...prev, [f.id]: e.target.value }))}
+                  onBlur={() => saveNotes(f.id)} placeholder="檔案備註..."
+                  className="mt-1.5 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50" />
+              </div>
+              <button type="button" onClick={() => handleDelete(f)}
+                className="shrink-0 p-1.5 text-gray-400 hover:text-red-500 rounded-lg" title="刪除檔案">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Equipment Map (現場設備標示圖) ─────────────────────────────
 const EQUIP_TYPES = [
   { key: 'network', label: '網路設備', color: '#ef4444' },
   { key: 'info',    label: '資訊設備', color: '#f97316' },
@@ -394,6 +544,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
       const pos = { ...draggingPosRef.current }
       const pX = (svgX / roomL) * 100
       const pY = (svgY / roomW) * 100
+
       if (mode === 'move') {
         pos.x_pct = Math.max(0, Math.min(100, (svgX - dragOffsetRef.current.dx) / roomL * 100))
         pos.y_pct = Math.max(0, Math.min(100, (svgY - dragOffsetRef.current.dy) / roomW * 100))
@@ -419,10 +570,12 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
       } else if (mode === 'resize-br') {
         pos.w_pct = Math.max(2, pX - pos.x_pct!); pos.h_pct = Math.max(2, pY - pos.y_pct!)
       }
+
       draggingPosRef.current = pos
       setMarkers(prev => prev.map(mk => mk.id === draggingIdRef.current ? { ...mk, ...pos } as EquipMarker : mk))
       return
     }
+
     if (drawStartRef.current) {
       setPreviewShape({ x1: drawStartRef.current.x, y1: drawStartRef.current.y, x2: svgX, y2: svgY })
     }
@@ -454,6 +607,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         .eq('id', id)
       return
     }
+
     if (drawStartRef.current && previewShape) {
       const { x1, y1, x2, y2 } = previewShape
       if (Math.abs(x2 - x1) < roomL * 0.015 && Math.abs(y2 - y1) < roomW * 0.015) {
@@ -486,6 +640,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
   }
 
   async function handleSvgTouchEnd(e: React.TouchEvent<SVGSVGElement>) {
+    // Circle tap: placed via touchTapRef
     if (touchTapRef.current && drawTool === 'circle' && !didDragRef.current) {
       const { x, y } = touchTapRef.current
       touchTapRef.current = null
@@ -565,6 +720,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
 
   return (
     <div className="space-y-3">
+      {/* Room dimensions */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs text-gray-500 font-medium">房間尺寸</span>
         <div className="flex items-center gap-1.5">
@@ -585,6 +741,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         <span className="text-xs text-gray-400">（自動從④場勘帶入，可手動覆蓋）</span>
       </div>
 
+      {/* Draw tool selector */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs text-gray-500 font-medium shrink-0">繪圖工具</span>
         <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
@@ -600,6 +757,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         <span className="text-xs text-gray-400">{DRAW_TOOLS.find(dt => dt.key === drawTool)?.hint}</span>
       </div>
 
+      {/* Equipment type selector */}
       <div>
         <p className="text-xs text-gray-500 mb-1.5">設備類型（決定顏色）</p>
         <div className="flex flex-wrap gap-1.5">
@@ -616,6 +774,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         </div>
       </div>
 
+      {/* Product selector + custom label */}
       <div className="flex gap-3 flex-wrap items-start">
         <div className="relative flex-1 min-w-[180px]">
           <label className="text-xs text-gray-500 mb-1 block">產品（從資料庫搜尋）</label>
@@ -652,6 +811,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         </div>
       </div>
 
+      {/* SVG floor plan */}
       <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-slate-50 relative">
         {placing && (
           <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 pointer-events-none">
@@ -670,6 +830,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
           viewBox={`0 0 ${roomL} ${roomW}`}
           className="w-full select-none block"
           style={{ maxHeight: '60vh', cursor: draggingId ? 'grabbing' : 'crosshair', touchAction: 'none' }}>
+
           <defs>
             {EQUIP_TYPES.map(et => (
               <marker key={et.key} id={`arr-${et.key}`}
@@ -678,31 +839,54 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
               </marker>
             ))}
           </defs>
+
           <rect x={0} y={0} width={roomL} height={roomW} fill="#f8fafc" />
           {gridX.map(x => (
-            <line key={`gx${x}`} x1={x} y1={0} x2={x} y2={roomW} stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
+            <line key={`gx${x}`} x1={x} y1={0} x2={x} y2={roomW}
+              stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
           ))}
           {gridY.map(y => (
-            <line key={`gy${y}`} x1={0} y1={y} x2={roomL} y2={y} stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
+            <line key={`gy${y}`} x1={0} y1={y} x2={roomL} y2={y}
+              stroke="#e2e8f0" strokeWidth={roomL * 0.003} />
           ))}
-          <rect x={0} y={0} width={roomL} height={roomW} fill="none" stroke="#94a3b8" strokeWidth={roomL * 0.008} />
-          <text x={roomL * 0.5} y={roomW * 0.04 + r * 0.5} textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui">{roomL}m</text>
-          <text x={r * 0.6} y={roomW * 0.5} textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui" transform={`rotate(-90, ${r * 0.6}, ${roomW * 0.5})`}>{roomW}m</text>
+          <rect x={0} y={0} width={roomL} height={roomW} fill="none"
+            stroke="#94a3b8" strokeWidth={roomL * 0.008} />
+          <text x={roomL * 0.5} y={roomW * 0.04 + r * 0.5}
+            textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui">
+            {roomL}m
+          </text>
+          <text x={r * 0.6} y={roomW * 0.5}
+            textAnchor="middle" fontSize={r * 0.85} fill="#94a3b8" fontFamily="system-ui"
+            transform={`rotate(-90, ${r * 0.6}, ${roomW * 0.5})`}>
+            {roomW}m
+          </text>
+
           {previewShape && drawTool === 'rect' && (
-            <rect x={Math.min(previewShape.x1, previewShape.x2)} y={Math.min(previewShape.y1, previewShape.y2)}
-              width={Math.abs(previewShape.x2 - previewShape.x1)} height={Math.abs(previewShape.y2 - previewShape.y1)}
-              fill={curSelColor} fillOpacity={0.15} stroke={curSelColor} strokeWidth={lineW * 1.5}
-              strokeDasharray={`${lineW * 3} ${lineW}`} style={{ pointerEvents: 'none' }} />
+            <rect
+              x={Math.min(previewShape.x1, previewShape.x2)}
+              y={Math.min(previewShape.y1, previewShape.y2)}
+              width={Math.abs(previewShape.x2 - previewShape.x1)}
+              height={Math.abs(previewShape.y2 - previewShape.y1)}
+              fill={curSelColor} fillOpacity={0.15}
+              stroke={curSelColor} strokeWidth={lineW * 1.5}
+              strokeDasharray={`${lineW * 3} ${lineW}`}
+              style={{ pointerEvents: 'none' }} />
           )}
           {previewShape && (drawTool === 'line' || drawTool === 'arrow') && (
-            <line x1={previewShape.x1} y1={previewShape.y1} x2={previewShape.x2} y2={previewShape.y2}
-              stroke={curSelColor} strokeWidth={lineW * 2} strokeDasharray={`${lineW * 3} ${lineW}`}
-              markerEnd={drawTool === 'arrow' ? `url(#arr-${selType})` : undefined} style={{ pointerEvents: 'none' }} />
+            <line
+              x1={previewShape.x1} y1={previewShape.y1}
+              x2={previewShape.x2} y2={previewShape.y2}
+              stroke={curSelColor} strokeWidth={lineW * 2}
+              strokeDasharray={`${lineW * 3} ${lineW}`}
+              markerEnd={drawTool === 'arrow' ? `url(#arr-${selType})` : undefined}
+              style={{ pointerEvents: 'none' }} />
           )}
+
           {markers.map(mk => {
             const col = EQUIP_TYPES.find(et => et.key === mk.equipment_type)?.color ?? '#6b7280'
             const isSel = selId === mk.id
             const shType = mk.shape_type ?? 'circle'
+
             if (shType === 'rect') {
               const rx = (mk.x_pct / 100) * roomL
               const ry = (mk.y_pct / 100) * roomW
@@ -714,10 +898,16 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                   onTouchStart={e => handleMarkerTouchStart(e, mk, 'move')}
                   onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
                   style={{ cursor: draggingId === mk.id ? 'grabbing' : 'move' }}>
-                  <rect x={rx} y={ry} width={rw} height={rh} fill={col} fillOpacity={0.18} stroke={col} strokeWidth={lineW * 1.5} rx={lineW} />
-                  <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
-                    fontSize={Math.min(r * 0.85, rw * 0.15, rh * 0.35)} fill={col} fontWeight="600" fontFamily="system-ui"
-                    style={{ userSelect: 'none', pointerEvents: 'none' }}>{mk.label}</text>
+                  <rect x={rx} y={ry} width={rw} height={rh}
+                    fill={col} fillOpacity={0.18}
+                    stroke={col} strokeWidth={lineW * 1.5} rx={lineW} />
+                  <text x={rx + rw / 2} y={ry + rh / 2}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={Math.min(r * 0.85, rw * 0.15, rh * 0.35)}
+                    fill={col} fontWeight="600" fontFamily="system-ui"
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                    {mk.label}
+                  </text>
                   {isSel && (
                     <>
                       <circle cx={rx} cy={ry} r={hR} fill="white" stroke={col} strokeWidth={lineW * 1.5}
@@ -741,6 +931,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                 </g>
               )
             }
+
             if (shType === 'line' || shType === 'arrow') {
               const x1 = (mk.x_pct / 100) * roomL
               const y1 = (mk.y_pct / 100) * roomW
@@ -755,7 +946,8 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                   onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
                   style={{ cursor: draggingId === mk.id ? 'grabbing' : 'grab' }}>
                   <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={lineW * 6} />
-                  <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={col} strokeWidth={lineW * 2}
+                  <line x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke={col} strokeWidth={lineW * 2}
                     markerEnd={shType === 'arrow' ? `url(#arr-${mk.equipment_type})` : undefined} />
                   {mk.label && (() => {
                     const isVert = Math.abs(y2 - y1) > Math.abs(x2 - x1)
@@ -764,10 +956,13 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                     const textX = lmx + (isVert ? offAmt : 0)
                     const textY = lmy + (isVert ? 0 : -offAmt)
                     return (
-                      <text x={textX} y={textY} textAnchor="middle" dominantBaseline="middle"
+                      <text x={textX} y={textY}
+                        textAnchor="middle" dominantBaseline="middle"
                         fontSize={r * 0.75} fill={col} fontWeight="600" fontFamily="system-ui"
                         transform={textAngle !== 0 ? `rotate(${textAngle}, ${textX}, ${textY})` : undefined}
-                        style={{ userSelect: 'none', pointerEvents: 'none' }}>{mk.label}</text>
+                        style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                        {mk.label}
+                      </text>
                     )
                   })()}
                   {isSel && (
@@ -790,6 +985,8 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                 </g>
               )
             }
+
+            // Default: circle
             const mx = (mk.x_pct / 100) * roomL
             const my = (mk.y_pct / 100) * roomW
             return (
@@ -798,21 +995,29 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                 onTouchStart={e => handleMarkerTouchStart(e, mk, 'move')}
                 onClick={e => { e.stopPropagation(); if (!didDragRef.current) setSelId(isSel ? null : mk.id) }}
                 style={{ cursor: draggingId === mk.id ? 'grabbing' : 'grab' }}>
-                <text x={mx} y={my - r - lineW} textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
-                  fontWeight="600" fontFamily="system-ui" style={{ userSelect: 'none', pointerEvents: 'none' }}>{mk.label}</text>
+                <text x={mx} y={my - r - lineW}
+                  textAnchor="middle" fontSize={r * 0.85} fill="#1e293b"
+                  fontWeight="600" fontFamily="system-ui"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                  {mk.label}
+                </text>
                 <circle cx={mx} cy={my} r={r} fill={col}
-                  stroke={isSel ? '#1e293b' : 'white'} strokeWidth={isSel ? r * 0.25 : r * 0.12} opacity={0.92} />
+                  stroke={isSel ? '#1e293b' : 'white'}
+                  strokeWidth={isSel ? r * 0.25 : r * 0.12}
+                  opacity={0.92} />
                 {isSel && (
                   <g onClick={e => { e.stopPropagation(); handleDeleteMarker(mk.id) }} style={{ cursor: 'pointer' }}>
                     <circle cx={mx + r * 0.85} cy={my - r * 0.85} r={r * 0.5} fill="#ef4444" />
-                    <text x={mx + r * 0.85} y={my - r * 0.85 + r * 0.22} textAnchor="middle" fontSize={r * 0.75}
-                      fill="white" fontWeight="bold" style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
+                    <text x={mx + r * 0.85} y={my - r * 0.85 + r * 0.22}
+                      textAnchor="middle" fontSize={r * 0.75} fill="white" fontWeight="bold"
+                      style={{ userSelect: 'none', pointerEvents: 'none' }}>x</text>
                   </g>
                 )}
               </g>
             )
           })}
         </svg>
+
         {markers.length === 0 && !previewShape && (
           <div className="absolute bottom-3 inset-x-0 flex justify-center pointer-events-none">
             <span className="text-xs text-gray-400 bg-white/80 px-3 py-1 rounded-full">
@@ -822,6 +1027,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         )}
       </div>
 
+      {/* Selected marker panel */}
       {selId && (() => {
         const selMk = markers.find(m => m.id === selId)
         if (!selMk) return null
@@ -829,6 +1035,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         const eqType = EQUIP_TYPES.find(t => t.key === selMk.equipment_type)
         return (
           <div className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-2">
+            {/* Info row */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: eqType?.color ?? '#64748b' }} />
               <span className="font-medium text-gray-700">{selMk.label || eqType?.label || selMk.equipment_type}</span>
@@ -843,6 +1050,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                 🗑 刪除
               </button>
             </div>
+            {/* Edit form */}
             {editMarker && (
               <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-200">
                 <input type="text" placeholder="標籤名稱" value={editMarker.label}
@@ -864,6 +1072,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
                 </button>
               </div>
             )}
+            {/* Rect size inputs */}
             {isRect && rectSizeCm && (
               <div className="flex items-center gap-3 flex-wrap pt-1 border-t border-gray-200">
                 <span className="text-gray-500 shrink-0">尺寸：</span>
@@ -890,21 +1099,26 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
         )
       })()}
 
+      {/* Legend + count */}
       <div className="flex items-start gap-x-4 gap-y-1.5 flex-wrap">
         {EQUIP_TYPES.map(et => (
           <div key={et.key} className="flex items-center gap-1 text-xs text-gray-500">
-            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: et.color }} />
+            <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0"
+              style={{ backgroundColor: et.color }} />
             {et.label}
           </div>
         ))}
         {markers.length > 0 && (
-          <span className="text-xs text-gray-400 ml-auto">共 {markers.length} 個標記・拖拉可移動・點選後可刪除</span>
+          <span className="text-xs text-gray-400 ml-auto">
+            共 {markers.length} 個標記・拖拉可移動・點選後可刪除
+          </span>
         )}
       </div>
     </div>
   )
 }
 
+// ── Equipment Photo Section (控制台/機櫃/現場設備) ─────────────
 const EQUIP_SUBS = [
   { key: 'ctrl', label: '控制台',   cats: CATS_CTRL },
   { key: 'rack', label: '機櫃設備', cats: CATS_RACK },
@@ -935,6 +1149,7 @@ function EquipmentSection({ projectId, supabase, onBeforeUpload }: {
   )
 }
 
+// ── Accordion ───────────────────────────────────────────────
 function Accordion({ title, color, defaultOpen = false, children }: {
   title: string; color: typeof BLUE; defaultOpen?: boolean; children: React.ReactNode
 }) {
@@ -973,6 +1188,7 @@ function BoolField({ label, value, onChange }: { label: string; value: boolean; 
   )
 }
 
+// ── Main Component ───────────────────────────────────────────
 export default function ProjectsTab({ clientId }: { clientId: string }) {
   const supabase = createClient()
   const [projects, setProjects] = useState<any[]>([])
@@ -1052,10 +1268,18 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
   async function ensureSaved(): Promise<boolean> {
     if (!isNewProject) return true
     const name = form.project_name.trim()
-    if (!name) { alert('請先填寫「專案名稱」再上傳照片'); return false }
-    const payload = { ...form, id: editingId, client_id: clientId,
+    if (!name) {
+      alert('請先填寫「專案名稱」再上傳照片')
+      return false
+    }
+    const payload = {
+      ...form,
+      id: editingId,
+      client_id: clientId,
       budget: form.budget ? Number(form.budget) : null,
-      start_date: form.start_date || null, end_date: form.end_date || null }
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+    }
     const { error } = await supabase.from('projects').insert(payload)
     if (error) { alert('建立專案失敗: ' + error.message); return false }
     setIsNewProject(false)
@@ -1067,8 +1291,12 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
     if (!form.project_name.trim()) return
     setSaving(true)
     try {
-      const projectPayload = { ...form, budget: form.budget ? Number(form.budget) : null,
-        start_date: form.start_date || null, end_date: form.end_date || null }
+      const projectPayload = {
+        ...form,
+        budget: form.budget ? Number(form.budget) : null,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+      }
       if (isNewProject) {
         await supabase.from('projects').insert({ id: editingId, ...projectPayload, client_id: clientId })
         setIsNewProject(false)
@@ -1076,14 +1304,17 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
         await supabase.from('projects').update(projectPayload).eq('id', editingId)
       }
       if (editingId) {
-        const surveyPayload = { ...survey, project_id: editingId,
+        const surveyPayload = {
+          ...survey,
+          project_id: editingId,
           space_length: survey.space_length ? Number(survey.space_length) : null,
           space_width: survey.space_width ? Number(survey.space_width) : null,
           space_height: survey.space_height ? Number(survey.space_height) : null,
           capacity: survey.capacity ? Number(survey.capacity) : null,
           travel_time_minutes: survey.travel_time_minutes ? Number(survey.travel_time_minutes) : null,
           ambient_noise_db: survey.ambient_noise_db ? Number(survey.ambient_noise_db) : null,
-          survey_date: survey.survey_date || null }
+          survey_date: survey.survey_date || null,
+        }
         if (surveyId) {
           await fetch('/api/site-surveys', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: surveyId, ...surveyPayload }) })
         } else {
@@ -1091,7 +1322,9 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
         }
       }
     } finally {
-      setSaving(false); setEditingId(null); fetchProjects()
+      setSaving(false)
+      setEditingId(null)
+      fetchProjects()
     }
   }
 
@@ -1105,7 +1338,8 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
     setForm(p => ({ ...p, [k]: e.target.value }))
   const setS = (k: keyof SurveyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setSurvey(p => ({ ...p, [k]: e.target.value }))
-  const setSB = (k: keyof SurveyForm) => (v: boolean) => setSurvey(p => ({ ...p, [k]: v }))
+  const setSB = (k: keyof SurveyForm) => (v: boolean) =>
+    setSurvey(p => ({ ...p, [k]: v }))
 
   return (
     <div className="space-y-3">
@@ -1115,6 +1349,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
           <Plus size={14} /> 新增專案
         </button>
       </div>
+
       {editingId !== null && (
         <div className="border border-gray-200 rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
@@ -1122,21 +1357,51 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
             <button onClick={() => setEditingId(null)}><X size={16} className="text-gray-400" /></button>
           </div>
           <div className="p-4 space-y-3">
+
             <Accordion title="① 上類 — 基本資訊" color={BLUE} defaultOpen>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="專案名稱 *" span2><input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" /></Field>
-                <Field label="場景名稱"><input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" /></Field>
-                <Field label="使用者類型"><input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" /></Field>
-                <Field label="專案狀態"><select value={form.status} onChange={setP('status')} className={inp}>{STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}</select></Field>
-                <Field label="預算（NT$）"><input type="number" value={form.budget} onChange={setP('budget')} className={inp} /></Field>
-                <Field label="施工日期"><input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} /></Field>
-                <Field label="預計完工日"><input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} /></Field>
-                <Field label="說明／備注" span2><textarea rows={2} value={form.description} onChange={setP('description')} className={ta} /></Field>
+                <Field label="專案名稱 *" span2>
+                  <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
+                </Field>
+                <Field label="場景名稱">
+                  <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
+                </Field>
+                <Field label="使用者類型">
+                  <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
+                </Field>
+                <Field label="專案狀態">
+                  <select value={form.status} onChange={setP('status')} className={inp}>
+                    {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </Field>
+                <Field label="預算（NT$）">
+                  <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
+                </Field>
+                <Field label="施工日期">
+                  <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
+                </Field>
+                <Field label="預計完工日">
+                  <input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} />
+                </Field>
+                <Field label="說明／備注" span2>
+                  <textarea rows={2} value={form.description} onChange={setP('description')} className={ta} />
+                </Field>
               </div>
             </Accordion>
+
+            <Accordion title="📎 客戶提供的檔案" color={BLUE}>
+              <FileSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
             <Accordion title="② 上類 — 需求分析" color={BLUE}>
               <div className="grid grid-cols-1 gap-3">
-                <Field label="主要功能定位"><input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" /></Field>
+                <Field label="主要功能定位">
+                  <input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" />
+                </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="設備需求"><textarea rows={2} value={form.equipment_needs} onChange={setP('equipment_needs')} className={ta} /></Field>
                   <Field label="音響需求"><textarea rows={2} value={form.audio_needs} onChange={setP('audio_needs')} className={ta} /></Field>
@@ -1145,9 +1410,12 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                   <Field label="控制需求"><textarea rows={2} value={form.control_needs} onChange={setP('control_needs')} className={ta} /></Field>
                   <Field label="其他需求"><textarea rows={2} value={form.other_needs} onChange={setP('other_needs')} className={ta} /></Field>
                 </div>
-                <Field label="場地規格"><textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} /></Field>
+                <Field label="場地規格">
+                  <textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} />
+                </Field>
               </div>
             </Accordion>
+
             <Accordion title="③ 下類 — 場勘基本資訊" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
@@ -1157,6 +1425,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
               </div>
             </Accordion>
+
             <Accordion title="④ 下類 — 空間規格資訊" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
@@ -1174,6 +1443,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
+
             <Accordion title="⑤ 下類 — 電力與網路" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
@@ -1188,6 +1458,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
+
             <Accordion title="⑥ 下類 — 聲學與環境" color={GREEN}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
@@ -1201,6 +1472,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
+
             <Accordion title="⑦ 中類 — 施工條件限制" color={ORG}>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 flex gap-6 flex-wrap">
@@ -1220,6 +1492,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
               </div>
             </Accordion>
+
             <Accordion title="⑧ 中類 — 現況設備補充" color={ORG}>
               <div className="grid grid-cols-1 gap-3">
                 <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
@@ -1230,21 +1503,42 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
               </div>
             </Accordion>
+
             <Accordion title="⑨ 中類 — 場勘備註" color={ORG}>
-              <Field label="場勘備註內容"><textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} /></Field>
+              <Field label="場勘備註內容">
+                <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
+              </Field>
             </Accordion>
+
             <Accordion title="🔧 設備類 — 現場設備記錄" color={PURPLE}>
-              <EquipmentSection projectId={editingId as string} supabase={supabase} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              <EquipmentSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
             </Accordion>
+
             <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
-              <EquipmentMapSection projectId={editingId as string} supabase={supabase}
-                initLength={survey.space_length} initWidth={survey.space_width}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              <EquipmentMapSection
+                projectId={editingId as string}
+                supabase={supabase}
+                initLength={survey.space_length}
+                initWidth={survey.space_width}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
             </Accordion>
+
             <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
-              <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_MAIN} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              <PhotoSection
+                projectId={editingId as string}
+                supabase={supabase}
+                cats={CATS_MAIN}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
             </Accordion>
+
           </div>
+
           <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
             <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-white">取消</button>
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
@@ -1253,6 +1547,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       )}
+
       {loading ? (
         <div className="text-center py-8 text-gray-400 text-sm">載入中...</div>
       ) : projects.length === 0 ? (
@@ -1282,6 +1577,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
           </div>
         ))
       )}
+
     </div>
   )
 }
