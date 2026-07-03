@@ -56,7 +56,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   if (!quote) return notFound()
 
   const clientName = (quote as any).clients?.company_name ?? ''
-  const clientAddress = (quote as any).clients?.address ?? ''
+  const clientAddress = (quote as any).client_address || (quote as any).clients?.address || ''
   const bankInfo = settings?.bank_name
     ? `${settings.bank_name}（代號：${settings.bank_code ?? ''}）／戶名：${settings.bank_account_name ?? ''}／帳號：${settings.bank_account ?? ''}`
     : ''
