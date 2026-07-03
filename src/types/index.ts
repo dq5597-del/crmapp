@@ -110,6 +110,7 @@ export interface Quote {
   project_name: string | null
   contact_name: string | null
   client_phone: string | null
+  client_address: string | null
   valid_until: string | null
   delivery_days: number | null
   payment_terms: string | null
