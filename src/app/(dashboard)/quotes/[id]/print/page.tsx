@@ -111,10 +111,13 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
         .total-row td { font-weight: 700; font-size: 13px; }
-        .notes-section { margin-top: 18px; }
+        .notes-stamp-row { display: flex; align-items: flex-end; gap: 20px; margin-top: 18px; }
+        .notes-section { flex: 1; min-width: 0; }
         .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
         .notes-section li { font-size: 12px; line-height: 1.9; }
+        .stamp-box { width: 100px; flex-shrink: 0; display: flex; justify-content: center; }
+        .stamp-box img { width: 92px; height: auto; }
       `}</style>
 
       <PrintButtons />
@@ -189,15 +192,21 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           </tfoot>
         </table>
 
-        {/* Notes */}
-        {noteItems.length > 0 && (
-          <div className="notes-section">
-            <div className="notes-title">備註事項</div>
-            <ol>
-              {noteItems.map((n, i) => <li key={i}>{n}</li>)}
-            </ol>
+        {/* Notes + 估價單章 */}
+        <div className="notes-stamp-row">
+          {noteItems.length > 0 && (
+            <div className="notes-section">
+              <div className="notes-title">備註事項</div>
+              <ol>
+                {noteItems.map((n, i) => <li key={i}>{n}</li>)}
+              </ol>
+            </div>
+          )}
+          <div className="stamp-box">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/stamp.png" alt="估價單專用章" />
           </div>
-        )}
+        </div>
 
       </div>
     </>
