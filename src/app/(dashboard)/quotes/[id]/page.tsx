@@ -67,6 +67,7 @@ export default function QuoteDetailPage() {
       project_name: quote.project_name,
       contact_name: quote.contact_name,
       client_phone: quote.client_phone,
+      client_address: quote.client_address,
       valid_until: quote.valid_until,
       delivery_days: quote.delivery_days,
       payment_terms: quote.payment_terms,
@@ -270,6 +271,7 @@ export default function QuoteDetailPage() {
           <div><div className="text-gray-500 text-xs mb-0.5">案名</div><div>{quote.project_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">聯絡人</div><div>{quote.contact_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">電話</div><div>{quote.client_phone ?? '—'}</div></div>
+          <div className="sm:col-span-3"><div className="text-gray-500 text-xs mb-0.5">地址</div><div>{quote.client_address ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">有效期限</div><div>{formatDate(quote.valid_until)}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">交貨工期</div><div>{quote.delivery_days ? `${quote.delivery_days} 天` : '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">付款條件</div><div>{quote.payment_terms ?? '—'}</div></div>
