@@ -120,7 +120,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
 
       <PrintButtons />
 
-      <div className="page">
+      <div className="page" id="print-page-content">
         {/* Header: logo + title */}
         <div className="header-row">
           <div className="logo">
