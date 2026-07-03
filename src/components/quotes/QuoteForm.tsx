@@ -323,6 +323,7 @@ export default function QuoteForm({
     project_name: initialQuote?.project_name ?? '',
     contact_name: initialQuote?.contact_name ?? prefillContact ?? '',
     client_phone: initialQuote?.client_phone ?? prefillPhone ?? '',
+    client_address: initialQuote?.client_address ?? '',
     valid_until: initialQuote?.valid_until ?? '',
     delivery_days: initialQuote?.delivery_days ?? 14,
     payment_terms: initialQuote?.payment_terms ?? '',
@@ -366,7 +367,7 @@ export default function QuoteForm({
   }
 
   async function loadClients() {
-    const { data } = await supabase.from('clients').select('id, company_name, contact_name, phone').order('company_name')
+    const { data } = await supabase.from('clients').select('id, company_name, contact_name, phone, address').order('company_name')
     setClients(data ?? [])
   }
 
@@ -392,6 +393,7 @@ export default function QuoteForm({
         ...p, client_id: c.id, client_name_display: c.company_name,
         contact_name: p.contact_name || (c.contact_name ?? ''),
         client_phone: p.client_phone || (c.phone ?? ''),
+        client_address: p.client_address || (c.address ?? ''),
       }))
     }
   }
@@ -475,6 +477,7 @@ export default function QuoteForm({
       project_name: header.project_name || null,
       contact_name: header.contact_name || null,
       client_phone: header.client_phone || null,
+      client_address: header.client_address || null,
       valid_until: header.valid_until || null,
       delivery_days: Number(header.delivery_days) || null,
       payment_terms: header.payment_terms || null,
@@ -528,7 +531,7 @@ export default function QuoteForm({
           onClose={() => setShowQuickAddClient(false)}
           onCreated={async (client) => {
             await loadClients()
-            setHeader(p => ({ ...p, client_id: client.id, client_name_display: client.company_name, contact_name: p.contact_name || (client.contact_name ?? ''), client_phone: p.client_phone || (client.phone ?? '') }))
+            setHeader(p => ({ ...p, client_id: client.id, client_name_display: client.company_name, contact_name: p.contact_name || (client.contact_name ?? ''), client_phone: p.client_phone || (client.phone ?? ''), client_address: p.client_address || (client.address ?? '') }))
             setClientSearch('')
             setShowQuickAddClient(false)
           }}
@@ -615,6 +618,10 @@ export default function QuoteForm({
           <div>
             <label className={labelClass}>客戶電話</label>
             <input value={header.client_phone} onChange={e => setHeader(p => ({ ...p, client_phone: e.target.value }))} className={inputClass} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>客戶地址</label>
+            <input value={header.client_address} onChange={e => setHeader(p => ({ ...p, client_address: e.target.value }))} className={inputClass} placeholder="從客戶資料帶入，可修改" />
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>案名</label>
