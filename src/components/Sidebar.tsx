@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse,
-  CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase
+  CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -38,9 +38,10 @@ const navItemsMid = [
 ]
 
 const accountingItems = [
-  { href: '/accounting/income',   label: '收入記錄', icon: BookOpen },
-  { href: '/accounting/expenses', label: '支出記錄', icon: BookOpen },
-  { href: '/accounting/pnl',      label: '損益表',   icon: BookOpen },
+  { href: '/accounting/income',        label: '收入記錄',   icon: BookOpen },
+  { href: '/accounting/expenses',      label: '支出記錄',   icon: BookOpen },
+  { href: '/accounting/pnl',           label: '損益表',     icon: BookOpen },
+  { href: '/accounting/balance-sheet', label: '資產負債表', icon: Scale },
 ]
 
 const navItemsAfter = [
