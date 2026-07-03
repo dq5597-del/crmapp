@@ -4,7 +4,9 @@ import { LucideIcon } from 'lucide-react'
 interface KPICardProps {
   title: string
   value: number
+  displayValue?: string
   target?: number
+  targetDisplay?: string
   subtitle?: string
   icon: LucideIcon
   color: 'blue' | 'purple' | 'yellow' | 'green' | 'red' | 'gray'
@@ -19,7 +21,7 @@ const colorMap = {
   gray:   { bg: 'bg-gray-50',   icon: 'bg-gray-100 text-gray-600',    text: 'text-gray-700',   bar: 'bg-gray-400' },
 }
 
-export default function KPICard({ title, value, target, subtitle, icon: Icon, color }: KPICardProps) {
+export default function KPICard({ title, value, displayValue, target, targetDisplay, subtitle, icon: Icon, color }: KPICardProps) {
   const c = colorMap[color]
   const pct = target ? Math.min(Math.round((value / target) * 100), 100) : 0
 
@@ -30,12 +32,12 @@ export default function KPICard({ title, value, target, subtitle, icon: Icon, co
           <Icon size={20} />
         </div>
         {target && (
-          <span className="text-xs text-gray-500">目標 {target}</span>
+          <span className="text-xs text-gray-500">目標 {targetDisplay ?? target}</span>
         )}
       </div>
 
       <div>
-        <div className={cn('text-3xl font-bold', c.text)}>{value}</div>
+        <div className={cn('text-3xl font-bold', c.text)}>{displayValue ?? value}</div>
         <div className="text-sm font-medium text-gray-700 mt-0.5">{title}</div>
         {subtitle && <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>}
       </div>
