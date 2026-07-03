@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { CheckCircle, Clock, Wrench, Building2, Package, AlertCircle } from 'lucide-react'
+import SatisfactionFeedback from './SatisfactionFeedback'
 
 // Status timeline steps
 const STATUS_STEPS = [
@@ -186,6 +187,16 @@ export default async function TrackPage({ params }: { params: { token: string } 
               {req.close_notes && <p className="text-green-700">說明：{req.close_notes}</p>}
             </div>
           </div>
+        )}
+
+        {/* 服務滿意度回饋（結案後才顯示） */}
+        {req.is_closed && (
+          <SatisfactionFeedback
+            token={params.token}
+            initialRating={(req as any).satisfaction_rating ?? null}
+            initialComment={(req as any).satisfaction_comment ?? null}
+            initialSubmittedAt={(req as any).satisfaction_submitted_at ?? null}
+          />
         )}
 
         {/* Footer */}
