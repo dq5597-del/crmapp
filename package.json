@@ -21,6 +21,7 @@
     "@hookform/resolvers": "^3.6.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
+    "html2canvas": "^1.4.1",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.3.0",
     "@anthropic-ai/sdk": "^0.30.0"
