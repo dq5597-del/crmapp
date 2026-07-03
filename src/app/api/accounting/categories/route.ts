@@ -1,6 +1,8 @@
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 
+// kind: 'cogs'（營業成本）| 'opex'（營業費用，預設）| 'nonop_expense'（營業外支出）| 'tax'（所得稅費用）
+
 export async function GET() {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -13,10 +15,21 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const supabase = createClient()
-  const { name } = await req.json()
+  const { name, kind } = await req.json()
   const { data: existing } = await supabase.from('accounting_expense_categories').select('sort_order').order('sort_order', { ascending: false }).limit(1)
   const sort_order = ((existing?.[0]?.sort_order) || 0) + 1
-  const { data, error } = await supabase.from('accounting_expense_categories').insert({ name, sort_order }).select().single()
+  const { data, error } = await supabase.from('accounting_expense_categories').insert({ name, kind: kind || 'opex', sort_order }).select().single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ category: data })
+}
+
+export async function PATCH(req: NextRequest) {
+  const supabase = createClient()
+  const { id, name, kind } = await req.json()
+  const payload: Record<string, unknown> = {}
+  if (name !== undefined) payload.name = name
+  if (kind !== undefined) payload.kind = kind
+  const { data, error } = await supabase.from('accounting_expense_categories').update(payload).eq('id', id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ category: data })
 }
