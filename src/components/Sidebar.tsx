@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
-  Settings, LogOut, ChevronRight, Truck, X, Building2, Warehouse, CreditCard, Receipt, Wrench, BookOpen
+  Settings, LogOut, ChevronRight, Truck, X, Building2, Warehouse, CreditCard, Receipt, Wrench, BookOpen, Library
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +24,7 @@ const navItems = [
   { href: '/accounting/income',      label: '收入記錄', icon: BookOpen },
   { href: '/accounting/expenses',    label: '支出記錄', icon: BookOpen },
   { href: '/accounting/pnl',        label: '損益表',   icon: BookOpen },
+  { href: '/knowledge-base',        label: 'SOP／教材庫', icon: Library },
   { href: '/settings',              label: '系統設定', icon: Settings },
 ]
 
@@ -48,6 +49,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
+      {/* Mobile overlay */}
       {open && (
         <div
           className="fixed inset-0 bg-black/40 z-30 lg:hidden"
@@ -55,11 +57,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         />
       )}
 
+      {/* Sidebar */}
       <aside className={cn(
         'fixed top-0 left-0 h-screen w-60 bg-gray-900 text-white z-40 flex flex-col transition-transform duration-200',
         'lg:translate-x-0 lg:static lg:z-auto',
         open ? 'translate-x-0' : '-translate-x-full'
       )}>
+        {/* Logo */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-gray-700 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-sm font-bold shrink-0">
@@ -72,6 +76,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
 
+        {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-thin">
           {navItems.map(({ href, label, icon: Icon }) => (
             <Link
@@ -92,6 +97,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           ))}
         </nav>
 
+        {/* Logout */}
         <div className="px-3 pb-4 border-t border-gray-700 pt-3 shrink-0">
           <button
             onClick={handleLogout}

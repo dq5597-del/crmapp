@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { SystemSettings, UserProfile } from '@/types'
-import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database, Tag } from 'lucide-react'
+import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database, Tag, History, Lock } from 'lucide-react'
+
+type TabKey = 'company' | 'users' | 'backup' | 'categories' | 'audit'
 
 export default function SettingsPage() {
   const supabase = createClient()
@@ -11,7 +13,12 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [tab, setTab] = useState<'company' | 'users' | 'backup' | 'categories'>('company')
+  const [tab, setTab] = useState<TabKey>('company')
+  const [myRole, setMyRole] = useState<string | null>(null)
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditError, setAuditError] = useState<string | null>(null)
+  const isAdmin = myRole === 'admin'
   const [expCategories, setExpCategories] = useState<{ id: string; name: string }[]>([])
   const [newCatName, setNewCatName] = useState('')
   const [catSaving, setCatSaving] = useState(false)
@@ -69,7 +76,45 @@ export default function SettingsPage() {
       setLoading(false)
     })
     fetchExpCategories()
+    fetchMyRole()
   }, [])
+
+  async function fetchMyRole() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setMyRole('user'); return }
+    const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+    setMyRole((profile as any)?.role ?? 'user')
+  }
+
+  // 角色權限落地：帳號管理／備份還原／稽核紀錄僅限管理員，若非管理員誤留在受限分頁則導回公司設定
+  useEffect(() => {
+    if (myRole !== null && myRole !== 'admin' && (tab === 'users' || tab === 'backup' || tab === 'audit')) {
+      setTab('company')
+    }
+  }, [myRole, tab])
+
+  async function fetchAuditLogs() {
+    setAuditLoading(true)
+    setAuditError(null)
+    const { data, error } = await supabase.from('audit_logs').select('*').order('changed_at', { ascending: false }).limit(50)
+    if (error) {
+      setAuditError('尚未啟用稽核紀錄功能：請先到 Supabase SQL Editor 執行 supabase/schema_audit_log.sql')
+      setAuditLoading(false)
+      return
+    }
+    const changedByIds = Array.from(new Set((data ?? []).map((l: any) => l.changed_by).filter(Boolean)))
+    let nameMap: Record<string, string> = {}
+    if (changedByIds.length > 0) {
+      const { data: profiles } = await supabase.from('user_profiles').select('id, full_name').in('id', changedByIds)
+      nameMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p.full_name ?? '未命名使用者']))
+    }
+    setAuditLogs((data ?? []).map((l: any) => ({ ...l, changed_by_name: l.changed_by ? (nameMap[l.changed_by] ?? '—') : '系統' })))
+    setAuditLoading(false)
+  }
+
+  useEffect(() => {
+    if (tab === 'audit' && isAdmin) fetchAuditLogs()
+  }, [tab, isAdmin])
 
   async function fetchExpCategories() {
     const res = await fetch('/api/accounting/categories')
@@ -185,14 +230,15 @@ export default function SettingsPage() {
         <h1 className="text-xl font-bold text-gray-900">系統設定</h1>
       </div>
 
-      <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1">
+      <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 flex-wrap">
         {[
-          { key: 'company', label: '公司設定', icon: Settings },
-          { key: 'users', label: '帳號管理', icon: Users },
-          { key: 'categories', label: '支出科目', icon: Tag },
-          { key: 'backup', label: '備份還原', icon: Database },
-        ].map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => setTab(key as any)}
+          { key: 'company', label: '公司設定', icon: Settings, adminOnly: false },
+          { key: 'users', label: '帳號管理', icon: Users, adminOnly: true },
+          { key: 'categories', label: '支出科目', icon: Tag, adminOnly: false },
+          { key: 'backup', label: '備份還原', icon: Database, adminOnly: true },
+          { key: 'audit', label: '稽核紀錄', icon: History, adminOnly: true },
+        ].filter(t => !t.adminOnly || isAdmin).map(({ key, label, icon: Icon }) => (
+          <button key={key} onClick={() => setTab(key as TabKey)}
             className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition ${tab === key ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
             <Icon size={14} />{label}
           </button>
@@ -324,7 +370,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === 'users' && (
+      {tab === 'users' && isAdmin && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h2 className="font-semibold text-gray-900 mb-4">帳號管理</h2>
           {users.length === 0 ? (
@@ -389,7 +435,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === 'backup' && (
+      {tab === 'backup' && isAdmin && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-start gap-4">
@@ -461,6 +507,42 @@ export default function SettingsPage() {
                   {restoreLog.log.map((l, i) => <p key={i}>✓ {l}</p>)}
                 </div>
               </details>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'audit' && isAdmin && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 mb-1">
+            <Lock size={14} className="text-gray-400" />
+            <h2 className="font-semibold text-gray-900">操作稽核紀錄</h2>
+          </div>
+          <p className="text-xs text-gray-400 mb-4">記錄客戶、報價單、銷貨單、應收／應付帳款、叫修單的新增、修改、刪除操作，僅管理員可查閱。</p>
+          {auditLoading ? (
+            <p className="text-center text-gray-400 text-sm py-8">載入中...</p>
+          ) : auditError ? (
+            <p className="text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-xl text-sm py-4 px-4">{auditError}</p>
+          ) : auditLogs.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-8">尚無稽核紀錄</p>
+          ) : (
+            <div className="divide-y divide-gray-50 max-h-[32rem] overflow-y-auto">
+              {auditLogs.map(log => (
+                <div key={log.id} className="py-2.5 flex items-center justify-between text-sm gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                      log.action === 'INSERT' ? 'bg-green-100 text-green-700' :
+                      log.action === 'DELETE' ? 'bg-red-100 text-red-700' :
+                      'bg-blue-100 text-blue-700'
+                    }`}>{log.action === 'INSERT' ? '新增' : log.action === 'DELETE' ? '刪除' : '修改'}</span>
+                    <span className="text-gray-700 truncate">{log.table_name}</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-gray-500 text-xs">{log.changed_by_name}</div>
+                    <div className="text-gray-400 text-xs">{new Date(log.changed_at).toLocaleString('zh-TW')}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

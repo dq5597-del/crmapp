@@ -762,6 +762,19 @@ function CloseTab({ req, locked, onClose }: {
         </div>
         <p className="text-sm text-gray-600">結案日期：{req.closed_date}</p>
         {req.close_notes && <p className="text-sm text-gray-600">結案備註：{req.close_notes}</p>}
+        {(req as any).satisfaction_rating ? (
+          <div className="pt-3 mt-1 border-t border-gray-100">
+            <p className="text-sm text-gray-700">
+              客戶滿意度：{'★'.repeat((req as any).satisfaction_rating)}{'☆'.repeat(5 - (req as any).satisfaction_rating)}
+              <span className="text-gray-400 ml-1">（{(req as any).satisfaction_rating}/5）</span>
+            </p>
+            {(req as any).satisfaction_comment && (
+              <p className="text-sm text-gray-600 mt-1">客戶留言：{(req as any).satisfaction_comment}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 pt-2 mt-1 border-t border-gray-100">客戶尚未填寫滿意度評分</p>
+        )}
       </div>
     )
   }

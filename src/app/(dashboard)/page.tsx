@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import KPICard from '@/components/dashboard/KPICard'
 import WeatherWidget from '@/components/dashboard/WeatherWidget'
-import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle } from 'lucide-react'
+import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle, CalendarClock, Timer } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -12,6 +12,23 @@ const DEFAULT_TARGETS = {
   planningClients: 20,
   monthlyRevenue: 500000,
   conversionRate: 30,
+}
+
+// 報價→成交平均週期（quote-to-sales-order cycle time）
+async function getAvgCycleTime(supabase: any) {
+  const { data: orders } = await supabase.from('sales_orders').select('quote_id, created_at').not('quote_id', 'is', null)
+  if (!orders || orders.length === 0) return { avgDays: 0, count: 0 }
+  const quoteIds = orders.map((o: any) => o.quote_id)
+  const { data: quotes } = await supabase.from('quotes').select('id, created_at').in('id', quoteIds)
+  const quoteMap = new Map((quotes ?? []).map((q: any) => [q.id, q.created_at]))
+  let totalDays = 0, count = 0
+  for (const o of orders) {
+    const qCreated = quoteMap.get(o.quote_id)
+    if (!qCreated) continue
+    const days = (new Date(o.created_at).getTime() - new Date(qCreated).getTime()) / 86400000
+    if (days >= 0) { totalDays += days; count++ }
+  }
+  return { avgDays: count > 0 ? Math.round((totalDays / count) * 10) / 10 : 0, count }
 }
 
 async function getDashboardData() {
@@ -38,6 +55,8 @@ async function getDashboardData() {
     incomeThisMonth,
     overdueReceivables,
     settingsRes,
+    expiringQuotes,
+    cycleTime,
   ] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', '有需求'),
@@ -86,6 +105,16 @@ async function getDashboardData() {
       .gt('balance', 0)
       .order('due_date', { ascending: true }),
     supabase.from('system_settings').select('*').single(),
+    // 報價效期到期提醒：未轉單、未作廢，且效期在30天內到期或已過期
+    supabase
+      .from('quotes')
+      .select('id, quote_no, client_id, project_name, valid_until, total_amount, clients(company_name)')
+      .in('status', ['草稿', '已確認'])
+      .not('valid_until', 'is', null)
+      .lte('valid_until', in30)
+      .order('valid_until', { ascending: true })
+      .limit(10),
+    getAvgCycleTime(supabase),
   ])
 
   const monthlyRevenue = (incomeThisMonth.data ?? []).reduce((sum: number, r: any) => sum + Number(r.total_amount || 0), 0)
@@ -115,6 +144,9 @@ async function getDashboardData() {
     overdueReceivableTotal,
     overdueReceivables: overdueReceivables.data ?? [],
     targets,
+    expiringQuotes: (expiringQuotes.data ?? []).map((q: any) => ({ ...q, isExpired: q.valid_until < todayStr })),
+    avgCycleDays: cycleTime.avgDays,
+    cycleSampleCount: cycleTime.count,
   }
 }
 
@@ -146,6 +178,32 @@ export default async function DashboardPage() {
                 <div className="text-right">
                   <div className="text-red-600 font-medium">應回訪：{formatDate(c.next_visit_date)}</div>
                   <div className="text-xs text-gray-500 mt-0.5">{c.status}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 報價效期到期提醒 */}
+      {data.expiringQuotes.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <CalendarClock size={18} className="text-orange-600" />
+            <h2 className="font-semibold text-orange-800">報價效期即將到期／已過期（{data.expiringQuotes.length} 筆）</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {data.expiringQuotes.map((q: any) => (
+              <div key={q.id} className="flex items-center justify-between text-sm bg-white rounded-xl px-3.5 py-2.5 border border-orange-100">
+                <div>
+                  <div className="font-medium text-gray-900">{q.quote_no}</div>
+                  <div className="text-gray-500 text-xs">{q.clients?.company_name ?? '—'} · {q.project_name ?? '—'}</div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-medium ${q.isExpired ? 'text-red-600' : 'text-orange-600'}`}>
+                    {q.isExpired ? '已過期' : '效期至'}：{formatDate(q.valid_until)}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">NT${Number(q.total_amount).toLocaleString()}</div>
                 </div>
               </div>
             ))}
@@ -199,7 +257,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI Grid - 財務與流程構面 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <KPICard
           title="本月營收"
           value={data.monthlyRevenue}
@@ -227,6 +285,14 @@ export default async function DashboardPage() {
           subtitle={data.overdueReceivables.length > 0 ? `共 ${data.overdueReceivables.length} 筆逾期` : '無逾期款項'}
           icon={AlertCircle}
           color={data.overdueReceivableTotal > 0 ? 'red' : 'gray'}
+        />
+        <KPICard
+          title="報價成交平均週期"
+          value={data.avgCycleDays}
+          displayValue={`${data.avgCycleDays} 天`}
+          subtitle={data.cycleSampleCount > 0 ? `根據 ${data.cycleSampleCount} 筆已轉銷貨單報價計算` : '尚無已轉單資料'}
+          icon={Timer}
+          color="blue"
         />
       </div>
 
