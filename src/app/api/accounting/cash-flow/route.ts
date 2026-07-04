@@ -11,7 +11,10 @@ import { NextRequest, NextResponse } from 'next/server'
 //   期末現金餘額 = 期初現金餘額 + 本期現金增減淨額
 
 async function computeNetIncome(supabase: ReturnType<typeof createClient>, year: number) {
-  const [{ data: incomeCats }, { data: expenseCats }, { data: incomeRows }, { data: expenses }] = await Promise.all([
+  const startDate = `${year}-01-01`
+  const endDate = `${year}-12-31`
+
+  const [{ data: incomeCats }, { data: expenseCats }, { data: incomeRows, error: iErr }, { data: expenses }] = await Promise.all([
     supabase.from('accounting_income_categories').select('name, kind'),
     supabase.from('accounting_expense_categories').select('name, kind'),
     supabase.from('accounting_income').select('untaxed_amount, category').eq('year', year),
@@ -22,13 +25,30 @@ async function computeNetIncome(supabase: ReturnType<typeof createClient>, year:
   const expenseKindMap: Record<string, string> = {}
   ;(expenseCats || []).forEach((c: any) => { expenseKindMap[c.name] = c.kind || 'opex' })
 
+  // fallback：若 income 表完全沒資料，則從 quotes 抓（向後相容，一律視為營業收入），比照損益表 API 的做法
+  const useQuotesFallback = !iErr && (!incomeRows || incomeRows.length === 0)
+  const { data: quotes } = useQuotesFallback
+    ? await supabase
+        .from('quotes')
+        .select('total_amount, created_at, status')
+        .gte('created_at', startDate)
+        .lte('created_at', endDate + 'T23:59:59')
+        .in('status', ['已確認', '已完成', '已結案'])
+    : { data: [] as any[] }
+
   let revenue = 0, nonopIncome = 0
-  ;(incomeRows || []).forEach((r: any) => {
-    const kind = incomeKindMap[r.category] || 'revenue'
-    const amount = Number(r.untaxed_amount) || 0
-    if (kind === 'nonop_income') nonopIncome += amount
-    else revenue += amount
-  })
+  if (!useQuotesFallback) {
+    ;(incomeRows || []).forEach((r: any) => {
+      const kind = incomeKindMap[r.category] || 'revenue'
+      const amount = Number(r.untaxed_amount) || 0
+      if (kind === 'nonop_income') nonopIncome += amount
+      else revenue += amount
+    })
+  } else {
+    ;(quotes || []).forEach((q: any) => {
+      revenue += Number(q.total_amount) || 0
+    })
+  }
 
   let cogs = 0, opex = 0, nonopExpense = 0, tax = 0
   ;(expenses || []).forEach((e: any) => {
