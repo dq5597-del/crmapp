@@ -40,6 +40,8 @@ export default function SalesOrdersPage() {
 
   // form fields
   const [clientId, setClientId] = useState('')
+  const [clientSearch, setClientSearch] = useState('')
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [projectName, setProjectName] = useState('')
   const [contactName, setContactName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
@@ -69,7 +71,8 @@ export default function SalesOrdersPage() {
   )
 
   function resetForm() {
-    setClientId(''); setProjectName(''); setContactName(''); setClientPhone('')
+    setClientId(''); setClientSearch(''); setShowClientDropdown(false)
+    setProjectName(''); setContactName(''); setClientPhone('')
     setDeliveryDate(''); setDeliveryAddress(''); setPaymentTerms(''); setBankAccount('')
     setStatus('草稿'); setNotes(''); setItems([emptyItem()])
   }
@@ -144,6 +147,17 @@ export default function SalesOrdersPage() {
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
   const tax = Math.round(subtotal * 0.05 * 100) / 100
   const total = subtotal + tax
+
+  const selectedClientName = clients.find(c => c.id === clientId)?.company_name ?? ''
+  const filteredClients = clientSearch
+    ? clients.filter(c => c.company_name.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients
+
+  function onClientPick(c: any) {
+    setClientId(c.id)
+    setClientSearch('')
+    setShowClientDropdown(false)
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -224,13 +238,37 @@ export default function SalesOrdersPage() {
             <div className="p-5 space-y-5">
               {/* 基本資料 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="text-xs text-gray-500 mb-1 block">客戶 *</label>
-                  <select value={clientId} onChange={e => setClientId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <option value="">選擇客戶</option>
-                    {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-                  </select>
+                  <input
+                    value={clientSearch || selectedClientName}
+                    onChange={e => {
+                      setClientSearch(e.target.value)
+                      setClientId('')
+                      setShowClientDropdown(true)
+                    }}
+                    onFocus={() => setShowClientDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
+                    placeholder="輸入搜尋客戶"
+                    autoComplete="off"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  {showClientDropdown && (
+                    <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-52 overflow-y-auto">
+                      {filteredClients.length > 0 ? filteredClients.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={() => onClientPick(c)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-green-50 transition-colors"
+                        >
+                          {c.company_name}
+                        </button>
+                      )) : (
+                        <div className="px-3 py-2 text-sm text-gray-400">查無符合的客戶</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">案名</label>
