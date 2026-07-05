@@ -8,7 +8,7 @@ import { Quote, QuoteItem } from '@/types'
 import { QUOTE_STATUS_COLORS, formatDate, formatCurrency } from '@/lib/utils'
 import QuoteForm from '@/components/quotes/QuoteForm'
 import {
-  ArrowLeft, Edit2, Send, Copy, ShoppingCart, Truck, FileDown, CheckCircle, XCircle
+  ArrowLeft, Edit2, Send, Copy, ShoppingCart, Truck, FileDown, CheckCircle, XCircle, FileText, Sheet
 } from 'lucide-react'
 
 export default function QuoteDetailPage() {
@@ -67,6 +67,7 @@ export default function QuoteDetailPage() {
       project_name: quote.project_name,
       contact_name: quote.contact_name,
       client_phone: quote.client_phone,
+      client_address: quote.client_address,
       valid_until: quote.valid_until,
       delivery_days: quote.delivery_days,
       payment_terms: quote.payment_terms,
@@ -245,6 +246,18 @@ export default function QuoteDetailPage() {
         >
           <FileDown size={14} /> 匯出 PDF
         </button>
+        <button
+          onClick={() => { window.location.href = `/api/quotes/${id}/export-docx` }}
+          className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700"
+        >
+          <FileText size={14} /> 匯出 Word
+        </button>
+        <button
+          onClick={() => { window.location.href = `/api/quotes/${id}/export-xlsx` }}
+          className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700"
+        >
+          <Sheet size={14} /> 匯出 Excel
+        </button>
         <button onClick={handleShare} disabled={actionLoading === 'share'} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
           <Send size={14} /> {actionLoading === 'share' ? '寄送中...' : '分享報價單'}
         </button>
@@ -270,6 +283,7 @@ export default function QuoteDetailPage() {
           <div><div className="text-gray-500 text-xs mb-0.5">案名</div><div>{quote.project_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">聯絡人</div><div>{quote.contact_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">電話</div><div>{quote.client_phone ?? '—'}</div></div>
+          <div className="sm:col-span-3"><div className="text-gray-500 text-xs mb-0.5">地址</div><div>{quote.client_address ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">有效期限</div><div>{formatDate(quote.valid_until)}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">交貨工期</div><div>{quote.delivery_days ? `${quote.delivery_days} 天` : '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">付款條件</div><div>{quote.payment_terms ?? '—'}</div></div>
@@ -320,15 +334,7 @@ export default function QuoteDetailPage() {
         {/* Totals */}
         <div className="border-t border-gray-100 p-4 flex justify-end">
           <div className="space-y-1 text-sm min-w-[220px]">
-            <div className="flex justify-between text-gray-600">
-              <span>小計（未稅）</span>
-              <span>{formatCurrency(quote.subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>稅額（5%）</span>
-              <span>{formatCurrency(quote.tax_amount)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-base text-gray-900 border-t pt-1 mt-1">
+            <div className="flex justify-between font-bold text-base text-gray-900">
               <span>含稅總金額</span>
               <span className="text-blue-700">{formatCurrency(quote.total_amount)}</span>
             </div>

@@ -110,6 +110,7 @@ export interface Quote {
   project_name: string | null
   contact_name: string | null
   client_phone: string | null
+  client_address: string | null
   valid_until: string | null
   delivery_days: number | null
   payment_terms: string | null
@@ -283,7 +284,7 @@ export interface Vendor {
 // ============================================================
 // 庫存異動
 // ============================================================
-export type InventoryTransactionType = '入庫' | '出庫' | '盤盈' | '盤虧' | '退貨入庫' | '報廢'
+export type InventoryTransactionType = '入庫' | '出庫' | '盤盈' | '盤虧' | '退貨入庫' | '供應商退貨出庫' | '報廢'
 
 export interface InventoryTransaction {
   id: string
@@ -501,4 +502,62 @@ export interface ServiceFee {
   notes: string | null
   created_at: string
   updated_at: string
+}
+
+// ============================================================
+// 退貨管理
+// ============================================================
+export type ReturnType = '客戶退貨' | '供應商退貨'
+export type ReturnRefDocType = 'sales_order' | 'purchase_order'
+export type ReturnItemCondition = '良品' | '瑕疵品'
+export type ReturnSettlementMethod = '沖抵帳款' | '退款' | '換貨'
+export type ReturnStatus = '待審核' | '已入庫' | '已結算' | '作廢'
+
+export interface ReturnDoc {
+  id: string
+  return_no: string
+  return_type: ReturnType
+  ref_doc_type: ReturnRefDocType | null
+  ref_doc_id: string | null
+  ref_doc_no: string | null
+  client_id: string | null
+  vendor_id: string | null
+  return_date: string
+  return_reason: string | null
+  item_condition: ReturnItemCondition
+  settlement_method: ReturnSettlementMethod
+  status: ReturnStatus
+  subtotal: number
+  tax_amount: number
+  total_amount: number
+  notes: string | null
+  settled_at: string | null
+  settled_ref_type: string | null
+  settled_ref_id: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // Relations
+  client?: Client
+  vendor?: Vendor
+  items?: ReturnItem[]
+}
+
+export interface ReturnItem {
+  id: string
+  return_id: string
+  seq_no: number
+  product_id: string | null
+  product_name: string
+  model: string | null
+  unit: string
+  quantity: number
+  unit_price: number
+  amount: number
+  item_condition: ReturnItemCondition
+  reason: string | null
+  notes: string | null
+  created_at: string
+  // Relations
+  product?: Product
 }

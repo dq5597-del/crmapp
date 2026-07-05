@@ -1,6 +1,64 @@
+import { Fragment } from 'react'
+import type { Metadata } from 'next'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
+import { buildQuoteFileName } from '@/lib/utils'
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const supabase = createClient()
+  const { data: quote } = await supabase
+    .from('quotes')
+    .select('quote_no, project_name, clients(company_name)')
+    .eq('id', params.id)
+    .single()
+
+  if (!quote) return {}
+
+  const fileName = buildQuoteFileName(quote, (quote as any).clients?.company_name)
+  return { title: fileName }
+}
+
+function numToChineseCapital(amount: number): string {
+  const digitsCn = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖']
+  const unitsCn = ['', '拾', '佰', '仟']
+  const bigUnitsCn = ['', '萬', '億', '兆']
+  const n = Math.floor(Math.abs(amount))
+  if (n === 0) return '零元整'
+
+  let numStr = String(n)
+  const groups: string[] = []
+  while (numStr.length > 0) {
+    groups.unshift(numStr.slice(-4))
+    numStr = numStr.slice(0, -4)
+  }
+
+  let result = ''
+  groups.forEach((group, idx) => {
+    let groupResult = ''
+    let zeroFlag = false
+    for (let i = 0; i < group.length; i++) {
+      const digit = parseInt(group[i], 10)
+      const unitIdx = group.length - 1 - i
+      if (digit === 0) {
+        zeroFlag = true
+      } else {
+        if (zeroFlag) {
+          groupResult += '零'
+          zeroFlag = false
+        }
+        groupResult += digitsCn[digit] + unitsCn[unitIdx]
+      }
+    }
+    if (groupResult) {
+      result += groupResult + bigUnitsCn[groups.length - 1 - idx]
+    } else if (result) {
+      result += '零'
+    }
+  })
+  result = result.replace(/零+$/, '')
+  return `${result}元整`
+}
 
 export default async function QuotePrintPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -14,9 +72,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   if (!quote) return notFound()
 
   const clientName = (quote as any).clients?.company_name ?? ''
-  const company = settings?.company_name ?? '光輝實業社'
-  const companyPhone = settings?.company_phone ?? '0980-566-799'
-  const companyAddress = settings?.company_address ?? ''
+  const clientAddress = (quote as any).client_address || (quote as any).clients?.address || ''
   const bankInfo = settings?.bank_name
     ? `${settings.bank_name}（代號：${settings.bank_code ?? ''}）／戶名：${settings.bank_account_name ?? ''}／帳號：${settings.bank_account ?? ''}`
     : ''
@@ -39,6 +95,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   noteItems.push(...defaultNoteItems.filter((n: string) => n?.trim()))
   if (quote.notes) noteItems.push(quote.notes)
 
+  const totalChinese = numToChineseCapital(Number(quote.total_amount))
+
   return (
     <>
       <style>{`
@@ -48,9 +106,16 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           @page { margin: 15mm 14mm; size: A4; }
         }
         * { box-sizing: border-box; }
+        html, body { background: #fff; }
+        .app-shell { background: #fff !important; }
         body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', '微軟正黑體', sans-serif; font-size: 12px; color: #000; margin: 0; background: #fff; }
-        .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; }
-        h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 0 0 4px; }
+        .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; background: #fff; }
+        .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .logo { display: flex; align-items: center; width: 210px; flex-shrink: 0; }
+        .logo-img { width: 100%; height: auto; display: block; }
+        .header-spacer { width: 210px; flex-shrink: 0; }
+        .title-block { flex: 1; text-align: center; }
+        h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
         .sub-header { text-align: center; font-size: 12px; color: #333; margin-bottom: 16px; }
         .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; }
@@ -58,47 +123,46 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         td { border: 1px solid #aaa; padding: 5px 6px; font-size: 12px; vertical-align: top; }
         .num { text-align: right; }
         .center { text-align: center; }
-        .total-row td { font-weight: 700; font-size: 13px; border-top: 2px solid #555; }
-        .notes-section { margin-top: 18px; }
+        .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
+        .total-row td { font-weight: 700; font-size: 13px; }
+        .notes-stamp-row { display: flex; align-items: flex-end; gap: 20px; margin-top: 18px; }
+        .notes-section { flex: 1; min-width: 0; }
         .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
         .notes-section li { font-size: 12px; line-height: 1.9; }
-        .sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; margin-top: 36px; padding-top: 8px; }
-        .sig-box { text-align: center; }
-        .sig-line { border-bottom: 1px solid #666; height: 44px; margin-bottom: 4px; }
-        .sig-label { font-size: 11px; color: #555; }
+        .stamp-box { width: 100px; flex-shrink: 0; display: flex; justify-content: center; }
+        .stamp-box img { width: 92px; height: auto; }
       `}</style>
 
       <PrintButtons />
 
       <div className="page">
-        {/* Title */}
-        <h1>估 價 單</h1>
-        <div className="sub-header">供應商：{company}{companyPhone ? `　電話：${companyPhone}` : ''}{companyAddress ? `　地址：${companyAddress}` : ''}</div>
+        {/* Header: logo + title */}
+        <div className="header-row">
+          <div className="logo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.jpg" alt="光輝影音科技" className="logo-img" />
+          </div>
+          <div className="title-block">
+            <h1>估 價 單</h1>
+            {quote.project_name && <div className="sub-header">{quote.project_name}</div>}
+          </div>
+          <div className="header-spacer" />
+        </div>
 
-        {/* Client + quote info */}
+        {/* Client + quote info (merged into 2 rows) */}
         <div className="info-row">
-          <span>客戶名稱：<strong>{clientName}</strong></span>
+          <span>
+            客戶名稱：<strong>{clientName}</strong>
+            {quote.contact_name && `　聯絡人：${quote.contact_name}`}
+            {quote.client_phone && `　電話：${quote.client_phone}`}
+          </span>
           <span>單據日期：{quote.created_at ? new Date(quote.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
         </div>
-        {(quote.contact_name || quote.client_phone) && (
-          <div className="info-row">
-            {quote.contact_name && <span>聯絡人：{quote.contact_name}</span>}
-            {quote.client_phone && <span>電話：{quote.client_phone}</span>}
-          </div>
-        )}
-        {quote.project_name && (
-          <div className="info-row">
-            <span>案名：{quote.project_name}</span>
-            <span>單號：{quote.quote_no}</span>
-          </div>
-        )}
-        {!quote.project_name && (
-          <div className="info-row">
-            <span></span>
-            <span>單號：{quote.quote_no}</span>
-          </div>
-        )}
+        <div className="info-row">
+          <span>{clientAddress && `地址：${clientAddress}`}</span>
+          <span>單號：{quote.quote_no}</span>
+        </div>
 
         {/* Items table */}
         <table>
@@ -111,61 +175,50 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <th style={{ width: 44 }}>數量</th>
               <th style={{ width: 88 }}>單價</th>
               <th style={{ width: 96 }}>金額</th>
-              <th style={{ textAlign: 'left', width: 130 }}>備註</th>
             </tr>
           </thead>
           <tbody>
             {(items ?? []).map((item: any) => (
-              <tr key={item.id}>
-                <td className="center">{item.seq_no}</td>
-                <td style={{ fontWeight: 500 }}>{item.product_name}</td>
-                <td style={{ color: '#444' }}>{item.model ?? ''}</td>
-                <td className="center">{item.unit}</td>
-                <td className="center">{item.quantity}</td>
-                <td className="num">{fmt(Number(item.unit_price))}</td>
-                <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
-                <td style={{ color: '#555', fontSize: 11 }}>{item.item_notes ?? ''}</td>
-              </tr>
+              <Fragment key={item.id}>
+                <tr>
+                  <td className="center">{item.seq_no}</td>
+                  <td style={{ fontWeight: 500 }}>{item.product_name}</td>
+                  <td style={{ color: '#444' }}>{item.model ?? ''}</td>
+                  <td className="center">{item.unit}</td>
+                  <td className="center">{item.quantity}</td>
+                  <td className="num">{fmt(Number(item.unit_price))}</td>
+                  <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
+                </tr>
+                <tr className="notes-row">
+                  <td colSpan={7}>備註：{item.item_notes ?? '—'}</td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
           <tfoot>
-            <tr>
-              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8, color: '#444' }}>小計（未稅）</td>
-              <td className="num" style={{ border: '1px solid #aaa' }}>{fmt(Number(quote.subtotal))}</td>
-              <td style={{ border: 'none' }}></td>
-            </tr>
-            <tr>
-              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8, color: '#444' }}>營業稅（5%）</td>
-              <td className="num" style={{ border: '1px solid #aaa' }}>{fmt(Number(quote.tax_amount))}</td>
-              <td style={{ border: 'none' }}></td>
-            </tr>
             <tr className="total-row">
-              <td colSpan={6} style={{ textAlign: 'right', border: 'none', paddingRight: 8 }}>小計（含 5% 營業稅）</td>
-              <td className="num" style={{ border: '2px solid #555' }}>NT$ {fmt(Number(quote.total_amount))}</td>
-              <td style={{ border: 'none' }}></td>
+              <td colSpan={4}>總金額　{totalChinese}</td>
+              <td colSpan={3} className="num">NT$ {fmt(Number(quote.total_amount))}</td>
             </tr>
           </tfoot>
         </table>
 
-        {/* Notes */}
-        {noteItems.length > 0 && (
-          <div className="notes-section">
-            <div className="notes-title">備註事項</div>
-            <ol>
-              {noteItems.map((n, i) => <li key={i}>{n}</li>)}
-            </ol>
-          </div>
-        )}
-
-        {/* Signatures */}
-        <div className="sig-row">
-          {['業務', '審核', '客戶確認'].map(label => (
-            <div key={label} className="sig-box">
-              <div className="sig-line" />
-              <div className="sig-label">{label}</div>
+        {/* Notes + 估價單章 */}
+        <div className="notes-stamp-row">
+          {noteItems.length > 0 && (
+            <div className="notes-section">
+              <div className="notes-title">備註事項</div>
+              <ol>
+                {noteItems.map((n, i) => <li key={i}>{n}</li>)}
+              </ol>
             </div>
-          ))}
+          )}
+          <div className="stamp-box">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/stamp.png" alt="估價單專用章" />
+          </div>
         </div>
+
       </div>
     </>
   )

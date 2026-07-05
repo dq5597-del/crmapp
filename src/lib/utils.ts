@@ -35,6 +35,28 @@ export function generateOrderNo(prefix: string, date: Date, seq: number): string
   return `${prefix}-${yy}${mm}${dd}-${seqStr}`
 }
 
+/**
+ * 產生估價單存檔／匯出檔名（不含副檔名）
+ * 格式：(光輝)估價單_案名_日期_編號
+ * 日期／編號取自報價單單號（quote_no = YYMMDD + 3碼流水號），流水號改以2碼顯示
+ * 例：quote_no = 260704003, project_name = 展演廳工程 → (光輝)估價單_展演廳工程_260704_03
+ */
+export function buildQuoteFileName(
+  quote: { quote_no?: string | null; project_name?: string | null },
+  fallbackName?: string | null
+): string {
+  const quoteNo = quote.quote_no ?? ''
+  const datePart = quoteNo.slice(0, 6)
+  const seqRaw = quoteNo.slice(6)
+  const seqNum = parseInt(seqRaw || '0', 10)
+  const seqPart = String(seqNum || 0).padStart(2, '0')
+  const namePart = (quote.project_name?.trim() || fallbackName?.trim() || '')
+    .replace(/[\\/:*?"<>|]/g, '')
+    .trim()
+
+  return ['(光輝)估價單', namePart, datePart, seqPart].filter(Boolean).join('_')
+}
+
 export const CLIENT_STATUS_COLORS: Record<string, string> = {
   '有需求':   'bg-blue-100 text-blue-800',
   '規劃中':   'bg-purple-100 text-purple-800',

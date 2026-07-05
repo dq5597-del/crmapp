@@ -6,15 +6,16 @@ import { Product, InventoryTransaction, InventoryTransactionType } from '@/types
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, Plus, Package, ArrowDown, ArrowUp, RotateCcw } from 'lucide-react'
 
-const TRANS_TYPES: InventoryTransactionType[] = ['入庫', '出庫', '盤盈', '盤虧', '退貨入庫', '報廢']
+const TRANS_TYPES: InventoryTransactionType[] = ['入庫', '出庫', '盤盈', '盤虧', '退貨入庫', '供應商退貨出庫', '報廢']
 
 const TYPE_STYLES: Record<string, { color: string; icon: typeof ArrowDown; sign: string }> = {
-  '入庫':    { color: 'text-green-700 bg-green-50',  icon: ArrowDown,    sign: '+' },
-  '出庫':    { color: 'text-red-700 bg-red-50',     icon: ArrowUp,      sign: '-' },
-  '盤盈':    { color: 'text-blue-700 bg-blue-50',   icon: ArrowDown,    sign: '+' },
-  '盤虧':    { color: 'text-orange-700 bg-orange-50', icon: ArrowUp,    sign: '-' },
-  '退貨入庫': { color: 'text-purple-700 bg-purple-50', icon: ArrowDown, sign: '+' },
-  '報廢':    { color: 'text-gray-700 bg-gray-100',  icon: ArrowUp,      sign: '-' },
+  '入庫':        { color: 'text-green-700 bg-green-50',  icon: ArrowDown,    sign: '+' },
+  '出庫':        { color: 'text-red-700 bg-red-50',     icon: ArrowUp,      sign: '-' },
+  '盤盈':        { color: 'text-blue-700 bg-blue-50',   icon: ArrowDown,    sign: '+' },
+  '盤虧':        { color: 'text-orange-700 bg-orange-50', icon: ArrowUp,    sign: '-' },
+  '退貨入庫':     { color: 'text-purple-700 bg-purple-50', icon: ArrowDown, sign: '+' },
+  '供應商退貨出庫': { color: 'text-amber-700 bg-amber-50', icon: ArrowUp,    sign: '-' },
+  '報廢':        { color: 'text-gray-700 bg-gray-100',  icon: ArrowUp,      sign: '-' },
 }
 
 export default function InventoryPage() {
@@ -70,8 +71,8 @@ export default function InventoryPage() {
     if (form.quantity <= 0) { alert('數量必須大於 0'); return }
 
     setSaving(true)
-    // quantity：出庫/盤虧/報廢為負數
-    const isNegative = ['出庫', '盤虧', '報廢'].includes(form.type)
+    // quantity：出庫/盤虧/供應商退貨出庫/報廢為負數
+    const isNegative = ['出庫', '盤虧', '供應商退貨出庫', '報廢'].includes(form.type)
     const qty = isNegative ? -Math.abs(form.quantity) : Math.abs(form.quantity)
 
     await supabase.from('inventory_transactions').insert({
@@ -166,7 +167,7 @@ export default function InventoryPage() {
               <label className="text-xs text-gray-600 mb-1 block">單位成本（選填）</label>
               <input type="number" min="0" value={form.unit_cost} onChange={e => setForm(p => ({ ...p, unit_cost: Number(e.target.value) }))} className={inputClass} />
             </div>
-            {(form.type === '入庫' || form.type === '退貨入庫') && (
+            {(form.type === '入庫' || form.type === '退貨入庫' || form.type === '供應商退貨出庫') && (
               <div>
                 <label className="text-xs text-gray-600 mb-1 block">廠商（選填）</label>
                 <select value={form.vendor_id} onChange={e => setForm(p => ({ ...p, vendor_id: e.target.value }))} className={inputClass}>
@@ -191,7 +192,7 @@ export default function InventoryPage() {
               {(() => {
                 const p = products.find(p => p.id === form.product_id)
                 if (!p) return null
-                const isNeg = ['出庫', '盤虧', '報廢'].includes(form.type)
+                const isNeg = ['出庫', '盤虧', '供應商退貨出庫', '報廢'].includes(form.type)
                 const after = p.stock_qty + (isNeg ? -form.quantity : form.quantity)
                 return (
                   <span className="text-gray-600">
