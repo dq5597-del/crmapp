@@ -244,31 +244,6 @@ export default function ServiceRequestDetailPage() {
             }
             await fetchAll()
           }}
-          onCreateAR={async () => {
-            if (!fees) return
-            // Create AR record
-            const today = new Date()
-            const yy = String(today.getFullYear()).slice(2)
-            const mm = String(today.getMonth() + 1).padStart(2, '0')
-            const dd = String(today.getDate()).padStart(2, '0')
-            const { data: last } = await supabase.from('receivables').select('receivable_no').like('receivable_no', `AR-${yy}${mm}${dd}-%`).order('receivable_no', { ascending: false }).limit(1)
-            const seq = last && last.length > 0 ? parseInt(last[0].receivable_no.split('-').pop() ?? '0') + 1 : 1
-            const arNo = `AR-${yy}${mm}${dd}-${String(seq).padStart(3, '0')}`
-            const { data: ar } = await supabase.from('receivables').insert({
-              receivable_no: arNo,
-              client_id: req.client_id,
-              amount: fees.total_fee,
-              received_amount: 0,
-              balance: fees.total_fee,
-              status: '未收',
-              notes: `叫修單 ${req.service_no} 檢測費及運費`,
-            }).select().single()
-            if (ar) {
-              await supabase.from('service_fees').update({ receivable_id: (ar as any).id }).eq('id', fees.id)
-              await fetchAll()
-              alert(`已建立應收帳款 ${arNo}`)
-            }
-          }}
           onCreateQuote={async () => {
             if (!fees) return
             const noRes = await fetch('/api/quotes/generate-no').then(r => r.json())
@@ -299,9 +274,13 @@ export default function ServiceRequestDetailPage() {
             )
             if (itemsErr) { alert('報價單品項建立失敗：' + itemsErr.message); return }
 
-            await supabase.from('service_fees').update({ quote_id: (quote as any).id }).eq('id', fees.id)
+            const { error: linkErr } = await supabase.from('service_fees').update({ quote_id: (quote as any).id }).eq('id', fees.id)
             await fetchAll()
-            alert(`已建立報價單 ${quoteNo}`)
+            if (linkErr) {
+              alert(`報價單 ${quoteNo} 已建立，但連結回叫修單失敗：${linkErr.message}\n（可能是資料庫尚未新增 quote_id 欄位，請先執行 schema_service.sql 的更新）`)
+            } else {
+              alert(`已建立報價單 ${quoteNo}`)
+            }
           }}
         />
       )}
@@ -686,12 +665,11 @@ function RepairQuoteTab({ req, repairQuote, repairItems, locked, onSave, onDecis
 // ============================================================
 // FeesTab
 // ============================================================
-function FeesTab({ req, fees, locked, onSave, onCreateAR, onCreateQuote }: {
+function FeesTab({ req, fees, locked, onSave, onCreateQuote }: {
   req: ServiceRequest
   fees: ServiceFee | null
   locked: boolean
   onSave: (data: any) => Promise<void>
-  onCreateAR: () => Promise<void>
   onCreateQuote: () => Promise<void>
 }) {
   const [form, setForm] = useState({
@@ -701,7 +679,6 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR, onCreateQuote }: {
     notes: fees?.notes ?? '',
   })
   const [saving, setSaving] = useState(false)
-  const [creating, setCreating] = useState(false)
   const [creatingQuote, setCreatingQuote] = useState(false)
 
   const total = (parseFloat(form.inspection_fee) || 0) + (parseFloat(form.shipping_fee) || 0)
@@ -720,7 +697,7 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR, onCreateQuote }: {
   return (
     <div className="space-y-4">
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        此頁面用於客戶放棄維修時，收取檢測費及運費，可產生正式報價單並建立應收帳款。
+        此頁面用於客戶放棄維修時，收取檢測費及運費，並產生正式報價單。
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -763,13 +740,6 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR, onCreateQuote }: {
         </div>
       )}
 
-      {fees?.receivable_id && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800 flex items-center gap-2">
-          <CheckCircle size={16} />
-          已建立應收帳款（已連結）
-        </div>
-      )}
-
       {!locked && (
         <div className="flex justify-end gap-3">
           <button onClick={save} disabled={saving} className="px-5 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
@@ -779,18 +749,9 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR, onCreateQuote }: {
             <button
               onClick={async () => { setCreatingQuote(true); await onCreateQuote(); setCreatingQuote(false) }}
               disabled={creatingQuote}
-              className="px-5 py-2 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-50"
-            >
-              {creatingQuote ? '產生中...' : '產生報價單'}
-            </button>
-          )}
-          {fees && !fees.receivable_id && (
-            <button
-              onClick={async () => { setCreating(true); await onCreateAR(); setCreating(false) }}
-              disabled={creating}
               className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
-              {creating ? '建立中...' : '建立應收帳款'}
+              {creatingQuote ? '產生中...' : '產生報價單'}
             </button>
           )}
         </div>
