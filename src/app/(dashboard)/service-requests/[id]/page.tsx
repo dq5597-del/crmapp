@@ -5,11 +5,11 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   ServiceRequest, ServiceVendorRepair, ServiceRepairQuote,
-  ServiceRepairQuoteItem, ServiceFee, Vendor, ServiceStatus
+  ServiceRepairQuoteItem, Vendor, ServiceStatus
 } from '@/types'
 import {
   ArrowLeft, Copy, ExternalLink, CheckCircle, XCircle,
-  Building2, Wrench, FileText, DollarSign, Lock, FileDown
+  Building2, Wrench, FileText, Lock, FileDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +31,7 @@ const ALL_STATUSES: ServiceStatus[] = [
   '待處理','處理中','報價中','等待客戶確認','維修中','已完成','收費中','已結案'
 ]
 
-type TabKey = 'info' | 'vendor' | 'quote' | 'fees' | 'close'
+type TabKey = 'info' | 'vendor' | 'quote' | 'close'
 
 export default function ServiceRequestDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -42,24 +42,21 @@ export default function ServiceRequestDetailPage() {
   const [vendorRepair, setVendorRepair] = useState<ServiceVendorRepair | null>(null)
   const [repairQuote, setRepairQuote] = useState<ServiceRepairQuote | null>(null)
   const [repairItems, setRepairItems] = useState<ServiceRepairQuoteItem[]>([])
-  const [fees, setFees] = useState<ServiceFee | null>(null)
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [tab, setTab] = useState<TabKey>('info')
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const fetchAll = useCallback(async () => {
-    const [{ data: r }, { data: vr }, { data: rq }, { data: f }] = await Promise.all([
+    const [{ data: r }, { data: vr }, { data: rq }] = await Promise.all([
       supabase.from('service_requests').select('*, client:clients(company_name)').eq('id', id).single(),
       supabase.from('service_vendor_repairs').select('*').eq('service_request_id', id).maybeSingle(),
       supabase.from('service_repair_quotes').select('*, items:service_repair_quote_items(*)').eq('service_request_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('service_fees').select('*').eq('service_request_id', id).maybeSingle(),
     ])
     setReq(r as ServiceRequest)
     setVendorRepair(vr as ServiceVendorRepair)
     setRepairQuote(rq as ServiceRepairQuote)
     setRepairItems((rq as any)?.items ?? [])
-    setFees(f as ServiceFee)
   }, [id])
 
   useEffect(() => {
@@ -141,7 +138,6 @@ export default function ServiceRequestDetailPage() {
           { key: 'info',   label: '叫修資訊', icon: Wrench },
           { key: 'vendor', label: '送廠維修', icon: Building2 },
           { key: 'quote',  label: '維修報價單', icon: FileText },
-          { key: 'fees',   label: '費用建立', icon: DollarSign },
           { key: 'close',  label: '結案', icon: CheckCircle },
         ] as { key: TabKey; label: string; icon: any }[]).map(t => (
           <button
@@ -226,61 +222,6 @@ export default function ServiceRequestDetailPage() {
             const newStatus: ServiceStatus = decision === '確認維修' ? '維修中' : '收費中'
             await supabase.from('service_requests').update({ status: newStatus }).eq('id', id)
             await fetchAll()
-          }}
-        />
-      )}
-
-      {/* === Tab: 費用建立 === */}
-      {tab === 'fees' && (
-        <FeesTab
-          req={req}
-          fees={fees}
-          locked={locked}
-          onSave={async (data) => {
-            if (fees) {
-              await supabase.from('service_fees').update(data).eq('id', fees.id)
-            } else {
-              await supabase.from('service_fees').insert({ ...data, service_request_id: id })
-            }
-            await fetchAll()
-          }}
-          onCreateQuote={async () => {
-            if (!fees) return
-            const noRes = await fetch('/api/quotes/generate-no').then(r => r.json())
-            const quoteNo = noRes?.quote_no
-            if (!quoteNo) { alert('無法產生報價單號'); return }
-
-            const items: { product_name: string; unit: string; quantity: number; unit_price: number; seq_no: number }[] = []
-            if (fees.inspection_fee > 0) items.push({ product_name: '檢測費', unit: '式', quantity: 1, unit_price: fees.inspection_fee, seq_no: items.length + 1 })
-            if (fees.shipping_fee > 0) items.push({ product_name: '運費', unit: '式', quantity: 1, unit_price: fees.shipping_fee, seq_no: items.length + 1 })
-            if (items.length === 0) { alert('請先填寫檢測費或運費金額'); return }
-
-            const { data: quote, error: qErr } = await supabase.from('quotes').insert({
-              quote_no: quoteNo,
-              client_id: req.client_id,
-              project_name: `叫修單 ${req.service_no} 檢測費及運費`,
-              contact_name: req.contact_name,
-              client_phone: req.phone,
-              notes: fees.notes || null,
-              subtotal: fees.total_fee,
-              tax_amount: 0,
-              total_amount: fees.total_fee,
-              status: '已確認',
-            }).select().single()
-            if (qErr || !quote) { alert('報價單建立失敗：' + (qErr?.message ?? '未知錯誤')); return }
-
-            const { error: itemsErr } = await supabase.from('quote_items').insert(
-              items.map(it => ({ ...it, quote_id: (quote as any).id }))
-            )
-            if (itemsErr) { alert('報價單品項建立失敗：' + itemsErr.message); return }
-
-            const { error: linkErr } = await supabase.from('service_fees').update({ quote_id: (quote as any).id }).eq('id', fees.id)
-            await fetchAll()
-            if (linkErr) {
-              alert(`報價單 ${quoteNo} 已建立，但連結回叫修單失敗：${linkErr.message}\n（可能是資料庫尚未新增 quote_id 欄位，請先執行 schema_service.sql 的更新）`)
-            } else {
-              alert(`已建立報價單 ${quoteNo}`)
-            }
           }}
         />
       )}
@@ -656,104 +597,6 @@ function RepairQuoteTab({ req, repairQuote, repairItems, locked, onSave, onDecis
           <button onClick={save} disabled={saving} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
             {saving ? '儲存中...' : repairQuote ? '更新維修報價單' : '建立維修報價單'}
           </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ============================================================
-// FeesTab
-// ============================================================
-function FeesTab({ req, fees, locked, onSave, onCreateQuote }: {
-  req: ServiceRequest
-  fees: ServiceFee | null
-  locked: boolean
-  onSave: (data: any) => Promise<void>
-  onCreateQuote: () => Promise<void>
-}) {
-  const [form, setForm] = useState({
-    inspection_fee: fees?.inspection_fee?.toString() ?? '0',
-    shipping_fee: fees?.shipping_fee?.toString() ?? '0',
-    invoice_no: fees?.invoice_no ?? '',
-    notes: fees?.notes ?? '',
-  })
-  const [saving, setSaving] = useState(false)
-  const [creatingQuote, setCreatingQuote] = useState(false)
-
-  const total = (parseFloat(form.inspection_fee) || 0) + (parseFloat(form.shipping_fee) || 0)
-
-  async function save() {
-    setSaving(true)
-    await onSave({
-      inspection_fee: parseFloat(form.inspection_fee) || 0,
-      shipping_fee: parseFloat(form.shipping_fee) || 0,
-      invoice_no: form.invoice_no || null,
-      notes: form.notes || null,
-    })
-    setSaving(false)
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        此頁面用於客戶放棄維修時，收取檢測費及運費，並產生正式報價單。
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-800">費用明細</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>檢測費 (NT$)</label>
-            <input type="number" disabled={locked} className={inputClass} value={form.inspection_fee} onChange={e => setForm(f => ({ ...f, inspection_fee: e.target.value }))} />
-          </div>
-          <div>
-            <label className={labelClass}>運費 (NT$)</label>
-            <input type="number" disabled={locked} className={inputClass} value={form.shipping_fee} onChange={e => setForm(f => ({ ...f, shipping_fee: e.target.value }))} />
-          </div>
-          <div>
-            <label className={labelClass}>發票號碼（選填）</label>
-            <input disabled={locked} className={inputClass} value={form.invoice_no} onChange={e => setForm(f => ({ ...f, invoice_no: e.target.value }))} />
-          </div>
-          <div className="flex items-end">
-            <div className="bg-gray-50 rounded-lg px-4 py-3 flex-1 text-center">
-              <p className="text-xs text-gray-500 mb-1">費用合計</p>
-              <p className="text-xl font-bold text-gray-900">NT${total.toLocaleString()}</p>
-            </div>
-          </div>
-          <div className="col-span-2">
-            <label className={labelClass}>備註</label>
-            <textarea disabled={locked} className={inputClass} rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-          </div>
-        </div>
-      </div>
-
-      {fees?.quote_id && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800 flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <FileText size={16} />
-            已建立報價單（已連結）
-          </span>
-          <a href={`/quotes/${fees.quote_id}`} target="_blank" rel="noopener noreferrer" className="text-blue-700 font-medium hover:underline">
-            查看報價單 →
-          </a>
-        </div>
-      )}
-
-      {!locked && (
-        <div className="flex justify-end gap-3">
-          <button onClick={save} disabled={saving} className="px-5 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-            {saving ? '儲存中...' : '儲存費用'}
-          </button>
-          {fees && !fees.quote_id && (
-            <button
-              onClick={async () => { setCreatingQuote(true); await onCreateQuote(); setCreatingQuote(false) }}
-              disabled={creatingQuote}
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {creatingQuote ? '產生中...' : '產生報價單'}
-            </button>
-          )}
         </div>
       )}
     </div>
