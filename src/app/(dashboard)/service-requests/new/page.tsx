@@ -16,6 +16,8 @@ export default function NewServiceRequestPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [saving, setSaving] = useState(false)
+  const [clientSearch, setClientSearch] = useState('')
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
 
   const [form, setForm] = useState({
     client_id: '',
@@ -52,6 +54,17 @@ export default function NewServiceRequestPage() {
     if (data && data.length > 0) {
       setForm(f => ({ ...f, contact_name: data[0].name ?? '', phone: data[0].phone ?? '' }))
     }
+  }
+
+  const selectedClientName = clients.find(c => c.id === form.client_id)?.company_name ?? ''
+  const filteredClients = clientSearch
+    ? clients.filter(c => c.company_name.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients
+
+  function onClientPick(c: Client) {
+    setClientSearch('')
+    setShowClientDropdown(false)
+    handleClientChange(c.id)
   }
 
   function set(field: string, value: string) {
@@ -112,12 +125,37 @@ export default function NewServiceRequestPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">客戶資訊</h2>
         <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+          <div className="col-span-2 relative">
             <label className={labelClass}>客戶</label>
-            <select className={inputClass} value={form.client_id} onChange={e => handleClientChange(e.target.value)}>
-              <option value="">— 選擇客戶 —</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-            </select>
+            <input
+              className={inputClass}
+              value={clientSearch || selectedClientName}
+              onChange={e => {
+                setClientSearch(e.target.value)
+                if (form.client_id) handleClientChange('')
+                setShowClientDropdown(true)
+              }}
+              onFocus={() => setShowClientDropdown(true)}
+              onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
+              placeholder="輸入搜尋客戶"
+              autoComplete="off"
+            />
+            {showClientDropdown && (
+              <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+                {filteredClients.length > 0 ? filteredClients.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onMouseDown={() => onClientPick(c)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors"
+                  >
+                    {c.company_name}
+                  </button>
+                )) : (
+                  <div className="px-3 py-2 text-sm text-gray-400">查無符合的客戶</div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className={labelClass}>聯絡人</label>
