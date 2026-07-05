@@ -36,7 +36,7 @@ interface Props {
 }
 
 // 收合式下拉多選：關閉時只佔一行（跟一般輸入框同高），適合手機版；
-// 點開才展開分類勾選面板，選外面自動收合。
+// 點開才展開分類勾選面板，選外面自動收合。字級加大方便老花眼使用者閱讀。
 export default function AppearanceTagPicker({ value, onChange }: Props) {
   // 內部 state 只在掛載時解析一次；父層若切換編輯對象請帶 key 讓元件重新掛載
   const initial = parseValue(value)
