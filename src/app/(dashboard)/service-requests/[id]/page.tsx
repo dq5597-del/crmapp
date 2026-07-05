@@ -9,7 +9,7 @@ import {
 } from '@/types'
 import {
   ArrowLeft, Copy, ExternalLink, CheckCircle, XCircle,
-  Building2, Wrench, FileText, DollarSign, Lock
+  Building2, Wrench, FileText, DollarSign, Lock, FileDown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -110,6 +110,12 @@ export default function ServiceRequestDetailPage() {
 
         {/* Actions */}
         <div className="flex gap-2">
+          <button
+            onClick={() => window.open(`/service-requests/${id}/print`, '_blank')}
+            className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-lg text-sm font-medium text-gray-700"
+          >
+            <FileDown size={14} /> 匯出 PDF
+          </button>
           <button
             onClick={copyTrackLink}
             className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
