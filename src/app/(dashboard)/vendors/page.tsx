@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { Vendor } from '@/types'
 import { Plus, Search, Phone, Mail, Pencil, Trash2, Tag, X, Wrench } from 'lucide-react'
 
-const CATEGORIES = ['代理商', '維修商', '工程商', '設備商', '其他']
+const CATEGORIES = ['代理商', '維修商', '工程商', '設備商', '其他'] // 廠商類別（性質）
 
 const EMPTY_FORM = {
   vendor_code: '', company_name: '', contact_name: '', phone: '', fax: '',
@@ -16,6 +16,8 @@ const EMPTY_FORM = {
   repair_contact: '', repair_phone: '', repair_email: '', repair_address: '',
   // 代理品牌 (comma-joined string internally, UI as tags)
   brand_names: [] as string[],
+  // 銷售類別（product_categories.main_category）
+  sales_categories: [] as string[],
 }
 
 type VendorForm = typeof EMPTY_FORM
@@ -29,8 +31,14 @@ export default function VendorsPage() {
   const [form, setForm] = useState<VendorForm>(EMPTY_FORM)
   const [brandInput, setBrandInput] = useState('')
   const brandRef = useRef<HTMLInputElement>(null)
+  const [mainCategories, setMainCategories] = useState<string[]>([])
 
-  useEffect(() => { fetchVendors() }, [])
+  useEffect(() => { fetchVendors(); fetchMainCategories() }, [])
+
+  async function fetchMainCategories() {
+    const { data } = await supabase.from('product_categories').select('main_category').order('main_category')
+    setMainCategories(Array.from(new Set((data ?? []).map(c => c.main_category))))
+  }
 
   async function fetchVendors() {
     const { data } = await supabase.from('vendors').select('*').order('company_name')
@@ -51,11 +59,12 @@ export default function VendorsPage() {
         is_active: v.is_active,
         repair_contact: v.repair_contact ?? '', repair_phone: v.repair_phone ?? '',
         repair_email: v.repair_email ?? '', repair_address: v.repair_address ?? '',
-        brand_names: (v as any).brand_names ?? [],
+        brand_names: v.brand_names ?? [],
+        sales_categories: v.sales_categories ?? [],
       })
       setEditingId(v.id)
     } else {
-      setForm({ ...EMPTY_FORM, brand_names: [] })
+      setForm({ ...EMPTY_FORM, brand_names: [], sales_categories: [] })
       setEditingId('new')
     }
     setBrandInput('')
@@ -71,6 +80,15 @@ export default function VendorsPage() {
 
   function removeBrand(b: string) {
     setForm(f => ({ ...f, brand_names: f.brand_names.filter(x => x !== b) }))
+  }
+
+  function toggleSalesCategory(c: string) {
+    setForm(f => ({
+      ...f,
+      sales_categories: f.sales_categories.includes(c)
+        ? f.sales_categories.filter(x => x !== c)
+        : [...f.sales_categories, c],
+    }))
   }
 
   async function handleSave() {
@@ -97,6 +115,7 @@ export default function VendorsPage() {
       repair_email: form.repair_email || null,
       repair_address: form.repair_address || null,
       brand_names: form.brand_names.length > 0 ? form.brand_names : null,
+      sales_categories: form.sales_categories.length > 0 ? form.sales_categories : null,
     }
     if (editingId === 'new') {
       await supabase.from('vendors').insert(payload)
@@ -218,6 +237,38 @@ export default function VendorsPage() {
             </div>
           </div>
 
+          {/* 銷售類別 */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Tag size={13} className="text-purple-600" />
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">銷售類別</span>
+              <span className="text-xs text-gray-400">（詢價單將依此過濾可選產品）</span>
+            </div>
+            {mainCategories.length === 0 ? (
+              <div className="text-xs text-gray-400">尚無商品分類，請先至產品管理建立分類</div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {mainCategories.map(c => {
+                  const active = form.sales_categories.includes(c)
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => toggleSalesCategory(c)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-purple-400'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* 匯款資訊 */}
           <div>
             <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">匯款資訊</div>
@@ -314,11 +365,21 @@ export default function VendorsPage() {
                 {v.contact_name && <div className="text-gray-700">{v.contact_name}</div>}
                 {v.phone && <div className="flex items-center gap-1.5"><Phone size={12} className="shrink-0" /> {v.phone}</div>}
                 {v.email && <div className="flex items-center gap-1.5"><Mail size={12} className="shrink-0" /><span className="truncate">{v.email}</span></div>}
-                {(v as any).brand_names?.length > 0 && (
+                {(v.brand_names?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1 pt-1">
-                    {((v as any).brand_names as string[]).map(b => (
+                    {(v.brand_names as string[]).map(b => (
                       <span key={b} className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">{b}</span>
                     ))}
+                  </div>
+                )}
+                {(v.sales_categories?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {(v.sales_categories as string[]).slice(0, 3).map(c => (
+                      <span key={c} className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">{c}</span>
+                    ))}
+                    {(v.sales_categories?.length ?? 0) > 3 && (
+                      <span className="text-xs text-purple-500">+{(v.sales_categories?.length ?? 0) - 3}</span>
+                    )}
                   </div>
                 )}
                 {v.repair_phone && (

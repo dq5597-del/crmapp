@@ -7,13 +7,14 @@ import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse,
-  CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw
+  CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
+  MessageSquareQuote
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItemsTop = [
   { href: '/', label: '戰情室', icon: LayoutDashboard },
-]
+] // top nav
 
 const businessItems = [
   { href: '/quotes',           label: '報價單',   icon: FileText },
@@ -27,6 +28,7 @@ const companyItems = [
 
 const psiItems = [
   { href: '/sales-orders',    label: '銷貨單',   icon: ShoppingCart },
+  { href: '/inquiries',       label: '廠商詢價單', icon: MessageSquareQuote },
   { href: '/purchase-orders', label: '訂購單',   icon: Truck },
   { href: '/inventory',       label: '庫存管理', icon: Warehouse },
   { href: '/returns',         label: '退貨管理', icon: RotateCcw },

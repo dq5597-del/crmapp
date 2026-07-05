@@ -277,6 +277,9 @@ export interface Vendor {
   repair_phone: string | null
   repair_email: string | null
   repair_address: string | null
+  // 代理品牌 / 銷售類別（product_categories.main_category 值）
+  brand_names: string[] | null
+  sales_categories: string[] | null
   created_at: string
   updated_at: string
 }
@@ -562,6 +565,54 @@ export interface ReturnItem {
   item_condition: ReturnItemCondition
   reason: string | null
   notes: string | null
+  created_at: string
+  // Relations
+  product?: Product
+}
+
+// ============================================================
+// 廠商詢價單 (RFQ)
+// ============================================================
+export type InquiryStatus = '草稿' | '已送出' | '已回覆' | '已結案'
+
+export interface Inquiry {
+  id: string
+  inquiry_no: string
+  vendor_id: string | null
+  vendor_name: string | null
+  contact_name: string | null
+  phone: string | null
+  email: string | null
+  inquiry_date: string | null
+  reply_deadline: string | null
+  status: InquiryStatus
+  fill_token: string
+  token_locked: boolean
+  replied_at: string | null
+  reply_source: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // Relations
+  vendor?: Vendor
+  items?: InquiryItem[]
+}
+
+export interface InquiryItem {
+  id: string
+  inquiry_id: string
+  product_id: string | null
+  product_name: string
+  model: string | null
+  unit: string
+  quantity: number
+  current_cost: number
+  vendor_price: number | null
+  lead_time_days: number | null
+  item_notes: string | null
+  cost_synced: boolean
+  sort_order: number
   created_at: string
   // Relations
   product?: Product

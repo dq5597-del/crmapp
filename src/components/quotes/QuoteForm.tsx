@@ -4,7 +4,19 @@ import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
-import { Plus, Trash2, Clock, X, Tag } from 'lucide-react'
+import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink } from 'lucide-react'
+
+type MarketPlatform = {
+  key: string
+  name: string
+  ok: boolean
+  count: number
+  min: number | null
+  mid: number | null
+  max: number | null
+  searchUrl: string
+  note?: string
+}
 
 interface ProductCategory {
   id: string
@@ -311,6 +323,9 @@ export default function QuoteForm({
   const [historyPanel, setHistoryPanel] = useState<number | null>(null)
   const [historyData, setHistoryData] = useState<Record<number, { order_no: string; client_name: string; date: string; quantity: number; unit_price: number }[]>>({})
   const [historyLoading, setHistoryLoading] = useState<number | null>(null)
+  const [marketPanel, setMarketPanel] = useState<number | null>(null)
+  const [marketData, setMarketData] = useState<Record<number, MarketPlatform[]>>({})
+  const [marketLoading, setMarketLoading] = useState<number | null>(null)
   const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
@@ -417,6 +432,26 @@ export default function QuoteForm({
   const taxAmount = 0
   const totalAmount = subtotal
 
+  // 毛利計算（內部參考，僅計入有成本資料的品項）
+  function costOf(item: QuoteItemForm): number | null {
+    if (!item.product_id) return null
+    const p = products.find(p => p.id === item.product_id)
+    return p != null ? Number(p.cost_price) : null
+  }
+  const marginTotals = items.reduce(
+    (acc, i) => {
+      const c = costOf(i)
+      if (c == null) return acc
+      acc.revenue += Number(i.quantity) * Number(i.unit_price)
+      acc.cost += Number(i.quantity) * c
+      return acc
+    },
+    { revenue: 0, cost: 0 }
+  )
+  const grossProfit = marginTotals.revenue - marginTotals.cost
+  const grossMarginPct = marginTotals.revenue > 0 ? (grossProfit / marginTotals.revenue) * 100 : null
+  const marginColor = (pct: number) => pct >= 20 ? 'text-green-600' : pct >= 0 ? 'text-amber-600' : 'text-red-500'
+
   const filteredClients = clientSearch
     ? clients.filter(c =>
         c.company_name.toLowerCase().includes(clientSearch.toLowerCase()) ||
@@ -461,6 +496,25 @@ export default function QuoteForm({
     const { history } = await res.json()
     setHistoryData(p => ({ ...p, [idx]: history ?? [] }))
     setHistoryLoading(null)
+  }
+
+  // 市場行情（蝦皮 / PChome / momo 即時查價）
+  async function fetchMarket(idx: number) {
+    if (marketData[idx]) { setMarketPanel(marketPanel === idx ? null : idx); return }
+    const item = items[idx]
+    const q = [item.product_name, item.model].filter(Boolean).join(' ').trim()
+    if (!q) return
+    setMarketLoading(idx)
+    setMarketPanel(idx)
+    setHistoryPanel(null)
+    try {
+      const res = await fetch(`/api/market-prices?q=${encodeURIComponent(q)}`)
+      const data = await res.json()
+      setMarketData(p => ({ ...p, [idx]: data.platforms ?? [] }))
+    } catch {
+      setMarketData(p => ({ ...p, [idx]: [] }))
+    }
+    setMarketLoading(null)
   }
 
   async function handleSave(newStatus?: string) {
@@ -757,7 +811,54 @@ export default function QuoteForm({
                             <Clock size={13} />
                           </button>
                         )}
+                        {(item.product_name || item.model) && (
+                          <button type="button" onClick={() => fetchMarket(idx)} title="市場行情（蝦皮/PChome/momo）" className="p-1 text-gray-400 hover:text-orange-600 shrink-0">
+                            <TrendingUp size={13} />
+                          </button>
+                        )}
                       </div>
+                      {marketPanel === idx && (
+                        <div className="absolute top-full right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-80 mt-1 text-xs">
+                          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-orange-50 rounded-t-xl">
+                            <span className="font-semibold text-gray-700">市場行情（即時）</span>
+                            <button onClick={() => setMarketPanel(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                          </div>
+                          {marketLoading === idx ? (
+                            <div className="px-3 py-4 text-center text-gray-400">查詢三平台中...</div>
+                          ) : (
+                            <div className="divide-y divide-gray-50">
+                              <div className="grid grid-cols-4 px-3 py-1.5 text-gray-400 bg-gray-50">
+                                <span>平台</span>
+                                <span className="text-right">最低</span>
+                                <span className="text-right">中間</span>
+                                <span className="text-right">最高</span>
+                              </div>
+                              {(marketData[idx] ?? []).map(pf => (
+                                <div key={pf.key} className="px-3 py-2">
+                                  <div className="grid grid-cols-4 items-center">
+                                    <a href={pf.searchUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-gray-700 font-medium hover:text-blue-600">
+                                      {pf.name} <ExternalLink size={10} />
+                                    </a>
+                                    {pf.min != null ? (
+                                      <>
+                                        <button type="button" onClick={() => { setItem(idx, 'unit_price', pf.min!); setMarketPanel(null) }} className="text-right text-green-600 hover:underline font-medium">{pf.min.toLocaleString()}</button>
+                                        <button type="button" onClick={() => { setItem(idx, 'unit_price', pf.mid!); setMarketPanel(null) }} className="text-right text-gray-800 hover:underline font-semibold">{pf.mid!.toLocaleString()}</button>
+                                        <button type="button" onClick={() => { setItem(idx, 'unit_price', pf.max!); setMarketPanel(null) }} className="text-right text-red-500 hover:underline font-medium">{pf.max!.toLocaleString()}</button>
+                                      </>
+                                    ) : (
+                                      <span className="col-span-3 text-right text-gray-400">{pf.note ?? '無資料'}</span>
+                                    )}
+                                  </div>
+                                  {pf.min != null && pf.count > 0 && (
+                                    <div className="text-gray-300 mt-0.5">共 {pf.count} 筆相符商品</div>
+                                  )}
+                                </div>
+                              ))}
+                              <div className="px-3 py-1.5 text-gray-300">點價格可帶入單價．點平台名開啟搜尋頁</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {historyPanel === idx && (
                         <div className="absolute top-full right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 mt-1 text-xs">
                           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl">
@@ -786,9 +887,22 @@ export default function QuoteForm({
                       )}
                     </td>
 
-                    {/* 總計 */}
-                    <td className="pl-1 pr-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
-                      {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
+                    {/* 總計 + 毛利 */}
+                    <td className="pl-1 pr-3 py-2 text-right">
+                      <div className="font-semibold text-gray-700 text-[13px]">
+                        {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
+                      </div>
+                      {(() => {
+                        const c = costOf(item)
+                        const price = Number(item.unit_price)
+                        if (c == null || price <= 0) return null
+                        const pct = ((price - c) / price) * 100
+                        return (
+                          <div className={`text-[11px] font-medium ${marginColor(pct)}`} title={`成本 NT$${c.toLocaleString()}／件`}>
+                            毛利 {pct.toFixed(1)}%
+                          </div>
+                        )
+                      })()}
                     </td>
 
                     {/* 刪除 */}
@@ -832,6 +946,18 @@ export default function QuoteForm({
                 <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
                 <td colSpan={1} />
               </tr>
+              {grossMarginPct != null && (
+                <tr className="bg-gray-50">
+                  <td colSpan={6} className="px-3 pb-3 text-right text-xs text-gray-400">
+                    預估毛利（內部參考，不會出現在報價單上）
+                    {marginTotals.revenue < subtotal && '，僅計入有成本資料的品項'}
+                  </td>
+                  <td className={`px-3 pb-3 text-right text-sm font-bold ${marginColor(grossMarginPct)}`}>
+                    NT${Math.round(grossProfit).toLocaleString()}（{grossMarginPct.toFixed(1)}%）
+                  </td>
+                  <td colSpan={1} />
+                </tr>
+              )}
             </tfoot>
           </table>
         </div>

@@ -4,7 +4,84 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote } from 'lucide-react'
+import Link from 'next/link'
+
+// ============================================================
+// 詢價紀錄 Modal（產品 → 歷次廠商詢價回覆）
+// ============================================================
+function InquiryHistoryModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const supabase = createClient()
+  const [rows, setRows] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('inquiry_items')
+        .select('id, vendor_price, lead_time_days, cost_synced, created_at, inquiry:inquiries(id, inquiry_no, vendor_name, inquiry_date, status)')
+        .eq('product_id', product.id)
+        .order('created_at', { ascending: false })
+        .limit(30)
+      setRows((data ?? []).filter((r: any) => r.inquiry && r.inquiry.status !== '草稿'))
+      setLoading(false)
+    })()
+  }, [product.id])
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-auto p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-semibold text-gray-900 flex items-center gap-2">
+            <MessageSquareQuote size={16} className="text-blue-600" />
+            詢價紀錄 — {product.product_name}{product.model ? ` (${product.model})` : ''}
+          </div>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <div className="text-xs text-gray-500 mb-3">目前成本：{formatCurrency(product.cost_price)}</div>
+        {loading ? (
+          <div className="text-center py-10 text-gray-400 text-sm">載入中...</div>
+        ) : rows.length === 0 ? (
+          <div className="text-center py-10 text-gray-400 text-sm">此產品尚無詢價紀錄</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-500 bg-gray-50">
+                <th className="text-left py-2 px-3">日期</th>
+                <th className="text-left py-2 px-3">詢價單號</th>
+                <th className="text-left py-2 px-3">廠商</th>
+                <th className="text-right py-2 px-3">回覆單價</th>
+                <th className="text-right py-2 px-3">交期(天)</th>
+                <th className="text-left py-2 px-3">狀態</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r: any) => (
+                <tr key={r.id} className="border-t border-gray-50">
+                  <td className="py-2.5 px-3 text-gray-500">{r.inquiry.inquiry_date ?? '—'}</td>
+                  <td className="py-2.5 px-3">
+                    <Link href={`/inquiries/${r.inquiry.id}`} className="text-blue-600 hover:underline">{r.inquiry.inquiry_no}</Link>
+                  </td>
+                  <td className="py-2.5 px-3 text-gray-700">{r.inquiry.vendor_name ?? '—'}</td>
+                  <td className="py-2.5 px-3 text-right">
+                    {r.vendor_price != null ? (
+                      <span className={r.vendor_price <= product.cost_price ? 'text-green-700 font-medium' : 'text-gray-900'}>
+                        {formatCurrency(r.vendor_price)}
+                        {r.cost_synced && <span className="ml-1 text-xs text-green-500">已回寫</span>}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-gray-500">{r.lead_time_days ?? '—'}</td>
+                  <td className="py-2.5 px-3 text-xs text-gray-500">{r.inquiry.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
 
 interface ProductCategory {
   id: string
@@ -292,6 +369,7 @@ export default function ProductsPage() {
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)
+  const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
   const [form, setForm] = useState({
     category_id: null as string | null,
     brand: '', product_name: '', model: '', unit: '台',
@@ -368,6 +446,7 @@ export default function ProductsPage() {
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {showBatchModal && <BatchPriceModal onClose={() => setShowBatchModal(false)} onDone={() => { setShowBatchModal(false); fetchAll() }} />}
       {showCatModal && <CategoryManagerModal onClose={() => setShowCatModal(false)} onDone={() => fetchAll()} />}
+      {historyProduct && <InquiryHistoryModal product={historyProduct} onClose={() => setHistoryProduct(null)} />}
 
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -529,6 +608,7 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
+                          <button onClick={() => setHistoryProduct(p)} title="詢價紀錄" className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg"><MessageSquareQuote size={14} /></button>
                           <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={14} /></button>
                           <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>
                         </div>
