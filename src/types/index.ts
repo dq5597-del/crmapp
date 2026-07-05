@@ -499,6 +499,7 @@ export interface ServiceFee {
   total_fee: number
   invoice_no: string | null
   receivable_id: string | null
+  quote_id: string | null
   notes: string | null
   created_at: string
   updated_at: string

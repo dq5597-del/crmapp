@@ -269,6 +269,40 @@ export default function ServiceRequestDetailPage() {
               alert(`已建立應收帳款 ${arNo}`)
             }
           }}
+          onCreateQuote={async () => {
+            if (!fees) return
+            const noRes = await fetch('/api/quotes/generate-no').then(r => r.json())
+            const quoteNo = noRes?.quote_no
+            if (!quoteNo) { alert('無法產生報價單號'); return }
+
+            const items: { product_name: string; unit: string; quantity: number; unit_price: number; seq_no: number }[] = []
+            if (fees.inspection_fee > 0) items.push({ product_name: '檢測費', unit: '式', quantity: 1, unit_price: fees.inspection_fee, seq_no: items.length + 1 })
+            if (fees.shipping_fee > 0) items.push({ product_name: '運費', unit: '式', quantity: 1, unit_price: fees.shipping_fee, seq_no: items.length + 1 })
+            if (items.length === 0) { alert('請先填寫檢測費或運費金額'); return }
+
+            const { data: quote, error: qErr } = await supabase.from('quotes').insert({
+              quote_no: quoteNo,
+              client_id: req.client_id,
+              project_name: `叫修單 ${req.service_no} 檢測費及運費`,
+              contact_name: req.contact_name,
+              client_phone: req.phone,
+              notes: fees.notes || null,
+              subtotal: fees.total_fee,
+              tax_amount: 0,
+              total_amount: fees.total_fee,
+              status: '已確認',
+            }).select().single()
+            if (qErr || !quote) { alert('報價單建立失敗：' + (qErr?.message ?? '未知錯誤')); return }
+
+            const { error: itemsErr } = await supabase.from('quote_items').insert(
+              items.map(it => ({ ...it, quote_id: (quote as any).id }))
+            )
+            if (itemsErr) { alert('報價單品項建立失敗：' + itemsErr.message); return }
+
+            await supabase.from('service_fees').update({ quote_id: (quote as any).id }).eq('id', fees.id)
+            await fetchAll()
+            alert(`已建立報價單 ${quoteNo}`)
+          }}
         />
       )}
 
@@ -652,12 +686,13 @@ function RepairQuoteTab({ req, repairQuote, repairItems, locked, onSave, onDecis
 // ============================================================
 // FeesTab
 // ============================================================
-function FeesTab({ req, fees, locked, onSave, onCreateAR }: {
+function FeesTab({ req, fees, locked, onSave, onCreateAR, onCreateQuote }: {
   req: ServiceRequest
   fees: ServiceFee | null
   locked: boolean
   onSave: (data: any) => Promise<void>
   onCreateAR: () => Promise<void>
+  onCreateQuote: () => Promise<void>
 }) {
   const [form, setForm] = useState({
     inspection_fee: fees?.inspection_fee?.toString() ?? '0',
@@ -667,6 +702,7 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR }: {
   })
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [creatingQuote, setCreatingQuote] = useState(false)
 
   const total = (parseFloat(form.inspection_fee) || 0) + (parseFloat(form.shipping_fee) || 0)
 
@@ -684,7 +720,7 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR }: {
   return (
     <div className="space-y-4">
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        此頁面用於客戶放棄維修時，收取檢測費及運費，並建立應收帳款。
+        此頁面用於客戶放棄維修時，收取檢測費及運費，可產生正式報價單並建立應收帳款。
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -715,6 +751,18 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR }: {
         </div>
       </div>
 
+      {fees?.quote_id && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800 flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <FileText size={16} />
+            已建立報價單（已連結）
+          </span>
+          <a href={`/quotes/${fees.quote_id}`} target="_blank" rel="noopener noreferrer" className="text-blue-700 font-medium hover:underline">
+            查看報價單 →
+          </a>
+        </div>
+      )}
+
       {fees?.receivable_id && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800 flex items-center gap-2">
           <CheckCircle size={16} />
@@ -727,6 +775,15 @@ function FeesTab({ req, fees, locked, onSave, onCreateAR }: {
           <button onClick={save} disabled={saving} className="px-5 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             {saving ? '儲存中...' : '儲存費用'}
           </button>
+          {fees && !fees.quote_id && (
+            <button
+              onClick={async () => { setCreatingQuote(true); await onCreateQuote(); setCreatingQuote(false) }}
+              disabled={creatingQuote}
+              className="px-5 py-2 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-50"
+            >
+              {creatingQuote ? '產生中...' : '產生報價單'}
+            </button>
+          )}
           {fees && !fees.receivable_id && (
             <button
               onClick={async () => { setCreating(true); await onCreateAR(); setCreating(false) }}

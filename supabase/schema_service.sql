@@ -163,12 +163,16 @@ create table service_fees (
   total_fee             numeric(12,2) generated always as (inspection_fee + shipping_fee) stored,
   invoice_no            text,
   receivable_id         uuid,   -- 連結到應收帳款（建立後填入）
+  quote_id              uuid,   -- 連結到報價單（建立後填入）
   notes                 text,
   created_at            timestamptz default now(),
   updated_at            timestamptz default now()
 );
 
 create index idx_svc_fees_request on service_fees(service_request_id);
+
+-- 若資料表已存在（舊版本未包含 quote_id），補上此欄位
+alter table service_fees add column if not exists quote_id uuid;
 
 -- ============================================================
 -- TRIGGERS
