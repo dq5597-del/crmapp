@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Contact } from '@/types'
 import { Plus, Pencil, Trash2, Phone, Mail, Camera, Loader2, CheckCircle } from 'lucide-react'
+import AppearanceTagPicker from '@/components/ui/AppearanceTagPicker'
 
 export default function ContactsTab({ clientId }: { clientId: string }) {
   const supabase = createClient()
@@ -185,9 +186,13 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
               <label className={labelClass}>LINE ID</label>
               <input value={form.line_id} onChange={e => setForm(p => ({ ...p, line_id: e.target.value }))} className={inputClass} />
             </div>
-            <div>
+            <div className="col-span-2">
               <label className={labelClass}>長相/特徵</label>
-              <input value={form.appearance} onChange={e => setForm(p => ({ ...p, appearance: e.target.value }))} className={inputClass} />
+              <AppearanceTagPicker
+                key={editingId ?? 'none'}
+                value={form.appearance}
+                onChange={v => setForm(p => ({ ...p, appearance: v }))}
+              />
             </div>
             <div className="col-span-2">
               <label className={labelClass}>備註</label>

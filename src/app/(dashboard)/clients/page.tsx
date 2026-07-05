@@ -5,9 +5,28 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Client } from '@/types'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
-import { Plus, Search, Phone, MapPin, Calendar } from 'lucide-react'
+import { Plus, Search, Phone, MapPin, Calendar, Award } from 'lucide-react'
 
 const STATUS_OPTIONS = ['全部', '有需求', '規劃中', '服務未完成', '已完成', '暫緩']
+const TIER_OPTIONS = ['全部分級', '高價值', '中價值', '一般', '尚無交易']
+
+// 顧客分級（依杜拉克「顧客創造」精神：用實際貢獻的營收排名分級，而非主觀認定）
+const TIER_STYLES: Record<string, string> = {
+  '高價值': 'bg-amber-100 text-amber-700 border-amber-200',
+  '中價值': 'bg-blue-100 text-blue-700 border-blue-200',
+  '一般':   'bg-gray-100 text-gray-600 border-gray-200',
+  '尚無交易': 'bg-gray-50 text-gray-400 border-gray-100',
+}
+
+function computeTiers(revenueMap: Record<string, number>): Record<string, string> {
+  const withRevenue = Object.entries(revenueMap).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+  const tiers: Record<string, string> = {}
+  withRevenue.forEach(([id], idx) => {
+    const pct = (idx + 1) / withRevenue.length
+    tiers[id] = pct <= 0.2 ? '高價值' : pct <= 0.5 ? '中價值' : '一般'
+  })
+  return tiers
+}
 
 export default function ClientsPage() {
   const supabase = createClient()
@@ -15,10 +34,16 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('全部')
+  const [tierFilter, setTierFilter] = useState('全部分級')
+  const [revenueMap, setRevenueMap] = useState<Record<string, number>>({})
 
   useEffect(() => {
     fetchClients()
   }, [statusFilter])
+
+  useEffect(() => {
+    fetchRevenue()
+  }, [])
 
   async function fetchClients() {
     setLoading(true)
@@ -29,11 +54,24 @@ export default function ClientsPage() {
     setLoading(false)
   }
 
-  const filtered = clients.filter(c =>
-    c.company_name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.contact_name?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
-    (c.phone?.includes(search) ?? false)
-  )
+  async function fetchRevenue() {
+    const { data } = await supabase.from('sales_orders').select('client_id, total_amount').neq('status', '取消')
+    const map: Record<string, number> = {}
+    ;(data ?? []).forEach((o: any) => {
+      if (o.client_id) map[o.client_id] = (map[o.client_id] || 0) + Number(o.total_amount || 0)
+    })
+    setRevenueMap(map)
+  }
+
+  const tiers = computeTiers(revenueMap)
+  const getTier = (clientId: string) => tiers[clientId] ?? '尚無交易'
+
+  const filtered = clients.filter(c => {
+    if (tierFilter !== '全部分級' && getTier(c.id) !== tierFilter) return false
+    return c.company_name.toLowerCase().includes(search.toLowerCase()) ||
+      (c.contact_name?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
+      (c.phone?.includes(search) ?? false)
+  })
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -80,6 +118,24 @@ export default function ClientsPage() {
         </div>
       </div>
 
+      {/* 顧客分級篩選 */}
+      <div className="flex gap-2 flex-wrap mb-5">
+        {TIER_OPTIONS.map(t => (
+          <button
+            key={t}
+            onClick={() => setTierFilter(t)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+              tierFilter === t
+                ? 'bg-gray-900 text-white border-gray-900'
+                : (TIER_STYLES[t] ?? 'bg-white border-gray-200 text-gray-600')
+            }`}
+          >
+            {t !== '全部分級' && <Award size={11} />}
+            {t}
+          </button>
+        ))}
+      </div>
+
       {/* Client Grid */}
       {loading ? (
         <div className="text-center py-16 text-gray-400">載入中...</div>
@@ -100,15 +156,26 @@ export default function ClientsPage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
-                    {client.company_name}
-                  </h3>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+                      {client.company_name}
+                    </h3>
+                    {getTier(client.id) !== '尚無交易' && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border shrink-0 ${TIER_STYLES[getTier(client.id)]}`}>
+                        {getTier(client.id)}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-gray-500 text-sm mt-0.5">{client.contact_name ?? '—'}</p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-lg font-medium shrink-0 ml-2 ${CLIENT_STATUS_COLORS[client.status]}`}>
                   {client.status}
                 </span>
               </div>
+
+              {revenueMap[client.id] > 0 && (
+                <p className="text-xs text-gray-400 mb-2">累計成交：NT${revenueMap[client.id].toLocaleString()}</p>
+              )}
 
               <div className="space-y-1.5 text-sm text-gray-500">
                 {client.phone && (

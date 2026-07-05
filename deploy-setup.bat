@@ -1,21 +1,19 @@
 @echo off
 cd /d "C:\Users\10319\Claude\Projects\CRMAPP"
-if exist ".git" (
-  git add .
-  git commit -m "update"
-  git push
-  goto done
-)
-git init
-git add .
-git commit -m "CRM init"
-echo.
-echo === Paste GitHub repo URL below ===
-set /p REPO_URL="GitHub URL: "
-git remote add origin %REPO_URL%
+
+del /f /q ".git\index.lock" 2>nul
+del /f /q ".git\HEAD.lock" 2>nul
+
+git config user.email "dq5597@gmail.com"
+git config user.name "adi chuang"
+
+git remote remove origin 2>nul
+git remote add origin https://github.com/dq5597-del/crmapp.git
+
 git branch -M main
+
 git push -u origin main
-:done
+
 echo.
-echo === Done! Go to https://vercel.com ===
+echo === Push done! Now go to https://vercel.com ===
 pause

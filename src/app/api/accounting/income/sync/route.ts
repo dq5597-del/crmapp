@@ -2,6 +2,7 @@ import { createServerSupabaseClient as createClient } from '@/lib/supabase-serve
 import { NextRequest, NextResponse } from 'next/server'
 
 // POST /api/accounting/income/sync
+// 從 quotes（已確認/已完成/已結案）匯入為收入記錄
 export async function POST(req: NextRequest) {
   const supabase = createClient()
   const { year } = await req.json()
@@ -10,6 +11,7 @@ export async function POST(req: NextRequest) {
   const startDate = `${targetYear}-01-01`
   const endDate = `${targetYear}-12-31`
 
+  // 取得該年度已確認/完成的報價單
   const { data: quotes, error: qErr } = await supabase
     .from('quotes')
     .select('id, quote_no, total_amount, created_at, status, client:clients(company_name)')
@@ -19,22 +21,23 @@ export async function POST(req: NextRequest) {
 
   if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 })
 
+  // 取得已經匯入的 source_id，避免重複
   const { data: existing } = await supabase
     .from('accounting_income')
     .select('source_id')
     .eq('source_type', 'quote')
     .eq('year', targetYear)
 
-  const existingIds = new Set((existing || []).map((e: any) => e.source_id))
+  const existingIds = new Set((existing || []).map(e => e.source_id))
 
   const toInsert = (quotes || [])
-    .filter((q: any) => !existingIds.has(q.id))
-    .map((q: any) => {
+    .filter(q => !existingIds.has(q.id))
+    .map(q => {
       const total = Number(q.total_amount) || 0
       const untaxed = Math.round(total / 1.05 * 100) / 100
       const tax = Math.round((total - untaxed) * 100) / 100
       const date = q.created_at?.split('T')[0] || startDate
-      const clientName = q.client?.company_name || ''
+      const clientName = (q.client as any)?.company_name || ''
       return {
         invoice_date: date,
         client_name: clientName,
@@ -50,7 +53,9 @@ export async function POST(req: NextRequest) {
       }
     })
 
-  if (toInsert.length === 0) return NextResponse.json({ imported: 0, message: '無新報價單可匯入' })
+  if (toInsert.length === 0) {
+    return NextResponse.json({ imported: 0, message: '無新報價單可匯入' })
+  }
 
   const { error: insertErr } = await supabase.from('accounting_income').insert(toInsert)
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })

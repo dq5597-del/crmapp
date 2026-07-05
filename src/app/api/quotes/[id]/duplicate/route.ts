@@ -4,6 +4,7 @@ import { generateQuoteNo } from '@/lib/utils'
 
 // POST /api/quotes/[id]/duplicate
 // 複製一份報價單：品項與客戶資料一模一樣，日期改今天、單號重新產生、狀態設為草稿。
+// 以 select('*') 複製，避免因欄位增減而出錯（schema-agnostic）。
 export async function POST(
   _req: Request,
   { params }: { params: { id: string } }
@@ -11,20 +12,20 @@ export async function POST(
   const supabase = createServerSupabaseClient()
   const sourceId = params.id
 
-  // 1. 讀原報價單主檔（只取要沿用的欄位）
+  // 1. 讀原報價單主檔（整列）
   const { data: src, error: e1 } = await supabase
     .from('quotes')
-    .select('client_id, project_name, contact_name, client_phone, valid_until, delivery_days, payment_terms, bank_account, notes, subtotal, tax_amount, total_amount')
+    .select('*')
     .eq('id', sourceId)
     .single()
   if (e1 || !src) {
     return NextResponse.json({ error: '找不到來源報價單' }, { status: 404 })
   }
 
-  // 2. 讀原報價單品項
+  // 2. 讀原報價單品項（整列）
   const { data: srcItems, error: e2 } = await supabase
     .from('quote_items')
-    .select('seq_no, product_id, product_name, item_notes, model, unit, quantity, unit_price, provide_catalog, provide_manual')
+    .select('*')
     .eq('quote_id', sourceId)
     .order('seq_no', { ascending: true })
   if (e2) {
@@ -37,6 +38,7 @@ export async function POST(
   const mm = String(today.getMonth() + 1).padStart(2, '0')
   const dd = String(today.getDate()).padStart(2, '0')
   const prefix = `${yy}${mm}${dd}`
+  const todayStr = `${today.getFullYear()}-${mm}-${dd}`
 
   const { count } = await supabase
     .from('quotes')
@@ -46,26 +48,19 @@ export async function POST(
   let seq = (count ?? 0) + 1
   let newQuote: { id: string } | null = null
 
+  // 準備複製用主檔（去掉主鍵與時間戳，覆蓋單號/狀態/日期）
+  const baseClone: any = { ...src }
+  delete baseClone.id
+  delete baseClone.created_at
+  delete baseClone.updated_at
+  baseClone.status = '草稿'
+  if ('quote_date' in baseClone) baseClone.quote_date = todayStr
+
   for (let attempt = 0; attempt < 5; attempt++) {
     const quote_no = generateQuoteNo(today, seq)
     const { data, error } = await supabase
       .from('quotes')
-      .insert({
-        quote_no,
-        client_id: src.client_id,
-        project_name: src.project_name,
-        contact_name: src.contact_name,
-        client_phone: src.client_phone,
-        valid_until: src.valid_until,
-        delivery_days: src.delivery_days,
-        payment_terms: src.payment_terms,
-        bank_account: src.bank_account,
-        notes: src.notes,
-        subtotal: src.subtotal,
-        tax_amount: src.tax_amount,
-        total_amount: src.total_amount,
-        status: '草稿',
-      })
+      .insert({ ...baseClone, quote_no })
       .select('id')
       .single()
 
@@ -79,12 +74,17 @@ export async function POST(
     return NextResponse.json({ error: '單號產生衝突，請重試' }, { status: 409 })
   }
 
-  // 4. 複製品項到新單
+  // 4. 複製品項到新單（去掉主鍵與時間戳，改綁新 quote_id）
   if (srcItems && srcItems.length > 0) {
-    const itemsPayload = srcItems.map(item => ({ ...item, quote_id: newQuote!.id }))
+    const itemsPayload = srcItems.map((it: any) => {
+      const c = { ...it }
+      delete c.id
+      delete c.created_at
+      c.quote_id = newQuote!.id
+      return c
+    })
     const { error: e4 } = await supabase.from('quote_items').insert(itemsPayload)
     if (e4) {
-      // 品項複製失敗則回收剛建立的主檔，避免產生空單
       await supabase.from('quotes').delete().eq('id', newQuote.id)
       return NextResponse.json({ error: '複製品項失敗：' + e4.message }, { status: 500 })
     }

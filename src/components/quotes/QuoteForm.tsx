@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
@@ -112,7 +112,7 @@ interface QuickAddProductModalProps {
   initialName: string
   categories: ProductCategory[]
   onClose: () => void
-  onCreated: (product: Product) => void
+  onCreated: (product: Product, itemNotes: string) => void
 }
 
 function QuickAddProductModal({ initialName, categories, onClose, onCreated }: QuickAddProductModalProps) {
@@ -129,6 +129,11 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
     is_active: true,
   })
   const [saving, setSaving] = useState(false)
+  const [itemNotes, setItemNotes] = useState('')
+  const [isNewMain, setIsNewMain] = useState(false)
+  const [newMainCat, setNewMainCat] = useState('')
+  const [isNewSub, setIsNewSub] = useState(false)
+  const [newSubCat, setNewSubCat] = useState('')
 
   const mainCats = Array.from(new Set(categories.map(c => c.main_category)))
   const subCats = categories.filter(c => c.main_category === mainCat)
@@ -138,13 +143,54 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
     setForm(p => ({ ...p, category_id: '' }))
   }
 
+  function handleMainCatSelect(val: string) {
+    if (val === '__new__') {
+      setIsNewMain(true)
+      setMainCat('')
+      setForm(p => ({ ...p, category_id: '' }))
+      setIsNewSub(true)
+      setNewSubCat('')
+    } else {
+      handleMainCatChange(val)
+    }
+  }
+
+  function cancelNewMain() {
+    setIsNewMain(false)
+    setNewMainCat('')
+    setIsNewSub(false)
+    setNewSubCat('')
+  }
+
+  function handleSubCatSelect(val: string) {
+    if (val === '__new__') {
+      setIsNewSub(true)
+      setNewSubCat('')
+    } else {
+      setForm(p => ({ ...p, category_id: val }))
+    }
+  }
+
+  const canSave = form.product_name.trim() !== '' && (!isNewMain || newMainCat.trim() !== '') && (!isNewSub || newSubCat.trim() !== '')
+
   async function handleSave() {
-    if (!form.product_name.trim()) return
+    if (!canSave) return
     setSaving(true)
-    const payload = { ...form, category_id: form.category_id || null, notes: null, stock_qty: 0 }
+    let categoryId = form.category_id
+    if (isNewMain || isNewSub) {
+      const finalMain = isNewMain ? newMainCat.trim() : mainCat
+      const finalSub = newSubCat.trim()
+      const { data: catData, error: catError } = await supabase.from('product_categories')
+        .insert({ main_category: finalMain, sub_category: finalSub })
+        .select('id')
+        .single()
+      if (catError || !catData) { setSaving(false); return }
+      categoryId = (catData as any).id
+    }
+    const payload = { ...form, category_id: categoryId || null, notes: null, stock_qty: 0 }
     const { data, error } = await supabase.from('products').insert(payload).select('*').single()
     if (!error && data) {
-      onCreated(data as Product)
+      onCreated(data as Product, itemNotes.trim())
     }
     setSaving(false)
   }
@@ -163,17 +209,35 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-600 mb-1 block">大分類</label>
-              <select value={mainCat} onChange={e => handleMainCatChange(e.target.value)} className={inputClass}>
-                <option value="">— 請選擇 —</option>
-                {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              {isNewMain ? (
+                <div className="flex gap-1">
+                  <input value={newMainCat} onChange={e => setNewMainCat(e.target.value)} className={inputClass} placeholder="輸入新大分類名稱" autoFocus />
+                  <button type="button" onClick={cancelNewMain} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
+                </div>
+              ) : (
+                <select value={mainCat} onChange={e => handleMainCatSelect(e.target.value)} className={inputClass}>
+                  <option value="">— 請選擇 —</option>
+                  {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
+                  <option value="__new__">+ 新增大分類</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="text-xs text-gray-600 mb-1 block">子分類</label>
-              <select value={form.category_id} onChange={e => setForm(p => ({ ...p, category_id: e.target.value }))} className={inputClass} disabled={!mainCat}>
-                <option value="">— 請選擇 —</option>
-                {subCats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
-              </select>
+              {isNewSub ? (
+                <div className="flex gap-1">
+                  <input value={newSubCat} onChange={e => setNewSubCat(e.target.value)} className={inputClass} placeholder="輸入新子分類名稱" />
+                  {!isNewMain && (
+                    <button type="button" onClick={() => { setIsNewSub(false); setNewSubCat('') }} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
+                  )}
+                </div>
+              ) : (
+                <select value={form.category_id} onChange={e => handleSubCatSelect(e.target.value)} className={inputClass} disabled={!mainCat}>
+                  <option value="">— 請選擇 —</option>
+                  {subCats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
+                  <option value="__new__">+ 新增子分類</option>
+                </select>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -194,6 +258,10 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
             <label className="text-xs text-gray-600 mb-1 block">規格型號</label>
             <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} className={inputClass} placeholder="選填" />
           </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">品項備註（僅套用本次報價項目）</label>
+            <input value={itemNotes} onChange={e => setItemNotes(e.target.value)} className={inputClass} placeholder="選填" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-600 mb-1 block">定價（售價）</label>
@@ -210,7 +278,7 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
           <p className="text-xs text-gray-400">儲存後自動帶入報價品項</p>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
-            <button onClick={handleSave} disabled={saving || !form.product_name.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={handleSave} disabled={saving || !canSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
               {saving ? '新增中...' : '新增並帶入'}
             </button>
           </div>
@@ -239,11 +307,11 @@ export default function QuoteForm({
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [productSearch, setProductSearch] = useState<Record<number, string>>({})
   const [productDropdown, setProductDropdown] = useState<number | null>(null)
-  const [catFilter, setCatFilter] = useState<string>('')   // 分類篩選（主分類名稱）
+  const [catFilter, setCatFilter] = useState<string>('')
   const [historyPanel, setHistoryPanel] = useState<number | null>(null)
   const [historyData, setHistoryData] = useState<Record<number, { order_no: string; client_name: string; date: string; quantity: number; unit_price: number }[]>>({})
   const [historyLoading, setHistoryLoading] = useState<number | null>(null)
-  const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)  // 哪個品項要快速新增
+  const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [showQuickAddClient, setShowQuickAddClient] = useState(false)
@@ -255,6 +323,7 @@ export default function QuoteForm({
     project_name: initialQuote?.project_name ?? '',
     contact_name: initialQuote?.contact_name ?? prefillContact ?? '',
     client_phone: initialQuote?.client_phone ?? prefillPhone ?? '',
+    client_address: initialQuote?.client_address ?? '',
     valid_until: initialQuote?.valid_until ?? '',
     delivery_days: initialQuote?.delivery_days ?? 14,
     payment_terms: initialQuote?.payment_terms ?? '',
@@ -298,7 +367,7 @@ export default function QuoteForm({
   }
 
   async function loadClients() {
-    const { data } = await supabase.from('clients').select('id, company_name, contact_name, phone').order('company_name')
+    const { data } = await supabase.from('clients').select('id, company_name, contact_name, phone, address').order('company_name')
     setClients(data ?? [])
   }
 
@@ -324,6 +393,7 @@ export default function QuoteForm({
         ...p, client_id: c.id, client_name_display: c.company_name,
         contact_name: p.contact_name || (c.contact_name ?? ''),
         client_phone: p.client_phone || (c.phone ?? ''),
+        client_address: p.client_address || (c.address ?? ''),
       }))
     }
   }
@@ -344,10 +414,9 @@ export default function QuoteForm({
   }
 
   const subtotal = items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0)
-  const taxAmount = Math.round(subtotal * 0.05)
-  const totalAmount = subtotal + taxAmount
+  const taxAmount = 0
+  const totalAmount = subtotal
 
-  // 客戶搜尋過濾
   const filteredClients = clientSearch
     ? clients.filter(c =>
         c.company_name.toLowerCase().includes(clientSearch.toLowerCase()) ||
@@ -355,14 +424,12 @@ export default function QuoteForm({
       )
     : clients
 
-  // 分類篩選的主分類列表
   const mainCats = [...new Set(categories.map(c => c.main_category))]
 
   const filteredProducts = (idx: number) => {
     const q = (productSearch[idx] ?? '').toLowerCase()
     let list = products
 
-    // 分類篩選
     if (catFilter) {
       list = list.filter(p => {
         const pc = (p as any).product_categories
@@ -370,7 +437,6 @@ export default function QuoteForm({
       })
     }
 
-    // 文字搜尋
     if (q) {
       list = list.filter(p => {
         const pc = (p as any).product_categories
@@ -411,6 +477,7 @@ export default function QuoteForm({
       project_name: header.project_name || null,
       contact_name: header.contact_name || null,
       client_phone: header.client_phone || null,
+      client_address: header.client_address || null,
       valid_until: header.valid_until || null,
       delivery_days: Number(header.delivery_days) || null,
       payment_terms: header.payment_terms || null,
@@ -458,30 +525,28 @@ export default function QuoteForm({
 
   return (
     <div className="space-y-5">
-      {/* 快速新增客戶 Modal */}
       {showQuickAddClient && (
         <QuickAddClientModal
           initialName={clientSearch}
           onClose={() => setShowQuickAddClient(false)}
           onCreated={async (client) => {
             await loadClients()
-            setHeader(p => ({ ...p, client_id: client.id, client_name_display: client.company_name, contact_name: p.contact_name || (client.contact_name ?? ''), client_phone: p.client_phone || (client.phone ?? '') }))
+            setHeader(p => ({ ...p, client_id: client.id, client_name_display: client.company_name, contact_name: p.contact_name || (client.contact_name ?? ''), client_phone: p.client_phone || (client.phone ?? ''), client_address: p.client_address || (client.address ?? '') }))
             setClientSearch('')
             setShowQuickAddClient(false)
           }}
         />
       )}
 
-      {/* 快速新增產品 Modal */}
       {quickAddIdx !== null && (
         <QuickAddProductModal
           initialName={productSearch[quickAddIdx] ?? ''}
           categories={categories}
           onClose={() => setQuickAddIdx(null)}
-          onCreated={async (product) => {
-            // 更新產品清單並帶入品項
+          onCreated={async (product, itemNotes) => {
             await loadProducts()
             onProductSelect(quickAddIdx, product)
+            if (itemNotes) setItem(quickAddIdx, 'item_notes', itemNotes)
             setQuickAddIdx(null)
           }}
         />
@@ -555,6 +620,10 @@ export default function QuoteForm({
             <input value={header.client_phone} onChange={e => setHeader(p => ({ ...p, client_phone: e.target.value }))} className={inputClass} />
           </div>
           <div className="sm:col-span-2">
+            <label className={labelClass}>客戶地址</label>
+            <input value={header.client_address} onChange={e => setHeader(p => ({ ...p, client_address: e.target.value }))} className={inputClass} placeholder="從客戶資料帶入，可修改" />
+          </div>
+          <div className="sm:col-span-2">
             <label className={labelClass}>案名</label>
             <input value={header.project_name} onChange={e => setHeader(p => ({ ...p, project_name: e.target.value }))} className={inputClass} placeholder="例：禮堂音響設備更新" />
           </div>
@@ -570,7 +639,6 @@ export default function QuoteForm({
           </button>
         </div>
 
-        {/* 分類篩選列 */}
         {mainCats.length > 0 && (
           <div className="flex gap-1.5 px-5 py-2.5 border-b border-gray-100 flex-wrap items-center">
             <Tag size={13} className="text-gray-400 shrink-0" />
@@ -586,15 +654,12 @@ export default function QuoteForm({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[200px]">品名</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[160px]">品項備註</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[300px]">品名</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-16">單位</th>
-                <th className="px-3 py-2.5 text-center text-xs text-gray-500 font-medium w-16">數量</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-28">單價</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-28">小計</th>
-                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">型錄</th>
-                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-12">說明書</th>
+                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">單位</th>
+                <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">數量</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[96px]">含稅單價</th>
+                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">含稅總計</th>
                 <th className="w-8"></th>
               </tr>
             </thead>
@@ -604,10 +669,11 @@ export default function QuoteForm({
                 const searchStr = productSearch[idx] ?? ''
 
                 return (
-                  <tr key={idx} className="hover:bg-blue-50/30 group">
+                  <Fragment key={idx}>
+                  <tr className="hover:bg-blue-50/30 group">
                     <td className="px-3 py-2 text-xs text-gray-400 text-center">{idx + 1}</td>
 
-                    {/* 品名 — 含產品搜尋 dropdown */}
+                    {/* 品名 */}
                     <td className="px-3 py-2 relative">
                       <div className="relative">
                         <input
@@ -645,11 +711,8 @@ export default function QuoteForm({
                                 )
                               })
                             ) : (
-                              <div className="px-3 py-2 text-sm text-gray-400">
-                                找不到符合的產品
-                              </div>
+                              <div className="px-3 py-2 text-sm text-gray-400">找不到符合的產品</div>
                             )}
-                            {/* 快速新增產品 */}
                             <button
                               type="button"
                               onMouseDown={() => { setQuickAddIdx(idx); setProductDropdown(null) }}
@@ -662,37 +725,39 @@ export default function QuoteForm({
                       </div>
                     </td>
 
-                    {/* 品項備註 */}
-                    <td className="px-3 py-2">
-                      <input value={item.item_notes} onChange={e => setItem(idx, 'item_notes', e.target.value)} placeholder="備註說明" className={tdInput} />
-                    </td>
-
                     {/* 型號 */}
                     <td className="px-3 py-2">
                       <input value={item.model} onChange={e => setItem(idx, 'model', e.target.value)} className={tdInput} />
                     </td>
 
                     {/* 單位 */}
-                    <td className="px-3 py-2">
-                      <input value={item.unit} onChange={e => setItem(idx, 'unit', e.target.value)} className={tdInput + ' text-center'} />
+                    <td className="px-2 py-2">
+                      <input value={item.unit} onChange={e => setItem(idx, 'unit', e.target.value)} onFocus={e => e.target.select()} className={tdInput + ' text-center'} />
                     </td>
 
                     {/* 數量 */}
-                    <td className="px-3 py-2">
-                      <input type="number" min="0" step="0.01" value={item.quantity} onChange={e => setItem(idx, 'quantity', Number(e.target.value))} className={tdInput + ' text-center'} />
+                    <td className="pl-1 pr-1 py-2">
+                      <input type="number" min="0" step="1"
+                        value={item.quantity === 0 ? '' : item.quantity}
+                        onChange={e => setItem(idx, 'quantity', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
+                        onFocus={e => e.target.select()}
+                        className={tdInput + ' text-center'} />
                     </td>
 
                     {/* 單價 + 歷史售價 */}
-                    <td className="px-3 py-2 relative">
-                      <div className="flex gap-1 items-center">
-                        <input type="number" min="0" value={item.unit_price} onChange={e => setItem(idx, 'unit_price', Number(e.target.value))} className={tdInput + ' text-right flex-1'} />
+                    <td className="pl-1 pr-1 py-2 relative">
+                      <div className="flex gap-1 items-center justify-end">
+                        <input type="number" min="0"
+                          value={item.unit_price === 0 ? '' : item.unit_price}
+                          onChange={e => setItem(idx, 'unit_price', e.target.value === '' ? 0 : (Number(e.target.value) || 0))}
+                          onFocus={e => e.target.select()}
+                          className={tdInput + ' text-right shrink-0'} style={{ width: 80 }} />
                         {item.product_id && (
                           <button type="button" onClick={() => fetchHistory(idx, item.product_id!)} title="歷史售價" className="p-1 text-gray-400 hover:text-blue-600 shrink-0">
                             <Clock size={13} />
                           </button>
                         )}
                       </div>
-                      {/* 歷史售價 panel */}
                       {historyPanel === idx && (
                         <div className="absolute top-full right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 mt-1 text-xs">
                           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl">
@@ -721,19 +786,9 @@ export default function QuoteForm({
                       )}
                     </td>
 
-                    {/* 小計 */}
-                    <td className="px-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
+                    {/* 總計 */}
+                    <td className="pl-1 pr-3 py-2 text-right font-semibold text-gray-700 text-[13px]">
                       {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
-                    </td>
-
-                    {/* 型錄 */}
-                    <td className="px-2 py-2 text-center">
-                      <input type="checkbox" checked={item.provide_catalog} onChange={e => setItem(idx, 'provide_catalog', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
-                    </td>
-
-                    {/* 說明書 */}
-                    <td className="px-2 py-2 text-center">
-                      <input type="checkbox" checked={item.provide_manual} onChange={e => setItem(idx, 'provide_manual', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
                     </td>
 
                     {/* 刪除 */}
@@ -744,24 +799,38 @@ export default function QuoteForm({
                       </button>
                     </td>
                   </tr>
+
+                  <tr className="border-b border-gray-100">
+                    <td />
+                    <td colSpan={6} className="px-3 pb-2 pt-0">
+                      <div className="flex items-center gap-3">
+                        <input
+                          value={item.item_notes}
+                          onChange={e => setItem(idx, 'item_notes', e.target.value)}
+                          placeholder="品項備註（選填）"
+                          className={tdInput + ' flex-1'}
+                        />
+                        <label className="flex items-center gap-1 text-xs text-gray-500 shrink-0 whitespace-nowrap">
+                          <input type="checkbox" checked={item.provide_catalog} onChange={e => setItem(idx, 'provide_catalog', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
+                          型錄
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-gray-500 shrink-0 whitespace-nowrap">
+                          <input type="checkbox" checked={item.provide_manual} onChange={e => setItem(idx, 'provide_manual', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
+                          說明書
+                        </label>
+                      </div>
+                    </td>
+                    <td />
+                  </tr>
+                  </Fragment>
                 )
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={7} className="px-3 py-2.5 text-right text-xs text-gray-500">小計（未稅）</td>
-                <td className="px-3 py-2.5 text-right font-semibold text-gray-700">{subtotal.toLocaleString()}</td>
-                <td colSpan={3} />
-              </tr>
-              <tr className="bg-gray-50">
-                <td colSpan={7} className="px-3 py-2 text-right text-xs text-gray-500">稅額（5%）</td>
-                <td className="px-3 py-2 text-right text-gray-600">{taxAmount.toLocaleString()}</td>
-                <td colSpan={3} />
-              </tr>
               <tr className="bg-gray-50 border-t border-gray-200">
-                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
+                <td colSpan={6} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
                 <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
-                <td colSpan={3} />
+                <td colSpan={1} />
               </tr>
             </tfoot>
           </table>
