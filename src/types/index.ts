@@ -482,12 +482,16 @@ export interface ServiceRepairQuoteItem {
   id: string
   repair_quote_id: string
   seq_no: number
+  product_id: string | null
   description: string
+  model: string | null
   unit: string
   quantity: number
   unit_price: number
   amount: number
   notes: string | null
+  provide_catalog: boolean
+  provide_manual: boolean
   created_at: string
 }
 

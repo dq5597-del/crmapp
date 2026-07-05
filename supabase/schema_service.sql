@@ -141,16 +141,26 @@ create table service_repair_quote_items (
   id              uuid primary key default uuid_generate_v4(),
   repair_quote_id uuid not null references service_repair_quotes(id) on delete cascade,
   seq_no          integer not null default 1,
-  description     text not null,   -- 維修項目描述
+  product_id      uuid references products(id) on delete set null,
+  description     text not null,   -- 維修項目描述（同步自產品名稱，或手動輸入）
+  model           text,            -- 同步自產品型號
   unit            text default '項',
   quantity        numeric(10,2) not null default 1,
   unit_price      numeric(12,2) not null default 0,
   amount          numeric(14,2) generated always as (quantity * unit_price) stored,
-  notes           text,
+  notes           text,            -- 品項備註
+  provide_catalog boolean default false,
+  provide_manual  boolean default false,
   created_at      timestamptz default now()
 );
 
 create index idx_svc_repair_items_quote on service_repair_quote_items(repair_quote_id);
+
+-- 若資料表已存在（舊版本未包含以下欄位），補上此欄位
+alter table service_repair_quote_items add column if not exists product_id uuid references products(id) on delete set null;
+alter table service_repair_quote_items add column if not exists model text;
+alter table service_repair_quote_items add column if not exists provide_catalog boolean default false;
+alter table service_repair_quote_items add column if not exists provide_manual boolean default false;
 
 -- ============================================================
 -- 5. 檢測費 / 運費（客戶不修時收取）
