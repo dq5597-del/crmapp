@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote } from '@/types'
 import { QUOTE_STATUS_COLORS, formatDate, formatCurrency } from '@/lib/utils'
-import { Plus, Search, FileText, Copy } from 'lucide-react'
+import { Plus, Search, FileText, Copy, Trash2 } from 'lucide-react'
 
 const STATUS_OPTIONS = ['全部', '草稿', '已確認', '已轉銷貨單', '已轉訂購單', '作廢']
 
@@ -18,6 +18,8 @@ export default function QuotesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('全部')
   const [copyingId, setCopyingId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { fetchQuotes() }, [statusFilter])
 
@@ -46,6 +48,7 @@ export default function QuotesPage() {
     if (statusFilter !== '全部') q = q.eq('status', statusFilter)
     const { data } = await q
     setQuotes(data ?? [])
+    setSelected([])
     setLoading(false)
   }
 
@@ -55,6 +58,47 @@ export default function QuotesPage() {
     (q.project_name?.toLowerCase() ?? '').includes(search.toLowerCase())
   )
 
+  const allSelected = filtered.length > 0 && filtered.every(q => selected.includes(q.id))
+
+  function toggleAll() {
+    setSelected(allSelected ? [] : filtered.map(q => q.id))
+  }
+
+  function toggleOne(id: string) {
+    setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
+  }
+
+  function deleteWarning(targets: any[]): string {
+    const converted = targets.filter(q => q.status === '已轉銷貨單' || q.status === '已轉訂購單')
+    let msg = `確定刪除 ${targets.length} 張報價單？品項將一併刪除，此動作無法復原。`
+    if (converted.length > 0) {
+      msg += `\n\n注意：其中 ${converted.length} 張已轉銷貨單/訂購單，刪除後原單據仍保留，但會失去與報價單的連結。`
+    }
+    return msg
+  }
+
+  async function handleDeleteOne(e: React.MouseEvent, q: any) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm(deleteWarning([q]))) return
+    setDeleting(true)
+    const { error } = await supabase.from('quotes').delete().eq('id', q.id)
+    if (error) alert('刪除失敗：' + error.message)
+    await fetchQuotes()
+    setDeleting(false)
+  }
+
+  async function handleDeleteSelected() {
+    const targets = filtered.filter(q => selected.includes(q.id))
+    if (targets.length === 0) return
+    if (!confirm(deleteWarning(targets))) return
+    setDeleting(true)
+    const { error } = await supabase.from('quotes').delete().in('id', targets.map(q => q.id))
+    if (error) alert('刪除失敗：' + error.message)
+    await fetchQuotes()
+    setDeleting(false)
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-5">
@@ -62,9 +106,20 @@ export default function QuotesPage() {
           <h1 className="text-xl font-bold text-gray-900">報價單</h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {filtered.length} 筆</p>
         </div>
-        <Link href="/quotes/new" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
-          <Plus size={16} /> 新增報價單
-        </Link>
+        <div className="flex items-center gap-2">
+          {selected.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={deleting}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
+            >
+              <Trash2 size={15} /> {deleting ? '刪除中…' : `刪除選取（${selected.length}）`}
+            </button>
+          )}
+          <Link href="/quotes/new" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
+            <Plus size={16} /> 新增報價單
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
@@ -89,6 +144,9 @@ export default function QuotesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="px-3 py-3 w-10 text-center">
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-blue-600 w-4 h-4 align-middle" title="全選" />
+                  </th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">報價單號</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">客戶</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">案名</th>
@@ -100,10 +158,13 @@ export default function QuotesPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-gray-400">沒有符合的報價單</td></tr>
+                  <tr><td colSpan={8} className="text-center py-12 text-gray-400">沒有符合的報價單</td></tr>
                 ) : (
                   filtered.map(q => (
-                    <tr key={q.id} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
+                    <tr key={q.id} className={`border-b border-gray-50 transition-colors ${selected.includes(q.id) ? 'bg-blue-50/70' : 'hover:bg-blue-50'}`}>
+                      <td className="px-3 py-3 text-center">
+                        <input type="checkbox" checked={selected.includes(q.id)} onChange={() => toggleOne(q.id)} className="accent-blue-600 w-4 h-4 align-middle" />
+                      </td>
                       <td className="px-4 py-3">
                         <Link href={`/quotes/${q.id}`} className="font-semibold text-blue-700 hover:underline flex items-center gap-1.5">
                           <FileText size={14} className="text-blue-400" />
@@ -117,7 +178,7 @@ export default function QuotesPage() {
                         <span className={`text-xs px-2 py-1 rounded-lg font-medium ${QUOTE_STATUS_COLORS[q.status]}`}>{q.status}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-500">{formatDate(q.created_at)}</td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <button
                           onClick={(e) => handleCopy(e, q.id)}
                           disabled={copyingId === q.id}
@@ -126,6 +187,14 @@ export default function QuotesPage() {
                         >
                           <Copy size={13} />
                           {copyingId === q.id ? '複製中…' : '複製'}
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteOne(e, q)}
+                          disabled={deleting}
+                          title="刪除此報價單"
+                          className="ml-1.5 inline-flex items-center px-2 py-1.5 text-xs text-gray-400 border border-gray-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-300 disabled:opacity-50 transition-colors"
+                        >
+                          <Trash2 size={13} />
                         </button>
                       </td>
                     </tr>

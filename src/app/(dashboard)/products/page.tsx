@@ -4,8 +4,22 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
+
+type MarketPriceRow = {
+  product_id: string
+  platform: 'shopee' | 'pchome' | 'momo'
+  min_price: number | null
+  mid_price: number | null
+  max_price: number | null
+  result_count: number
+  search_url: string | null
+  ok: boolean
+  fetched_at: string
+}
+
+const PLATFORM_LABELS: Record<string, string> = { shopee: '蝦皮', pchome: 'PChome', momo: 'momo' }
 
 // ============================================================
 // 詢價紀錄 Modal（產品 → 歷次廠商詢價回覆）
@@ -370,6 +384,9 @@ export default function ProductsPage() {
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
+  const [marketMap, setMarketMap] = useState<Record<string, MarketPriceRow[]>>({})
+  const [marketRefreshing, setMarketRefreshing] = useState<string | null>(null)
+  const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
   const [form, setForm] = useState({
     category_id: null as string | null,
     brand: '', product_name: '', model: '', unit: '台',
@@ -379,12 +396,19 @@ export default function ProductsPage() {
   useEffect(() => { fetchAll() }, [])
 
   async function fetchAll() {
-    const [pRes, cRes] = await Promise.all([
+    const [pRes, cRes, mRes] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('product_name'),
       supabase.from('product_categories').select('*').order('main_category').order('sub_category'),
+      supabase.from('market_prices').select('*'),
     ])
     setProducts(pRes.data ?? [])
     setCategories(cRes.data ?? [])
+    const mm: Record<string, MarketPriceRow[]> = {}
+    for (const r of (mRes.data ?? []) as MarketPriceRow[]) {
+      if (!mm[r.product_id]) mm[r.product_id] = []
+      mm[r.product_id].push(r)
+    }
+    setMarketMap(mm)
     setLoading(false)
   }
 
@@ -419,6 +443,47 @@ export default function ProductsPage() {
     if (!confirm('確定刪除此產品？')) return
     await supabase.from('products').delete().eq('id', id)
     fetchAll()
+  }
+
+  // 查詢單一產品三平台行情並寫入快取
+  async function refreshMarket(p: Product): Promise<void> {
+    const q = [p.brand, p.model || p.product_name].filter(Boolean).join(' ').trim()
+    if (!q) return
+    setMarketRefreshing(p.id)
+    try {
+      const res = await fetch(`/api/market-prices?q=${encodeURIComponent(q)}`)
+      const data = await res.json()
+      const rows: MarketPriceRow[] = (data.platforms ?? []).map((pf: any) => ({
+        product_id: p.id,
+        platform: pf.key,
+        min_price: pf.min,
+        mid_price: pf.mid,
+        max_price: pf.max,
+        result_count: pf.count ?? 0,
+        search_url: pf.searchUrl ?? null,
+        ok: !!pf.ok && pf.min != null,
+        fetched_at: new Date().toISOString(),
+      }))
+      if (rows.length > 0) {
+        await supabase.from('market_prices').upsert(rows, { onConflict: 'product_id,platform' })
+        setMarketMap(m => ({ ...m, [p.id]: rows }))
+      }
+    } catch { /* 查詢失敗保留舊快取 */ }
+    setMarketRefreshing(null)
+  }
+
+  // 批次查行情（目前篩選結果，逐一查詢避免被平台封鎖）
+  async function batchRefreshMarket() {
+    const targets = filtered.filter(p => p.is_active)
+    if (targets.length === 0) return
+    if (!confirm(`將依目前篩選逐一查詢 ${targets.length} 項產品的三平台行情，約需 ${Math.ceil(targets.length * 2 / 60)} 分鐘，確定？`)) return
+    setBatchMarket({ done: 0, total: targets.length })
+    for (let i = 0; i < targets.length; i++) {
+      await refreshMarket(targets[i])
+      setBatchMarket({ done: i + 1, total: targets.length })
+      if (i < targets.length - 1) await new Promise(r => setTimeout(r, 1500))
+    }
+    setTimeout(() => setBatchMarket(null), 3000)
   }
 
   const mainCats = [...new Set(categories.map(c => c.main_category))]
@@ -462,6 +527,10 @@ export default function ProductsPage() {
           </button>
           <button onClick={() => setShowBatchModal(true)} className="flex items-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 px-4 py-2.5 rounded-xl text-sm font-medium">
             <TrendingUp size={15} /> 批次調價
+          </button>
+          <button onClick={batchRefreshMarket} disabled={batchMarket != null} className="flex items-center gap-2 border border-orange-200 text-orange-600 hover:bg-orange-50 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-60">
+            <RefreshCw size={15} className={batchMarket ? 'animate-spin' : ''} />
+            {batchMarket ? `查詢中 ${batchMarket.done}/${batchMarket.total}` : '批次查行情'}
           </button>
           <button onClick={() => startEdit()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
             <Plus size={16} /> 新增產品
@@ -570,6 +639,7 @@ export default function ProductsPage() {
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">定價</th>
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">成本</th>
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">利潤率</th>
+                <th className="text-right px-3 py-3 text-gray-600 font-medium">市場行情</th>
                 <th className="text-center px-3 py-3 text-gray-600 font-medium">庫存</th>
                 <th className="text-center px-3 py-3 text-gray-600 font-medium">狀態</th>
                 <th className="px-4 py-3"></th>
@@ -577,9 +647,9 @@ export default function ProductsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="text-center py-12 text-gray-400">載入中...</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-gray-400">載入中...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-gray-400">沒有產品，請先新增</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-gray-400">沒有產品，請先新增</td></tr>
               ) : (
                 filtered.map(p => {
                   const catLabel = getCategoryLabel(p.category_id)
@@ -599,6 +669,36 @@ export default function ProductsPage() {
                         <span className={`text-xs font-semibold ${p.list_price > 0 ? 'text-green-700' : 'text-gray-400'}`}>
                           {p.list_price > 0 ? `${Math.round((1 - p.cost_price / p.list_price) * 100)}%` : '—'}
                         </span>
+                      </td>
+                      <td className="px-3 py-3 text-right whitespace-nowrap">
+                        <div className="flex items-start justify-end gap-1">
+                          <div className="text-[11px] leading-4 text-right">
+                            {(marketMap[p.id]?.length ?? 0) > 0 ? (
+                              <>
+                                {(['shopee', 'pchome', 'momo'] as const).map(k => {
+                                  const r = marketMap[p.id]?.find(x => x.platform === k)
+                                  if (!r) return null
+                                  return (
+                                    <div key={k}>
+                                      <a href={r.search_url ?? '#'} target="_blank" rel="noreferrer"
+                                        className={r.ok && r.mid_price != null ? 'text-gray-600 hover:text-blue-600' : 'text-gray-300'}
+                                        title={r.ok && r.min_price != null ? `${PLATFORM_LABELS[k]}：${Number(r.min_price).toLocaleString()} ~ ${Number(r.max_price).toLocaleString()}（${r.result_count} 筆）` : `${PLATFORM_LABELS[k]}：無資料，點擊手動查看`}>
+                                        {PLATFORM_LABELS[k]} {r.ok && r.mid_price != null ? Number(r.mid_price).toLocaleString() : '—'}
+                                      </a>
+                                    </div>
+                                  )
+                                })}
+                                <div className="text-gray-300">{marketMap[p.id][0].fetched_at.slice(5, 10).replace('-', '/')} 查</div>
+                              </>
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
+                          </div>
+                          <button onClick={() => refreshMarket(p)} disabled={marketRefreshing === p.id || batchMarket != null} title="更新三平台行情"
+                            className="p-1 text-gray-300 hover:text-orange-600 disabled:opacity-50 shrink-0">
+                            <RefreshCw size={12} className={marketRefreshing === p.id ? 'animate-spin' : ''} />
+                          </button>
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-center text-gray-700">{p.stock_qty}</td>
                       <td className="px-3 py-3 text-center">
