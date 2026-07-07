@@ -57,6 +57,9 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
   const [products, setProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
+  const [vendorSearch, setVendorSearch] = useState('')
+  const [showVendorDD, setShowVendorDD] = useState(false)
+  const [creatingVendor, setCreatingVendor] = useState(false)
   const [copied, setCopied] = useState(false)
 
   // AI 回填 modal
@@ -186,6 +189,35 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
       phone: v.phone ?? '',
       email: v.email ?? '',
     }))
+  }
+
+  const filteredVendors = (() => {
+    const q = vendorSearch.trim().toLowerCase()
+    if (!q) return vendors.slice(0, 20)
+    return vendors.filter(v =>
+      v.company_name.toLowerCase().includes(q) ||
+      (v.contact_name?.toLowerCase() ?? '').includes(q) ||
+      (v.phone ?? '').includes(q)
+    ).slice(0, 20)
+  })()
+
+  async function quickAddVendor(name: string) {
+    if (creatingVendor || !name.trim()) return
+    setCreatingVendor(true)
+    const { data, error } = await supabase.from('vendors')
+      .insert({ company_name: name.trim(), is_active: true })
+      .select().single()
+    setCreatingVendor(false)
+    if (error || !data) { alert('新增廠商失敗：' + (error?.message ?? '')); return }
+    setVendors(prev => [...prev, data as Vendor].sort((a, b) => a.company_name.localeCompare(b.company_name, 'zh-Hant')))
+    setHeader(p => ({
+      ...p,
+      vendor_id: (data as any).id,
+      vendor_name: (data as any).company_name,
+      contact_name: '', phone: '', email: '',
+    }))
+    setVendorSearch('')
+    setShowVendorDD(false)
   }
 
   function addProduct(p: any) {
@@ -483,10 +515,42 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <label className={labelClass}>廠商 *</label>
-            <select value={header.vendor_id} onChange={e => onVendorSelect(e.target.value)} disabled={readonly} className={inputClass}>
-              <option value="">請選擇廠商</option>
-              {vendors.map(v => <option key={v.id} value={v.id}>{v.company_name}</option>)}
-            </select>
+            <div className="relative">
+              <input
+                value={showVendorDD ? vendorSearch : (selectedVendor?.company_name ?? '')}
+                onChange={e => { setVendorSearch(e.target.value); setShowVendorDD(true) }}
+                onFocus={() => { setVendorSearch(''); setShowVendorDD(true) }}
+                onBlur={() => setTimeout(() => setShowVendorDD(false), 200)}
+                placeholder="搜尋廠商名稱／聯絡人／電話，找不到可直接新增..."
+                disabled={readonly}
+                className={inputClass}
+              />
+              {showVendorDD && !readonly && (
+                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-auto">
+                  {filteredVendors.map(v => (
+                    <button key={v.id} type="button"
+                      onMouseDown={() => { onVendorSelect(v.id); setVendorSearch(''); setShowVendorDD(false) }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0">
+                      <div className="text-sm text-gray-900">{v.company_name}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {v.contact_name || '—'}{v.phone ? `　${v.phone}` : ''}
+                      </div>
+                    </button>
+                  ))}
+                  {filteredVendors.length === 0 && !vendorSearch.trim() && (
+                    <div className="px-4 py-3 text-sm text-gray-400">尚無廠商資料</div>
+                  )}
+                  {!!vendorSearch.trim() &&
+                    !vendors.some(v => v.company_name === vendorSearch.trim()) && (
+                    <button type="button"
+                      onMouseDown={() => quickAddVendor(vendorSearch)}
+                      className="w-full text-left px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-medium">
+                      {creatingVendor ? '新增中…' : `＋ 新增廠商「${vendorSearch.trim()}」`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className={labelClass}>聯絡人</label>
