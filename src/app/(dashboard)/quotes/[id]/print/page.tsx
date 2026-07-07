@@ -193,9 +193,11 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
                   <td className="num">{fmt(Number(item.unit_price))}</td>
                   <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
                 </tr>
-                <tr className="notes-row">
-                  <td colSpan={7}>備註：{item.item_notes ?? '—'}</td>
-                </tr>
+                {!!item.item_notes?.trim() && (
+                  <tr className="notes-row">
+                    <td colSpan={7}>備註：{item.item_notes}</td>
+                  </tr>
+                )}
               </Fragment>
             ))}
           </tbody>
