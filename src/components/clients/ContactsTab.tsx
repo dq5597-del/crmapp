@@ -35,13 +35,14 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
         phone: contact.phone ?? '',
         email: contact.email ?? '',
         line_id: (contact as any).line_id ?? '',
+        birthday: (contact as any).birthday ?? '',
         appearance: contact.appearance ?? '',
         provided_info: contact.provided_info ?? '',
         notes: contact.notes ?? '',
       })
       setEditingId(contact.id)
     } else {
-      setForm({ name: '', title: '', phone: '', email: '', line_id: '', appearance: '', provided_info: '', notes: '' })
+      setForm({ name: '', title: '', phone: '', email: '', line_id: '', birthday: '', appearance: '', provided_info: '', notes: '' })
       setEditingId('new')
     }
     setOcrDone(false)
@@ -66,6 +67,7 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
         phone: data.phone || f.phone,
         email: data.email || f.email,
         line_id: data.line_id || f.line_id,
+        birthday: f.birthday,
         appearance: f.appearance,
         provided_info: f.provided_info,
         notes: data.notes ? (f.notes ? f.notes + '\n' + data.notes : data.notes) : f.notes,
@@ -98,6 +100,7 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
       phone: form.phone || null,
       email: form.email || null,
       line_id: form.line_id || null,
+      birthday: form.birthday || null,
       appearance: form.appearance || null,
       provided_info: form.provided_info || null,
       notes: form.notes || null,
@@ -186,6 +189,10 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
               <label className={labelClass}>LINE ID</label>
               <input value={form.line_id} onChange={e => setForm(p => ({ ...p, line_id: e.target.value }))} className={inputClass} />
             </div>
+            <div>
+              <label className={labelClass}>生日（行事曆每年顯示＋提醒）</label>
+              <input type="date" value={form.birthday} onChange={e => setForm(p => ({ ...p, birthday: e.target.value }))} className={inputClass} />
+            </div>
             <div className="col-span-2">
               <label className={labelClass}>長相/特徵</label>
               <AppearanceTagPicker
@@ -222,6 +229,7 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
                   {c.email && <div className="flex items-center gap-1"><Mail size={12} />{c.email}</div>}
                   {(c as any).line_id && <div className="flex items-center gap-1 text-green-600 text-xs">LINE: {(c as any).line_id}</div>}
                 </div>
+                {(c as any).birthday && <div className="text-xs text-pink-600 mt-1">生日：{(c as any).birthday}（每年行事曆提醒）</div>}
                 {c.appearance && <div className="text-xs text-gray-400 mt-1">外貌：{c.appearance}</div>}
                 {c.notes && <div className="text-xs text-gray-500 mt-1">{c.notes}</div>}
               </div>
