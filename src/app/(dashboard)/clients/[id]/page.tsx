@@ -7,18 +7,20 @@ import { createClient } from '@/lib/supabase'
 import { Client, Contact, VisitRecord, Project, Quote, CompetitorInfo } from '@/types'
 import ClientForm from '@/components/clients/ClientForm'
 import ContactsTab from '@/components/clients/ContactsTab'
+import ImportantDatesTab from '@/components/clients/ImportantDatesTab'
 import VisitsTab from '@/components/clients/VisitsTab'
 import ProjectsTab from '@/components/clients/ProjectsTab'
 import CompetitorsTab from '@/components/clients/CompetitorsTab'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
 import {
   ArrowLeft, Edit2, Phone, MapPin, Calendar,
-  Users, FileText, Briefcase, Eye, Building2, Trash2
+  Users, FileText, Briefcase, Eye, Building2, Trash2, Cake
 } from 'lucide-react'
 
 const TABS = [
   { key: 'info',        label: '基本資料', icon: Eye },
   { key: 'contacts',    label: '聯絡人',   icon: Users },
+  { key: 'dates',       label: '重要日子', icon: Cake },
   { key: 'visits',      label: '拜訪紀錄', icon: Calendar },
   { key: 'projects',    label: '專案',     icon: Briefcase },
   { key: 'competitors', label: '同業資訊', icon: Building2 },
@@ -215,6 +217,7 @@ export default function ClientDetailPage() {
       )}
 
       {activeTab === 'contacts' && <ContactsTab clientId={id} />}
+      {activeTab === 'dates' && <ImportantDatesTab clientId={id} />}
       {activeTab === 'visits' && <VisitsTab clientId={id} />}
       {activeTab === 'projects' && <ProjectsTab clientId={id} />}
       {activeTab === 'competitors' && <CompetitorsTab clientId={id} />}
