@@ -151,7 +151,10 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             <h1>估 價 單</h1>
             {quote.project_name && <div className="sub-header">{quote.project_name}</div>}
           </div>
-          <div className="header-spacer" />
+          <div className="header-spacer" style={{ textAlign: 'right', fontSize: 11, color: '#333', lineHeight: 1.9, alignSelf: 'flex-end' }}>
+            <div>服務電話：03-8321087</div>
+            <div>地址：花蓮市民權三街十號</div>
+          </div>
         </div>
 
         {/* Client + quote info (merged into 2 rows) */}
