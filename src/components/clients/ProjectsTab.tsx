@@ -1194,6 +1194,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [shareMenuId, setShareMenuId] = useState<string | null>(null)
   const [isNewProject, setIsNewProject] = useState(false)
   const [form, setForm] = useState<ProjectForm>(emptyProject)
   const [survey, setSurvey] = useState<SurveyForm>(emptySurvey)
@@ -1563,12 +1564,28 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 <span className={`text-xs px-2 py-0.5 rounded-lg font-medium shrink-0 ${STATUS_COLORS[p.status]}`}>{p.status}</span>
               </div>
               <div className="flex gap-1 shrink-0 ml-2 items-center">
-                <a href={`/projects/${p.id}/print/survey`} target="_blank" rel="noreferrer"
-                  className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg">場勘報告</a>
-                <a href={`/projects/${p.id}/print/diagram`} target="_blank" rel="noreferrer"
-                  className="px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg">標示圖</a>
-                <a href={`/projects/${p.id}/print/acceptance`} target="_blank" rel="noreferrer"
-                  className="px-2 py-1 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg">驗收單</a>
+                <div className="relative">
+                  <button type="button"
+                    onClick={() => setShareMenuId(shareMenuId === p.id ? null : p.id)}
+                    className="px-2.5 py-1 text-xs font-medium text-white bg-sky-500 hover:bg-sky-600 rounded-lg">
+                    分享 PDF
+                  </button>
+                  {shareMenuId === p.id && (
+                    <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                      {[
+                        { href: `/projects/${p.id}/print/survey`, label: '📋 場勘報告' },
+                        { href: `/projects/${p.id}/print/diagram`, label: '🗺️ 標示圖／工程圖' },
+                        { href: `/projects/${p.id}/print/acceptance`, label: '✅ 驗收單' },
+                      ].map(d => (
+                        <a key={d.href} href={d.href} target="_blank" rel="noreferrer"
+                          onClick={() => setShareMenuId(null)}
+                          className="block px-3 py-2 text-xs text-gray-700 hover:bg-sky-50 hover:text-sky-600">
+                          {d.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={13} /></button>
                 <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={13} /></button>
               </div>
