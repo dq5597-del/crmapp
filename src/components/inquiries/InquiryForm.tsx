@@ -145,14 +145,22 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     ? products.filter(p => productMatchesVendor(p, selectedVendor))
     : products
 
-  const filteredProducts = (() => {
+  const matchesQuery = (p: any) => {
     const q = productSearch.toLowerCase()
-    if (!q) return sellable.slice(0, 20)
-    return sellable.filter(p =>
-      p.product_name.toLowerCase().includes(q) ||
+    if (!q) return true
+    return p.product_name.toLowerCase().includes(q) ||
       (p.model?.toLowerCase() ?? '').includes(q) ||
       (p.brand?.toLowerCase() ?? '').includes(q)
-    ).slice(0, 20)
+  }
+
+  const filteredProducts = sellable.filter(matchesQuery).slice(0, 20)
+
+  // 範圍外產品：廠商有設定銷售範圍時，範圍外但符合關鍵字的產品也列出（加註提醒），
+  // 確保任何品項都能連結產品資料庫、回寫進價
+  const outOfRangeProducts = (() => {
+    if (!selectedVendor || !vendorHasFilter) return []
+    const inRangeIds = new Set(sellable.map((p: any) => p.id))
+    return products.filter(p => !inRangeIds.has(p.id) && matchesQuery(p)).slice(0, 15)
   })()
 
   function onVendorSelect(vendorId: string) {
@@ -540,23 +548,46 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
             />
             {showDropdown && header.vendor_id && (
               <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-auto">
-                {filteredProducts.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-gray-400">
-                    {vendorHasFilter ? '此廠商銷售範圍內找不到符合的產品' : '找不到符合的產品'}
-                  </div>
-                ) : filteredProducts.map(p => (
-                  <button key={p.id} onMouseDown={() => addProduct(p)} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0">
-                    <div className="text-sm text-gray-900">
-                      {p.brand && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mr-1.5">{p.brand}</span>}
-                      {p.product_name}{p.model ? ` — ${p.model}` : ''}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      成本：NT${fmt.format(p.cost_price ?? 0)}　定價：NT${fmt.format(p.list_price ?? 0)}
-                      　庫存：<span className={p.stock_qty <= 0 ? 'text-red-500' : ''}>{p.stock_qty}</span>
-                      {p.product_categories?.main_category && <span className="ml-1.5">{p.product_categories.main_category}</span>}
-                    </div>
-                  </button>
-                ))}
+                {filteredProducts.length === 0 && outOfRangeProducts.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-gray-400">找不到符合的產品</div>
+                ) : (
+                  <>
+                    {filteredProducts.map(p => (
+                      <button key={p.id} onMouseDown={() => addProduct(p)} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0">
+                        <div className="text-sm text-gray-900">
+                          {p.brand && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mr-1.5">{p.brand}</span>}
+                          {p.product_name}{p.model ? ` — ${p.model}` : ''}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          成本：NT${fmt.format(p.cost_price ?? 0)}　定價：NT${fmt.format(p.list_price ?? 0)}
+                          　庫存：<span className={p.stock_qty <= 0 ? 'text-red-500' : ''}>{p.stock_qty}</span>
+                          {p.product_categories?.main_category && <span className="ml-1.5">{p.product_categories.main_category}</span>}
+                        </div>
+                      </button>
+                    ))}
+                    {outOfRangeProducts.length > 0 && (
+                      <>
+                        <div className="px-4 py-1.5 text-xs text-amber-600 bg-amber-50 border-y border-amber-100">
+                          以下產品不在此廠商登記的銷售範圍，仍可加入詢價
+                        </div>
+                        {outOfRangeProducts.map(p => (
+                          <button key={p.id} onMouseDown={() => addProduct(p)} className="w-full text-left px-4 py-2.5 hover:bg-amber-50 border-b border-gray-50 last:border-0">
+                            <div className="text-sm text-gray-700">
+                              {p.brand && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mr-1.5">{p.brand}</span>}
+                              {p.product_name}{p.model ? ` — ${p.model}` : ''}
+                              <span className="ml-1.5 text-xs text-amber-600">範圍外</span>
+                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              成本：NT${fmt.format(p.cost_price ?? 0)}　定價：NT${fmt.format(p.list_price ?? 0)}
+                              　庫存：<span className={p.stock_qty <= 0 ? 'text-red-500' : ''}>{p.stock_qty}</span>
+                              {p.product_categories?.main_category && <span className="ml-1.5">{p.product_categories.main_category}</span>}
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
