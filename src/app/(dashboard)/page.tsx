@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import KPICard from '@/components/dashboard/KPICard'
 import WeatherWidget from '@/components/dashboard/WeatherWidget'
+import TodaySchedule from '@/components/dashboard/TodaySchedule'
 import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle, CalendarClock, Timer } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
@@ -160,6 +161,9 @@ export default async function DashboardPage() {
         <h1 className="text-xl font-bold text-gray-900">業務戰情總覽</h1>
         <p className="text-sm text-gray-500 mt-0.5">更新日期：{new Date().toLocaleDateString('zh-TW')}</p>
       </div>
+
+      {/* 今日行程（可直接填實際結果）＋ 今日重要日子 */}
+      <TodaySchedule />
 
       {/* 逾期未回訪示警 */}
       {data.overdueVisits.length > 0 && (

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
-  Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse,
+  Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
   MessageSquareQuote
 } from 'lucide-react'
@@ -17,6 +17,7 @@ const navItemsTop = [
 ] // top nav
 
 const businessItems = [
+  { href: '/schedule',         label: '每日行程', icon: CalendarDays },
   { href: '/quotes',           label: '報價單',   icon: FileText },
   { href: '/service-requests', label: '叫修管理', icon: Wrench },
 ]
