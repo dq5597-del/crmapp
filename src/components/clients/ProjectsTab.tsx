@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ProjectStatus } from '@/types'
 import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload } from 'lucide-react'
+import RackDesigner from '@/components/RackDesigner'
 import { formatDate } from '@/lib/utils'
 
 const STATUS_OPTIONS: ProjectStatus[] = ['規劃中', '進行中', '施工中', '完工', '暫停', '取消']
@@ -1525,6 +1526,14 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 supabase={supabase}
                 initLength={survey.space_length}
                 initWidth={survey.space_width}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="🗄️ 機櫃設計模擬圖" color={PURPLE}>
+              <RackDesigner
+                projectId={editingId as string}
+                supabase={supabase}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>

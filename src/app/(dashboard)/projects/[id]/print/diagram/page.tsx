@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import PrintDocButtons from '@/components/PrintDocButtons'
 import DocSignatures from '@/components/DocSignatures'
 import EquipmentMapPrint, { EquipmentLegend } from '@/components/EquipmentMapPrint'
+import RackPrint from '@/components/RackPrint'
 import { EQUIP_TYPES, isMarkerUnlabeled, EquipMarker } from '@/lib/project-doc-spec'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -15,14 +16,20 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 export default async function DiagramPrintPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: project }, { data: survey }, { data: markers }] = await Promise.all([
+  const [{ data: project }, { data: survey }, { data: markers }, { data: racks }] = await Promise.all([
     supabase.from('projects').select('*, clients(company_name)').eq('id', params.id).single(),
     supabase.from('site_surveys').select('space_length, space_width, survey_date, surveyor')
       .eq('project_id', params.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('project_equipment_markers').select('*').eq('project_id', params.id).order('created_at'),
+    supabase.from('project_racks').select('*').eq('project_id', params.id).order('sort_order'),
   ])
 
   if (!project) return notFound()
+
+  const rackList = (racks ?? []) as any[]
+  const { data: rackItems } = rackList.length > 0
+    ? await supabase.from('project_rack_items').select('*').in('rack_id', rackList.map(r => r.id)).order('start_u')
+    : { data: [] as any[] }
 
   const markerList = (markers ?? []) as EquipMarker[]
   const unlabeled = markerList.filter(isMarkerUnlabeled)
@@ -104,6 +111,14 @@ export default async function DiagramPrintPage({ params }: { params: { id: strin
             </table>
           </div>
         </div>
+
+        {/* 機櫃設計模擬圖 */}
+        {rackList.length > 0 && (
+          <div style={{ marginTop: 16, breakInside: 'avoid' }} className="section">
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🗄️ 機櫃配置圖</div>
+            <RackPrint racks={rackList as any} items={(rackItems ?? []) as any} />
+          </div>
+        )}
 
         <DocSignatures docType="diagram" refId={params.id} />
       </div>
