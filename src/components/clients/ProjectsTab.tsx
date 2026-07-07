@@ -1555,7 +1555,7 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
         <div className="text-center py-8 text-gray-400 text-sm">尚無專案紀錄</div>
       ) : (
         projects.map(p => (
-          <div key={p.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div key={p.id} className="bg-white rounded-xl border border-gray-100">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
               <div className="flex items-center gap-2 min-w-0">
                 <Briefcase size={14} className="text-gray-400 shrink-0" />
