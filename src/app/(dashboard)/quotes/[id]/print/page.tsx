@@ -105,6 +105,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
           @page { margin: 15mm 14mm; size: A4; }
+          tr { break-inside: avoid; page-break-inside: avoid; }
+          .notes-stamp-row { break-inside: avoid; page-break-inside: avoid; }
+          thead { display: table-header-group; }
         }
         * { box-sizing: border-box; }
         html, body { background: #fff; }

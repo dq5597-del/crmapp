@@ -1,44 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
-async function buildPdf() {
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-    import('html2canvas'),
-    import('jspdf'),
-  ])
-
-  const el = document.getElementById('print-page-content')
-  if (!el) throw new Error('找不到報價單內容')
-
-  const canvas = await html2canvas(el, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: '#ffffff',
-  })
-
-  const imgData = canvas.toDataURL('image/jpeg', 0.95)
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-  const pageWidth = pdf.internal.pageSize.getWidth()
-  const pageHeight = pdf.internal.pageSize.getHeight()
-
-  const imgWidth = pageWidth
-  const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-  let heightLeft = imgHeight
-  let position = 0
-
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-  heightLeft -= pageHeight
-
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight
-    pdf.addPage()
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
-  }
-  return pdf
-}
+import { downloadPdf, sharePdf } from '@/lib/pdf-paginate'
 
 function getFileName() {
   const t = (document.title || '').trim()
@@ -54,8 +17,7 @@ export default function PrintButtons() {
     if (loading) return
     setLoading('download')
     try {
-      const pdf = await buildPdf()
-      pdf.save(`${getFileName()}.pdf`)
+      await downloadPdf(getFileName())
     } catch (e) {
       console.error(e)
       alert('PDF 產生失敗，請稍後再試，或改用「列印」功能')
@@ -68,14 +30,8 @@ export default function PrintButtons() {
     if (loading) return
     setLoading('share')
     try {
-      const fileName = getFileName()
-      const pdf = await buildPdf()
-      const blob = pdf.output('blob')
-      const file = new File([blob], `${fileName}.pdf`, { type: 'application/pdf' })
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: fileName })
-      } else {
-        pdf.save(`${fileName}.pdf`)
+      const result = await sharePdf(getFileName())
+      if (result === 'downloaded') {
         alert('此裝置不支援直接分享，已改為下載 PDF，請自行傳送檔案')
       }
     } catch (e: any) {

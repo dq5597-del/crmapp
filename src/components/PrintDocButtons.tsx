@@ -1,39 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { downloadPdf, sharePdf } from '@/lib/pdf-paginate'
 
-async function buildPdf(landscape: boolean) {
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-    import('html2canvas'),
-    import('jspdf'),
-  ])
-
-  const el = document.getElementById('print-page-content')
-  if (!el) throw new Error('找不到文件內容')
-
-  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-  const imgData = canvas.toDataURL('image/jpeg', 0.95)
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' })
-  const pageWidth = pdf.internal.pageSize.getWidth()
-  const pageHeight = pdf.internal.pageSize.getHeight()
-
-  const imgWidth = pageWidth
-  const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-  let heightLeft = imgHeight
-  let position = 0
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-  heightLeft -= pageHeight
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight
-    pdf.addPage()
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
-  }
-  return pdf
-}
-
-/** 通用列印/下載/分享 PDF 按鈕（沿用報價單列印頁模式） */
+/** 通用列印/下載/分享 PDF 按鈕（智慧分頁：切點對齊表格列與區塊，不會切到一半） */
 export default function PrintDocButtons({ fileName, landscape = false }: {
   fileName: string
   landscape?: boolean
@@ -44,8 +14,7 @@ export default function PrintDocButtons({ fileName, landscape = false }: {
     if (loading) return
     setLoading('download')
     try {
-      const pdf = await buildPdf(landscape)
-      pdf.save(`${fileName}.pdf`)
+      await downloadPdf(fileName, landscape)
     } catch (e) {
       console.error(e)
       alert('PDF 產生失敗，請稍後再試，或改用「列印」功能')
@@ -58,15 +27,8 @@ export default function PrintDocButtons({ fileName, landscape = false }: {
     if (loading) return
     setLoading('share')
     try {
-      const pdf = await buildPdf(landscape)
-      const blob = pdf.output('blob')
-      const file = new File([blob], `${fileName}.pdf`, { type: 'application/pdf' })
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        // 手機／平板：開啟系統分享面板（LINE、Email、雲端…）
-        await navigator.share({ files: [file], title: fileName })
-      } else {
-        // 桌機不支援檔案分享 → 直接下載，再自行附加到郵件/LINE
-        pdf.save(`${fileName}.pdf`)
+      const result = await sharePdf(fileName, landscape)
+      if (result === 'downloaded') {
         alert('此裝置不支援直接分享，已改為下載 PDF，請自行傳送檔案')
       }
     } catch (e: any) {
