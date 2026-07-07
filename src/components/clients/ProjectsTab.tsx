@@ -21,7 +21,7 @@ const GREEN  = { header: 'bg-emerald-600', light: 'bg-emerald-50', border: 'bord
 const ORG    = { header: 'bg-orange-500',  light: 'bg-orange-50',  border: 'border-orange-200',  text: 'text-orange-700'  }
 const PURPLE = { header: 'bg-purple-600',  light: 'bg-purple-50',  border: 'border-purple-200',  text: 'text-purple-700'  }
 
-const BUCKET = 'project-photos'
+const BUCKET = 'project-photos' // 專案照片 bucket
 
 type PhotoCat = { value: number; label: string }
 const CATS_MAIN:  PhotoCat[] = [{ value: 1, label: '施工前' }, { value: 2, label: '施工中' }, { value: 3, label: '完工' }]
@@ -1562,7 +1562,13 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
                 {p.scene_name && <span className="text-xs text-gray-500 truncate">（{p.scene_name}）</span>}
                 <span className={`text-xs px-2 py-0.5 rounded-lg font-medium shrink-0 ${STATUS_COLORS[p.status]}`}>{p.status}</span>
               </div>
-              <div className="flex gap-1 shrink-0 ml-2">
+              <div className="flex gap-1 shrink-0 ml-2 items-center">
+                <a href={`/projects/${p.id}/print/survey`} target="_blank" rel="noreferrer"
+                  className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg">場勘報告</a>
+                <a href={`/projects/${p.id}/print/diagram`} target="_blank" rel="noreferrer"
+                  className="px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg">標示圖</a>
+                <a href={`/projects/${p.id}/print/acceptance`} target="_blank" rel="noreferrer"
+                  className="px-2 py-1 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg">驗收單</a>
                 <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={13} /></button>
                 <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={13} /></button>
               </div>

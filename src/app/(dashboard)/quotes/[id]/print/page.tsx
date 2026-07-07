@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
+import DocSignatures from '@/components/DocSignatures' // 三方簽名
 import { buildQuoteFileName } from '@/lib/utils'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -218,6 +219,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             <img src="/stamp.png" alt="估價單專用章" />
           </div>
         </div>
+
+        {/* 三方簽名（客戶／工程師／業務）：可觸控簽名，未簽保留空白欄供列印手寫 */}
+        <DocSignatures docType="quote" refId={params.id} />
 
       </div>
     </>
