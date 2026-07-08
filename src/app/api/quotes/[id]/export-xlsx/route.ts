@@ -93,11 +93,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   r++
 
   const itemStartRow = r
+  let dispNo = 0
   ;(items ?? []).forEach((item: any) => {
     const row = sheet.getRow(r)
+    if (item.is_category) {
+      dispNo = 0
+      sheet.mergeCells(`A${r}:H${r}`)
+      const catCell = sheet.getCell(`A${r}`)
+      catCell.value = item.product_name ?? ''
+      catCell.font = { bold: true }
+      catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECECEC' } }
+      row.eachCell(cell => { cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } })
+      r++
+      return
+    }
+    dispNo += 1
     const amount = Number(item.quantity) * Number(item.unit_price)
     row.values = [
-      item.seq_no,
+      dispNo,
       item.product_name ?? '',
       item.model ?? '',
       item.unit ?? '',
