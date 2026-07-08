@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
   ChevronLeft, ChevronRight, Plus, X, Clock, Building2, Truck,
-  Cake, ShieldCheck, Sparkles, Pencil, Trash2, Check, AlarmClock, CalendarDays
+  Cake, ShieldCheck, Sparkles, Pencil, Trash2, Check, AlarmClock, CalendarDays, Navigation
 } from 'lucide-react'
 
 // ============ 型別 ============
@@ -28,10 +28,12 @@ interface Schedule {
   status: string
   remind_email: boolean
   remind_days_before: number
-  clients?: { company_name: string } | null
+  clients?: { company_name: string; address?: string | null } | null
   vendors?: { company_name: string } | null
   contacts?: { name: string } | null
 }
+
+interface Company { id: string; company_name: string; address?: string | null }
 
 interface DateOccurrence {
   key: string
@@ -89,6 +91,11 @@ function timeToMin(t: string | null): number {
 }
 const WEEK_LABELS = ['日', '一', '二', '三', '四', '五', '六']
 
+// Google Map 導航連結
+function mapsUrl(address: string): string {
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(address)
+}
+
 // .ics 下載（含 30 分鐘前鬧鈴 VALARM，開啟後進手機內建行事曆）
 function downloadIcs(s: Schedule) {
   const d = s.schedule_date.replace(/-/g, '')
@@ -123,8 +130,8 @@ export default function SchedulePage() {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [gapTasks, setGapTasks] = useState<Schedule[]>([])
   const [occurrences, setOccurrences] = useState<DateOccurrence[]>([])
-  const [clients, setClients] = useState<{ id: string; company_name: string }[]>([])
-  const [vendors, setVendors] = useState<{ id: string; company_name: string }[]>([])
+  const [clients, setClients] = useState<Company[]>([])
+  const [vendors, setVendors] = useState<Company[]>([])
   const [contacts, setContacts] = useState<{ id: string; name: string; client_id: string }[]>([])
   const [planModal, setPlanModal] = useState<Schedule | 'new' | null>(null)
   const [actualModal, setActualModal] = useState<Schedule | null>(null)
@@ -148,7 +155,7 @@ export default function SchedulePage() {
   const fetchAll = useCallback(async () => {
     const [schedRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
       supabase.from('schedules')
-        .select('*, clients(company_name), vendors(company_name), contacts(name)')
+        .select('*, clients(company_name, address), vendors(company_name), contacts(name)')
         .eq('is_gap_task', false)
         .gte('schedule_date', range.start).lte('schedule_date', range.end)
         .order('plan_start', { ascending: true }),
@@ -190,8 +197,8 @@ export default function SchedulePage() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   useEffect(() => {
-    supabase.from('clients').select('id, company_name').order('company_name').then(({ data }) => setClients(data ?? []))
-    supabase.from('vendors').select('id, company_name').eq('is_active', true).order('company_name').then(({ data }) => setVendors(data ?? []))
+    supabase.from('clients').select('id, company_name, address').order('company_name').then(({ data }) => setClients(data ?? []))
+    supabase.from('vendors').select('id, company_name, address').eq('is_active', true).order('company_name').then(({ data }) => setVendors(data ?? []))
     supabase.from('contacts').select('id, name, client_id').then(({ data }) => setContacts((data ?? []) as any))
   }, [])
 
@@ -489,6 +496,9 @@ export default function SchedulePage() {
                               {s.clients?.company_name && (
                                 <span className="text-[11px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 flex items-center gap-0.5"><Building2 size={10} />{s.clients.company_name}{s.contacts?.name ? `・${s.contacts.name}` : ''}</span>
                               )}
+                              {s.clients?.address && (
+                                <a href={mapsUrl(s.clients.address)} target="_blank" rel="noopener noreferrer" title={`導航：${s.clients.address}`} className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 flex items-center gap-0.5 hover:bg-blue-100"><Navigation size={10} />導航</a>
+                              )}
                               {s.vendors?.company_name && (
                                 <span className="text-[11px] px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 flex items-center gap-0.5"><Truck size={10} />{s.vendors.company_name}</span>
                               )}
@@ -579,6 +589,8 @@ export default function SchedulePage() {
           clients={clients}
           vendors={vendors}
           contacts={contacts}
+          addClient={c => setClients(prev => [...prev, c].sort((a, b) => a.company_name.localeCompare(b.company_name, 'zh-TW')))}
+          addVendor={v => setVendors(prev => [...prev, v].sort((a, b) => a.company_name.localeCompare(b.company_name, 'zh-TW')))}
           onClose={() => setPlanModal(null)}
           onSaved={() => { setPlanModal(null); fetchAll() }}
         />
@@ -595,12 +607,14 @@ export default function SchedulePage() {
 }
 
 // ============ 新增／編輯預定行程 Modal ============
-function PlanModal({ schedule, defaultDate, clients, vendors, contacts, onClose, onSaved }: {
+function PlanModal({ schedule, defaultDate, clients, vendors, contacts, addClient, addVendor, onClose, onSaved }: {
   schedule: Schedule | null
   defaultDate: string
-  clients: { id: string; company_name: string }[]
-  vendors: { id: string; company_name: string }[]
+  clients: Company[]
+  vendors: Company[]
   contacts: { id: string; name: string; client_id: string }[]
+  addClient: (c: Company) => void
+  addVendor: (v: Company) => void
   onClose: () => void
   onSaved: () => void
 }) {
@@ -624,6 +638,26 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, onClose,
   })
   const [saving, setSaving] = useState(false)
   const clientContacts = contacts.filter(c => c.client_id === f.client_id)
+  const selClient = clients.find(c => c.id === f.client_id)
+  const selVendor = vendors.find(v => v.id === f.vendor_id)
+
+  async function createClient_(name: string) {
+    const { data, error } = await supabase.from('clients')
+      .insert({ company_name: name, status: '有需求' })
+      .select('id, company_name, address').single()
+    if (error || !data) { alert('新增客戶失敗：' + (error?.message ?? '')); return }
+    addClient(data as Company)
+    setF(p => ({ ...p, client_id: data.id, contact_id: '' }))
+  }
+
+  async function createVendor_(name: string) {
+    const { data, error } = await supabase.from('vendors')
+      .insert({ company_name: name })
+      .select('id, company_name, address').single()
+    if (error || !data) { alert('新增廠商失敗：' + (error?.message ?? '')); return }
+    addVendor(data as Company)
+    setF(p => ({ ...p, vendor_id: data.id }))
+  }
 
   async function handleSave() {
     if (!f.title.trim()) { alert('請輸入行程標題'); return }
@@ -705,11 +739,21 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, onClose,
               </select>
             </div>
             <div>
-              <label className={labelClass}>客戶（選填）</label>
-              <select value={f.client_id} onChange={e => setF(p => ({ ...p, client_id: e.target.value, contact_id: '' }))} className={inputClass}>
-                <option value="">— 不指定 —</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-              </select>
+              <label className={labelClass}>客戶（可搜尋，找不到可直接新增）</label>
+              <SearchSelect
+                items={clients}
+                valueId={f.client_id}
+                placeholder="輸入關鍵字搜尋客戶"
+                createLabel="新增客戶"
+                onSelect={id => setF(p => ({ ...p, client_id: id, contact_id: '' }))}
+                onCreate={createClient_}
+              />
+              {selClient?.address && (
+                <a href={mapsUrl(selClient.address)} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
+                  <Navigation size={11} /> Google Map 導航：{selClient.address}
+                </a>
+              )}
             </div>
             {f.client_id && clientContacts.length > 0 && (
               <div>
@@ -721,11 +765,21 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, onClose,
               </div>
             )}
             <div>
-              <label className={labelClass}>廠商（選填）</label>
-              <select value={f.vendor_id} onChange={e => setF(p => ({ ...p, vendor_id: e.target.value }))} className={inputClass}>
-                <option value="">— 不指定 —</option>
-                {vendors.map(v => <option key={v.id} value={v.id}>{v.company_name}</option>)}
-              </select>
+              <label className={labelClass}>廠商（可搜尋，找不到可直接新增）</label>
+              <SearchSelect
+                items={vendors}
+                valueId={f.vendor_id}
+                placeholder="輸入關鍵字搜尋廠商"
+                createLabel="新增廠商"
+                onSelect={id => setF(p => ({ ...p, vendor_id: id }))}
+                onCreate={createVendor_}
+              />
+              {selVendor?.address && (
+                <a href={mapsUrl(selVendor.address)} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
+                  <Navigation size={11} /> Google Map 導航：{selVendor.address}
+                </a>
+              )}
             </div>
           </div>
           <div>
@@ -757,6 +811,74 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, onClose,
           <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">{saving ? '儲存中…' : '儲存'}</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ============ 可搜尋下拉（含快速新增） ============
+function SearchSelect({ items, valueId, placeholder, createLabel, onSelect, onCreate }: {
+  items: Company[]
+  valueId: string
+  placeholder: string
+  createLabel: string
+  onSelect: (id: string) => void
+  onCreate: (name: string) => void
+}) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const selected = items.find(i => i.id === valueId)
+  const kw = q.trim().toLowerCase()
+  const list = kw ? items.filter(i => i.company_name.toLowerCase().includes(kw)) : items
+
+  return (
+    <div className="relative">
+      <input
+        value={open ? q : (selected?.company_name ?? '')}
+        onChange={e => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => { setQ(''); setOpen(true) }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={selected ? selected.company_name : placeholder}
+        className={inputClass}
+      />
+      {selected && !open && (
+        <button
+          type="button"
+          onClick={() => onSelect('')}
+          title="清除"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          <X size={14} />
+        </button>
+      )}
+      {open && (
+        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          <button type="button" onMouseDown={() => { onSelect(''); setOpen(false) }}
+            className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50">— 不指定 —</button>
+          {list.slice(0, 50).map(i => (
+            <button
+              type="button"
+              key={i.id}
+              onMouseDown={() => { onSelect(i.id); setOpen(false) }}
+              className={`block w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${i.id === valueId ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-800'}`}
+            >
+              {i.company_name}
+              {i.address && <span className="text-xs text-gray-400 ml-1">{i.address}</span>}
+            </button>
+          ))}
+          {kw && list.length === 0 && (
+            <div className="px-3 py-2 text-sm text-gray-400">找不到「{q.trim()}」</div>
+          )}
+          {kw.length > 0 && !items.some(i => i.company_name.toLowerCase() === kw) && (
+            <button
+              type="button"
+              onMouseDown={() => { onCreate(q.trim()); setOpen(false) }}
+              className="block w-full text-left px-3 py-2 text-sm text-blue-600 font-medium hover:bg-blue-50 border-t border-gray-100"
+            >
+              ＋ {createLabel}「{q.trim()}」
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
