@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { Check, X, Clock, CalendarDays, Cake, ShieldCheck, Sparkles, Pencil } from 'lucide-react'
+import { Check, X, Clock, CalendarDays, Cake, ShieldCheck, Sparkles, Pencil, Navigation } from 'lucide-react'
 
 interface Sched {
   id: string
@@ -18,7 +18,7 @@ interface Sched {
   actual_start: string | null
   actual_result: string | null
   status: string
-  clients?: { company_name: string } | null
+  clients?: { company_name: string; address?: string | null } | null
   vendors?: { company_name: string } | null
 }
 
@@ -61,7 +61,7 @@ export default function TodaySchedule() {
   const fetchAll = useCallback(async () => {
     const [schedRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
       supabase.from('schedules')
-        .select('*, clients(company_name), vendors(company_name)')
+        .select('*, clients(company_name, address), vendors(company_name)')
         .eq('is_gap_task', false).eq('schedule_date', todayStr)
         .order('plan_start', { ascending: true }),
       supabase.from('schedules')
@@ -170,6 +170,16 @@ export default function TodaySchedule() {
                   <div className="flex-1 min-w-0">
                     <span className={`font-medium ${s.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{s.title}</span>
                     <span className="text-xs text-gray-400 ml-2">{s.clients?.company_name ?? s.vendors?.company_name ?? ''}{s.is_adhoc ? '・臨時' : ''}</span>
+                    {s.clients?.address && (
+                      <a
+                        href={'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(s.clients.address)}
+                        target="_blank" rel="noopener noreferrer"
+                        title={`Google Map 導航：${s.clients.address}`}
+                        className="inline-flex items-center gap-0.5 text-xs text-blue-600 hover:underline ml-1.5 align-middle"
+                      >
+                        <Navigation size={11} />導航
+                      </a>
+                    )}
                     {s.actual_result && s.status !== '未開始' && (
                       <div className="text-xs text-gray-500 mt-0.5">{s.actual_start ? hm(s.actual_start) + ' ' : ''}{s.actual_result}</div>
                     )}
