@@ -154,10 +154,6 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
   const [newSubCat, setNewSubCat] = useState('')
 
   const mainCats = Array.from(new Set(categories.map(c => c.main_category)))
-
-  // 品項顯示編號：遇到分類標題就重新從 1 起算
-  let __no = 0
-  const displayNos = items.map(it => { if (it.is_category) { __no = 0; return 0 } __no += 1; return __no })
   const subCats = categories.filter(c => c.main_category === mainCat)
 
   function handleMainCatChange(val: string) {
@@ -448,6 +444,10 @@ export default function QuoteForm({
   function setItem<K extends keyof QuoteItemForm>(idx: number, key: K, val: QuoteItemForm[K]) {
     setItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, [key]: val }))
   }
+
+  // 品項顯示編號：遇到分類標題就重新從 1 起算
+  let __no = 0
+  const displayNos = items.map(it => { if (it.is_category) { __no = 0; return 0 } __no += 1; return __no })
 
   const subtotal = items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0)
   const taxAmount = 0
