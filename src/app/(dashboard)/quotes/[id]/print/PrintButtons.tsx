@@ -13,6 +13,18 @@ function getFileName() {
 export default function PrintButtons() {
   const [loading, setLoading] = useState<'' | 'download' | 'share'>('')
 
+  // 直向／橫向列印：動態注入 @page 方向（附加在 body 尾端，優先於頁面內建樣式）
+  const printWith = (orientation: 'portrait' | 'landscape') => {
+    let s = document.getElementById('print-orientation-style') as HTMLStyleElement | null
+    if (!s) {
+      s = document.createElement('style')
+      s.id = 'print-orientation-style'
+      document.body.appendChild(s)
+    }
+    s.textContent = '@media print { @page { size: A4 ' + orientation + '; margin: 15mm 14mm; } }'
+    window.print()
+  }
+
   const handleDownloadPdf = async () => {
     if (loading) return
     setLoading('download')
@@ -61,10 +73,16 @@ export default function PrintButtons() {
         {loading === 'download' ? '產生中…' : '下載 PDF'}
       </button>
       <button
-        onClick={() => window.print()}
+        onClick={() => printWith('portrait')}
         style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
       >
-        列印
+        直向列印
+      </button>
+      <button
+        onClick={() => printWith('landscape')}
+        style={{ padding: '8px 20px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+      >
+        橫向列印
       </button>
       <button
         onClick={() => window.close()}
