@@ -321,6 +321,7 @@ export default function QuoteForm({
   const [error, setError] = useState('')
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [clients, setClients] = useState<any[]>([])
+  const [salespeople, setSalespeople] = useState<any[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [productSearch, setProductSearch] = useState<Record<number, string>>({})
@@ -350,6 +351,7 @@ export default function QuoteForm({
     payment_terms: initialQuote?.payment_terms ?? '',
     bank_account: initialQuote?.bank_account ?? '',
     notes: initialQuote?.notes ?? '',
+    salesperson_id: (initialQuote as any)?.salesperson_id ?? '',
   })
 
   const [items, setItems] = useState<QuoteItemForm[]>(
@@ -372,6 +374,7 @@ export default function QuoteForm({
     loadSettings()
     loadClients()
     loadProducts()
+    loadSalespeople()
     if (!initialQuote?.quote_no) generateQuoteNo()
   }, [])
 
@@ -391,6 +394,11 @@ export default function QuoteForm({
   async function loadClients() {
     const { data } = await supabase.from('clients').select('id, company_name, contact_name, phone, address').order('company_name')
     setClients(data ?? [])
+  }
+
+  async function loadSalespeople() {
+    const { data } = await supabase.from('user_profiles').select('id, full_name').eq('is_active', true).order('full_name')
+    setSalespeople(data ?? [])
   }
 
   async function loadProducts() {
@@ -558,6 +566,7 @@ export default function QuoteForm({
       payment_terms: header.payment_terms || null,
       bank_account: header.bank_account || null,
       notes: header.notes || null,
+      salesperson_id: header.salesperson_id || null,
       subtotal, tax_amount: taxAmount, total_amount: totalAmount,
       status: newStatus ?? (initialQuote?.status ?? '草稿'),
     }
@@ -694,6 +703,13 @@ export default function QuoteForm({
           <div>
             <label className={labelClass}>客戶電話</label>
             <input value={header.client_phone} onChange={e => setHeader(p => ({ ...p, client_phone: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>業務員</label>
+            <select value={header.salesperson_id} onChange={e => setHeader(p => ({ ...p, salesperson_id: e.target.value }))} className={inputClass}>
+              <option value="">— 未指定 —</option>
+              {salespeople.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>客戶地址</label>
