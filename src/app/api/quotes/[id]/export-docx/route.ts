@@ -162,12 +162,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const buffer = await Packer.toBuffer(doc)
   const filename = `${buildQuoteFileName(quote, clientName)}.docx`
+  // HTTP header 只能放 ASCII：中文檔名放 filename*=UTF-8''，filename= 用 ASCII 替代（修 500 ByteString 錯誤）
+  const asciiName = filename.replace(/[^\x20-\x7E]/g, '_')
 
   return new NextResponse(buffer, {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      'Content-Disposition': `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
     },
   })
 }
