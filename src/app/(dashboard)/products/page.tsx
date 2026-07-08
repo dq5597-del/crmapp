@@ -391,9 +391,26 @@ export default function ProductsPage() {
     category_id: null as string | null,
     brand: '', product_name: '', model: '', unit: '台',
     list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
+    web_sku: '', web_category: '', web_short_description: '', web_description: '',
+    web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
+    web_bsmi_no: '', web_ncc_no: '', web_publish: false,
+    web_product_id: '', web_product_url: '',
   })
+  const [webExpanded, setWebExpanded] = useState(false)
+  const [defaultWebExpanded, setDefaultWebExpanded] = useState(false)
+  const [webImages, setWebImages] = useState<{ id?: string; image_url: string }[]>([])
+  const [webSpecs, setWebSpecs] = useState<{ id?: string; spec_name: string; spec_value: string }[]>([])
+  const [webDownloads, setWebDownloads] = useState<{ id?: string; file_name: string; file_url: string }[]>([])
 
   useEffect(() => { fetchAll() }, [])
+
+  useEffect(() => {
+    supabase.from('system_settings').select('product_web_fields_expanded').maybeSingle().then(({ data }) => {
+      const v = !!(data as any)?.product_web_fields_expanded
+      setDefaultWebExpanded(v)
+      setWebExpanded(v)
+    })
+  }, [])
 
   async function fetchAll() {
     const [pRes, cRes, mRes] = await Promise.all([
@@ -418,22 +435,73 @@ export default function ProductsPage() {
     return c ? `${c.main_category} > ${c.sub_category}` : null
   }
 
+  async function loadWebSubData(productId: string) {
+    const [imgRes, specRes, dlRes] = await Promise.all([
+      supabase.from('product_images').select('id,image_url').eq('product_id', productId).order('sort_order'),
+      supabase.from('product_specs').select('id,spec_name,spec_value').eq('product_id', productId).order('sort_order'),
+      supabase.from('product_downloads').select('id,file_name,file_url').eq('product_id', productId).order('sort_order'),
+    ])
+    setWebImages(imgRes.data ?? [])
+    setWebSpecs(specRes.data ?? [])
+    setWebDownloads(dlRes.data ?? [])
+  }
+
   function startEdit(p?: Product) {
     if (p) {
-      setForm({ category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active })
+      const pAny = p as any
+      setForm({
+        category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit,
+        list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
+        web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
+        web_short_description: pAny.web_short_description ?? '', web_description: pAny.web_description ?? '',
+        web_main_image_url: pAny.web_main_image_url ?? '', web_sale_price: pAny.web_sale_price ?? 0,
+        web_allow_backorder: pAny.web_allow_backorder ?? false, web_bsmi_no: pAny.web_bsmi_no ?? '',
+        web_ncc_no: pAny.web_ncc_no ?? '', web_publish: pAny.web_publish ?? false,
+        web_product_id: pAny.web_product_id ?? '', web_product_url: pAny.web_product_url ?? '',
+      })
       setEditingId(p.id)
+      loadWebSubData(p.id)
     } else {
-      setForm({ category_id: null, brand: '', product_name: '', model: '', unit: '台', list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true })
+      setForm({
+        category_id: null, brand: '', product_name: '', model: '', unit: '台',
+        list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
+        web_sku: '', web_category: '', web_short_description: '', web_description: '',
+        web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
+        web_bsmi_no: '', web_ncc_no: '', web_publish: false,
+        web_product_id: '', web_product_url: '',
+      })
       setEditingId('new')
+      setWebImages([])
+      setWebSpecs([])
+      setWebDownloads([])
     }
+    setWebExpanded(defaultWebExpanded)
+  }
+
+  async function syncWebSubData(productId: string) {
+    await Promise.all([
+      supabase.from('product_images').delete().eq('product_id', productId),
+      supabase.from('product_specs').delete().eq('product_id', productId),
+      supabase.from('product_downloads').delete().eq('product_id', productId),
+    ])
+    const imgRows = webImages.filter(r => r.image_url.trim()).map((r, i) => ({ product_id: productId, image_url: r.image_url.trim(), sort_order: i }))
+    const specRows = webSpecs.filter(r => r.spec_name.trim()).map((r, i) => ({ product_id: productId, spec_name: r.spec_name.trim(), spec_value: r.spec_value, sort_order: i }))
+    const dlRows = webDownloads.filter(r => r.file_name.trim() && r.file_url.trim()).map((r, i) => ({ product_id: productId, file_name: r.file_name.trim(), file_url: r.file_url.trim(), sort_order: i }))
+    await Promise.all([
+      imgRows.length > 0 ? supabase.from('product_images').insert(imgRows) : Promise.resolve(),
+      specRows.length > 0 ? supabase.from('product_specs').insert(specRows) : Promise.resolve(),
+      dlRows.length > 0 ? supabase.from('product_downloads').insert(dlRows) : Promise.resolve(),
+    ])
   }
 
   async function handleSave() {
     if (!form.product_name.trim()) return
     if (editingId === 'new') {
-      await supabase.from('products').insert(form)
+      const { data } = await supabase.from('products').insert(form).select('id').single()
+      if (data?.id) await syncWebSubData(data.id)
     } else {
       await supabase.from('products').update(form).eq('id', editingId)
+      await syncWebSubData(editingId as string)
     }
     setEditingId(null)
     fetchAll()
@@ -619,6 +687,123 @@ export default function ProductsPage() {
               <label htmlFor="is_active" className="text-sm text-gray-700">上架（可在報價單選用）</label>
             </div>
           </div>
+
+          {/* 網站欄位（未來與購物車網站對接用，預設收合） */}
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setWebExpanded(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700"
+            >
+              <span>網站欄位（購物車網站對接用）</span>
+              <ChevronRight size={16} className={`text-gray-400 transition-transform ${webExpanded ? 'rotate-90' : ''}`} />
+            </button>
+            {webExpanded && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">SKU</label>
+                    <input value={form.web_sku} onChange={e => setForm(p => ({ ...p, web_sku: e.target.value }))} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">網站商品分類</label>
+                    <input value={form.web_category} onChange={e => setForm(p => ({ ...p, web_category: e.target.value }))} className={inputClass} placeholder="如：藍牙喇叭系統" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">特價（選填）</label>
+                    <input type="number" value={form.web_sale_price} onChange={e => setForm(p => ({ ...p, web_sale_price: Number(e.target.value) }))} className={inputClass} />
+                  </div>
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className="text-xs text-gray-600 mb-1 block">簡短描述</label>
+                    <textarea value={form.web_short_description} onChange={e => setForm(p => ({ ...p, web_short_description: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
+                  </div>
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className="text-xs text-gray-600 mb-1 block">完整商品介紹</label>
+                    <textarea value={form.web_description} onChange={e => setForm(p => ({ ...p, web_description: e.target.value }))} rows={4} className={inputClass + ' resize-none'} />
+                  </div>
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className="text-xs text-gray-600 mb-1 block">主圖網址</label>
+                    <input value={form.web_main_image_url} onChange={e => setForm(p => ({ ...p, web_main_image_url: e.target.value }))} className={inputClass} placeholder="https://..." />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">BSMI 許可字號</label>
+                    <input value={form.web_bsmi_no} onChange={e => setForm(p => ({ ...p, web_bsmi_no: e.target.value }))} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">NCC 許可字號</label>
+                    <input value={form.web_ncc_no} onChange={e => setForm(p => ({ ...p, web_ncc_no: e.target.value }))} className={inputClass} />
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <input type="checkbox" id="web_allow_backorder" checked={form.web_allow_backorder} onChange={e => setForm(p => ({ ...p, web_allow_backorder: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
+                    <label htmlFor="web_allow_backorder" className="text-sm text-gray-700">允許無庫存下單</label>
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <input type="checkbox" id="web_publish" checked={form.web_publish} onChange={e => setForm(p => ({ ...p, web_publish: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
+                    <label htmlFor="web_publish" className="text-sm text-gray-700">顯示於網站</label>
+                  </div>
+                  {(form.web_product_id || form.web_product_url) && (
+                    <div className="col-span-2 sm:col-span-3 text-xs text-gray-400">
+                      網站商品 ID：{form.web_product_id || '—'}　連結：{form.web_product_url || '—'}
+                    </div>
+                  )}
+                </div>
+
+                {/* 圖片集 */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-gray-600">圖片集</label>
+                    <button type="button" onClick={() => setWebImages(a => [...a, { image_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 新增圖片</button>
+                  </div>
+                  <div className="space-y-2">
+                    {webImages.map((img, i) => (
+                      <div key={img.id ?? `new-${i}`} className="flex gap-2">
+                        <input value={img.image_url} onChange={e => setWebImages(a => a.map((r, ri) => ri === i ? { ...r, image_url: e.target.value } : r))} placeholder="圖片網址" className={inputClass} />
+                        <button type="button" onClick={() => setWebImages(a => a.filter((_, ri) => ri !== i))} className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                    {webImages.length === 0 && <div className="text-xs text-gray-300">尚無圖片</div>}
+                  </div>
+                </div>
+
+                {/* 產品規格 */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-gray-600">產品規格</label>
+                    <button type="button" onClick={() => setWebSpecs(a => [...a, { spec_name: '', spec_value: '' }])} className="text-xs text-blue-600 hover:underline">+ 新增規格</button>
+                  </div>
+                  <div className="space-y-2">
+                    {webSpecs.map((spec, i) => (
+                      <div key={spec.id ?? `new-${i}`} className="flex gap-2">
+                        <input value={spec.spec_name} onChange={e => setWebSpecs(a => a.map((r, ri) => ri === i ? { ...r, spec_name: e.target.value } : r))} placeholder="規格名稱（如：驅動單元）" className={inputClass + ' flex-1'} />
+                        <input value={spec.spec_value} onChange={e => setWebSpecs(a => a.map((r, ri) => ri === i ? { ...r, spec_value: e.target.value } : r))} placeholder="規格值" className={inputClass + ' flex-1'} />
+                        <button type="button" onClick={() => setWebSpecs(a => a.filter((_, ri) => ri !== i))} className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                    {webSpecs.length === 0 && <div className="text-xs text-gray-300">尚無規格</div>}
+                  </div>
+                </div>
+
+                {/* 檔案下載 */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-gray-600">檔案下載</label>
+                    <button type="button" onClick={() => setWebDownloads(a => [...a, { file_name: '', file_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 新增檔案</button>
+                  </div>
+                  <div className="space-y-2">
+                    {webDownloads.map((dl, i) => (
+                      <div key={dl.id ?? `new-${i}`} className="flex gap-2">
+                        <input value={dl.file_name} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_name: e.target.value } : r))} placeholder="檔名（如：使用手冊）" className={inputClass + ' flex-1'} />
+                        <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="下載連結" className={inputClass + ' flex-1'} />
+                        <button type="button" onClick={() => setWebDownloads(a => a.filter((_, ri) => ri !== i))} className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                    {webDownloads.length === 0 && <div className="text-xs text-gray-300">尚無下載檔案</div>}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2">
             <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
             <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">儲存</button>
