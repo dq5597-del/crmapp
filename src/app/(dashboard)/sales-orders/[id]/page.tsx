@@ -42,13 +42,16 @@ export default function SalesOrderDetailPage() {
   const [bankAccount, setBankAccount] = useState('')
   const [status, setStatus] = useState('草稿')
   const [notes, setNotes] = useState('')
+  const [salespersonId, setSalespersonId] = useState('')
+  const [salespeople, setSalespeople] = useState<any[]>([])
 
   useEffect(() => {
     Promise.all([
       supabase.from('sales_orders').select('*, clients(company_name)').eq('id', id).single(),
       supabase.from('sales_order_items').select('*').eq('order_id', id).order('seq_no'),
       supabase.from('clients').select('id, company_name').order('company_name'),
-    ]).then(([oRes, iRes, cRes]) => {
+      supabase.from('user_profiles').select('id, full_name').eq('is_active', true).order('full_name'),
+    ]).then(([oRes, iRes, cRes, spRes]) => {
       const o = oRes.data
       setOrder(o)
       setClientId(o?.client_id ?? '')
@@ -61,6 +64,8 @@ export default function SalesOrderDetailPage() {
       setBankAccount(o?.bank_account ?? '')
       setStatus(o?.status ?? '草稿')
       setNotes(o?.notes ?? '')
+      setSalespersonId(o?.salesperson_id ?? '')
+      setSalespeople(spRes.data ?? [])
       setItems(
         (iRes.data ?? []).map((i: any) => ({
           id: i.id,
@@ -112,6 +117,7 @@ export default function SalesOrderDetailPage() {
         bank_account: bankAccount,
         status,
         notes,
+        salesperson_id: salespersonId || null,
         subtotal,
         tax_amount: taxAmount,
         total_amount: totalAmount,
@@ -196,6 +202,14 @@ export default function SalesOrderDetailPage() {
             <label className="text-xs text-gray-500 mb-1 block">電話</label>
             <input value={clientPhone} onChange={e => setClientPhone(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">業務員</label>
+            <select value={salespersonId} onChange={e => setSalespersonId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">— 未指定 —</option>
+              {salespeople.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">交貨日期</label>

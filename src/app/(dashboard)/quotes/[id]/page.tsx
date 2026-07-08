@@ -26,7 +26,7 @@ export default function QuoteDetailPage() {
 
   async function fetchData() {
     const [qRes, iRes] = await Promise.all([
-      supabase.from('quotes').select('*, clients(company_name, phone)').eq('id', id).single(),
+      supabase.from('quotes').select('*, clients(company_name, phone), salesperson:user_profiles(full_name)').eq('id', id).single(),
       supabase.from('quote_items').select('*, products(catalog_url, manual_url)').eq('quote_id', id).order('seq_no'),
     ])
     setQuote(qRes.data)
@@ -73,6 +73,7 @@ export default function QuoteDetailPage() {
       payment_terms: quote.payment_terms,
       bank_account: quote.bank_account,
       notes: quote.notes,
+      salesperson_id: (quote as any).salesperson_id,
       subtotal: quote.subtotal,
       tax_amount: quote.tax_amount,
       total_amount: quote.total_amount,
@@ -131,6 +132,7 @@ export default function QuoteDetailPage() {
       tax_amount: quote.tax_amount,
       total_amount: quote.total_amount,
       notes: quote.notes,
+      salesperson_id: (quote as any).salesperson_id,
       status: '草稿',
     }).select('id').single()
 
@@ -178,6 +180,7 @@ export default function QuoteDetailPage() {
       tax_amount: quote.tax_amount,
       total_amount: quote.total_amount,
       notes: quote.notes,
+      salesperson_id: (quote as any).salesperson_id,
       status: '草稿',
     }).select('id').single()
 
@@ -283,6 +286,7 @@ export default function QuoteDetailPage() {
           <div><div className="text-gray-500 text-xs mb-0.5">案名</div><div>{quote.project_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">聯絡人</div><div>{quote.contact_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">電話</div><div>{quote.client_phone ?? '—'}</div></div>
+          <div><div className="text-gray-500 text-xs mb-0.5">業務員</div><div>{(quote as any).salesperson?.full_name ?? '—'}</div></div>
           <div className="sm:col-span-3"><div className="text-gray-500 text-xs mb-0.5">地址</div><div>{quote.client_address ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">有效期限</div><div>{formatDate(quote.valid_until)}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">交貨工期</div><div>{quote.delivery_days ? `${quote.delivery_days} 天` : '—'}</div></div>
