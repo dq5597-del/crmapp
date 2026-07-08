@@ -954,16 +954,19 @@ export default function QuoteForm({
                       })()}
                     </td>
 
-                    {/* 移動／刪除 */}
-                    <td className="px-2 py-2 text-center whitespace-nowrap">
-                      <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={13} /></button>
-                      <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={13} /></button>
-                      <button onClick={() => removeItem(idx)} disabled={items.length === 1} className="p-0.5 text-gray-400 hover:text-red-500 disabled:opacity-20"><Trash2 size={13} /></button>
+                    {/* 刪除 */}
+                    <td className="px-2 py-2 text-center">
+                      <button onClick={() => removeItem(idx)} disabled={items.length === 1} className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-20"><Trash2 size={13} /></button>
                     </td>
                   </tr>
 
                   <tr className="border-b border-gray-100">
-                    <td />
+                    <td className="px-2 pb-2 pt-0 text-center align-top">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} title="上移" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={14} /></button>
+                        <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} title="下移" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={14} /></button>
+                      </div>
+                    </td>
                     <td colSpan={6} className="px-3 pb-2 pt-0">
                       <div className="flex items-center gap-3">
                         <input
