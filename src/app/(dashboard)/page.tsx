@@ -58,6 +58,7 @@ async function getDashboardData() {
     settingsRes,
     expiringQuotes,
     cycleTime,
+    unpaidBySalesperson,
   ] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', '有需求'),
@@ -116,10 +117,27 @@ async function getDashboardData() {
       .order('valid_until', { ascending: true })
       .limit(10),
     getAvgCycleTime(supabase),
+    // 依業務員分組的未收帳款（供戰情室彙總）
+    supabase
+      .from('receivables')
+      .select('balance, status, sales_order:sales_orders(salesperson_id, salesperson:user_profiles(full_name))')
+      .gt('balance', 0)
+      .neq('status', '已收清')
+      .neq('status', '壞帳'),
   ])
 
   const monthlyRevenue = (incomeThisMonth.data ?? []).reduce((sum: number, r: any) => sum + Number(r.total_amount || 0), 0)
   const overdueReceivableTotal = (overdueReceivables.data ?? []).reduce((sum: number, r: any) => sum + Number(r.balance || 0), 0)
+
+  // 依業務員分組未收金額（含未逾期，只要餘額>0且未收清/未列壞帳）
+  const salespersonTotals = new Map<string, number>()
+  for (const r of (unpaidBySalesperson.data ?? []) as any[]) {
+    const name = r.sales_order?.salesperson?.full_name ?? '未指定業務員'
+    salespersonTotals.set(name, (salespersonTotals.get(name) ?? 0) + Number(r.balance || 0))
+  }
+  const receivablesBySalesperson = Array.from(salespersonTotals.entries())
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total)
   const conversionRate = quotesEligible && quotesEligible > 0 ? Math.round(((quotesConverted ?? 0) / quotesEligible) * 100) : 0
 
   const s = (settingsRes.data ?? {}) as any
@@ -144,6 +162,7 @@ async function getDashboardData() {
     conversionRate,
     overdueReceivableTotal,
     overdueReceivables: overdueReceivables.data ?? [],
+    receivablesBySalesperson,
     targets,
     expiringQuotes: (expiringQuotes.data ?? []).map((q: any) => ({ ...q, isExpired: q.valid_until < todayStr })),
     avgCycleDays: cycleTime.avgDays,
@@ -299,6 +318,21 @@ export default async function DashboardPage() {
           color="blue"
         />
       </div>
+
+      {/* 業務員未收金額分組 */}
+      {data.receivablesBySalesperson.length > 0 && (
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <h2 className="font-semibold text-gray-900 mb-4">業務員未收金額（依業務員分組）</h2>
+        <div className="space-y-3">
+          {data.receivablesBySalesperson.map((sp: any) => (
+            <div key={sp.name} className="flex items-center justify-between text-sm">
+              <div className="font-medium text-gray-900">{sp.name}</div>
+              <div className="font-semibold text-red-600">{formatCurrency(sp.total)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      )}
 
       {/* 客戶狀態分布 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
