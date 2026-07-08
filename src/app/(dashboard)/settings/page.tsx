@@ -41,6 +41,7 @@ export default function SettingsPage() {
     target_planning_clients: 20,
     target_monthly_revenue: 500000,
     target_conversion_rate: 30,
+    product_web_fields_expanded: false,
   })
   const [noteItems, setNoteItems] = useState<string[]>([])
 
@@ -67,6 +68,7 @@ export default function SettingsPage() {
           target_planning_clients: (sRes.data as any).target_planning_clients ?? 20,
           target_monthly_revenue: (sRes.data as any).target_monthly_revenue ?? 500000,
           target_conversion_rate: (sRes.data as any).target_conversion_rate ?? 30,
+          product_web_fields_expanded: (sRes.data as any).product_web_fields_expanded ?? false,
         })
         const rawItems = (sRes.data as any).default_note_items
         if (Array.isArray(rawItems)) setNoteItems(rawItems)
@@ -303,6 +305,13 @@ export default function SettingsPage() {
               <label className={labelClass}>報價單預設備註</label>
               <textarea value={form.quote_notes} onChange={e => setForm(p => ({ ...p, quote_notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
             </div>
+          </div>
+
+          <hr className="border-gray-100" />
+          <h2 className="font-semibold text-gray-900">產品管理設定</h2>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="product_web_fields_expanded" checked={form.product_web_fields_expanded} onChange={e => setForm(p => ({ ...p, product_web_fields_expanded: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
+            <label htmlFor="product_web_fields_expanded" className="text-sm text-gray-700">產品編輯頁「網站欄位」預設展開（未勾選則預設收合，需點擊才展開）</label>
           </div>
 
           <hr className="border-gray-100" />
