@@ -151,12 +151,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const buffer = await workbook.xlsx.writeBuffer()
   const filename = `${buildQuoteFileName(quote, clientName)}.xlsx`
+  // HTTP header 只能放 ASCII：中文檔名放 filename*=UTF-8''，filename= 用 ASCII 替代（修 500 ByteString 錯誤）
+  const asciiName = filename.replace(/[^\x20-\x7E]/g, '_')
 
   return new NextResponse(buffer as any, {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      'Content-Disposition': `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
     },
   })
 }
