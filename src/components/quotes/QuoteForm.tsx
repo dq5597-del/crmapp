@@ -954,10 +954,7 @@ export default function QuoteForm({
                       })()}
                     </td>
 
-                    {/* 刪除 */}
-                    <td className="px-2 py-2 text-center">
-                      <button onClick={() => removeItem(idx)} disabled={items.length === 1} className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-20"><Trash2 size={13} /></button>
-                    </td>
+                    <td className="px-2 py-2" />
                   </tr>
 
                   <tr className="border-b border-gray-100">
@@ -983,6 +980,12 @@ export default function QuoteForm({
                           <input type="checkbox" checked={item.provide_manual} onChange={e => setItem(idx, 'provide_manual', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
                           說明書
                         </label>
+                        {/* 刪除品項 */}
+                        <button onClick={() => removeItem(idx)} disabled={items.length === 1}
+                          title="刪除此品項"
+                          className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-20 shrink-0">
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                     <td />
