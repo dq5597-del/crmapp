@@ -123,10 +123,12 @@ export interface Quote {
   pdf_url: string | null
   source_quote_id: string | null
   created_by: string | null
+  salesperson_id: string | null
   created_at: string
   updated_at: string
   // Relations
   client?: Client
+  salesperson?: UserProfile
   items?: QuoteItem[]
 }
 
@@ -169,9 +171,11 @@ export interface SalesOrder {
   status: SalesOrderStatus
   pdf_url: string | null
   created_by: string | null
+  salesperson_id: string | null
   created_at: string
   updated_at: string
   client?: Client
+  salesperson?: UserProfile
   items?: SalesOrderItem[]
 }
 
@@ -207,8 +211,10 @@ export interface PurchaseOrder {
   status: PurchaseOrderStatus
   pdf_url: string | null
   created_by: string | null
+  salesperson_id: string | null
   created_at: string
   updated_at: string
+  salesperson?: UserProfile
   items?: PurchaseOrderItem[]
 }
 
