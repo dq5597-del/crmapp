@@ -78,10 +78,26 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   })
 
   const itemRows: TableRow[] = []
+  let dispNo = 0
   ;(items ?? []).forEach((item: any) => {
+    if (item.is_category) {
+      dispNo = 0
+      itemRows.push(new TableRow({
+        children: [
+          new TableCell({
+            columnSpan: 7,
+            shading: { fill: 'ECECEC' },
+            borders: cellBorder,
+            children: [new Paragraph({ children: [new TextRun({ text: String(item.product_name ?? ''), bold: true, size: 20 })] })],
+          }),
+        ],
+      }))
+      return
+    }
+    dispNo += 1
     itemRows.push(new TableRow({
       children: [
-        bodyCell(String(item.seq_no), colWidths[0], AlignmentType.CENTER),
+        bodyCell(String(dispNo), colWidths[0], AlignmentType.CENTER),
         bodyCell(item.product_name ?? '', colWidths[1]),
         bodyCell(item.model ?? '', colWidths[2]),
         bodyCell(item.unit ?? '', colWidths[3], AlignmentType.CENTER),
