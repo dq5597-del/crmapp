@@ -98,13 +98,22 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
 
   const totalChinese = numToChineseCapital(Number(quote.total_amount))
 
+  // 分類標題列：品項編號在每個分類內重新從 1 起算
+  let dispNo = 0
+  const rowItems = (items ?? []).map((item: any) => {
+    if (item.is_category) { dispNo = 0; return { ...item, display_no: 0 } }
+    dispNo += 1
+    return { ...item, display_no: dispNo }
+  })
+
   return (
     <>
       <style>{`
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
-          @page { margin: 15mm 14mm; size: A4; }
+          @page { margin: 15mm 14mm; }
+          .page { max-width: none; }
           tr { break-inside: avoid; page-break-inside: avoid; }
           .notes-stamp-row { break-inside: avoid; page-break-inside: avoid; }
           thead { display: table-header-group; }
@@ -129,6 +138,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
         .total-row td { font-weight: 700; font-size: 13px; }
+        .cat-row td { background: #ececec; font-weight: 700; }
         .notes-stamp-row { display: flex; align-items: flex-end; gap: 20px; margin-top: 18px; }
         .notes-section { flex: 1; min-width: 0; }
         .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
@@ -185,10 +195,15 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             </tr>
           </thead>
           <tbody>
-            {(items ?? []).map((item: any) => (
+            {rowItems.map((item: any) => (
               <Fragment key={item.id}>
+                {item.is_category ? (
+                  <tr className="cat-row">
+                    <td colSpan={7}>{item.product_name}</td>
+                  </tr>
+                ) : (
                 <tr>
-                  <td className="center">{item.seq_no}</td>
+                  <td className="center">{item.display_no}</td>
                   <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>
@@ -196,7 +211,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
                   <td className="num">{fmt(Number(item.unit_price))}</td>
                   <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
                 </tr>
-                {!!item.item_notes?.trim() && (
+                )}
+                {!item.is_category && !!item.item_notes?.trim() && (
                   <tr className="notes-row">
                     <td colSpan={7}>備註：{item.item_notes}</td>
                   </tr>

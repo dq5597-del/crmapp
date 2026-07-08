@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
-import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, FolderPlus } from 'lucide-react'
 
 type MarketPlatform = {
   key: string
@@ -35,6 +35,7 @@ interface QuoteItemForm {
   unit_price: number
   provide_catalog: boolean
   provide_manual: boolean
+  is_category: boolean
 }
 
 interface QuoteFormProps {
@@ -49,7 +50,12 @@ interface QuoteFormProps {
 
 const emptyItem = (): QuoteItemForm => ({
   product_id: null, product_name: '', item_notes: '', model: '', unit: '台',
-  quantity: 1, unit_price: 0, provide_catalog: false, provide_manual: false,
+  quantity: 1, unit_price: 0, provide_catalog: false, provide_manual: false, is_category: false,
+})
+
+const categoryItem = (): QuoteItemForm => ({
+  product_id: null, product_name: '', item_notes: '', model: '', unit: '',
+  quantity: 0, unit_price: 0, provide_catalog: false, provide_manual: false, is_category: true,
 })
 
 // ============================================================
@@ -148,6 +154,10 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
   const [newSubCat, setNewSubCat] = useState('')
 
   const mainCats = Array.from(new Set(categories.map(c => c.main_category)))
+
+  // 品項顯示編號：遇到分類標題就重新從 1 起算
+  let __no = 0
+  const displayNos = items.map(it => { if (it.is_category) { __no = 0; return 0 } __no += 1; return __no })
   const subCats = categories.filter(c => c.main_category === mainCat)
 
   function handleMainCatChange(val: string) {
@@ -358,6 +368,7 @@ export default function QuoteForm({
       unit_price: i.unit_price,
       provide_catalog: i.provide_catalog,
       provide_manual: i.provide_manual,
+      is_category: (i as any).is_category ?? false,
     })) ?? [emptyItem()]
   )
 
@@ -423,6 +434,16 @@ export default function QuoteForm({
   }
 
   function addItem() { setItems(prev => [...prev, emptyItem()]) }
+  function addCategory() { setItems(prev => [...prev, categoryItem()]) }
+  function moveItem(idx: number, dir: -1 | 1) {
+    setItems(prev => {
+      const to = idx + dir
+      if (to < 0 || to >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[to]] = [next[to], next[idx]]
+      return next
+    })
+  }
   function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
   function setItem<K extends keyof QuoteItemForm>(idx: number, key: K, val: QuoteItemForm[K]) {
     setItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, [key]: val }))
@@ -565,6 +586,7 @@ export default function QuoteForm({
       unit_price: Number(item.unit_price),
       provide_catalog: item.provide_catalog,
       provide_manual: item.provide_manual,
+      is_category: item.is_category,
     }))
 
     const { error: itemsErr } = await supabase.from('quote_items').insert(itemsPayload)
@@ -688,9 +710,14 @@ export default function QuoteForm({
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">品項明細</h2>
-          <button onClick={addItem} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
-            <Plus size={14} /> 新增品項
-          </button>
+          <div className="flex items-center gap-4">
+            <button onClick={addCategory} className="flex items-center gap-1.5 text-sm text-purple-600 hover:underline font-medium">
+              <FolderPlus size={14} /> 插入分類標題
+            </button>
+            <button onClick={addItem} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
+              <Plus size={14} /> 新增品項
+            </button>
+          </div>
         </div>
 
         {mainCats.length > 0 && (
@@ -714,7 +741,7 @@ export default function QuoteForm({
                 <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">數量</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[96px]">含稅單價</th>
                 <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">含稅總計</th>
-                <th className="w-8"></th>
+                <th className="w-20"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -722,10 +749,32 @@ export default function QuoteForm({
                 const results = filteredProducts(idx)
                 const searchStr = productSearch[idx] ?? ''
 
+                if (item.is_category) {
+                  return (
+                    <tr key={idx} className="bg-purple-50/70">
+                      <td className="px-3 py-2 text-center text-purple-500"><Tag size={13} /></td>
+                      <td colSpan={5} className="px-3 py-2">
+                        <input
+                          value={item.product_name}
+                          onChange={e => setItem(idx, 'product_name', e.target.value)}
+                          placeholder="分類標題（例：音響設備、資訊設備）"
+                          className={tdInput + ' font-semibold text-purple-800'}
+                        />
+                      </td>
+                      <td className="pl-1 pr-3 py-2 text-right text-xs text-purple-400">分類</td>
+                      <td className="px-2 py-2 text-center whitespace-nowrap">
+                        <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={13} /></button>
+                        <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={13} /></button>
+                        <button onClick={() => removeItem(idx)} className="p-0.5 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
+                      </td>
+                    </tr>
+                  )
+                }
+
                 return (
                   <Fragment key={idx}>
                   <tr className="hover:bg-blue-50/30 group">
-                    <td className="px-3 py-2 text-xs text-gray-400 text-center">{idx + 1}</td>
+                    <td className="px-3 py-2 text-xs text-gray-400 text-center">{displayNos[idx]}</td>
 
                     {/* 品名 */}
                     <td className="px-3 py-2 relative">
@@ -905,12 +954,11 @@ export default function QuoteForm({
                       })()}
                     </td>
 
-                    {/* 刪除 */}
-                    <td className="px-2 py-2 text-center">
-                      <button onClick={() => removeItem(idx)} disabled={items.length === 1}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 disabled:opacity-20 transition-opacity">
-                        <Trash2 size={13} />
-                      </button>
+                    {/* 移動／刪除 */}
+                    <td className="px-2 py-2 text-center whitespace-nowrap">
+                      <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={13} /></button>
+                      <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={13} /></button>
+                      <button onClick={() => removeItem(idx)} disabled={items.length === 1} className="p-0.5 text-gray-400 hover:text-red-500 disabled:opacity-20"><Trash2 size={13} /></button>
                     </td>
                   </tr>
 
