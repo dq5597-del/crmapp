@@ -98,6 +98,21 @@ export interface Product {
   manual_url: string | null
   is_active: boolean
   notes: string | null
+  web_sku?: string | null
+  web_category?: string | null
+  web_description?: string | null
+  web_main_image_url?: string | null
+  web_sale_price?: number | null
+  web_allow_backorder?: boolean | null
+  web_bsmi_no?: string | null
+  web_ncc_no?: string | null
+  web_publish?: boolean | null
+  web_product_id?: string | null
+  web_product_url?: string | null
+  web_promo_price?: number | null
+  web_promo_price_from?: string | null
+  web_promo_price_to?: string | null
+  web_spec_table?: { headers: string[]; rows: string[][] } | null
   created_at: string
   updated_at: string
 }
