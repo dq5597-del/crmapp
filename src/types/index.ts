@@ -113,6 +113,7 @@ export interface Product {
   web_promo_price_from?: string | null
   web_promo_price_to?: string | null
   web_spec_table?: { headers: string[]; rows: string[][] } | null
+  web_spec_html?: string | null
   created_at: string
   updated_at: string
 }
