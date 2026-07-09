@@ -373,6 +373,23 @@ function BatchPriceModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 // ============================================================
 // Products Page
 // ============================================================
+function HtmlCodeEditor({ value, onChange, rows = 8, placeholder }: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string }) {
+  const [mode, setMode] = useState<'code' | 'preview'>('code')
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-1 bg-gray-50 border-b border-gray-200 px-2 py-1.5">
+        <button type="button" onClick={() => setMode('code')} className={`px-2.5 py-1 rounded text-xs font-medium ${mode === 'code' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>程式碼</button>
+        <button type="button" onClick={() => setMode('preview')} className={`px-2.5 py-1 rounded text-xs font-medium ${mode === 'preview' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>預覽</button>
+      </div>
+      {mode === 'code' ? (
+        <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder} className="w-full px-3 py-2 text-xs font-mono outline-none resize-y" />
+      ) : (
+        <div className="p-3 text-sm min-h-[100px] [&_table]:border [&_table]:border-collapse [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-gray-200 [&_td]:px-2 [&_td]:py-1 [&_p]:mb-2 [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: value || '<span class="text-gray-300">尚無內容</span>' }} />
+      )}
+    </div>
+  )
+}
+
 export default function ProductsPage() {
   const supabase = createClient()
   const [products, setProducts] = useState<Product[]>([])
@@ -396,7 +413,7 @@ export default function ProductsPage() {
         web_bsmi_no: '', web_ncc_no: '', web_publish: false,
         web_product_id: '', web_product_url: '',
         web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
-        web_spec_table: null as { headers: string[]; rows: string[][] } | null,
+        web_spec_html: '' as string,
     })
     const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
     const [promoEnabled, setPromoEnabled] = useState(false)
@@ -476,7 +493,7 @@ export default function ProductsPage() {
                 web_promo_price: pAny.web_promo_price ?? 0,
                 web_promo_price_from: pAny.web_promo_price_from ? String(pAny.web_promo_price_from).slice(0, 16) : '',
                 web_promo_price_to: pAny.web_promo_price_to ? String(pAny.web_promo_price_to).slice(0, 16) : '',
-                web_spec_table: pAny.web_spec_table ?? null,
+                web_spec_html: pAny.web_spec_html ?? '',
             })
             setPromoEnabled(!!pAny.web_promo_price_from)
             setEditingId(p.id)
@@ -490,7 +507,7 @@ export default function ProductsPage() {
                 web_bsmi_no: '', web_ncc_no: '', web_publish: false,
                 web_product_id: '', web_product_url: '',
                 web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
-                web_spec_table: null,
+                web_spec_html: '',
             })
             setPromoEnabled(false)
             setEditingId('new')
@@ -864,40 +881,14 @@ export default function ProductsPage() {
                                         {activeTab === 'intro' && (
                                             <div>
                                                 <label className="text-xs text-gray-500 mb-1 block">完整商品介紹</label>
-                                                <textarea value={form.web_description} onChange={e => setForm(p => ({ ...p, web_description: e.target.value }))} rows={5} className={inputClass + ' resize-none'} placeholder="支援嵌入圖片網址" />
+                                                <HtmlCodeEditor value={form.web_description} onChange={v => setForm(p => ({ ...p, web_description: v }))} rows={8} placeholder="可直接貼上 HTML，例如 <p>...</p>" />
                                             </div>
                                         )}
                                         {activeTab === 'spec' && (
                                             <div>
-                                                <div className="flex gap-2 mb-3">
-                                                    <button type="button" onClick={() => setForm(p => ({ ...p, web_spec_table: p.web_spec_table ?? { headers: ['項目', '內容'], rows: [['', '']] } }))} className="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">插入表格</button>
-                                                    {form.web_spec_table && (
-                                                        <button type="button" onClick={() => setForm(p => ({ ...p, web_spec_table: { headers: p.web_spec_table!.headers, rows: [...p.web_spec_table!.rows, p.web_spec_table!.headers.map(() => '')] } }))} className="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">+ 新增列</button>
-                                                    )}
-                                                </div>
-                                                {form.web_spec_table && (
-                                                    <table className="w-full text-xs border border-gray-200 mb-4">
-                                                        <tbody>
-                                                            {form.web_spec_table.rows.map((row, ri) => (
-                                                                <tr key={ri} className={ri % 2 === 0 ? 'bg-gray-50' : ''}>
-                                                                    {row.map((cell, ci) => (
-                                                                        <td key={ci} className="border border-gray-200 p-0">
-                                                                            <input value={cell} onChange={e => setForm(p => {
-                                                                                const t = p.web_spec_table!
-                                                                                const rows = t.rows.map((r, rri) => rri === ri ? r.map((c, cci) => cci === ci ? e.target.value : c) : r)
-                                                                                return { ...p, web_spec_table: { ...t, rows } }
-                                                                            })} className="w-full px-2 py-1.5 text-xs outline-none bg-transparent" />
-                                                                        </td>
-                                                                    ))}
-                                                                    <td className="border border-gray-200 w-8 text-center">
-                                                                        <button type="button" onClick={() => setForm(p => ({ ...p, web_spec_table: { ...p.web_spec_table!, rows: p.web_spec_table!.rows.filter((_, rri) => rri !== ri) } }))} className="text-gray-300 hover:text-red-500"><X size={12} /></button>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                )}
-                                                <div className="border-t border-gray-100 pt-3">
+                                                <label className="text-xs text-gray-500 mb-1 block">產品規格（可直接貼上規格表 HTML）</label>
+                                                <HtmlCodeEditor value={form.web_spec_html ?? ''} onChange={v => setForm(p => ({ ...p, web_spec_html: v }))} rows={10} placeholder={'<table class="shop_attributes">\n<tbody>\n<tr><th>品牌</th><td>...</td></tr>\n</tbody>\n</table>'} />
+                                                <div className="border-t border-gray-100 pt-3 mt-4">
                                                     <div className="flex items-center justify-between mb-2">
                                                         <span className="text-xs font-medium text-gray-700">附加檔案</span>
                                                         <span className="text-[11px] text-gray-400">{webDownloads.length} 個檔案</span>
