@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import {
@@ -34,6 +35,7 @@ const EMPTY: ProjForm = {
 
 export default function ProjectsFolderPage() {
   const supabase = createClient()
+  const router = useRouter()
 
   const [projects, setProjects] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
@@ -88,20 +90,7 @@ export default function ProjectsFolderPage() {
   function openNew() {
     setEditingId(null); setForm(EMPTY); setClientSearch(''); setModalOpen(true)
   }
-  function openEdit(p: any) {
-    setEditingId(p.id)
-    setForm({
-      client_id: p.client_id ?? '', project_name: p.project_name ?? '', scene_name: p.scene_name ?? '',
-      user_type: p.user_type ?? '', status: p.status ?? '規劃中',
-      start_date: p.start_date ?? '', end_date: p.end_date ?? '',
-      budget: p.budget != null ? String(p.budget) : '', description: p.description ?? '', notes: p.notes ?? '',
-      main_function: p.main_function ?? '', equipment_needs: p.equipment_needs ?? '', audio_needs: p.audio_needs ?? '',
-      video_needs: p.video_needs ?? '', interaction_needs: p.interaction_needs ?? '', control_needs: p.control_needs ?? '',
-      other_needs: p.other_needs ?? '', venue_specs: p.venue_specs ?? '',
-    })
-    setClientSearch(p.clients?.company_name ?? '')
-    setModalOpen(true)
-  }
+// (編輯改為深連結至完整編輯器，見列表按鈕)
 
   async function save() {
     if (!form.client_id) { alert('請選擇客戶'); return }
@@ -127,12 +116,19 @@ export default function ProjectsFolderPage() {
       other_needs: form.other_needs || null,
       venue_specs: form.venue_specs || null,
     }
-    const { error } = editingId
-      ? await supabase.from('projects').update(payload).eq('id', editingId)
-      : await supabase.from('projects').insert(payload)
-    setSaving(false)
-    if (error) { alert('儲存失敗：' + error.message); return }
-    setModalOpen(false); fetchData()
+    if (editingId) {
+      const { error } = await supabase.from('projects').update(payload).eq('id', editingId)
+      setSaving(false)
+      if (error) { alert('儲存失敗：' + error.message); return }
+      setModalOpen(false); fetchData()
+    } else {
+      const { data, error } = await supabase.from('projects').insert(payload).select('id').single()
+      setSaving(false)
+      if (error) { alert('儲存失敗：' + error.message); return }
+      setModalOpen(false)
+      // 建立後直接進完整編輯器補場勘/照片/設備圖
+      router.push(`/clients/${form.client_id}?tab=projects&edit=${data!.id}`)
+    }
   }
 
   async function remove(p: any) {
@@ -215,7 +211,7 @@ export default function ProjectsFolderPage() {
                     <td className="px-4 text-right text-gray-700">{p.budget != null ? `NT$${Number(p.budget).toLocaleString()}` : '—'}</td>
                     <td className="px-4">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEdit(p)} title="編輯" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Edit2 size={15} /></button>
+                        <button onClick={() => router.push(`/clients/${p.client_id}?tab=projects&edit=${p.id}`)} title="編輯（完整欄位）" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Edit2 size={15} /></button>
                         <button onClick={() => window.open(`/projects/${p.id}/print`, '_blank')} title="列印總覽" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
                         <div className="relative">
                           <button onClick={() => setPdfMenu(pdfMenu === p.id ? null : p.id)} title="列印/分享 PDF" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 flex items-center"><FileDown size={15} /><ChevronDown size={12} /></button>
