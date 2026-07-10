@@ -63,20 +63,20 @@ export default function PurchaseOrderDetailPage() {
         </Link>
       </div>
 
-      {/* 廠商資訊 */}
+      {/* 客戶資訊 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-        <h2 className="font-semibold text-gray-900 mb-4">廠商資訊</h2>
+        <h2 className="font-semibold text-gray-900 mb-4">客戶資訊</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">廠商名稱</label>
+            <label className="text-xs text-gray-600 mb-1 block">客戶名稱</label>
             <input value={form.vendor_name} onChange={e => setForm(p => ({ ...p, vendor_name: e.target.value }))} className={inputClass} />
           </div>
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">廠商聯絡人</label>
+            <label className="text-xs text-gray-600 mb-1 block">客戶聯絡人</label>
             <input value={form.vendor_contact} onChange={e => setForm(p => ({ ...p, vendor_contact: e.target.value }))} className={inputClass} />
           </div>
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">廠商電話</label>
+            <label className="text-xs text-gray-600 mb-1 block">客戶電話</label>
             <input value={form.vendor_phone} onChange={e => setForm(p => ({ ...p, vendor_phone: e.target.value }))} className={inputClass} />
           </div>
           <div>
@@ -131,17 +131,17 @@ export default function PurchaseOrderDetailPage() {
         <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={3} className={inputClass + ' resize-none'} />
       </div>
 
-      {/* 廠商簽名 */}
+      {/* 客戶簽名 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-        <h2 className="font-semibold text-gray-900 mb-4">廠商簽名確認</h2>
+        <h2 className="font-semibold text-gray-900 mb-4">客戶簽名確認</h2>
         <div className="border border-dashed border-gray-300 rounded-xl h-24 flex items-end px-4 pb-2 mb-4">
-          <span className="text-xs text-gray-400">廠商簽名</span>
+          <span className="text-xs text-gray-400">客戶簽名</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-gray-600 mb-1 block">簽署人姓名</label>
             <input value={form.signer_name} onChange={e => setForm(p => ({ ...p, signer_name: e.target.value }))}
-              placeholder="廠商簽回後，由業務登錄簽署人姓名" className={inputClass} />
+              placeholder="客戶簽回後，由業務登錄簽署人姓名" className={inputClass} />
           </div>
           <div>
             <label className="text-xs text-gray-600 mb-1 block">簽署日期</label>

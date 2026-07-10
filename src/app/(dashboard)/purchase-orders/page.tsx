@@ -39,7 +39,7 @@ export default function PurchaseOrdersPage() {
 
       <div className="relative mb-5 max-w-md">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋單號、廠商..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋單號、客戶..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -48,7 +48,7 @@ export default function PurchaseOrdersPage() {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">訂購單號</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">廠商</th>
+                <th className="text-left px-4 py-3 text-gray-600 font-medium">客戶</th>
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
                 <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">建立日期</th>
