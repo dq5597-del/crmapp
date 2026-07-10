@@ -408,6 +408,7 @@ export default function ProductsPage() {
         category_id: null as string | null,
         brand: '', product_name: '', model: '', unit: '台',
         list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
+        width_cm: 0, depth_cm: 0, height_cm: 0,
         web_sku: '', web_category: '', web_description: '',
         web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
         web_bsmi_no: '', web_ncc_no: '', web_publish: false,
@@ -484,6 +485,7 @@ export default function ProductsPage() {
             setForm({
                 category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit,
                 list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
+                width_cm: pAny.width_cm ?? 0, depth_cm: pAny.depth_cm ?? 0, height_cm: pAny.height_cm ?? 0,
                 web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
                 web_description: pAny.web_description ?? '',
                 web_main_image_url: pAny.web_main_image_url ?? '', web_sale_price: pAny.web_sale_price ?? 0,
@@ -502,6 +504,7 @@ export default function ProductsPage() {
             setForm({
                 category_id: null, brand: '', product_name: '', model: '', unit: '台',
                 list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
+        width_cm: 0, depth_cm: 0, height_cm: 0,
                 web_sku: '', web_category: '', web_description: '',
                 web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
                 web_bsmi_no: '', web_ncc_no: '', web_publish: false,
@@ -739,6 +742,18 @@ export default function ProductsPage() {
                                     <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-600">
                                         {form.list_price > 0 ? `${Math.round((1 - form.cost_price / form.list_price) * 100)}%` : '—'}
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">寬 W (cm)</label>
+                                    <input type="number" value={form.width_cm} onChange={e => setForm(p => ({ ...p, width_cm: Number(e.target.value) }))} className={inputClass} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">深 D (cm)</label>
+                                    <input type="number" value={form.depth_cm} onChange={e => setForm(p => ({ ...p, depth_cm: Number(e.target.value) }))} className={inputClass} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">高 H (cm)</label>
+                                    <input type="number" value={form.height_cm} onChange={e => setForm(p => ({ ...p, height_cm: Number(e.target.value) }))} className={inputClass} />
                                 </div>
                                 <div className="col-span-2 sm:col-span-3">
                                     <label className="text-xs text-gray-600 mb-1 block">備註</label>
