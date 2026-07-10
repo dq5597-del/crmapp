@@ -3,7 +3,6 @@ import type { Metadata } from 'next'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
-import DocSignatures from '@/components/DocSignatures' // 三方簽名
 import { buildQuoteFileName } from '@/lib/utils'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -85,7 +84,14 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   // 2. 系統設定的動態備註條目（default_note_items）
   // 3. 本張報價單的自訂備註
   const noteItems: string[] = []
-  if (quote.valid_until) noteItems.push(`報價單有效期限：${quote.valid_until}`)
+  if (quote.valid_until) {
+    const baseDateRaw = quote.created_at ? new Date(quote.created_at) : new Date()
+    const base = new Date(baseDateRaw.getFullYear(), baseDateRaw.getMonth(), baseDateRaw.getDate())
+    const untilParts = quote.valid_until.split('-').map(Number)
+    const until = new Date(untilParts[0], untilParts[1] - 1, untilParts[2])
+    const diffDays = Math.round((until.getTime() - base.getTime()) / 86400000)
+    noteItems.push(`報價有效天數：${diffDays} 天`)
+  }
   if (quote.delivery_days) noteItems.push(`交貨工期：${quote.delivery_days} 天`)
   if (bankInfo) noteItems.push(`匯款帳號：${bankInfo}`)
   if (quote.payment_terms) noteItems.push(`付款條件：${quote.payment_terms}`)
@@ -243,9 +249,6 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             <img src="/stamp.png" alt="估價單專用章" />
           </div>
         </div>
-
-        {/* 三方簽名（客戶／工程師／業務）：可觸控簽名，未簽保留空白欄供列印手寫 */}
-        <DocSignatures docType="quote" refId={params.id} />
 
       </div>
     </>

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote
+  MessageSquareQuote, StickyNote
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +20,7 @@ const businessItems = [
   { href: '/schedule',         label: '每日行程', icon: CalendarDays },
   { href: '/quotes',           label: '報價單',   icon: FileText },
   { href: '/service-requests', label: '叫修管理', icon: Wrench },
+  { href: '/notes',            label: '業務筆記', icon: StickyNote },
 ]
 
 const companyItems = [

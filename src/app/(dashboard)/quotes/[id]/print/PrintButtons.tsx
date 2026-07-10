@@ -12,9 +12,11 @@ function getFileName() {
 
 export default function PrintButtons() {
   const [loading, setLoading] = useState<'' | 'download' | 'share'>('')
+  const [docOrientation, setDocOrientation] = useState<'portrait' | 'landscape'>('portrait')
 
   // 直向／橫向列印：動態注入 @page 方向（附加在 body 尾端，優先於頁面內建樣式）
   const printWith = (orientation: 'portrait' | 'landscape') => {
+    setDocOrientation(orientation)
     let s = document.getElementById('print-orientation-style') as HTMLStyleElement | null
     if (!s) {
       s = document.createElement('style')
@@ -29,7 +31,7 @@ export default function PrintButtons() {
     if (loading) return
     setLoading('download')
     try {
-      await downloadPdf(getFileName())
+      await downloadPdf(getFileName(), docOrientation === 'landscape')
     } catch (e) {
       console.error(e)
       alert('PDF 產生失敗，請稍後再試，或改用「列印」功能')
@@ -42,7 +44,7 @@ export default function PrintButtons() {
     if (loading) return
     setLoading('share')
     try {
-      const result = await sharePdf(getFileName())
+      const result = await sharePdf(getFileName(), docOrientation === 'landscape')
       if (result === 'downloaded') {
         alert('此裝置不支援直接分享，已改為下載 PDF，請自行傳送檔案')
       }

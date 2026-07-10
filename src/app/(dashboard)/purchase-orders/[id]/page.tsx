@@ -17,18 +17,21 @@ export default function PurchaseOrderDetailPage() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ vendor_name: '', vendor_contact: '', vendor_phone: '', notes: '', status: '草稿', signer_name: '', signed_date: '' })
+  const [form, setForm] = useState({ vendor_name: '', vendor_contact: '', vendor_phone: '', notes: '', status: '草稿', signer_name: '', signed_date: '', salesperson_id: '' })
+  const [salespeople, setSalespeople] = useState<any[]>([])
 
   useEffect(() => {
     Promise.all([
       supabase.from('purchase_orders').select('*').eq('id', id).single(),
       supabase.from('purchase_order_items').select('*').eq('order_id', id).order('seq_no'),
-    ]).then(([oRes, iRes]) => {
+      supabase.from('user_profiles').select('id, full_name').eq('is_active', true).order('full_name'),
+    ]).then(([oRes, iRes, spRes]) => {
       if (oRes.data) {
         setOrder(oRes.data)
-        setForm({ vendor_name: oRes.data.vendor_name ?? '', vendor_contact: oRes.data.vendor_contact ?? '', vendor_phone: oRes.data.vendor_phone ?? '', notes: oRes.data.notes ?? '', status: oRes.data.status ?? '草稿', signer_name: oRes.data.signer_name ?? '', signed_date: oRes.data.signed_date ?? '' })
+        setForm({ vendor_name: oRes.data.vendor_name ?? '', vendor_contact: oRes.data.vendor_contact ?? '', vendor_phone: oRes.data.vendor_phone ?? '', notes: oRes.data.notes ?? '', status: oRes.data.status ?? '草稿', signer_name: oRes.data.signer_name ?? '', signed_date: oRes.data.signed_date ?? '', salesperson_id: oRes.data.salesperson_id ?? '' })
       }
       setItems(iRes.data ?? [])
+      setSalespeople(spRes.data ?? [])
       setLoading(false)
     })
   }, [id])
@@ -75,6 +78,13 @@ export default function PurchaseOrderDetailPage() {
           <div>
             <label className="text-xs text-gray-600 mb-1 block">廠商電話</label>
             <input value={form.vendor_phone} onChange={e => setForm(p => ({ ...p, vendor_phone: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">業務員</label>
+            <select value={form.salesperson_id} onChange={e => setForm(p => ({ ...p, salesperson_id: e.target.value }))} className={inputClass}>
+              <option value="">— 未指定 —</option>
+              {salespeople.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
           </div>
         </div>
       </div>

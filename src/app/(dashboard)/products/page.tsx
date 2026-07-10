@@ -373,6 +373,23 @@ function BatchPriceModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 // ============================================================
 // Products Page
 // ============================================================
+function HtmlCodeEditor({ value, onChange, rows = 8, placeholder }: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string }) {
+  const [mode, setMode] = useState<'code' | 'preview'>('code')
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-1 bg-gray-50 border-b border-gray-200 px-2 py-1.5">
+        <button type="button" onClick={() => setMode('code')} className={`px-2.5 py-1 rounded text-xs font-medium ${mode === 'code' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>程式碼</button>
+        <button type="button" onClick={() => setMode('preview')} className={`px-2.5 py-1 rounded text-xs font-medium ${mode === 'preview' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>預覽</button>
+      </div>
+      {mode === 'code' ? (
+        <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder} className="w-full px-3 py-2 text-xs font-mono outline-none resize-y" />
+      ) : (
+        <div className="p-3 text-sm min-h-[100px] [&_table]:border [&_table]:border-collapse [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-gray-200 [&_td]:px-2 [&_td]:py-1 [&_p]:mb-2 [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: value || '<span class="text-gray-300">尚無內容</span>' }} />
+      )}
+    </div>
+  )
+}
+
 export default function ProductsPage() {
   const supabase = createClient()
   const [products, setProducts] = useState<Product[]>([])
@@ -387,13 +404,43 @@ export default function ProductsPage() {
   const [marketMap, setMarketMap] = useState<Record<string, MarketPriceRow[]>>({})
   const [marketRefreshing, setMarketRefreshing] = useState<string | null>(null)
   const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
-  const [form, setForm] = useState({
-    category_id: null as string | null,
-    brand: '', product_name: '', model: '', unit: '台',
-    list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
-  })
+    const [form, setForm] = useState({
+        category_id: null as string | null,
+        brand: '', product_name: '', model: '', unit: '台',
+        list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
+        web_sku: '', web_category: '', web_description: '',
+        web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
+        web_bsmi_no: '', web_ncc_no: '', web_publish: false,
+        web_product_id: '', web_product_url: '',
+        web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
+        web_spec_html: '' as string,
+    })
+    const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
+    const [promoEnabled, setPromoEnabled] = useState(false)
+    const [activeTab, setActiveTab] = useState<'intro' | 'spec' | 'shop' | 'review'>('intro')
+    const [webExpanded, setWebExpanded] = useState(false)
+    const [defaultWebExpanded, setDefaultWebExpanded] = useState(false)
+    const [webImages, setWebImages] = useState<{ id?: string; image_url: string }[]>([])
+    const [webFeatures, setWebFeatures] = useState<{ id?: string; feature_text: string }[]>([])
+    const [webDownloads, setWebDownloads] = useState<{ id?: string; file_name: string; file_url: string }[]>([])
+    const [webVendors, setWebVendors] = useState<{ id?: string; vendor_id: string; cost: number | null; is_primary: boolean }[]>([])
+    const [vendorList, setVendorList] = useState<Vendor[]>([])
 
-  useEffect(() => { fetchAll() }, [])
+    useEffect(() => { fetchAll() }, [])
+
+    useEffect(() => {
+        supabase.from('system_settings').select('product_web_fields_expanded').maybeSingle().then(({ data }) => {
+            const v = !!(data as any)?.product_web_fields_expanded
+            setDefaultWebExpanded(v)
+            setWebExpanded(v)
+        })
+    }, [])
+
+    useEffect(() => {
+        supabase.from('vendors').select('*').eq('is_active', true).order('company_name').then(({ data }) => {
+            setVendorList((data ?? []) as Vendor[])
+        })
+    }, [])
 
   async function fetchAll() {
     const [pRes, cRes, mRes] = await Promise.all([
@@ -418,26 +465,101 @@ export default function ProductsPage() {
     return c ? `${c.main_category} > ${c.sub_category}` : null
   }
 
-  function startEdit(p?: Product) {
-    if (p) {
-      setForm({ category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active })
-      setEditingId(p.id)
-    } else {
-      setForm({ category_id: null, brand: '', product_name: '', model: '', unit: '台', list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true })
-      setEditingId('new')
+    async function loadWebSubData(productId: string) {
+        const [imgRes, dlRes, featRes, vendRes] = await Promise.all([
+            supabase.from('product_images').select('id,image_url').eq('product_id', productId).order('sort_order'),
+            supabase.from('product_downloads').select('id,file_name,file_url').eq('product_id', productId).order('sort_order'),
+            supabase.from('product_features').select('id,feature_text').eq('product_id', productId).order('sort_order'),
+            supabase.from('product_vendors').select('id,vendor_id,cost,is_primary').eq('product_id', productId).order('sort_order'),
+        ])
+        setWebImages(imgRes.data ?? [])
+        setWebDownloads(dlRes.data ?? [])
+        setWebFeatures(featRes.data ?? [])
+        setWebVendors(vendRes.data ?? [])
     }
-  }
 
-  async function handleSave() {
-    if (!form.product_name.trim()) return
-    if (editingId === 'new') {
-      await supabase.from('products').insert(form)
-    } else {
-      await supabase.from('products').update(form).eq('id', editingId)
+    function startEdit(p?: Product) {
+        if (p) {
+            const pAny = p as any
+            setForm({
+                category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit,
+                list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
+                web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
+                web_description: pAny.web_description ?? '',
+                web_main_image_url: pAny.web_main_image_url ?? '', web_sale_price: pAny.web_sale_price ?? 0,
+                web_allow_backorder: pAny.web_allow_backorder ?? false, web_bsmi_no: pAny.web_bsmi_no ?? '',
+                web_ncc_no: pAny.web_ncc_no ?? '', web_publish: pAny.web_publish ?? false,
+                web_product_id: pAny.web_product_id ?? '', web_product_url: pAny.web_product_url ?? '',
+                web_promo_price: pAny.web_promo_price ?? 0,
+                web_promo_price_from: pAny.web_promo_price_from ? String(pAny.web_promo_price_from).slice(0, 16) : '',
+                web_promo_price_to: pAny.web_promo_price_to ? String(pAny.web_promo_price_to).slice(0, 16) : '',
+                web_spec_html: pAny.web_spec_html ?? '',
+            })
+            setPromoEnabled(!!pAny.web_promo_price_from)
+            setEditingId(p.id)
+            loadWebSubData(p.id)
+        } else {
+            setForm({
+                category_id: null, brand: '', product_name: '', model: '', unit: '台',
+                list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
+                web_sku: '', web_category: '', web_description: '',
+                web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
+                web_bsmi_no: '', web_ncc_no: '', web_publish: false,
+                web_product_id: '', web_product_url: '',
+                web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
+                web_spec_html: '',
+            })
+            setPromoEnabled(false)
+            setEditingId('new')
+            setWebImages([])
+            setWebDownloads([])
+            setWebFeatures([])
+            setWebVendors([])
+        }
+        setWebExpanded(defaultWebExpanded)
+        setFormMode('simple')
+        setActiveTab('intro')
     }
-    setEditingId(null)
-    fetchAll()
-  }
+
+    async function syncWebSubData(productId: string) {
+        await Promise.all([
+            supabase.from('product_images').delete().eq('product_id', productId),
+            supabase.from('product_downloads').delete().eq('product_id', productId),
+            supabase.from('product_features').delete().eq('product_id', productId),
+            supabase.from('product_vendors').delete().eq('product_id', productId),
+        ])
+        const imgRows = webImages.filter(r => r.image_url.trim()).map((r, i) => ({ product_id: productId, image_url: r.image_url.trim(), sort_order: i }))
+        const dlRows = webDownloads.filter(r => r.file_name.trim() && r.file_url.trim()).map((r, i) => ({ product_id: productId, file_name: r.file_name.trim(), file_url: r.file_url.trim(), sort_order: i }))
+        const featRows = webFeatures.filter(r => r.feature_text.trim()).slice(0, 10).map((r, i) => ({ product_id: productId, feature_text: r.feature_text.trim().slice(0, 5), sort_order: i }))
+        const vendRows = webVendors.filter(r => r.vendor_id).map((r, i) => ({ product_id: productId, vendor_id: r.vendor_id, cost: r.cost, is_primary: r.is_primary, sort_order: i }))
+        await Promise.all([
+            imgRows.length > 0 ? supabase.from('product_images').insert(imgRows) : Promise.resolve(),
+            dlRows.length > 0 ? supabase.from('product_downloads').insert(dlRows) : Promise.resolve(),
+            featRows.length > 0 ? supabase.from('product_features').insert(featRows) : Promise.resolve(),
+            vendRows.length > 0 ? supabase.from('product_vendors').insert(vendRows) : Promise.resolve(),
+        ])
+    }
+
+
+    async function handleSave() {
+        if (!form.product_name.trim()) return
+        const payload = {
+            ...form,
+            web_promo_price: promoEnabled ? form.web_promo_price : null,
+            web_promo_price_from: promoEnabled && form.web_promo_price_from ? form.web_promo_price_from : null,
+            web_promo_price_to: promoEnabled && form.web_promo_price_to ? form.web_promo_price_to : null,
+        }
+        if (editingId === 'new') {
+            const { data } = await supabase.from('products').insert(payload).select('id').single()
+            if (data?.id) await syncWebSubData(data.id)
+        } else {
+            await supabase.from('products').update(payload).eq('id', editingId)
+            await syncWebSubData(editingId as string)
+        }
+        setEditingId(null)
+        fetchAll()
+    }
+
 
   async function handleDelete(id: string) {
     if (!confirm('確定刪除此產品？')) return
@@ -554,77 +676,305 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* 編輯 / 新增表單 */}
-      {editingId !== null && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-5 space-y-4">
-          <div className="font-semibold text-blue-900">{editingId === 'new' ? '新增產品' : '編輯產品'}</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <div className="col-span-2 sm:col-span-3">
-              <label className="text-xs text-gray-600 mb-1 block">產品分類</label>
-              <div className="flex gap-2">
-                <select value={form.category_id ?? ''} onChange={e => setForm(p => ({ ...p, category_id: e.target.value || null }))} className={inputClass + ' flex-1'}>
-                  <option value="">— 未分類 —</option>
-                  {Object.entries(categoryGrouped).map(([main, cats]) => (
-                    <optgroup key={main} label={main}>
-                      {cats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
-                    </optgroup>
-                  ))}
-                </select>
-                <button type="button" onClick={() => setShowCatModal(true)} className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 whitespace-nowrap">
-                  + 新增分類
-                </button>
-              </div>
-            </div>
+                {/* 編輯 / 新增表單 */}
+                {editingId !== null && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-5 space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="font-semibold text-blue-900">{editingId === 'new' ? '新增產品' : '編輯產品'}</div>
+                            <div className="flex bg-white rounded-lg p-0.5 border border-gray-200">
+                                <button type="button" onClick={() => setFormMode('simple')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'simple' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>進銷存模式</button>
+                                <button type="button" onClick={() => setFormMode('full')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'full' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>完整資料模式</button>
+                            </div>
+                        </div>
 
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">品牌</label>
-              <input value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value }))} className={inputClass} placeholder="Yamaha" />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-600 mb-1 block">產品名稱 *</label>
-              <input value={form.product_name} onChange={e => setForm(p => ({ ...p, product_name: e.target.value }))} className={inputClass} placeholder="專業混音器" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">規格型號</label>
-              <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} className={inputClass} placeholder="MGP32X" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">單位</label>
-              <input value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">庫存（唯讀）</label>
-              <input type="number" value={form.stock_qty} readOnly className={inputClass + ' bg-gray-100 cursor-default'} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">定價（售價）</label>
-              <input type="number" value={form.list_price} onChange={e => setForm(p => ({ ...p, list_price: Number(e.target.value) }))} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">進貨價（成本）</label>
-              <input type="number" value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: Number(e.target.value) }))} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600 mb-1 block">利潤率</label>
-              <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-600">
-                {form.list_price > 0 ? `${Math.round((1 - form.cost_price / form.list_price) * 100)}%` : '—'}
-              </div>
-            </div>
-            <div className="col-span-2 sm:col-span-3">
-              <label className="text-xs text-gray-600 mb-1 block">備註</label>
-              <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="is_active" checked={form.is_active} onChange={e => setForm(p => ({ ...p, is_active: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
-              <label htmlFor="is_active" className="text-sm text-gray-700">上架（可在報價單選用）</label>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
-            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">儲存</button>
-          </div>
-        </div>
-      )}
+                        {formMode === 'simple' ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                <div className="col-span-2 sm:col-span-3">
+                                    <label className="text-xs text-gray-600 mb-1 block">產品分類</label>
+                                    <div className="flex gap-2">
+                                        <select value={form.category_id ?? ''} onChange={e => setForm(p => ({ ...p, category_id: e.target.value || null }))} className={inputClass + ' flex-1'}>
+                                            <option value="">— 未分類 —</option>
+                                            {Object.entries(categoryGrouped).map(([main, cats]) => (
+                                                <optgroup key={main} label={main}>
+                                                    {cats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
+                                                </optgroup>
+                                            ))}
+                                        </select>
+                                        <button type="button" onClick={() => setShowCatModal(true)} className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 whitespace-nowrap">
+                                            + 新增分類
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">品牌</label>
+                                    <input value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value }))} className={inputClass} placeholder="Yamaha" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="text-xs text-gray-600 mb-1 block">產品名稱 *</label>
+                                    <input value={form.product_name} onChange={e => setForm(p => ({ ...p, product_name: e.target.value }))} className={inputClass} placeholder="專業混音器" />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">規格型號</label>
+                                    <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} className={inputClass} placeholder="MGP32X" />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">單位</label>
+                                    <input value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))} className={inputClass} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">庫存（唯讀）</label>
+                                    <input type="number" value={form.stock_qty} readOnly className={inputClass + ' bg-gray-100 cursor-default'} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">定價（售價）</label>
+                                    <input type="number" value={form.list_price} onChange={e => setForm(p => ({ ...p, list_price: Number(e.target.value) }))} className={inputClass} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">進貨價（成本）</label>
+                                    <input type="number" value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: Number(e.target.value) }))} className={inputClass} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">利潤率</label>
+                                    <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-600">
+                                        {form.list_price > 0 ? `${Math.round((1 - form.cost_price / form.list_price) * 100)}%` : '—'}
+                                    </div>
+                                </div>
+                                <div className="col-span-2 sm:col-span-3">
+                                    <label className="text-xs text-gray-600 mb-1 block">備註</label>
+                                    <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input type="checkbox" id="is_active" checked={form.is_active} onChange={e => setForm(p => ({ ...p, is_active: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
+                                    <label htmlFor="is_active" className="text-sm text-gray-700">上架（可在報價單選用）</label>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex flex-wrap items-center gap-4 bg-white rounded-xl px-4 py-3 border border-gray-100 text-xs">
+                                    <span className="text-gray-400">進銷存資料</span>
+                                    <span className="text-gray-600">型號 <b className="font-medium text-gray-800">{form.model || '—'}</b></span>
+                                    <span className="text-gray-600">單位 <b className="font-medium text-gray-800">{form.unit}</b></span>
+                                    <span className="text-gray-600">庫存 <b className="font-medium text-gray-800">{form.stock_qty}</b></span>
+                                    <label className="ml-auto flex items-center gap-1.5 text-gray-600">
+                                        <input type="checkbox" checked={form.is_active} onChange={e => setForm(p => ({ ...p, is_active: e.target.checked }))} className="accent-blue-600 w-3.5 h-3.5" />
+                                        上架
+                                    </label>
+                                    <button type="button" onClick={() => setFormMode('simple')} className="text-blue-600 hover:underline">編輯進銷存欄位</button>
+                                </div>
+
+                                <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                                    <div className="text-xs text-gray-400 mb-3">{getCategoryLabel(form.category_id) ?? '未分類'}</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 mb-4">
+                                        <div>
+                                            <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center mb-2 overflow-hidden">
+                                                {form.web_main_image_url ? <img src={form.web_main_image_url} alt="" className="w-full h-full object-cover" /> : <Package size={28} className="text-gray-300" />}
+                                            </div>
+                                            <div className="space-y-1.5 mb-3">
+                                                {webImages.map((img, i) => (
+                                                    <div key={img.id ?? `new-${i}`} className="flex gap-1">
+                                                        <input value={img.image_url} onChange={e => setWebImages(a => a.map((r, ri) => ri === i ? { ...r, image_url: e.target.value } : r))} placeholder="圖片網址" className={inputClass + ' text-xs py-1.5'} />
+                                                        <button type="button" onClick={() => setWebImages(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                                                    </div>
+                                                ))}
+                                                <button type="button" onClick={() => setWebImages(a => [...a, { image_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 新增圖片</button>
+                                            </div>
+
+                                            <div className="border border-blue-200 rounded-lg p-2 bg-blue-50/50">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span className="text-xs font-medium text-blue-700">產品特色（限5字）</span>
+                                                    <span className="text-[10px] text-gray-400">{webFeatures.length}/10</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-1.5">
+                                                    {webFeatures.map((f, i) => (
+                                                        <div key={f.id ?? `new-${i}`} className="flex items-center gap-0.5 bg-white border border-gray-200 rounded px-1.5 py-1">
+                                                            <input value={f.feature_text} maxLength={5} onChange={e => setWebFeatures(a => a.map((r, ri) => ri === i ? { ...r, feature_text: e.target.value.slice(0, 5) } : r))} className="w-full text-[11px] text-center outline-none" />
+                                                            <button type="button" onClick={() => setWebFeatures(a => a.filter((_, ri) => ri !== i))} className="text-gray-300 hover:text-red-500 shrink-0"><X size={10} /></button>
+                                                        </div>
+                                                    ))}
+                                                    {webFeatures.length < 10 && (
+                                                        <button type="button" onClick={() => setWebFeatures(a => [...a, { feature_text: '' }])} className="border border-dashed border-gray-300 rounded px-1.5 py-1 text-[11px] text-gray-400 hover:text-blue-500 hover:border-blue-300">+ 新增</button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                                {getCategoryLabel(form.category_id) && <span className="text-[11px] px-2 py-0.5 bg-green-50 text-green-700 rounded-full">{getCategoryLabel(form.category_id)}</span>}
+                                                {form.brand && <span className="text-[11px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">品牌：{form.brand}</span>}
+                                            </div>
+                                            <input value={form.product_name} onChange={e => setForm(p => ({ ...p, product_name: e.target.value }))} className={inputClass + ' text-base font-medium mb-3'} placeholder="產品名稱" />
+
+                                            <div className="grid grid-cols-3 gap-3 mb-1">
+                                                <div>
+                                                    <label className="text-[11px] text-gray-400 mb-1 block">網路價</label>
+                                                    <input type="number" value={form.web_sale_price} onChange={e => setForm(p => ({ ...p, web_sale_price: Number(e.target.value) }))} className={inputClass + ' font-medium text-blue-600'} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[11px] text-gray-400 mb-1 block">建議售價</label>
+                                                    <input type="number" value={form.list_price} readOnly className={inputClass + ' bg-gray-100 text-gray-400 line-through cursor-default'} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[11px] text-gray-400 mb-1 block">成本</label>
+                                                    <input type="number" value={form.cost_price} readOnly className={inputClass + ' bg-gray-100 text-red-500 cursor-default'} />
+                                                </div>
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 mb-3">建議售價／成本帶自進銷存欄位，成本不會顯示於官網</div>
+
+                                            <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50 mb-3">
+                                                <label className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-2">
+                                                    <input type="checkbox" checked={promoEnabled} onChange={e => setPromoEnabled(e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
+                                                    限時促銷
+                                                </label>
+                                                {promoEnabled && (
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div>
+                                                            <label className="text-[10px] text-gray-400 mb-1 block">促銷價</label>
+                                                            <input type="number" value={form.web_promo_price} onChange={e => setForm(p => ({ ...p, web_promo_price: Number(e.target.value) }))} className={inputClass + ' text-xs font-medium text-red-600'} />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-gray-400 mb-1 block">開始</label>
+                                                            <input type="datetime-local" value={form.web_promo_price_from} onChange={e => setForm(p => ({ ...p, web_promo_price_from: e.target.value }))} className={inputClass + ' text-xs'} />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-gray-400 mb-1 block">結束</label>
+                                                            <input type="datetime-local" value={form.web_promo_price_to} onChange={e => setForm(p => ({ ...p, web_promo_price_to: e.target.value }))} className={inputClass + ' text-xs'} />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="border-t border-gray-100 pt-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs text-gray-500">可進貨廠商</span>
+                                                    <span className="text-[11px] text-gray-400">{webVendors.length} 家</span>
+                                                </div>
+                                                <div className="space-y-1.5 mb-2">
+                                                    {webVendors.map((v, i) => (
+                                                        <div key={v.id ?? `new-${i}`} className="flex items-center gap-2 text-xs">
+                                                            <button type="button" onClick={() => setWebVendors(a => a.map((r, ri) => ri === i ? { ...r, is_primary: !r.is_primary } : { ...r, is_primary: false }))}
+                                                                className={`px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap ${v.is_primary ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
+                                                                {v.is_primary ? '主要' : '備用'}
+                                                            </button>
+                                                            <select value={v.vendor_id} onChange={e => setWebVendors(a => a.map((r, ri) => ri === i ? { ...r, vendor_id: e.target.value } : r))} className={inputClass + ' flex-1 text-xs py-1'}>
+                                                                <option value="">選擇廠商</option>
+                                                                {vendorList.map(vd => <option key={vd.id} value={vd.id}>{vd.company_name}</option>)}
+                                                            </select>
+                                                            <input type="number" placeholder="成本" value={v.cost ?? ''} onChange={e => setWebVendors(a => a.map((r, ri) => ri === i ? { ...r, cost: e.target.value ? Number(e.target.value) : null } : r))} className={inputClass + ' w-20 text-xs py-1'} />
+                                                            <button type="button" onClick={() => setWebVendors(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <button type="button" onClick={() => setWebVendors(a => [...a, { vendor_id: '', cost: null, is_primary: a.length === 0 }])} className="text-xs text-blue-600 hover:underline">+ 新增供應商</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-1 border-b border-gray-100 -mx-4 px-4 overflow-x-auto">
+                                        {([['intro', '商品介紹'], ['spec', '詳細規格'], ['shop', '購物說明'], ['review', '產品評價']] as const).map(([key, label]) => (
+                                            <button key={key} type="button" onClick={() => setActiveTab(key)} className={`px-4 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${activeTab === key ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>{label}</button>
+                                        ))}
+                                    </div>
+
+                                    <div className="pt-4">
+                                        {activeTab === 'intro' && (
+                                            <div>
+                                                <label className="text-xs text-gray-500 mb-1 block">完整商品介紹</label>
+                                                <HtmlCodeEditor value={form.web_description} onChange={v => setForm(p => ({ ...p, web_description: v }))} rows={8} placeholder="可直接貼上 HTML，例如 <p>...</p>" />
+                                            </div>
+                                        )}
+                                        {activeTab === 'spec' && (
+                                            <div>
+                                                <label className="text-xs text-gray-500 mb-1 block">產品規格（可直接貼上規格表 HTML）</label>
+                                                <HtmlCodeEditor value={form.web_spec_html ?? ''} onChange={v => setForm(p => ({ ...p, web_spec_html: v }))} rows={10} placeholder={'<table class="shop_attributes">\n<tbody>\n<tr><th>品牌</th><td>...</td></tr>\n</tbody>\n</table>'} />
+                                                <div className="border-t border-gray-100 pt-3 mt-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-medium text-gray-700">附加檔案</span>
+                                                        <span className="text-[11px] text-gray-400">{webDownloads.length} 個檔案</span>
+                                                    </div>
+                                                    <div className="space-y-1.5 mb-2">
+                                                        {webDownloads.map((dl, i) => (
+                                                            <div key={dl.id ?? `new-${i}`} className="flex gap-2">
+                                                                <input value={dl.file_name} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_name: e.target.value } : r))} placeholder="檔名（如：使用手冊）" className={inputClass + ' flex-1 text-xs py-1.5'} />
+                                                                <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="下載連結" className={inputClass + ' flex-1 text-xs py-1.5'} />
+                                                                <button type="button" onClick={() => setWebDownloads(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <button type="button" onClick={() => setWebDownloads(a => [...a, { file_name: '', file_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 新增檔案</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {activeTab === 'shop' && (
+                                            <div className="text-xs text-gray-500 leading-relaxed">
+                                                【付款方式】信用卡刷卡、ATM 轉帳、ibon 超商繳費<br />
+                                                【運送方式】宅配到府，商品享原廠一年保固
+                                                <div className="text-[11px] text-gray-300 mt-2 italic">全站固定文案，非逐商品欄位</div>
+                                            </div>
+                                        )}
+                                        {activeTab === 'review' && (
+                                            <div className="text-xs text-gray-400 italic">網站訪客留言與星等，需另外對接資料源，目前僅為頁籤佔位</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setWebExpanded(v => !v)}
+                                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700"
+                                    >
+                                        <span>進階網站設定（SKU／分類／認證字號）</span>
+                                        <ChevronRight size={16} className={`text-gray-400 transition-transform ${webExpanded ? 'rotate-90' : ''}`} />
+                                    </button>
+                                    {webExpanded && (
+                                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">SKU</label>
+                                                <input value={form.web_sku} onChange={e => setForm(p => ({ ...p, web_sku: e.target.value }))} className={inputClass} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">網站商品分類</label>
+                                                <input value={form.web_category} onChange={e => setForm(p => ({ ...p, web_category: e.target.value }))} className={inputClass} placeholder="如：藍牙喇叭系統" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">主圖網址</label>
+                                                <input value={form.web_main_image_url} onChange={e => setForm(p => ({ ...p, web_main_image_url: e.target.value }))} className={inputClass} placeholder="https://..." />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">BSMI 許可字號</label>
+                                                <input value={form.web_bsmi_no} onChange={e => setForm(p => ({ ...p, web_bsmi_no: e.target.value }))} className={inputClass} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">NCC 許可字號</label>
+                                                <input value={form.web_ncc_no} onChange={e => setForm(p => ({ ...p, web_ncc_no: e.target.value }))} className={inputClass} />
+                                            </div>
+                                            <div className="flex items-center gap-2 pt-5">
+                                                <input type="checkbox" id="web_allow_backorder" checked={form.web_allow_backorder} onChange={e => setForm(p => ({ ...p, web_allow_backorder: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
+                                                <label htmlFor="web_allow_backorder" className="text-sm text-gray-700">允許無庫存下單</label>
+                                            </div>
+                                            <div className="flex items-center gap-2 pt-5">
+                                                <input type="checkbox" id="web_publish" checked={form.web_publish} onChange={e => setForm(p => ({ ...p, web_publish: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
+                                                <label htmlFor="web_publish" className="text-sm text-gray-700">顯示於網站</label>
+                                            </div>
+                                            {(form.web_product_id || form.web_product_url) && (
+                                                <div className="col-span-2 sm:col-span-3 text-xs text-gray-400">
+                                                    網站商品 ID：{form.web_product_id || '—'} 連結：{form.web_product_url || '—'}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">儲存</button>
+                        </div>
+                    </div>
+                )}
 
       {/* 產品列表 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
