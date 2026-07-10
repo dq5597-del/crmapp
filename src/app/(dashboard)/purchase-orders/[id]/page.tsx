@@ -17,7 +17,7 @@ export default function PurchaseOrderDetailPage() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ vendor_name: '', vendor_contact: '', vendor_phone: '', notes: '', status: '草稿' })
+  const [form, setForm] = useState({ vendor_name: '', vendor_contact: '', vendor_phone: '', notes: '', status: '草稿', signer_name: '', signed_date: '' })
 
   useEffect(() => {
     Promise.all([
@@ -26,7 +26,7 @@ export default function PurchaseOrderDetailPage() {
     ]).then(([oRes, iRes]) => {
       if (oRes.data) {
         setOrder(oRes.data)
-        setForm({ vendor_name: oRes.data.vendor_name ?? '', vendor_contact: oRes.data.vendor_contact ?? '', vendor_phone: oRes.data.vendor_phone ?? '', notes: oRes.data.notes ?? '', status: oRes.data.status ?? '草稿' })
+        setForm({ vendor_name: oRes.data.vendor_name ?? '', vendor_contact: oRes.data.vendor_contact ?? '', vendor_phone: oRes.data.vendor_phone ?? '', notes: oRes.data.notes ?? '', status: oRes.data.status ?? '草稿', signer_name: oRes.data.signer_name ?? '', signed_date: oRes.data.signed_date ?? '' })
       }
       setItems(iRes.data ?? [])
       setLoading(false)
@@ -35,7 +35,7 @@ export default function PurchaseOrderDetailPage() {
 
   async function handleSave() {
     setSaving(true)
-    await supabase.from('purchase_orders').update(form).eq('id', id)
+    await supabase.from('purchase_orders').update({ ...form, signed_date: form.signed_date || null }).eq('id', id)
     setSaving(false)
     alert('已儲存')
   }
@@ -119,6 +119,25 @@ export default function PurchaseOrderDetailPage() {
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
         <label className="text-sm font-medium text-gray-700 block mb-2">備註</label>
         <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={3} className={inputClass + ' resize-none'} />
+      </div>
+
+      {/* 廠商簽名 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+        <h2 className="font-semibold text-gray-900 mb-4">廠商簽名確認</h2>
+        <div className="border border-dashed border-gray-300 rounded-xl h-24 flex items-end px-4 pb-2 mb-4">
+          <span className="text-xs text-gray-400">廠商簽名</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">簽署人姓名</label>
+            <input value={form.signer_name} onChange={e => setForm(p => ({ ...p, signer_name: e.target.value }))}
+              placeholder="廠商簽回後，由業務登錄簽署人姓名" className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">簽署日期</label>
+            <input type="date" value={form.signed_date} onChange={e => setForm(p => ({ ...p, signed_date: e.target.value }))} className={inputClass} />
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end">

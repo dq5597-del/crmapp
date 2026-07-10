@@ -42,6 +42,8 @@ export default function SalesOrderDetailPage() {
   const [bankAccount, setBankAccount] = useState('')
   const [status, setStatus] = useState('草稿')
   const [notes, setNotes] = useState('')
+  const [signerName, setSignerName] = useState('')
+  const [signedDate, setSignedDate] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -61,6 +63,8 @@ export default function SalesOrderDetailPage() {
       setBankAccount(o?.bank_account ?? '')
       setStatus(o?.status ?? '草稿')
       setNotes(o?.notes ?? '')
+      setSignerName(o?.signer_name ?? '')
+      setSignedDate(o?.signed_date ?? '')
       setItems(
         (iRes.data ?? []).map((i: any) => ({
           id: i.id,
@@ -112,6 +116,8 @@ export default function SalesOrderDetailPage() {
         bank_account: bankAccount,
         status,
         notes,
+        signer_name: signerName,
+        signed_date: signedDate || null,
         subtotal,
         tax_amount: taxAmount,
         total_amount: totalAmount,
@@ -313,6 +319,27 @@ export default function SalesOrderDetailPage() {
           className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
           placeholder="輸入備註..."
         />
+      </div>
+
+      {/* 客戶簽名 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">客戶簽名確認</h2>
+        <div className="border border-dashed border-gray-300 rounded-xl h-24 flex items-end px-4 pb-2 mb-4">
+          <span className="text-xs text-gray-400">客戶簽名</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">簽署人姓名</label>
+            <input value={signerName} onChange={e => setSignerName(e.target.value)}
+              placeholder="客戶簽回後，由業務登錄簽署人姓名"
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">簽署日期</label>
+            <input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end">
