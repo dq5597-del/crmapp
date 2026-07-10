@@ -220,6 +220,19 @@ export default function SettingsPage() {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: role as any } : u))
   }
 
+  function handleNameInput(userId: string, full_name: string) {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, full_name } : u))
+  }
+
+  async function handleNameSave(userId: string, full_name: string) {
+    await supabase.from('user_profiles').update({ full_name: full_name.trim() || null }).eq('id', userId)
+  }
+
+  async function handleActiveToggle(userId: string, is_active: boolean) {
+    await supabase.from('user_profiles').update({ is_active }).eq('id', userId)
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active } : u))
+  }
+
   if (loading) return <div className="p-8 text-center text-gray-400">載入中...</div>
 
   const inputClass = "w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -381,21 +394,35 @@ export default function SettingsPage() {
 
       {tab === 'users' && isAdmin && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h2 className="font-semibold text-gray-900 mb-4">帳號管理</h2>
+          <h2 className="font-semibold text-gray-900 mb-1">員工建檔 / 帳號管理</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            在此設定每個帳號的顯示姓名，設定後即可在報價單、銷貨單、訂購單的「業務員」欄位選擇。停用的帳號不會出現在業務員選單中。
+          </p>
           {users.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-8">尚無帳號資料</p>
           ) : (
             <div className="space-y-3">
               {users.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl">
-                  <div>
-                    <div className="font-medium text-gray-900">{u.full_name ?? '未設定名稱'}</div>
-                    <div className="text-xs text-gray-500">ID: {u.id.slice(0, 8)}...</div>
+                <div key={u.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border border-gray-100 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <label className="text-xs text-gray-500 mb-1 block">姓名（業務員選單顯示用）</label>
+                    <input
+                      value={u.full_name ?? ''}
+                      onChange={e => handleNameInput(u.id, e.target.value)}
+                      onBlur={e => handleNameSave(u.id, e.target.value)}
+                      placeholder="輸入員工姓名"
+                      className="w-full max-w-xs px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="text-xs text-gray-400 mt-1">ID: {u.id.slice(0, 8)}...</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {u.is_active ? '啟用' : '停用'}
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleActiveToggle(u.id, !u.is_active)}
+                      className={`text-xs px-2 py-0.5 rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                    >
+                      {u.is_active ? '啟用中（點擊停用）' : '已停用（點擊啟用）'}
+                    </button>
                     <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)}
                       className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="user">一般使用者</option>
@@ -408,7 +435,7 @@ export default function SettingsPage() {
             </div>
           )}
           <p className="text-xs text-gray-400 mt-4">
-            新增使用者：請到 Supabase Dashboard → Authentication → Users → Invite user
+            新增使用者帳號（登入用）：請到 Supabase Dashboard → Authentication → Users → Invite user，新帳號登入後會自動出現在上方列表，再回來設定姓名即可。
           </p>
         </div>
       )}
