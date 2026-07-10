@@ -22,10 +22,14 @@ type ProjForm = {
   client_id: string; project_name: string; scene_name: string; user_type: string
   status: string; start_date: string; end_date: string; budget: string
   description: string; notes: string
+  main_function: string; equipment_needs: string; audio_needs: string; video_needs: string
+  interaction_needs: string; control_needs: string; other_needs: string; venue_specs: string
 }
 const EMPTY: ProjForm = {
   client_id: '', project_name: '', scene_name: '', user_type: '',
   status: '規劃中', start_date: '', end_date: '', budget: '', description: '', notes: '',
+  main_function: '', equipment_needs: '', audio_needs: '', video_needs: '',
+  interaction_needs: '', control_needs: '', other_needs: '', venue_specs: '',
 }
 
 export default function ProjectsFolderPage() {
@@ -91,6 +95,9 @@ export default function ProjectsFolderPage() {
       user_type: p.user_type ?? '', status: p.status ?? '規劃中',
       start_date: p.start_date ?? '', end_date: p.end_date ?? '',
       budget: p.budget != null ? String(p.budget) : '', description: p.description ?? '', notes: p.notes ?? '',
+      main_function: p.main_function ?? '', equipment_needs: p.equipment_needs ?? '', audio_needs: p.audio_needs ?? '',
+      video_needs: p.video_needs ?? '', interaction_needs: p.interaction_needs ?? '', control_needs: p.control_needs ?? '',
+      other_needs: p.other_needs ?? '', venue_specs: p.venue_specs ?? '',
     })
     setClientSearch(p.clients?.company_name ?? '')
     setModalOpen(true)
@@ -111,6 +118,14 @@ export default function ProjectsFolderPage() {
       budget: form.budget ? Number(form.budget) : null,
       description: form.description || null,
       notes: form.notes || null,
+      main_function: form.main_function || null,
+      equipment_needs: form.equipment_needs || null,
+      audio_needs: form.audio_needs || null,
+      video_needs: form.video_needs || null,
+      interaction_needs: form.interaction_needs || null,
+      control_needs: form.control_needs || null,
+      other_needs: form.other_needs || null,
+      venue_specs: form.venue_specs || null,
     }
     const { error } = editingId
       ? await supabase.from('projects').update(payload).eq('id', editingId)
@@ -282,6 +297,19 @@ export default function ProjectsFolderPage() {
                 <div><label className="block text-xs text-gray-500 mb-1">完工日期</label><input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} className={inp} /></div>
               </div>
               <div><label className="block text-xs text-gray-500 mb-1">專案描述</label><textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className={inp} /></div>
+
+              <div className="pt-1 border-t border-gray-100" />
+              <div className="text-xs font-semibold text-gray-500">需求分析</div>
+              <div><label className="block text-xs text-gray-500 mb-1">主要功能定位</label><input value={form.main_function} onChange={e => setForm(f => ({ ...f, main_function: e.target.value }))} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-xs text-gray-500 mb-1">設備需求</label><textarea rows={2} value={form.equipment_needs} onChange={e => setForm(f => ({ ...f, equipment_needs: e.target.value }))} className={inp} /></div>
+                <div><label className="block text-xs text-gray-500 mb-1">音響需求</label><textarea rows={2} value={form.audio_needs} onChange={e => setForm(f => ({ ...f, audio_needs: e.target.value }))} className={inp} /></div>
+                <div><label className="block text-xs text-gray-500 mb-1">影像需求</label><textarea rows={2} value={form.video_needs} onChange={e => setForm(f => ({ ...f, video_needs: e.target.value }))} className={inp} /></div>
+                <div><label className="block text-xs text-gray-500 mb-1">互動需求</label><textarea rows={2} value={form.interaction_needs} onChange={e => setForm(f => ({ ...f, interaction_needs: e.target.value }))} className={inp} /></div>
+                <div><label className="block text-xs text-gray-500 mb-1">控制需求</label><textarea rows={2} value={form.control_needs} onChange={e => setForm(f => ({ ...f, control_needs: e.target.value }))} className={inp} /></div>
+                <div><label className="block text-xs text-gray-500 mb-1">其他需求</label><textarea rows={2} value={form.other_needs} onChange={e => setForm(f => ({ ...f, other_needs: e.target.value }))} className={inp} /></div>
+              </div>
+              <div><label className="block text-xs text-gray-500 mb-1">場地規格</label><textarea rows={2} value={form.venue_specs} onChange={e => setForm(f => ({ ...f, venue_specs: e.target.value }))} className={inp} /></div>
               <div><label className="block text-xs text-gray-500 mb-1">備註</label><textarea rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={inp} /></div>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t sticky bottom-0 bg-white">

@@ -101,6 +101,19 @@ export default async function ProjectOverviewPrintPage({ params }: { params: { i
         </div>
 
         <div className="section">
+          <div className="section-title">需求分析</div>
+          <table>
+            <tbody>
+              <tr><th>主要功能定位</th><td colSpan={3}>{project.main_function || '—'}</td></tr>
+              <tr><th>設備需求</th><td>{project.equipment_needs || '—'}</td><th>音響需求</th><td>{project.audio_needs || '—'}</td></tr>
+              <tr><th>影像需求</th><td>{project.video_needs || '—'}</td><th>互動需求</th><td>{project.interaction_needs || '—'}</td></tr>
+              <tr><th>控制需求</th><td>{project.control_needs || '—'}</td><th>其他需求</th><td>{project.other_needs || '—'}</td></tr>
+              <tr><th>場地規格</th><td colSpan={3}>{project.venue_specs || '—'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="section">
           <div className="section-title">備註</div>
           <div className="textbox">{project.notes || '—'}</div>
         </div>
