@@ -8,12 +8,13 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote
+  MessageSquareQuote, StickyNote, FolderKanban
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItemsTop = [
   { href: '/', label: '戰情室', icon: LayoutDashboard },
+  { href: '/projects', label: '專案資料夾', icon: FolderKanban },
 ] // top nav
 
 const businessItems = [
