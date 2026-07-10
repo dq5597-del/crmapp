@@ -174,7 +174,9 @@ export default function QuoteDetailPage() {
     const { data: newOrder } = await supabase.from('purchase_orders').insert({
       order_no,
       quote_id: quote.id,
-      vendor_name: '',
+      vendor_name: clientName !== '—' ? clientName : '',
+      vendor_contact: quote.contact_name ?? '',
+      vendor_phone: quote.client_phone ?? '',
       payment_terms: quote.payment_terms,
       subtotal: quote.subtotal,
       tax_amount: quote.tax_amount,
