@@ -11,6 +11,15 @@ export default function SettingsPage() {
   const supabase = createClient()
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [users, setUsers] = useState<UserProfile[]>([])
+  const [userSaveErrors, setUserSaveErrors] = useState<Record<string, string>>({})
+  function setUserSaveError(userId: string, message: string | null) {
+    setUserSaveErrors(prev => {
+      const next = { ...prev }
+      if (message) next[userId] = message
+      else delete next[userId]
+      return next
+    })
+  }
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState<TabKey>('company')
@@ -216,7 +225,10 @@ export default function SettingsPage() {
   }
 
   async function handleRoleChange(userId: string, role: string) {
-    await supabase.from('user_profiles').update({ role }).eq('id', userId)
+    const { data, error } = await supabase.from('user_profiles').update({ role }).eq('id', userId).select()
+    if (error) { console.error('[user_profiles update error]', error); setUserSaveError(userId, '更新角色失敗：' + error.message); return }
+    if (!data || data.length === 0) { console.error('[user_profiles update] zero rows affected (RLS blocked?)', { userId, role }); setUserSaveError(userId, '更新角色失敗：資料庫拒絕了這筆修改（權限規則問題）'); return }
+    setUserSaveError(userId, null)
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: role as any } : u))
   }
 
@@ -225,11 +237,17 @@ export default function SettingsPage() {
   }
 
   async function handleNameSave(userId: string, full_name: string) {
-    await supabase.from('user_profiles').update({ full_name: full_name.trim() || null }).eq('id', userId)
+    const { data, error } = await supabase.from('user_profiles').update({ full_name: full_name.trim() || null }).eq('id', userId).select()
+    if (error) { console.error('[user_profiles update error]', error); setUserSaveError(userId, '儲存姓名失敗：' + error.message); return }
+    if (!data || data.length === 0) { console.error('[user_profiles update] zero rows affected (RLS blocked?)', { userId, full_name }); setUserSaveError(userId, '儲存姓名失敗：資料庫拒絕了這筆修改（權限規則問題）'); return }
+    setUserSaveError(userId, null)
   }
 
   async function handleActiveToggle(userId: string, is_active: boolean) {
-    await supabase.from('user_profiles').update({ is_active }).eq('id', userId)
+    const { data, error } = await supabase.from('user_profiles').update({ is_active }).eq('id', userId).select()
+    if (error) { console.error('[user_profiles update error]', error); setUserSaveError(userId, '更新啟用狀態失敗：' + error.message); return }
+    if (!data || data.length === 0) { console.error('[user_profiles update] zero rows affected (RLS blocked?)', { userId, is_active }); setUserSaveError(userId, '更新啟用狀態失敗：資料庫拒絕了這筆修改（權限規則問題）'); return }
+    setUserSaveError(userId, null)
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active } : u))
   }
 
@@ -414,6 +432,9 @@ export default function SettingsPage() {
                       className="w-full max-w-xs px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <div className="text-xs text-gray-400 mt-1">ID: {u.id.slice(0, 8)}...</div>
+                    {userSaveErrors[u.id] && (
+                      <div className="text-xs text-red-600 mt-1 font-medium">{userSaveErrors[u.id]}</div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <button
