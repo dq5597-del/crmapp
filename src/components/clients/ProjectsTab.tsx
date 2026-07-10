@@ -1189,6 +1189,165 @@ function BoolField({ label, value, onChange }: { label: string; value: boolean; 
   )
 }
 
+// ── Desk Layout (桌面設備配置圖) ───────────────────────────────
+type DeskObj = { id: number; type: 'table' | 'equip'; name: string; x: number; y: number; w: number; d: number; rot: number; product_id?: string | null }
+function DeskLayoutSection({ projectId, supabase, onBeforeUpload }: {
+  projectId: string
+  supabase: ReturnType<typeof createClient>
+  onBeforeUpload?: () => Promise<boolean>
+}) {
+  const [room, setRoom] = useState({ w: 600, d: 400 })
+  const [objects, setObjects] = useState<DeskObj[]>([])
+  const [selId, setSelId] = useState<number | null>(null)
+  const [seq, setSeq] = useState(1)
+  const [scale, setScale] = useState(0.9)
+  const [snap, setSnap] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [products, setProducts] = useState<any[]>([])
+  const [equipProd, setEquipProd] = useState('')
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const dragRef = useRef<{ o: DeskObj; dx: number; dy: number } | null>(null)
+
+  useEffect(() => {
+    supabase.from('project_desk_layouts').select('data').eq('project_id', projectId).maybeSingle()
+      .then(({ data }: any) => {
+        const d = data?.data
+        if (d?.room) setRoom(d.room)
+        if (Array.isArray(d?.objects)) { setObjects(d.objects); setSeq(Math.max(0, ...d.objects.map((o: any) => o.id)) + 1) }
+        setLoaded(true)
+      })
+    supabase.from('products').select('*').eq('is_active', true).order('product_name')
+      .then(({ data }: any) => setProducts(data ?? []))
+  }, [projectId])
+
+  const PAD = 26
+  const W = room.w * scale, D = room.d * scale
+  const sel = objects.find(o => o.id === selId) || null
+
+  function svgPoint(e: React.PointerEvent) {
+    const svg = svgRef.current!; const pt = svg.createSVGPoint()
+    pt.x = e.clientX; pt.y = e.clientY
+    const r = pt.matrixTransform(svg.getScreenCTM()!.inverse())
+    return { x: r.x - PAD, y: r.y - PAD }
+  }
+  function onDown(e: React.PointerEvent, o: DeskObj) {
+    e.stopPropagation(); setSelId(o.id)
+    const q = svgPoint(e); dragRef.current = { o, dx: q.x / scale - o.x, dy: q.y / scale - o.y }
+    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+  }
+  function onMove(e: React.PointerEvent) {
+    if (!dragRef.current) return
+    const q = svgPoint(e)
+    let nx = q.x / scale - dragRef.current.dx, ny = q.y / scale - dragRef.current.dy
+    if (snap) { nx = Math.round(nx / 10) * 10; ny = Math.round(ny / 10) * 10 }
+    const o = dragRef.current.o
+    nx = Math.max(0, Math.min(room.w - o.w, nx)); ny = Math.max(0, Math.min(room.d - o.d, ny))
+    setObjects(prev => prev.map(x => x.id === o.id ? { ...x, x: nx, y: ny } : x))
+    dragRef.current.o = { ...o, x: nx, y: ny }
+  }
+  function onUp() { dragRef.current = null }
+
+  function addTable() {
+    const id = seq
+    setObjects(o => [...o, { id, type: 'table', name: `桌子${o.filter(t => t.type === 'table').length + 1}`, x: 20, y: 20, w: 180, d: 75, rot: 0 }])
+    setSelId(id); setSeq(v => v + 1)
+  }
+  function addEquip() {
+    const id = seq
+    let name = '新設備', w = 44, d = 40, pid: string | null = null
+    if (equipProd) { const pr = products.find(p => p.id === equipProd); if (pr) { name = pr.product_name; w = Number(pr.width_cm) || 44; d = Number(pr.depth_cm) || 40; pid = pr.id } }
+    setObjects(o => [...o, { id, type: 'equip', name, x: 40, y: 40, w, d, rot: 0, product_id: pid }])
+    setSelId(id); setSeq(v => v + 1)
+  }
+  function patchSel(patch: Partial<DeskObj>) { if (selId == null) return; setObjects(prev => prev.map(o => o.id === selId ? { ...o, ...patch } : o)) }
+  function delSel() { if (selId == null) return; setObjects(prev => prev.filter(o => o.id !== selId)); setSelId(null) }
+
+  async function save() {
+    if (onBeforeUpload) { const ok = await onBeforeUpload(); if (!ok) return }
+    setSaving(true)
+    const { error } = await supabase.from('project_desk_layouts').upsert({ project_id: projectId, data: { room, objects } }, { onConflict: 'project_id' })
+    setSaving(false)
+    if (error) alert('儲存失敗：' + error.message)
+    else alert('已儲存桌面配置圖')
+  }
+
+  const num = (o: DeskObj) => objects.indexOf(o) + 1
+  const gx = Math.floor(room.w / 50), gy = Math.floor(room.d / 50)
+
+  if (!loaded) return <div className="text-sm text-gray-400 p-3">載入中…</div>
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <button type="button" onClick={addTable} className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 font-medium">＋ 桌子</button>
+        <select value={equipProd} onChange={e => setEquipProd(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm max-w-[200px]">
+          <option value="">設備（手動尺寸）</option>
+          {products.map(p => <option key={p.id} value={p.id}>{p.product_name}{p.width_cm ? ` (${p.width_cm}×${p.depth_cm})` : ''}</option>)}
+        </select>
+        <button type="button" onClick={addEquip} className="px-3 py-1.5 rounded-lg bg-blue-100 text-blue-800 font-medium">＋ 設備</button>
+        <span className="text-gray-300">|</span>
+        <label className="flex items-center gap-1 text-gray-600">場地寬<input type="number" value={room.w} onChange={e => setRoom(r => ({ ...r, w: Number(e.target.value) || 600 }))} className="w-16 border border-gray-200 rounded px-1 py-0.5" />×深<input type="number" value={room.d} onChange={e => setRoom(r => ({ ...r, d: Number(e.target.value) || 400 }))} className="w-16 border border-gray-200 rounded px-1 py-0.5" />cm</label>
+        <label className="flex items-center gap-1 text-gray-600"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />對齊10cm</label>
+        <label className="flex items-center gap-1 text-gray-600">縮放<input type="range" min={0.3} max={2} step={0.1} value={scale} onChange={e => setScale(Number(e.target.value))} /></label>
+      </div>
+
+      <div className="flex gap-3 flex-col lg:flex-row">
+        <div className="overflow-auto border border-gray-200 rounded-xl bg-slate-50 p-2" style={{ maxHeight: 460 }}>
+          <svg ref={svgRef} width={W + PAD * 2} height={D + PAD * 2} onPointerMove={onMove} onPointerUp={onUp} onPointerDown={() => setSelId(null)} style={{ background: '#fff', touchAction: 'none' }}>
+            <g transform={`translate(${PAD},${PAD})`}>
+              <rect x={0} y={0} width={W} height={D} fill="#fff" stroke="#94a3b8" strokeWidth={1.5} />
+              {Array.from({ length: gx + 1 }).map((_, i) => <line key={'v' + i} x1={i * 50 * scale} y1={0} x2={i * 50 * scale} y2={D} stroke="#eef2f7" />)}
+              {Array.from({ length: gy + 1 }).map((_, i) => <line key={'h' + i} x1={0} y1={i * 50 * scale} x2={W} y2={i * 50 * scale} stroke="#eef2f7" />)}
+              <text x={W / 2} y={-8} fontSize={11} fill="#64748b" textAnchor="middle">場地 {room.w}×{room.d} cm（俯視）</text>
+              {[...objects.filter(o => o.type === 'table'), ...objects.filter(o => o.type === 'equip')].map(o => {
+                const isSel = o.id === selId, isT = o.type === 'table'
+                const cx = (o.x + o.w / 2) * scale, cy = (o.y + o.d / 2) * scale
+                return (
+                  <g key={o.id} transform={`rotate(${o.rot || 0} ${cx} ${cy})`} style={{ cursor: 'move' }} onPointerDown={e => onDown(e, o)}>
+                    <rect x={o.x * scale} y={o.y * scale} width={o.w * scale} height={o.d * scale} rx={isT ? 3 : 2}
+                      fill={isT ? '#c8a878' : (isSel ? '#fbbf24' : '#60a5fa')} fillOpacity={isT ? 1 : 0.88}
+                      stroke={isSel ? '#f59e0b' : (isT ? '#a9835a' : '#2563eb')} strokeWidth={isSel ? 2.5 : 1.5} />
+                    <circle cx={o.x * scale + 10} cy={o.y * scale + 10} r={9} fill={isT ? '#8a6b45' : '#1d4ed8'} stroke="#fff" strokeWidth={1.5} />
+                    <text x={o.x * scale + 10} y={o.y * scale + 10} fontSize={11} fill="#fff" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>{num(o)}</text>
+                  </g>
+                )
+              })}
+            </g>
+          </svg>
+        </div>
+
+        <div className="w-full lg:w-64 space-y-2">
+          {sel ? (
+            <div className="border border-gray-200 rounded-xl p-3 space-y-2 text-sm">
+              <div className="font-medium">#{num(sel)} 屬性</div>
+              <label className="block text-xs text-gray-500">名稱<input value={sel.name} onChange={e => patchSel({ name: e.target.value })} className="w-full border border-gray-200 rounded px-2 py-1 mt-0.5" /></label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs text-gray-500">寬W<input type="number" value={sel.w} onChange={e => patchSel({ w: Number(e.target.value) || sel.w })} className="w-full border border-gray-200 rounded px-2 py-1 mt-0.5" /></label>
+                <label className="block text-xs text-gray-500">深D<input type="number" value={sel.d} onChange={e => patchSel({ d: Number(e.target.value) || sel.d })} className="w-full border border-gray-200 rounded px-2 py-1 mt-0.5" /></label>
+              </div>
+              <button type="button" onClick={() => patchSel({ rot: ((sel.rot || 0) + 90) % 360 })} className="w-full border border-gray-200 rounded-lg py-1.5 text-gray-600">↻ 旋轉 90°</button>
+              <button type="button" onClick={delSel} className="w-full border border-red-200 text-red-600 rounded-lg py-1.5">🗑 刪除</button>
+            </div>
+          ) : <div className="text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl p-3">點畫布上的桌子或設備可編輯</div>}
+          <div className="border border-gray-200 rounded-xl p-3">
+            <div className="text-xs font-semibold text-gray-500 mb-1">圖例</div>
+            <ul className="space-y-1 text-sm">
+              {objects.map((o, i) => (
+                <li key={o.id} onClick={() => setSelId(o.id)} className={`flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer ${o.id === selId ? 'bg-blue-50' : ''}`}>
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-white text-[10px] shrink-0" style={{ background: o.type === 'table' ? '#8a6b45' : '#1d4ed8' }}>{i + 1}</span>
+                  <span className="truncate">{o.name}</span><span className="ml-auto text-[11px] text-gray-400 shrink-0">{o.w}×{o.d}</span>
+                </li>
+              ))}
+              {objects.length === 0 && <li className="text-xs text-gray-400">尚無物件</li>}
+            </ul>
+          </div>
+          <button type="button" onClick={save} disabled={saving} className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm disabled:opacity-60">{saving ? '儲存中…' : '儲存桌面配置圖'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ───────────────────────────────────────────
 export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId: string; autoEditProjectId?: string }) {
   const supabase = createClient()
@@ -1534,6 +1693,14 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 supabase={supabase}
                 initLength={survey.space_length}
                 initWidth={survey.space_width}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="🖥️ 桌面設備配置圖" color={PURPLE}>
+              <DeskLayoutSection
+                projectId={editingId as string}
+                supabase={supabase}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
