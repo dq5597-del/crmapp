@@ -155,12 +155,9 @@ export default function QuoteDetailPage() {
     setActionLoading('')
   }
 
-  // 轉訂購單
+  // 轉訂購單（任何已存檔狀態皆可轉，且允許重複轉——每次建立一張新訂購單）
   async function handleToPurchaseOrder() {
-    if (!quote || quote.status !== '已確認') {
-      alert('只有「已確認」的報價單才能轉換為訂購單')
-      return
-    }
+    if (!quote) return
     setActionLoading('purchase')
     const today = new Date()
     const yy = String(today.getFullYear()).slice(2)
@@ -214,6 +211,9 @@ export default function QuoteDetailPage() {
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-900"><ArrowLeft size={20} /></button>
           <h1 className="text-xl font-bold text-gray-900">編輯報價單 {quote.quote_no}</h1>
+          <button onClick={handleToPurchaseOrder} disabled={actionLoading === 'purchase'} className="ml-auto flex items-center gap-1.5 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+            <Truck size={14} /> {actionLoading === 'purchase' ? '轉換中...' : '轉訂購單'}
+          </button>
         </div>
         <QuoteForm
           initialQuote={quote}
@@ -270,15 +270,14 @@ export default function QuoteDetailPage() {
           <Copy size={14} /> {actionLoading === 'copy' ? '複製中...' : '複製報價單'}
         </button>
         {quote.status === '已確認' && (
-          <>
-            <button onClick={handleToSalesOrder} disabled={actionLoading === 'sales'} className="flex items-center gap-1.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-xl text-sm font-medium">
-              <ShoppingCart size={14} /> {actionLoading === 'sales' ? '轉換中...' : '轉銷貨單'}
-            </button>
-            <button onClick={handleToPurchaseOrder} disabled={actionLoading === 'purchase'} className="flex items-center gap-1.5 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-2 rounded-xl text-sm font-medium">
-              <Truck size={14} /> {actionLoading === 'purchase' ? '轉換中...' : '轉訂購單'}
-            </button>
-          </>
+          <button onClick={handleToSalesOrder} disabled={actionLoading === 'sales'} className="flex items-center gap-1.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-xl text-sm font-medium">
+            <ShoppingCart size={14} /> {actionLoading === 'sales' ? '轉換中...' : '轉銷貨單'}
+          </button>
         )}
+        {/* 轉訂購單：任何已存檔狀態皆可，允許重複轉（每次建立一張新訂購單）*/}
+        <button onClick={handleToPurchaseOrder} disabled={actionLoading === 'purchase'} className="flex items-center gap-1.5 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
+          <Truck size={14} /> {actionLoading === 'purchase' ? '轉換中...' : (quote.status === '已轉訂購單' ? '再轉訂購單' : '轉訂購單')}
+        </button>
       </div>
 
       {/* Quote info */}
