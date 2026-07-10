@@ -1190,7 +1190,7 @@ function BoolField({ label, value, onChange }: { label: string; value: boolean; 
 }
 
 // ── Main Component ───────────────────────────────────────────
-export default function ProjectsTab({ clientId }: { clientId: string }) {
+export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId: string; autoEditProjectId?: string }) {
   const supabase = createClient()
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -1203,6 +1203,14 @@ export default function ProjectsTab({ clientId }: { clientId: string }) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { fetchProjects() }, [clientId])
+
+  const autoOpenedRef = useRef(false)
+  useEffect(() => {
+    if (autoEditProjectId && !autoOpenedRef.current && projects.length) {
+      const proj = projects.find((x: any) => x.id === autoEditProjectId)
+      if (proj) { autoOpenedRef.current = true; startEdit(proj) }
+    }
+  }, [autoEditProjectId, projects])
 
   async function fetchProjects() {
     const { data } = await supabase.from('projects').select('*').eq('client_id', clientId).order('created_at', { ascending: false })

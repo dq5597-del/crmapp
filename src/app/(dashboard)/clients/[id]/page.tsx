@@ -35,12 +35,20 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
+  const [autoEditId, setAutoEditId] = useState<string | undefined>(undefined)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   // Quote counts for badge
   const [quoteCount, setQuoteCount] = useState(0)
   const [clientQuotes, setClientQuotes] = useState<Quote[]>([])
+
+  // 從網址讀取 ?tab= / ?edit=（供「專案資料夾」深連結進完整編輯器）
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const t = sp.get('tab'); if (t) setActiveTab(t)
+    const e = sp.get('edit'); if (e) setAutoEditId(e)
+  }, [])
 
   useEffect(() => {
     fetchClient()
@@ -219,7 +227,7 @@ export default function ClientDetailPage() {
       {activeTab === 'contacts' && <ContactsTab clientId={id} />}
       {activeTab === 'dates' && <ImportantDatesTab clientId={id} />}
       {activeTab === 'visits' && <VisitsTab clientId={id} />}
-      {activeTab === 'projects' && <ProjectsTab clientId={id} />}
+      {activeTab === 'projects' && <ProjectsTab clientId={id} autoEditProjectId={autoEditId} />}
       {activeTab === 'competitors' && <CompetitorsTab clientId={id} />}
       {activeTab === 'quotes' && (
         <div className="space-y-3">
