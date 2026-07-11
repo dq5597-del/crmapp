@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +54,8 @@ const accountingItems = [
 
 const hrItems = [
   { href: '/hr/employees',   label: '員工資料',        icon: Contact },
+  { href: '/hr/attendance',  label: '出勤紀錄',        icon: CalendarCheck },
+  { href: '/hr/leaves',      label: '請假管理',        icon: CalendarOff },
   { href: '/hr/contractors', label: '協力廠商／臨時工', icon: HardHat },
 ]
 
