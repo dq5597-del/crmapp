@@ -12,7 +12,57 @@ export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
   const el = document.getElementById('print-page-content')
   if (!el) throw new Error('找不到文件內容')
 
-  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+  // ── 手機修正 ────────────────────────────────────────────────
+  // html2canvas 會依元素「當下實際寬度」截圖。手機視窗只有 3xx px，
+  // 版面會被壓縮後再拉伸成 A4，導致內容擠在一起。
+  // 因此截圖前先暫時把內容固定成 A4 寬度（96dpi），截完再還原。
+  const A4_W_PX = landscape ? 1123 : 794
+  const prevStyle = {
+    width: el.style.width,
+    minWidth: el.style.minWidth,
+    maxWidth: el.style.maxWidth,
+  }
+  el.style.width = `${A4_W_PX}px`
+  el.style.minWidth = `${A4_W_PX}px`
+  el.style.maxWidth = 'none'
+  // 等一次 layout，確保新寬度已套用
+  await new Promise(r => requestAnimationFrame(() => r(null)))
+
+  let canvas: HTMLCanvasElement
+  let rootRect: DOMRect
+  let candidates: number[]
+  try {
+    canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      width: A4_W_PX,
+      windowWidth: A4_W_PX,
+    })
+
+    // 切點必須在「固定寬度」狀態下量測，否則手機上比例會錯
+    rootRect = el.getBoundingClientRect()
+    const scale = canvas.width / rootRect.width
+    const SELECTOR = [
+      'tr', 'thead',
+      '.section', '.section-title',
+      '.photo-cell', '.photo-grid',
+      '.warn-box', '.notes-stamp-row', '.declare',
+      '.info-row', 'h1', 'li',
+    ].join(', ')
+    const cutSet = new Set<number>([0])
+    el.querySelectorAll(SELECTOR).forEach(node => {
+      const r = (node as HTMLElement).getBoundingClientRect()
+      const top = Math.round((r.top - rootRect.top) * scale)
+      if (top > 0 && top < canvas.height) cutSet.add(top)
+    })
+    candidates = Array.from(cutSet).sort((a, b) => a - b)
+  } finally {
+    // 還原畫面樣式
+    el.style.width = prevStyle.width
+    el.style.minWidth = prevStyle.minWidth
+    el.style.maxWidth = prevStyle.maxWidth
+  }
 
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' })
   const pageW = pdf.internal.pageSize.getWidth()
@@ -22,24 +72,6 @@ export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
 
   const pxPerMm = canvas.width / pageW                      // canvas 像素 ↔ mm 換算
   const capacity = Math.floor((pageH - marginTop - marginBottom) * pxPerMm) // 每頁可放的 canvas 高度
-
-  // 收集「不可切斷區塊」的上緣位置（canvas 像素）作為安全切點
-  const rootRect = el.getBoundingClientRect()
-  const scale = canvas.width / rootRect.width
-  const SELECTOR = [
-    'tr', 'thead',
-    '.section', '.section-title',
-    '.photo-cell', '.photo-grid',
-    '.warn-box', '.notes-stamp-row', '.declare',
-    '.info-row', 'h1', 'li',
-  ].join(', ')
-  const cutSet = new Set<number>([0])
-  el.querySelectorAll(SELECTOR).forEach(node => {
-    const r = (node as HTMLElement).getBoundingClientRect()
-    const top = Math.round((r.top - rootRect.top) * scale)
-    if (top > 0 && top < canvas.height) cutSet.add(top)
-  })
-  const candidates = Array.from(cutSet).sort((a, b) => a - b)
 
   let y = 0
   let firstPage = true
