@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload } from 'lucide-react'
 import Link from 'next/link'
 
 type MarketPriceRow = {
@@ -583,6 +583,28 @@ export default function ProductsPage() {
     fetchAll()
   }
 
+  // ── 圖片上傳到 Google Drive（產品圖需公開連結，官網才抓得到）──
+  const [imgUploading, setImgUploading] = useState<string | null>(null)
+
+  async function uploadImage(file: File, key: string): Promise<string | null> {
+    setImgUploading(key)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', '產品圖片')
+      fd.append('public', '1')          // 官網要抓 → 公開連結
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+      return data.public_url ?? null
+    } catch (e: any) {
+      alert('圖片上傳失敗：' + e.message)
+      return null
+    } finally {
+      setImgUploading(null)
+    }
+  }
+
   // ── 官網（av-shop.com）同步 ──
   const [pushing, setPushing] = useState<string | null>(null)
   const [pushSel, setPushSel] = useState<string[]>([])
@@ -867,7 +889,22 @@ export default function ProductsPage() {
                                                         <button type="button" onClick={() => setWebImages(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
                                                     </div>
                                                 ))}
-                                                <button type="button" onClick={() => setWebImages(a => [...a, { image_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 新增圖片</button>
+                                                <div className="flex items-center gap-3">
+                                                  <button type="button" onClick={() => setWebImages(a => [...a, { image_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 貼網址</button>
+                                                  <label className="text-xs text-emerald-700 hover:underline cursor-pointer flex items-center gap-1">
+                                                    <Upload size={12} />
+                                                    {imgUploading === 'gallery' ? '上傳中…' : '從電腦上傳'}
+                                                    <input type="file" accept="image/*" multiple className="hidden" disabled={imgUploading != null}
+                                                      onChange={async e => {
+                                                        const files = [...(e.target.files ?? [])]
+                                                        for (const f of files) {
+                                                          const url = await uploadImage(f, 'gallery')
+                                                          if (url) setWebImages(a => [...a, { image_url: url }])
+                                                        }
+                                                        e.target.value = ''
+                                                      }} />
+                                                  </label>
+                                                </div>
                                             </div>
 
                                             <div className="border border-blue-200 rounded-lg p-2 bg-blue-50/50">
@@ -1036,8 +1073,21 @@ export default function ProductsPage() {
                                                 <input value={form.web_category} onChange={e => setForm(p => ({ ...p, web_category: e.target.value }))} className={inputClass} placeholder="如：藍牙喇叭系統" />
                                             </div>
                                             <div>
-                                                <label className="text-xs text-gray-600 mb-1 block">主圖網址</label>
-                                                <input value={form.web_main_image_url} onChange={e => setForm(p => ({ ...p, web_main_image_url: e.target.value }))} className={inputClass} placeholder="https://..." />
+                                                <label className="text-xs text-gray-600 mb-1 block">主圖</label>
+                                                <div className="flex gap-1">
+                                                  <input value={form.web_main_image_url} onChange={e => setForm(p => ({ ...p, web_main_image_url: e.target.value }))} className={inputClass} placeholder="貼網址，或按右邊上傳" />
+                                                  <label className="shrink-0 flex items-center gap-1 px-2.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 cursor-pointer">
+                                                    <Upload size={13} />
+                                                    {imgUploading === 'main' ? '上傳中…' : '上傳'}
+                                                    <input type="file" accept="image/*" className="hidden" disabled={imgUploading != null}
+                                                      onChange={async e => {
+                                                        const f = e.target.files?.[0]; if (!f) return
+                                                        const url = await uploadImage(f, 'main')
+                                                        if (url) setForm(p => ({ ...p, web_main_image_url: url }))
+                                                        e.target.value = ''
+                                                      }} />
+                                                  </label>
+                                                </div>
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">BSMI 許可字號</label>
