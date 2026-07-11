@@ -11,6 +11,11 @@ export default function SettingsPage() {
   const supabase = createClient()
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [users, setUsers] = useState<UserProfile[]>([])
+  // 新增使用者
+  const [showNewUser, setShowNewUser] = useState(false)
+  const [newUser, setNewUser] = useState({ email: '', full_name: '', role: 'user', password: '' })
+  const [newUserSaving, setNewUserSaving] = useState(false)
+  const [newUserError, setNewUserError] = useState('')
   const [userSaveErrors, setUserSaveErrors] = useState<Record<string, string>>({})
   function setUserSaveError(userId: string, message: string | null) {
     setUserSaveErrors(prev => {
@@ -245,6 +250,33 @@ export default function SettingsPage() {
     setUserSaveError(userId, null)
   }
 
+  async function handleCreateUser() {
+    setNewUserError('')
+    setNewUserSaving(true)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sess.session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify(newUser),
+      })
+      const json = await res.json()
+      if (!res.ok) { setNewUserError(json.error || '新增失敗'); return }
+      setUsers(prev => [...prev, json.user])
+      alert(`已建立帳號 ${newUser.email}\n請把臨時密碼交給該員工，並提醒他登入後自行修改密碼。`)
+      setNewUser({ email: '', full_name: '', role: 'user', password: '' })
+      setShowNewUser(false)
+    } catch (e) {
+      console.error(e)
+      setNewUserError('新增失敗，請稍後再試')
+    } finally {
+      setNewUserSaving(false)
+    }
+  }
+
   async function handleActiveToggle(userId: string, is_active: boolean) {
     // 透過後端 API：同步更新 user_profiles.is_active 與 auth 帳號停權狀態
     // （未啟用 = 停權 = 完全無法登入，不只是前端擋）
@@ -444,10 +476,53 @@ export default function SettingsPage() {
 
       {tab === 'users' && isAdmin && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h2 className="font-semibold text-gray-900 mb-1">員工建檔 / 帳號管理</h2>
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <h2 className="font-semibold text-gray-900">員工建檔 / 帳號管理</h2>
+            <button
+              type="button"
+              onClick={() => { setShowNewUser(v => !v); setNewUserError('') }}
+              className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg"
+            >
+              {showNewUser ? '取消' : '＋ 新增使用者'}
+            </button>
+          </div>
           <p className="text-xs text-gray-400 mb-4">
             在此設定每個帳號的顯示姓名，設定後即可在報價單、銷貨單、訂購單的「業務員」欄位選擇。停用的帳號不會出現在業務員選單中。
           </p>
+
+          {showNewUser && (
+            <div className="border border-blue-100 bg-blue-50/50 rounded-xl p-4 mb-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Email（登入帳號）*</label>
+                  <input value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} className={inputClass} placeholder="staff@example.com" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">姓名 *</label>
+                  <input value={newUser.full_name} onChange={e => setNewUser(p => ({ ...p, full_name: e.target.value }))} className={inputClass} placeholder="王小明" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">角色</label>
+                  <select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} className={inputClass}>
+                    <option value="user">一般使用者</option>
+                    <option value="manager">主管</option>
+                    <option value="admin">管理員</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">臨時密碼 *（至少 8 碼）</label>
+                  <input value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} className={inputClass} placeholder="交給員工，請他登入後自行修改" />
+                </div>
+              </div>
+              {newUserError && <div className="text-xs text-red-600 font-medium">{newUserError}</div>}
+              <div className="flex justify-end">
+                <button type="button" onClick={handleCreateUser} disabled={newUserSaving}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                  {newUserSaving ? '建立中…' : '建立帳號'}
+                </button>
+              </div>
+            </div>
+          )}
           {users.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-8">尚無帳號資料</p>
           ) : (
@@ -488,7 +563,7 @@ export default function SettingsPage() {
             </div>
           )}
           <p className="text-xs text-gray-400 mt-4">
-            新增使用者帳號（登入用）：請到 Supabase Dashboard → Authentication → Users → Invite user，新帳號登入後會自動出現在上方列表，再回來設定姓名即可。
+            新增帳號可用上方「＋ 新增使用者」直接建立（需管理員權限）。員工也可自行到登入頁「員工註冊」並輸入公司註冊碼，註冊後需在此啟用才能登入。
           </p>
         </div>
       )}
