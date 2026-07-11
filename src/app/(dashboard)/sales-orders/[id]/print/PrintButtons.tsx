@@ -14,8 +14,33 @@ export default function PrintButtons() {
   const [loading, setLoading] = useState<'' | 'download' | 'share'>('')
   const [docOrientation, setDocOrientation] = useState<'portrait' | 'landscape'>('portrait')
 
-  const printWith = (orientation: 'portrait' | 'landscape') => {
+  // 手機瀏覽器會忽略 @page 的紙張方向 → 橫向列印無效。
+  // 因此手機按「橫向列印」時，改為直接產生橫向 PDF（分享／下載後再列印）。
+  const isMobile = () =>
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 1024
+
+  const printWith = async (orientation: 'portrait' | 'landscape') => {
     setDocOrientation(orientation)
+
+    if (orientation === 'landscape' && isMobile()) {
+      if (loading) return
+      setLoading('share')
+      try {
+        const result = await sharePdf(getFileName(), true)
+        if (result === 'downloaded') {
+          alert('已產生橫向 PDF，請從下載的檔案列印或傳送')
+        }
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') {
+          console.error(e)
+          alert('橫向 PDF 產生失敗，請稍後再試')
+        }
+      } finally {
+        setLoading('')
+      }
+      return
+    }
+
     let s = document.getElementById('print-orientation-style') as HTMLStyleElement | null
     if (!s) {
       s = document.createElement('style')
