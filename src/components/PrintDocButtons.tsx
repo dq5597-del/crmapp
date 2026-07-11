@@ -51,7 +51,22 @@ export default function PrintDocButtons({ fileName, landscape = false }: {
         style={{ padding: '8px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}>
         {loading === 'download' ? '產生中…' : '下載 PDF'}
       </button>
-      <button onClick={() => window.print()}
+      <button onClick={async () => {
+        // 手機忽略 @page 方向：橫向文件改產生橫向 PDF
+        const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 1024
+        if (landscape && mobile) {
+          if (loading) return
+          setLoading('share')
+          try {
+            const r = await sharePdf(fileName, true)
+            if (r === 'downloaded') alert('已產生橫向 PDF，請從下載的檔案列印或傳送')
+          } catch (e: any) {
+            if (e?.name !== 'AbortError') { console.error(e); alert('橫向 PDF 產生失敗，請稍後再試') }
+          } finally { setLoading('') }
+          return
+        }
+        window.print()
+      }}
         style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
         列印
       </button>
