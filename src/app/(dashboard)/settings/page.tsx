@@ -35,6 +35,7 @@ export default function SettingsPage() {
   const [restoring, setRestoring] = useState(false)
   const [restoreLog, setRestoreLog] = useState<{ ok: boolean; log: string[]; errors: string[]; restoredFrom?: string } | null>(null)
   const [form, setForm] = useState({
+    staff_register_code: '',
     company_name: '',
     company_phone: '',
     company_address: '',
@@ -62,6 +63,7 @@ export default function SettingsPage() {
       if (sRes.data) {
         setSettings(sRes.data)
         setForm({
+          staff_register_code: (sRes.data as any).staff_register_code ?? '',
           company_name: sRes.data.company_name ?? '',
           company_phone: sRes.data.company_phone ?? '',
           company_address: sRes.data.company_address ?? '',
@@ -244,6 +246,31 @@ export default function SettingsPage() {
   }
 
   async function handleActiveToggle(userId: string, is_active: boolean) {
+    // 透過後端 API：同步更新 user_profiles.is_active 與 auth 帳號停權狀態
+    // （未啟用 = 停權 = 完全無法登入，不只是前端擋）
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const res = await fetch(`/api/admin/users/${userId}/active`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sess.session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ is_active }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setUserSaveError(userId, '')
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active } : u))
+        return
+      }
+      setUserSaveError(userId, json.error || '更新啟用狀態失敗')
+      return
+    } catch (e) {
+      console.error(e)
+      // 後端不可用時退回直接更新（僅改旗標，不影響登入權限）
+    }
+
     const { data, error } = await supabase.from('user_profiles').update({ is_active }).eq('id', userId).select()
     if (error) { console.error('[user_profiles update error]', error); setUserSaveError(userId, '更新啟用狀態失敗：' + error.message); return }
     if (!data || data.length === 0) { console.error('[user_profiles update] zero rows affected (RLS blocked?)', { userId, is_active }); setUserSaveError(userId, '更新啟用狀態失敗：資料庫拒絕了這筆修改（權限規則問題）'); return }
@@ -297,6 +324,11 @@ export default function SettingsPage() {
             <div className="sm:col-span-2">
               <label className={labelClass}>公司地址</label>
               <input value={form.company_address} onChange={e => setForm(p => ({ ...p, company_address: e.target.value }))} className={inputClass} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-gray-600 mb-1 block">員工註冊碼</label>
+              <input value={form.staff_register_code} onChange={e => setForm(p => ({ ...p, staff_register_code: e.target.value }))} className={inputClass} placeholder="例：GH2026" />
+              <p className="text-[11px] text-gray-400 mt-1">員工在登入頁「員工註冊」時需輸入此碼；註冊後仍須管理員在「帳號管理」啟用才能登入。留白則停用註冊功能。</p>
             </div>
           </div>
 
