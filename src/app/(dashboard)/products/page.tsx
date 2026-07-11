@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 
 type MarketPriceRow = {
@@ -583,6 +583,32 @@ export default function ProductsPage() {
     fetchAll()
   }
 
+  // ── 官網（av-shop.com）同步 ──
+  const [pushing, setPushing] = useState<string | null>(null)
+  const [pushSel, setPushSel] = useState<string[]>([])
+  const [pushResult, setPushResult] = useState<any>(null)
+
+  async function pushToWeb(ids: string[]) {
+    if (!ids.length) return
+    setPushing(ids.length === 1 ? ids[0] : 'batch')
+    try {
+      const res = await fetch('/api/woocommerce/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_ids: ids, publish: false }),   // 一律先存草稿
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error ?? '推送失敗'); return }
+      setPushResult(data)
+      setPushSel([])
+      await fetchAll()
+    } catch (e: any) {
+      alert('推送失敗：' + (e.message ?? ''))
+    } finally {
+      setPushing(null)
+    }
+  }
+
   /** 複製產品：整列複製，型號加後綴避免撞唯一鍵，庫存歸零，複製後直接開啟編輯 */
   async function handleCopyProduct(src: any) {
     const clone: any = { ...src }
@@ -690,6 +716,15 @@ export default function ProductsPage() {
             <RefreshCw size={15} className={batchMarket ? 'animate-spin' : ''} />
             {batchMarket ? `查詢中 ${batchMarket.done}/${batchMarket.total}` : '批次查行情'}
           </button>
+          {perm.can_edit && (
+            <button onClick={() => pushToWeb(filtered.filter((x: any) => x.web_publish).map((x: any) => x.id))}
+              disabled={pushing != null}
+              title="把所有勾選「上架」的產品推到官網（存為草稿）"
+              className="flex items-center gap-2 border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50">
+              <Globe size={16} className={pushing === "batch" ? "animate-spin" : ""} />
+              {pushing === "batch" ? "推送中…" : "批次推送官網"}
+            </button>
+          )}
           {perm.can_create && <button onClick={() => startEdit()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
             <Plus size={16} /> 新增產品
           </button>}
@@ -1053,6 +1088,7 @@ export default function ProductsPage() {
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">利潤率</th>
                 <th className="text-right px-3 py-3 text-gray-600 font-medium">市場行情</th>
                 <th className="text-center px-3 py-3 text-gray-600 font-medium">庫存</th>
+                <th className="text-center px-3 py-3 text-gray-600 font-medium">官網</th>
                 <th className="text-center px-3 py-3 text-gray-600 font-medium">狀態</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -1114,6 +1150,16 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-3 py-3 text-center text-gray-700">{p.stock_qty}</td>
                       <td className="px-3 py-3 text-center">
+                        {p.web_product_id ? (
+                          <a href={p.web_product_url ?? "#"} target="_blank" rel="noreferrer"
+                            title={`官網狀態：${p.web_sync_status ?? "—"}｜最後同步：${p.web_synced_at ? new Date(p.web_synced_at).toLocaleString("zh-TW") : "—"}`}
+                            className="inline-flex items-center gap-1 text-xs text-green-700 hover:underline">
+                            <CheckCircle2 size={12} /> {p.web_sync_status === "publish" ? "已發布" : "草稿"}
+                            <ExternalLink size={10} />
+                          </a>
+                        ) : <span className="text-xs text-gray-300">未上架</span>}
+                      </td>
+                      <td className="px-3 py-3 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {p.is_active ? '上架' : '下架'}
                         </span>
@@ -1121,6 +1167,13 @@ export default function ProductsPage() {
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <button onClick={() => setHistoryProduct(p)} title="詢價紀錄" className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg"><MessageSquareQuote size={14} /></button>
+                          {perm.can_edit && (
+                            <button onClick={() => pushToWeb([p.id])} disabled={pushing != null}
+                              title={p.web_product_id ? "更新官網商品" : "上架到官網（存為草稿）"}
+                              className="p-1.5 text-gray-400 hover:text-emerald-600 rounded-lg disabled:opacity-40">
+                              <Globe size={14} className={pushing === p.id ? "animate-spin" : ""} />
+                            </button>
+                          )}
                           {perm.can_edit && <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={14} /></button>}
                           {perm.can_create && <button onClick={() => handleCopyProduct(p)} title="複製此產品（型號自動加 -COPY，庫存歸零）" className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Copy size={14} /></button>}
                           {perm.can_delete && <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>}
@@ -1134,6 +1187,47 @@ export default function ProductsPage() {
           </table>
         </div>
       </div>
+
+      {/* 官網推送結果 */}
+      {pushResult && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Globe size={18} className="text-emerald-600" /> 官網推送結果
+              </h3>
+              <button onClick={() => setPushResult(null)} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-gray-600 mb-3">
+                成功 <b className="text-green-700">{pushResult.ok}</b> 筆
+                {pushResult.failed > 0 && <>、失敗 <b className="text-red-600">{pushResult.failed}</b> 筆</>}
+                　（商品在官網為<b>草稿</b>，請到 wp-admin 檢查後發布）
+              </p>
+              <div className="space-y-1.5 text-sm">
+                {pushResult.results?.map((r: any) => (
+                  <div key={r.id} className={`flex items-start gap-2 px-3 py-2 rounded-lg ${r.ok ? 'bg-green-50' : 'bg-red-50'}`}>
+                    <span className={r.ok ? 'text-green-700' : 'text-red-600'}>{r.ok ? '✓' : '✕'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-gray-900">{r.name}</div>
+                      {r.ok ? (
+                        <a href={r.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">
+                          {r.action}（商品 ID {r.wc_id}）→ 開啟官網商品頁
+                        </a>
+                      ) : (
+                        <div className="text-xs text-red-600">{r.error}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end px-5 py-4 border-t">
+              <button onClick={() => setPushResult(null)} className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white">關閉</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
