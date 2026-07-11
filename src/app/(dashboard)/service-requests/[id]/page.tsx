@@ -275,9 +275,19 @@ function InfoTab({ req, locked, onSave }: {
   locked: boolean
   onSave: (updates: any) => Promise<void>
 }) {
-  const [form, setForm] = useState({ ...req })
+  const [form, setForm] = useState<any>({ ...req })
   const [saving, setSaving] = useState(false)
-  function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
+  const [projects, setProjects] = useState<any[]>([])
+  function set(k: string, v: string) { setForm((f: any) => ({ ...f, [k]: v })) }
+
+  // 所屬專案（維修成本回掛到專案毛利用）
+  useEffect(() => {
+    if (!(req as any).client_id) return
+    const supabase = createClient()
+    supabase.from('projects').select('id, project_name').eq('client_id', (req as any).client_id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setProjects(data ?? []))
+  }, [(req as any).client_id])
 
   async function save() {
     setSaving(true)
@@ -292,6 +302,7 @@ function InfoTab({ req, locked, onSave }: {
       warranty_expiry: form.warranty_expiry,
       service_type: form.service_type,
       assigned_to: form.assigned_to,
+      project_id: form.project_id || null,
       notes: form.notes,
     })
     setSaving(false)
@@ -306,6 +317,12 @@ function InfoTab({ req, locked, onSave }: {
           <div><label className={labelClass}>電話</label><input disabled={locked} className={inputClass} value={form.phone ?? ''} onChange={e => set('phone', e.target.value)} /></div>
           <div><label className={labelClass}>通報日期</label><input type="date" disabled={locked} className={inputClass} value={form.reported_date} onChange={e => set('reported_date', e.target.value)} /></div>
           <div><label className={labelClass}>負責人員</label><input disabled={locked} className={inputClass} value={form.assigned_to ?? ''} onChange={e => set('assigned_to', e.target.value)} /></div>
+          <div><label className={labelClass}>所屬專案（毛利分析用）</label>
+            <select disabled={locked} className={inputClass} value={form.project_id ?? ''} onChange={e => set('project_id', e.target.value)}>
+              <option value="">— 不屬於任何專案 —</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 

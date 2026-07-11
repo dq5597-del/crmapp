@@ -347,6 +347,8 @@ export default function QuoteForm({
     client_phone: initialQuote?.client_phone ?? prefillPhone ?? '',
     client_address: initialQuote?.client_address ?? '',
     valid_until: initialQuote?.valid_until ?? '',
+    win_probability: initialQuote?.win_probability ?? '',
+    expected_close_date: initialQuote?.expected_close_date ?? '',
     delivery_days: initialQuote?.delivery_days ?? 14,
     payment_terms: initialQuote?.payment_terms ?? '',
     bank_account: initialQuote?.bank_account ?? '',
@@ -562,6 +564,8 @@ export default function QuoteForm({
       client_phone: header.client_phone || null,
       client_address: header.client_address || null,
       valid_until: header.valid_until || null,
+      win_probability: header.win_probability === '' ? null : Number(header.win_probability),
+      expected_close_date: header.expected_close_date || null,
       delivery_days: Number(header.delivery_days) || null,
       payment_terms: header.payment_terms || null,
       bank_account: header.bank_account || null,
@@ -1040,6 +1044,21 @@ export default function QuoteForm({
           <div>
             <label className={labelClass}>有效期限</label>
             <input type="date" value={header.valid_until} onChange={e => setHeader(p => ({ ...p, valid_until: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>預估勝率（CEO 業績預測用）</label>
+            <select value={header.win_probability} onChange={e => setHeader(p => ({ ...p, win_probability: e.target.value }))} className={inputClass}>
+              <option value="">— 未評估 —</option>
+              <option value="10">10%（初步接觸）</option>
+              <option value="30">30%（已送出報價）</option>
+              <option value="50">50%（客戶有意願）</option>
+              <option value="70">70%（送審中／比價中）</option>
+              <option value="90">90%（幾乎確定）</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>預計結案日</label>
+            <input type="date" value={header.expected_close_date} onChange={e => setHeader(p => ({ ...p, expected_close_date: e.target.value }))} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>交貨工期（天）</label>

@@ -75,14 +75,14 @@ const emptySurvey: SurveyForm = {
 
 type ProjectForm = {
   project_name: string; scene_name: string; user_type: string; status: ProjectStatus
-  start_date: string; end_date: string; budget: string; description: string; notes: string
+  start_date: string; end_date: string; budget: string; revenue: string; equipment_cost: string; description: string; notes: string
   main_function: string; equipment_needs: string; interaction_needs: string; audio_needs: string
   video_needs: string; control_needs: string; other_needs: string; venue_specs: string
 }
 
 const emptyProject: ProjectForm = {
   project_name: '', scene_name: '', user_type: '', status: '規劃中',
-  start_date: '', end_date: '', budget: '', description: '', notes: '',
+  start_date: '', end_date: '', budget: '', revenue: '', equipment_cost: '', description: '', notes: '',
   main_function: '', equipment_needs: '', interaction_needs: '', audio_needs: '',
   video_needs: '', control_needs: '', other_needs: '', venue_specs: '',
 }
@@ -1384,7 +1384,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
         project_name: p.project_name ?? '', scene_name: p.scene_name ?? '',
         user_type: p.user_type ?? '', status: p.status ?? '規劃中',
         start_date: p.start_date ?? '', end_date: p.end_date ?? '',
-        budget: p.budget ? String(p.budget) : '', description: p.description ?? '',
+        budget: p.budget ? String(p.budget) : '', revenue: p.revenue ? String(p.revenue) : '', equipment_cost: p.equipment_cost ? String(p.equipment_cost) : '', description: p.description ?? '',
         notes: p.notes ?? '', main_function: p.main_function ?? '',
         equipment_needs: p.equipment_needs ?? '', interaction_needs: p.interaction_needs ?? '',
         audio_needs: p.audio_needs ?? '', video_needs: p.video_needs ?? '',
@@ -1447,6 +1447,8 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
       id: editingId,
       client_id: clientId,
       budget: form.budget ? Number(form.budget) : null,
+      revenue: form.revenue ? Number(form.revenue) : null,
+      equipment_cost: form.equipment_cost ? Number(form.equipment_cost) : null,
       start_date: form.start_date || null,
       end_date: form.end_date || null,
     }
@@ -1464,6 +1466,8 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
       const projectPayload = {
         ...form,
         budget: form.budget ? Number(form.budget) : null,
+      revenue: form.revenue ? Number(form.revenue) : null,
+      equipment_cost: form.equipment_cost ? Number(form.equipment_cost) : null,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
       }
@@ -1546,6 +1550,12 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 </Field>
                 <Field label="預算（NT$）">
                   <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
+                </Field>
+                <Field label="專案收入（NT$，毛利分析用）">
+                  <input type="number" value={form.revenue} onChange={setP('revenue')} className={inp} placeholder="未填則以預算計算" />
+                </Field>
+                <Field label="設備成本（NT$，毛利分析用）">
+                  <input type="number" value={form.equipment_cost} onChange={setP('equipment_cost')} className={inp} />
                 </Field>
                 <Field label="施工日期">
                   <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
