@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
-import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck } from 'lucide-react'
 
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
 
@@ -106,6 +106,28 @@ export default function SalesOrderDetailPage() {
     setItems(prev => prev.filter((_, i) => i !== idx))
   }
 
+  const [shipping, setShipping] = useState(false)
+
+  /** 由這張銷貨單產生出貨單（只帶尚未出貨的數量，可分批出貨） */
+  async function handleToShipment() {
+    if (shipping) return
+    setShipping(true)
+    try {
+      const res = await fetch('/api/shipments/from-sales-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sales_order_id: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '轉出貨單失敗')
+      router.push('/shipments')
+    } catch (e: any) {
+      alert(e.message ?? '轉出貨單失敗')
+    } finally {
+      setShipping(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -180,6 +202,10 @@ export default function SalesOrderDetailPage() {
           onClick={() => window.open(`/sales-orders/${id}/print`, '_blank')}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
           <FileDown size={13} /> 列印 / PDF
+        </button>
+        <button onClick={handleToShipment} disabled={shipping}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50">
+          <PackageCheck size={13} /> {shipping ? '處理中…' : '轉出貨單'}
         </button>
         <Link href={`/returns?ref_type=sales_order&ref_id=${id}`}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50">
