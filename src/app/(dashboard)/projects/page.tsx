@@ -50,6 +50,7 @@ export default function ProjectsFolderPage() {
   const [clientListOpen, setClientListOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pdfMenu, setPdfMenu] = useState<string | null>(null)
+  const [crew, setCrew] = useState<Record<string, any[]>>({})
 
   useEffect(() => { fetchData() }, [])
 
@@ -62,6 +63,14 @@ export default function ProjectsFolderPage() {
     setProjects(pRes.data ?? [])
     setClients(cRes.data ?? [])
     setLoading(false)
+
+    // 施工團隊（工頭／人數）— 資料表未建立時靜默略過
+    const { data: crewRows } = await supabase.from('project_crew').select('project_id, name, role, is_leader, member_kind')
+    if (crewRows) {
+      const map: Record<string, any[]> = {}
+      crewRows.forEach((c: any) => { (map[c.project_id] ??= []).push(c) })
+      setCrew(map)
+    }
   }
 
   const counts = useMemo(() => {
@@ -189,6 +198,7 @@ export default function ProjectsFolderPage() {
                   <th className="py-2.5 px-4">案名</th>
                   <th className="px-4">客戶</th>
                   <th className="px-4">狀態</th>
+                  <th className="px-4">施工團隊</th>
                   <th className="px-4">施工／完工</th>
                   <th className="px-4 text-right">預算</th>
                   <th className="px-4 text-right">操作</th>
@@ -204,6 +214,19 @@ export default function ProjectsFolderPage() {
                     <td className="px-4 text-gray-600">{p.clients?.company_name ?? '—'}</td>
                     <td className="px-4">
                       <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-600'}`}>{p.status}</span>
+                    </td>
+                    <td className="px-4 text-gray-600 whitespace-nowrap">
+                      {(() => {
+                        const cs = crew[p.id] ?? []
+                        if (!cs.length) return <span className="text-gray-300">—</span>
+                        const leader = cs.find((c: any) => c.is_leader)
+                        return (
+                          <span title={cs.map((c: any) => `${c.name}（${c.member_kind}·${c.role}）`).join('、')}>
+                            {leader ? <b className="text-gray-900">👷 {leader.name}</b> : <span className="text-amber-600">未指定工頭</span>}
+                            <span className="text-gray-400"> · {cs.length} 人</span>
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 text-gray-600 whitespace-nowrap">
                       {p.start_date ? formatDate(p.start_date) : '—'}{p.end_date ? ` ~ ${formatDate(p.end_date)}` : ''}
