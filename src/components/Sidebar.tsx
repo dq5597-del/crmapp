@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, IdCard
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -53,7 +53,7 @@ const accountingItems = [
 ]
 
 const hrItems = [
-  { href: '/hr/employees',   label: '員工資料',        icon: IdCard },
+  { href: '/hr/employees',   label: '員工資料',        icon: Contact },
   { href: '/hr/contractors', label: '協力廠商／臨時工', icon: HardHat },
 ]
 
