@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Award, Plus, Edit2, Trash2, X } from 'lucide-react'
+import { Award, Plus, Edit2, Trash2, X, Printer } from 'lucide-react'
 
 const TYPES = ['年度考評', '半年考評', '季考評', '試用期考評'] as const
 const STATUS = ['草稿', '已完成'] as const
@@ -203,6 +203,7 @@ export default function HrReviewsPage() {
                     </td>
                     <td className="px-4">
                       <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => window.open(`/hr/reviews/${r.id}/print`, '_blank')} title="列印考評表／分享 PDF" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
                         <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Edit2 size={15} /></button>
                         <button onClick={() => remove(r)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={15} /></button>
                       </div>

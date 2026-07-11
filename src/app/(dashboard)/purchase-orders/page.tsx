@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, Truck, Plus, Trash2 } from 'lucide-react'
+import CopyDocButton from '@/components/CopyDocButton'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -114,14 +115,15 @@ export default function PurchaseOrdersPage() {
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
                 <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">建立日期</th>
+                <th className="text-center px-4 py-3 text-gray-600 font-medium">操作</th>
                 {isAdmin && <th className="w-10 px-4 py-3"></th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">載入中...</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">載入中...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">沒有訂購單</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">沒有訂購單</td></tr>
               ) : (
                 filtered.map(o => (
                   <tr key={o.id} className="border-b border-gray-50 hover:bg-purple-50 transition-colors">
@@ -140,6 +142,9 @@ export default function PurchaseOrdersPage() {
                       <span className={`text-xs px-2 py-1 rounded-lg font-medium ${STATUS_COLORS[o.status]}`}>{o.status}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{formatDate(o.created_at)}</td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <CopyDocButton type="purchase-orders" id={o.id} title="複製此訂購單（單號重新產生、狀態回草稿）" />
+                    </td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-center">
                         <button onClick={() => handleDeleteOne(o.id, o.order_no)} disabled={deleting}

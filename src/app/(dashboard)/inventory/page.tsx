@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Product, InventoryTransaction, InventoryTransactionType } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Search, Plus, Package, ArrowDown, ArrowUp, RotateCcw } from 'lucide-react'
+import { Search, Plus, Package, ArrowDown, ArrowUp, RotateCcw, Undo2, Pencil } from 'lucide-react'
 
 const TRANS_TYPES: InventoryTransactionType[] = ['入庫', '出庫', '盤盈', '盤虧', '退貨入庫', '供應商退貨出庫', '報廢']
 
@@ -64,6 +64,38 @@ export default function InventoryPage() {
   async function fetchProducts() {
     const { data } = await supabase.from('products').select('*').eq('is_active', true).order('product_name')
     setProducts(data ?? [])
+  }
+
+  /** 沖銷：庫存由 trigger 依異動自動計算，所以「刪除」不會還原庫存。
+   *  正確作法是開一筆反向異動（審計軌跡完整、庫存自動修正）。 */
+  const REVERSE_TYPE: Record<string, string> = {
+    '入庫': '出庫', '出庫': '入庫',
+    '盤盈': '盤虧', '盤虧': '盤盈',
+    '退貨入庫': '出庫', '報廢': '入庫',
+  }
+
+  async function handleReverse(t: any) {
+    const rtype = REVERSE_TYPE[t.type] ?? (Number(t.quantity) > 0 ? '出庫' : '入庫')
+    if (!confirm(`沖銷這筆「${t.type} ${t.quantity}」？\n系統會建立一筆反向異動（${rtype}），庫存自動修正，原紀錄保留。`)) return
+    const { error } = await supabase.from('inventory_transactions').insert({
+      product_id: t.product_id,
+      type: rtype,
+      quantity: -Number(t.quantity),
+      unit_cost: t.unit_cost ?? null,
+      vendor_id: t.vendor_id ?? null,
+      reference_no: t.reference_no ?? null,
+      notes: `沖銷：${new Date(t.created_at).toLocaleDateString('zh-TW')} 的「${t.type}」${t.notes ? '（原備註：' + t.notes + '）' : ''}`,
+    })
+    if (error) { alert('沖銷失敗：' + error.message); return }
+    await Promise.all([fetchProducts(), fetchTransactions()])
+  }
+
+  async function handleEditNote(t: any) {
+    const note = prompt('修改備註／單據號（不影響庫存數量）', t.notes ?? '')
+    if (note === null) return
+    const { error } = await supabase.from('inventory_transactions').update({ notes: note }).eq('id', t.id)
+    if (error) { alert('修改失敗：' + error.message); return }
+    await fetchTransactions()
   }
 
   async function handleSaveTransaction() {
@@ -305,11 +337,12 @@ export default function InventoryPage() {
                   <th className="text-right px-4 py-3 text-gray-600 font-medium">前</th>
                   <th className="text-right px-4 py-3 text-gray-600 font-medium">後</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">廠商/備註</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTrans.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-gray-400">無異動紀錄</td></tr>
+                  <tr><td colSpan={8} className="text-center py-12 text-gray-400">無異動紀錄</td></tr>
                 ) : (
                   filteredTrans.map(t => {
                     const style = TYPE_STYLES[t.type]
@@ -332,6 +365,14 @@ export default function InventoryPage() {
                           {t.vendors?.company_name && <div>{t.vendors.company_name}</div>}
                           {t.reference_no && <div className="text-blue-600">{t.reference_no}</div>}
                           {t.notes && <div>{t.notes}</div>}
+                        </td>
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => handleEditNote(t)} title="修改備註（不影響庫存）"
+                              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><Pencil size={14} /></button>
+                            <button onClick={() => handleReverse(t)} title="沖銷（建立反向異動，庫存自動修正）"
+                              className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600"><Undo2 size={14} /></button>
+                          </div>
                         </td>
                       </tr>
                     )

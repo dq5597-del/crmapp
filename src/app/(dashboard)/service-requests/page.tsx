@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { ServiceRequest, ServiceStatus } from '@/types'
 import { Plus, Search, Wrench, Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import CopyDocButton from '@/components/CopyDocButton'
 import { cn } from '@/lib/utils'
 
 const STATUS_COLORS: Record<ServiceStatus, string> = {
@@ -168,6 +169,7 @@ export default function ServiceRequestsPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">維修方式</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">通報日</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">狀態</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -197,6 +199,9 @@ export default function ServiceRequestsPage() {
                     <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', STATUS_COLORS[r.status])}>
                       {r.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <CopyDocButton type="service-requests" id={r.id} title="複製此叫修單（單號重新產生、狀態回待處理）" />
                   </td>
                 </tr>
               ))}

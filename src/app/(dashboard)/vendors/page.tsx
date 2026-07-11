@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Vendor } from '@/types'
-import { Plus, Search, Phone, Mail, Pencil, Trash2, Tag, X, Wrench } from 'lucide-react'
+import { Plus, Search, Phone, Mail, Pencil, Trash2, Tag, X, Wrench, Printer } from 'lucide-react'
 
 const CATEGORIES = ['代理商', '維修商', '工程商', '設備商', '其他'] // 廠商類別（性質）
 
@@ -357,6 +357,7 @@ export default function VendorsPage() {
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0 ml-2">
+                  <button onClick={() => window.open(`/vendors/${v.id}/print`, '_blank')} title="列印資料卡／分享 PDF" className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Printer size={13} /></button>
                   <button onClick={() => startEdit(v)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={13} /></button>
                   <button onClick={() => handleDelete(v.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"><Trash2 size={13} /></button>
                 </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Plus, Search, Receipt } from 'lucide-react'
+import { Plus, Search, Receipt, Printer } from 'lucide-react'
 
 const STATUS_COLORS: Record<string, string> = {
   '未付':     'bg-red-100 text-red-700',
@@ -291,10 +291,16 @@ export default function PayablesPage() {
                           {p.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <Link href={`/payables/${p.id}`} className="text-xs text-blue-600 hover:underline">
-                          付款
-                        </Link>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link href={`/payables/${p.id}`} className="text-xs text-blue-600 hover:underline">
+                            付款
+                          </Link>
+                          <button onClick={() => window.open(`/payables/${p.id}/print`, '_blank')}
+                            title="列印／分享對帳單 PDF" className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
+                            <Printer size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

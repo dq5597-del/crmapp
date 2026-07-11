@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Receivable } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Plus, Search, DollarSign, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { Plus, Search, DollarSign, AlertCircle, CheckCircle, Clock, Printer } from 'lucide-react'
 
 const STATUS_COLORS: Record<string, string> = {
   '未收':     'bg-red-100 text-red-700',
@@ -265,10 +265,16 @@ export default function ReceivablesPage() {
                       <td className="px-4 py-3 text-center">
                         <span className={`text-xs px-2 py-1 rounded-lg font-medium ${STATUS_COLORS[r.status]}`}>{r.status}</span>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <Link href={`/receivables/${r.id}`} className="text-xs text-blue-600 hover:underline">
-                          收款
-                        </Link>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link href={`/receivables/${r.id}`} className="text-xs text-blue-600 hover:underline">
+                            收款
+                          </Link>
+                          <button onClick={() => window.open(`/receivables/${r.id}/print`, '_blank')}
+                            title="列印／分享對帳單 PDF" className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
+                            <Printer size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

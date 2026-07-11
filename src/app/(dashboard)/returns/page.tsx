@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Plus, Search, RotateCcw } from 'lucide-react'
+import { Plus, Search, RotateCcw, Printer, Trash2 } from 'lucide-react'
 
 const TYPE_OPTIONS = ['全部', '客戶退貨', '供應商退貨']
 const STATUS_OPTIONS = ['全部', '待審核', '已入庫', '已結算', '作廢']
@@ -39,6 +39,14 @@ type ItemRow = {
 
 function ReturnsPageInner() {
   const supabase = createClient()
+
+  async function handleDeleteReturn(id: string, no: string) {
+    if (!confirm(`確定刪除退貨單「${no}」？品項會一併刪除，此操作無法復原。`)) return
+    await supabase.from('return_items').delete().eq('return_id', id)
+    const { error } = await supabase.from('returns').delete().eq('id', id)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    location.reload()
+  }
   const searchParams = useSearchParams()
 
   const [returns, setReturns] = useState<any[]>([])
@@ -494,8 +502,12 @@ function ReturnsPageInner() {
                     <td className="px-4 py-3 text-center">
                       <span className={`text-xs px-2 py-1 rounded-lg font-medium ${STATUS_COLORS[r.status]}`}>{r.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <Link href={`/returns/${r.id}`} className="text-xs text-purple-600 hover:underline">查看</Link>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1">
+                        <Link href={`/returns/${r.id}`} className="text-xs text-purple-600 hover:underline px-1">查看</Link>
+                        <button onClick={() => window.open(`/returns/${r.id}/print`, '_blank')} title="列印／分享 PDF" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
+                        <button onClick={() => handleDeleteReturn(r.id, r.return_no)} title="刪除" className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={15} /></button>
+                      </div>
                     </td>
                   </tr>
                 ))
