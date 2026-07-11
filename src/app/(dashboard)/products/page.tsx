@@ -822,7 +822,8 @@ export default function ProductsPage() {
                                                 {getCategoryLabel(form.category_id) && <span className="text-[11px] px-2 py-0.5 bg-green-50 text-green-700 rounded-full">{getCategoryLabel(form.category_id)}</span>}
                                                 {form.brand && <span className="text-[11px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">品牌：{form.brand}</span>}
                                             </div>
-                                            <input value={form.product_name} onChange={e => setForm(p => ({ ...p, product_name: e.target.value }))} className={inputClass + ' text-base font-medium mb-3'} placeholder="產品名稱" />
+                                            <label className="text-xs text-gray-600 mb-1 block">網路產品名稱</label>
+                                            <input value={form.product_name} onChange={e => setForm(p => ({ ...p, product_name: e.target.value }))} className={inputClass + ' text-base font-medium mb-3'} placeholder="網路產品名稱" />
                                             {(form.brand || form.model || form.product_name) && (
                                                 <div className="text-xs text-gray-500 mt-1">網路產品名稱：{form.brand && <span className="text-blue-600 font-medium">【{form.brand}】</span>}{form.model && <span className="text-gray-700">{form.model} </span>}<span className="text-gray-800">{form.product_name}</span></div>
                                             )}
