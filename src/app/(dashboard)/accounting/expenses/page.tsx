@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Save } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Save, Search } from 'lucide-react'
 
 const INVOICE_TYPES = ['二聯式', '三聯式', '電子發票', '郵資', '無']
 
@@ -121,7 +121,25 @@ export default function ExpensesPage() {
     fetchExpenses()
   }
 
-  const total = expenses.reduce((s, e) => s + Number(e.untaxed_amount), 0)
+  // 篩選：關鍵字（供應商／品名／發票號碼）＋科目＋月份
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('全部')
+  const [month, setMonth] = useState('全部')
+
+  const catOptions = ['全部', ...Array.from(new Set(expenses.map(e => e.category).filter(Boolean)))]
+
+  const filtered = expenses.filter(e => {
+    if (cat !== '全部' && e.category !== cat) return false
+    if (month !== '全部' && (e.invoice_date ?? '').slice(5, 7) !== month) return false
+    if (q) {
+      const s = `${e.supplier ?? ''} ${e.item_name ?? ''} ${e.invoice_no ?? ''} ${e.category ?? ''}`.toLowerCase()
+      if (!s.includes(q.toLowerCase())) return false
+    }
+    return true
+  })
+
+  const total = filtered.reduce((s, e) => s + Number(e.untaxed_amount), 0)
+  const totalWithTax = filtered.reduce((s, e) => s + Number(e.total_amount), 0)
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -129,7 +147,7 @@ export default function ExpensesPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">支出記錄</h1>
-          <p className="text-sm text-gray-500 mt-0.5">共 {expenses.length} 筆｜未稅合計 NT${total.toLocaleString()}</p>
+          <p className="text-sm text-gray-500 mt-0.5">共 {filtered.length} / {expenses.length} 筆｜未稅合計 NT${total.toLocaleString()}｜含稅 NT${totalWithTax.toLocaleString()}</p>
         </div>
         <div className="flex gap-2">
           <select
@@ -145,6 +163,28 @@ export default function ExpensesPage() {
             <Plus size={16} /> 新增支出
           </button>
         </div>
+      </div>
+
+      {/* 篩選列 */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋供應商／品名／發票號碼"
+            className="pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm w-64" />
+        </div>
+        <select value={cat} onChange={e => setCat(e.target.value)} className="text-sm border border-gray-200 rounded-xl px-3 py-2">
+          {catOptions.map(c => <option key={c} value={c}>{c === '全部' ? '全部科目' : c}</option>)}
+        </select>
+        <select value={month} onChange={e => setMonth(e.target.value)} className="text-sm border border-gray-200 rounded-xl px-3 py-2">
+          <option value="全部">全部月份</option>
+          {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(m => (
+            <option key={m} value={m}>{Number(m)} 月</option>
+          ))}
+        </select>
+        {(q || cat !== '全部' || month !== '全部') && (
+          <button onClick={() => { setQ(''); setCat('全部'); setMonth('全部') }}
+            className="text-sm text-gray-500 hover:text-gray-800 px-2">清除篩選</button>
+        )}
       </div>
 
       {/* Table */}
@@ -166,9 +206,9 @@ export default function ExpensesPage() {
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">載入中...</td></tr>
-              ) : expenses.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">尚無支出記錄</td></tr>
-              ) : expenses.map(e => (
+              ) : filtered.map(e => (
                 <tr key={e.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-600">{e.invoice_date || '—'}</td>
                   <td className="px-4 py-3 font-medium text-gray-900">{e.supplier || '—'}</td>
