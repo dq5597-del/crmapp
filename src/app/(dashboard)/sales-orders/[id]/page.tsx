@@ -88,7 +88,7 @@ export default function SalesOrderDetailPage() {
   }, [id])
 
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
-  const taxAmount = Math.round(subtotal * 0.05 * 100) / 100
+  const taxAmount = 0 // 系統價格含稅，不另加稅
   const totalAmount = subtotal + taxAmount
 
   function updateItem(idx: number, field: keyof Item, val: any) {
@@ -316,12 +316,6 @@ export default function SalesOrderDetailPage() {
         </div>
         <div className="border-t border-gray-100 p-4 flex justify-end">
           <div className="space-y-1 text-sm min-w-[200px]">
-            <div className="flex justify-between text-gray-600">
-              <span>小計</span><span>{formatCurrency(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>稅額（5%）</span><span>{formatCurrency(taxAmount)}</span>
-            </div>
             <div className="flex justify-between font-bold text-gray-900 border-t pt-1">
               <span>含稅總計</span><span className="text-green-700">{formatCurrency(totalAmount)}</span>
             </div>
