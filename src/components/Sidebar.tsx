@@ -56,6 +56,7 @@ const hrItems = [
   { href: '/hr/employees',   label: '員工資料',        icon: Contact },
   { href: '/hr/attendance',  label: '出勤紀錄',        icon: CalendarCheck },
   { href: '/hr/leaves',      label: '請假管理',        icon: CalendarOff },
+  { href: '/hr/payroll',     label: '薪資管理',        icon: Wallet },
   { href: '/hr/contractors', label: '協力廠商／臨時工', icon: HardHat },
 ]
 
