@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy } from 'lucide-react'
 import Link from 'next/link'
 
 type MarketPriceRow = {
@@ -579,6 +579,26 @@ export default function ProductsPage() {
     fetchAll()
   }
 
+  /** 複製產品：整列複製，型號加後綴避免撞唯一鍵，庫存歸零，複製後直接開啟編輯 */
+  async function handleCopyProduct(src: any) {
+    const clone: any = { ...src }
+    delete clone.id
+    delete clone.created_at
+    delete clone.updated_at
+    clone.product_name = `${clone.product_name ?? ''}（複製）`
+    if (clone.model) clone.model = `${clone.model}-COPY`
+    clone.stock_qty = 0
+    const { data, error } = await supabase.from('products').insert(clone).select('*').single()
+    if (error) {
+      alert(/duplicate|unique/i.test(error.message)
+        ? '型號重複，請先修改來源型號或稍後手動調整。'
+        : '複製失敗：' + error.message)
+      return
+    }
+    await fetchAll()
+    if (data) startEdit(data as any)   // 直接進編輯，改型號與名稱
+  }
+
   // 查詢單一產品三平台行情並寫入快取
   async function refreshMarket(p: Product): Promise<void> {
     const q = [p.brand, p.model || p.product_name].filter(Boolean).join(' ').trim()
@@ -1094,6 +1114,7 @@ export default function ProductsPage() {
                         <div className="flex gap-1">
                           <button onClick={() => setHistoryProduct(p)} title="詢價紀錄" className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg"><MessageSquareQuote size={14} /></button>
                           <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={14} /></button>
+                          <button onClick={() => handleCopyProduct(p)} title="複製此產品（型號自動加 -COPY，庫存歸零）" className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Copy size={14} /></button>
                           <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>
                         </div>
                       </td>

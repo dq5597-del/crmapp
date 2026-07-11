@@ -14,7 +14,7 @@ import CompetitorsTab from '@/components/clients/CompetitorsTab'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
 import {
   ArrowLeft, Edit2, Phone, MapPin, Calendar,
-  Users, FileText, Briefcase, Eye, Building2, Trash2, Cake
+  Users, FileText, Briefcase, Eye, Building2, Trash2, Cake, Printer
 } from 'lucide-react'
 
 const TABS = [
@@ -127,6 +127,13 @@ export default function ClientDetailPage() {
             <FileText size={14} />
             開報價單
           </Link>
+          <button
+            onClick={() => window.open(`/clients/${id}/print`, '_blank')}
+            className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700"
+          >
+            <Printer size={14} />
+            列印資料卡
+          </button>
           <button
             onClick={() => setEditing(true)}
             className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700"

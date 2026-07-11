@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Inquiry, InquiryStatus } from '@/types'
-import { Plus, Search, MessageSquareQuote } from 'lucide-react'
+import { Plus, Search, MessageSquareQuote, Printer, Trash2 } from 'lucide-react'
 import { INQUIRY_STATUS_COLORS } from '@/components/inquiries/InquiryForm'
 
 const FILTERS: ('全部' | InquiryStatus)[] = ['全部', '草稿', '已送出', '已回覆', '已結案']
@@ -35,6 +35,15 @@ export default function InquiriesPage() {
       q.inquiry_no.toLowerCase().includes(search.toLowerCase()) ||
       (q.vendor_name ?? '').toLowerCase().includes(search.toLowerCase())
     )
+
+  async function handleDelete(id: string, no: string) {
+    if (!confirm(`確定刪除詢價單「${no}」？品項會一併刪除，此操作無法復原。`)) return
+    const supa = createClient()
+    await supa.from('inquiry_items').delete().eq('inquiry_id', id)
+    const { error } = await supa.from('inquiries').delete().eq('id', id)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    location.reload()
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -86,6 +95,7 @@ export default function InquiriesPage() {
                   <th className="text-right py-3 px-4">品項數</th>
                   <th className="text-right py-3 px-4">已回覆項數</th>
                   <th className="text-left py-3 px-4">狀態</th>
+                  <th className="text-center py-3 px-4">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -108,6 +118,12 @@ export default function InquiriesPage() {
                       <td className="py-3 px-4 text-right text-gray-700">{replied > 0 ? `${replied}/${total}` : '—'}</td>
                       <td className="py-3 px-4">
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${INQUIRY_STATUS_COLORS[q.status]}`}>{q.status}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => window.open(`/inquiries/${q.id}/print`, '_blank')} title="列印／分享 PDF" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
+                          <button onClick={() => handleDelete(q.id, q.inquiry_no)} title="刪除" className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={15} /></button>
+                        </div>
                       </td>
                     </tr>
                   )

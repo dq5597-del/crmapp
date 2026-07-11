@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
-import { Users, Plus, Search, Edit2, Trash2, X, Eye, EyeOff } from 'lucide-react'
+import { Users, Plus, Search, Edit2, Trash2, X, Eye, EyeOff, Printer} from 'lucide-react'
 
 const STATUS = ['在職', '留停', '離職'] as const
 const STATUS_COLORS: Record<string, string> = {
@@ -189,6 +189,7 @@ export default function HrEmployeesPage() {
                     <td className="px-4">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openEdit(r)} title="編輯" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Edit2 size={15} /></button>
+                        <button onClick={() => window.open(`/hr/employees/${r.id}/print`, '_blank')} title="列印資料卡／分享 PDF" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
                         <button onClick={() => remove(r)} title="刪除" className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={15} /></button>
                       </div>
                     </td>
