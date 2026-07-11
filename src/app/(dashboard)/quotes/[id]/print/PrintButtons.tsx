@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { downloadPdf, sharePdf } from '@/lib/pdf-paginate'
+import PrintPreviewModal from '@/components/PrintPreviewModal'
 
 function getFileName() {
   const t = (document.title || '').trim()
@@ -13,6 +14,13 @@ function getFileName() {
 export default function PrintButtons() {
   const [loading, setLoading] = useState<'' | 'download' | 'share'>('')
   const [docOrientation, setDocOrientation] = useState<'portrait' | 'landscape'>('portrait')
+  const [showPreview, setShowPreview] = useState(false)
+
+  // 由詳情頁帶 ?preview=1 進來時自動開啟列印預覽
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('preview') === '1') setShowPreview(true)
+  }, [])
 
   // 直向／橫向列印：動態注入 @page 方向（附加在 body 尾端，優先於頁面內建樣式）
   // 手機瀏覽器會忽略 @page 的紙張方向 → 橫向列印無效。
@@ -86,6 +94,12 @@ export default function PrintButtons() {
   return (
     <div className="no-print" style={{ position: 'fixed', top: 16, right: 16, display: 'flex', gap: 8, zIndex: 50 }}>
       <button
+        onClick={() => setShowPreview(true)}
+        style={{ padding: '8px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+      >
+        預覽列印
+      </button>
+      <button
         onClick={handleSharePdf}
         disabled={!!loading}
         style={{ padding: '8px 20px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
@@ -117,6 +131,13 @@ export default function PrintButtons() {
       >
         關閉
       </button>
+
+      <PrintPreviewModal
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        fileName={getFileName()}
+        landscape={docOrientation === 'landscape'}
+      />
     </div>
   )
 }

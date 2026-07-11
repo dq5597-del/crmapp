@@ -8,7 +8,7 @@ import { Quote, QuoteItem } from '@/types'
 import { QUOTE_STATUS_COLORS, formatDate, formatCurrency } from '@/lib/utils'
 import QuoteForm from '@/components/quotes/QuoteForm'
 import {
-  ArrowLeft, Edit2, Send, Copy, ShoppingCart, Truck, FileDown, CheckCircle, XCircle, FileText, Sheet
+  ArrowLeft, Edit2, Send, Copy, ShoppingCart, Truck, FileDown, CheckCircle, XCircle, FileText, Sheet, Eye
 } from 'lucide-react'
 
 export default function QuoteDetailPage() {
@@ -244,6 +244,12 @@ export default function QuoteDetailPage() {
       <div className="flex flex-wrap gap-2 mb-5">
         <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700">
           <Edit2 size={14} /> 編輯
+        </button>
+        <button
+          onClick={() => window.open(`/quotes/${id}/print?preview=1`, '_blank')}
+          className="flex items-center gap-1.5 border border-amber-200 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl text-sm font-medium text-amber-700"
+        >
+          <Eye size={14} /> 預覽列印
         </button>
         <button
           onClick={() => window.open(`/quotes/${id}/print`, '_blank')}
