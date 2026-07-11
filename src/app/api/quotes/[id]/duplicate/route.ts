@@ -80,6 +80,7 @@ export async function POST(
       const c = { ...it }
       delete c.id
       delete c.created_at
+      delete c.amount        // generated column，不可帶值
       c.quote_id = newQuote!.id
       return c
     })
