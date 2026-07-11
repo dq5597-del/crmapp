@@ -7,6 +7,7 @@ import { formatDate } from '@/lib/utils'
 import {
   FolderKanban, Plus, Search, Printer, FileDown, Edit2, Trash2, X, ChevronDown
 } from 'lucide-react'
+import CopyDocButton from '@/components/CopyDocButton'
 
 const STATUS_OPTIONS = ['規劃中', '進行中', '施工中', '完工', '暫停', '取消'] as const
 const STATUS_COLORS: Record<string, string> = {
@@ -235,6 +236,7 @@ export default function ProjectsFolderPage() {
                     <td className="px-4">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => router.push(`/clients/${p.client_id}?tab=projects&edit=${p.id}`)} title="編輯（完整欄位）" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Edit2 size={15} /></button>
+                        <CopyDocButton type="projects" id={p.id} compact title="複製此專案（案名加「（複製）」）" gotoPath={() => `/clients/${p.client_id}?tab=projects`} />
                         <button onClick={() => window.open(`/projects/${p.id}/print`, '_blank')} title="列印總覽" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
                         <div className="relative">
                           <button onClick={() => setPdfMenu(pdfMenu === p.id ? null : p.id)} title="列印/分享 PDF" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 flex items-center"><FileDown size={15} /><ChevronDown size={12} /></button>

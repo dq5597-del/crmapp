@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, ShoppingCart, Plus, X, Trash2 } from 'lucide-react'
+import CopyDocButton from '@/components/CopyDocButton'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -194,13 +195,14 @@ export default function SalesOrdersPage() {
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
                 <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">建立日期</th>
+                <th className="text-center px-4 py-3 text-gray-600 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="text-center py-12 text-gray-400">載入中...</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-gray-400">載入中...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-12 text-gray-400">沒有銷貨單</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-gray-400">沒有銷貨單</td></tr>
               ) : filtered.map(o => (
                 <tr key={o.id} className="border-b border-gray-50 hover:bg-green-50 transition-colors">
                   <td className="px-4 py-3">
@@ -217,6 +219,9 @@ export default function SalesOrdersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{formatDate(o.created_at)}</td>
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <CopyDocButton type="sales-orders" id={o.id} title="複製此銷貨單（單號重新產生、狀態回草稿）" />
+                  </td>
                 </tr>
               ))}
             </tbody>
