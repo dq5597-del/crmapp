@@ -1567,6 +1567,13 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               />
             </Accordion>
 
+            <Accordion title="👷 施工團隊（工頭／工班人員）" color={PURPLE}>
+              <ProjectCrewSection
+                projectId={editingId as string}
+                onBeforeSave={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
             <Accordion title="② 上類 — 需求分析" color={BLUE}>
               <div className="grid grid-cols-1 gap-3">
                 <Field label="主要功能定位">
@@ -1685,13 +1692,6 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 projectId={editingId as string}
                 supabase={supabase}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
-
-            <Accordion title="👷 施工團隊（工頭／工班人員）" color={PURPLE}>
-              <ProjectCrewSection
-                projectId={editingId as string}
-                onBeforeSave={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
 
