@@ -546,6 +546,15 @@ export default function ProductsPage() {
 
     async function handleSave() {
         if (!form.product_name.trim()) return
+        // 型號不可重複（不分大小寫；排除自己）
+        const modelVal = (form.model ?? '').trim().toUpperCase()
+        if (modelVal) {
+            const dup = products.find(pr => ((pr.model ?? '') as string).trim().toUpperCase() === modelVal && pr.id !== editingId)
+            if (dup) {
+                alert(`型號「${form.model}」已被產品「${dup.product_name}」使用，型號不可重複，請改用其他型號。`)
+                return
+            }
+        }
         const payload = {
             ...form,
             web_promo_price: promoEnabled ? form.web_promo_price : null,
@@ -711,7 +720,7 @@ export default function ProductsPage() {
 
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">品牌</label>
-                                    <input value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value }))} className={inputClass} placeholder="Yamaha" />
+                                    <input value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value.toUpperCase() }))} className={inputClass} placeholder="YAMAHA" />
                                 </div>
                                 <div className="sm:col-span-2">
                                     <label className="text-xs text-gray-600 mb-1 block">產品名稱 *</label>
@@ -722,7 +731,7 @@ export default function ProductsPage() {
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">規格型號</label>
-                                    <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} className={inputClass} placeholder="MGP32X" />
+                                    <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value.toUpperCase() }))} className={inputClass} placeholder="MGP32X" />
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">單位</label>
@@ -823,10 +832,13 @@ export default function ProductsPage() {
                                                 {form.brand && <span className="text-[11px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">品牌：{form.brand}</span>}
                                             </div>
                                             <label className="text-xs text-gray-600 mb-1 block">網路產品名稱</label>
-                                            <input value={form.product_name} onChange={e => setForm(p => ({ ...p, product_name: e.target.value }))} className={inputClass + ' text-base font-medium mb-3'} placeholder="網路產品名稱" />
-                                            {(form.brand || form.model || form.product_name) && (
-                                                <div className="text-xs text-gray-500 mt-1">網路產品名稱：{form.brand && <span className="text-blue-600 font-medium">【{form.brand}】</span>}{form.model && <span className="text-gray-700">{form.model} </span>}<span className="text-gray-800">{form.product_name}</span></div>
-                                            )}
+                                            <div className={inputClass + ' text-base font-medium mb-3 bg-gray-50 flex flex-wrap items-center gap-1'}>
+                                                {form.brand && <span className="text-blue-600 font-semibold">【{form.brand}】</span>}
+                                                {form.model && <span className="text-gray-700">{form.model}</span>}
+                                                {form.product_name
+                                                    ? <span className="text-gray-900">{form.product_name}</span>
+                                                    : <span className="text-gray-400 font-normal text-sm">請於「進銷存模式」填寫品牌／型號／產品名稱</span>}
+                                            </div>
 
                                             <div className="grid grid-cols-3 gap-3 mb-1">
                                                 <div>
