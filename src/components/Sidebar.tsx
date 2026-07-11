@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +33,7 @@ const psiItems = [
   { href: '/sales-orders',    label: '銷貨單',   icon: ShoppingCart },
   { href: '/inquiries',       label: '廠商詢價單', icon: MessageSquareQuote },
   { href: '/purchase-orders', label: '訂購單',   icon: Truck },
+  { href: '/shipments',       label: '出貨管理', icon: PackageCheck },
   { href: '/inventory',       label: '庫存管理', icon: Warehouse },
   { href: '/returns',         label: '退貨管理', icon: RotateCcw },
   { href: '/products',        label: '產品管理', icon: Package },
