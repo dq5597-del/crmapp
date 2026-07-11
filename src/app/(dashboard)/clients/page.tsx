@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { usePermissions } from '@/lib/permissions'
 import { Client } from '@/types'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
 import { Plus, Search, Phone, MapPin, Calendar, Award } from 'lucide-react'
@@ -29,6 +30,9 @@ function computeTiers(revenueMap: Record<string, number>): Record<string, string
 }
 
 export default function ClientsPage() {
+  const { permOf } = usePermissions()
+  const perm = permOf('clients')
+
   const supabase = createClient()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,6 +85,7 @@ export default function ClientsPage() {
           <h1 className="text-xl font-bold text-gray-900">客戶資料</h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {filtered.length} 筆</p>
         </div>
+{perm.can_create && (
         <Link
           href="/clients/new"
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition"
@@ -88,6 +93,7 @@ export default function ClientsPage() {
           <Plus size={16} />
           新增客戶
         </Link>
+        )}
       </div>
 
       {/* Filters */}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy } from 'lucide-react'
@@ -391,6 +392,9 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder }: { value: str
 }
 
 export default function ProductsPage() {
+  const { permOf } = usePermissions()
+  const perm = permOf('products')
+
   const supabase = createClient()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
@@ -686,9 +690,9 @@ export default function ProductsPage() {
             <RefreshCw size={15} className={batchMarket ? 'animate-spin' : ''} />
             {batchMarket ? `查詢中 ${batchMarket.done}/${batchMarket.total}` : '批次查行情'}
           </button>
-          <button onClick={() => startEdit()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
+          {perm.can_create && <button onClick={() => startEdit()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
             <Plus size={16} /> 新增產品
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -767,7 +771,11 @@ export default function ProductsPage() {
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">進貨價（成本）</label>
-                                    <input type="number" value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: Number(e.target.value) }))} className={inputClass} />
+                                    {perm.can_cost ? (
+                                      <input type="number" value={form.cost_price} onChange={e => setForm(p => ({ ...p, cost_price: Number(e.target.value) }))} className={inputClass} />
+                                    ) : (
+                                      <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-400">＊＊＊＊（無權限查看）</div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">利潤率</label>
@@ -1113,9 +1121,9 @@ export default function ProductsPage() {
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <button onClick={() => setHistoryProduct(p)} title="詢價紀錄" className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg"><MessageSquareQuote size={14} /></button>
-                          <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={14} /></button>
-                          <button onClick={() => handleCopyProduct(p)} title="複製此產品（型號自動加 -COPY，庫存歸零）" className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Copy size={14} /></button>
-                          <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>
+                          {perm.can_edit && <button onClick={() => startEdit(p)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Pencil size={14} /></button>}
+                          {perm.can_create && <button onClick={() => handleCopyProduct(p)} title="複製此產品（型號自動加 -COPY，庫存歸零）" className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Copy size={14} /></button>}
+                          {perm.can_delete && <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>}
                         </div>
                       </td>
                     </tr>

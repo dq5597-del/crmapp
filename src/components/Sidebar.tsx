@@ -8,9 +8,10 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePermissions, FEATURES } from '@/lib/permissions'
 
 const navItemsTop = [
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
@@ -101,6 +102,8 @@ function NavGroup({ label, icon: Icon, items, active, open, onToggle, isActive, 
   active: boolean; open: boolean; onToggle: () => void
   isActive: (href: string) => boolean; onClose: () => void
 }) {
+  if (!items || items.length === 0) return null
+
   return (
     <div>
       <button
@@ -138,6 +141,15 @@ function NavGroup({ label, icon: Icon, items, active, open, onToggle, isActive, 
 }
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
+  const { can, isAdmin } = usePermissions()
+  const featureOf = (href: string) =>
+    FEATURES.filter(f => f.href && f.href !== '/' && href.startsWith(f.href))
+      .sort((a, b) => b.href!.length - a.href!.length)[0]?.key ?? (href === '/' ? 'dashboard' : undefined)
+  const flt = (items: any[]) => items.filter(i => {
+    const f = featureOf(i.href)
+    return f ? can(f, 'can_view') : true
+  })
+
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -200,7 +212,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-thin">
-          {navItemsTop.map(({ href, label, icon }) => (
+          {flt(navItemsTop).map(({ href, label, icon }) => (
             <NavLink key={href} href={href} label={label} icon={icon} active={isActive(href)} onClick={onClose} />
           ))}
 
@@ -208,7 +220,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <NavGroup
             label="業務"
             icon={Briefcase}
-            items={businessItems}
+            items={flt(businessItems)}
             active={isBusinessActive}
             open={businessOpen}
             onToggle={() => setBusinessOpen(o => !o)}
@@ -220,7 +232,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <NavGroup
             label="公司資料"
             icon={Building2}
-            items={companyItems}
+            items={flt(companyItems)}
             active={isCompanyActive}
             open={companyOpen}
             onToggle={() => setCompanyOpen(o => !o)}
@@ -232,7 +244,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <NavGroup
             label="進銷存"
             icon={Warehouse}
-            items={psiItems}
+            items={flt(psiItems)}
             active={isPsiActive}
             open={psiOpen}
             onToggle={() => setPsiOpen(o => !o)}
@@ -240,7 +252,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             onClose={onClose}
           />
 
-          {navItemsMid.map(({ href, label, icon }) => (
+          {flt(navItemsMid).map(({ href, label, icon }) => (
             <NavLink key={href} href={href} label={label} icon={icon} active={isActive(href)} onClick={onClose} />
           ))}
 
@@ -248,7 +260,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <NavGroup
             label="會計"
             icon={Calculator}
-            items={accountingItems}
+            items={flt(accountingItems)}
             active={isAcctActive}
             open={acctOpen}
             onToggle={() => setAcctOpen(o => !o)}
@@ -260,7 +272,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <NavGroup
             label="人資管理"
             icon={UserCog}
-            items={hrItems}
+            items={flt(hrItems)}
             active={isHrActive}
             open={hrOpen}
             onToggle={() => setHrOpen(o => !o)}
@@ -268,7 +280,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             onClose={onClose}
           />
 
-          {navItemsAfter.map(({ href, label, icon }) => (
+          {isAdmin && (
+            <NavLink href="/permissions" label="權限管理" icon={ShieldCheck} active={isActive('/permissions')} onClick={onClose} />
+          )}
+          {flt(navItemsAfter).map(({ href, label, icon }) => (
             <NavLink key={href} href={href} label={label} icon={icon} active={isActive(href)} onClick={onClose} />
           ))}
         </nav>
