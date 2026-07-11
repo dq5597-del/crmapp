@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { usePermissions } from '@/lib/permissions'
 import {
   Truck, Plus, Search, Printer, Trash2, Pencil, X, Link2, Check,
   PackageCheck, Undo2, ChevronDown,
@@ -31,6 +32,9 @@ type Item = {
 }
 
 export default function ShipmentsPage() {
+  const { permOf } = usePermissions()
+  const perm = permOf('shipments')
+
   const supabase = createClient()
   const [rows, setRows] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
@@ -295,9 +299,9 @@ export default function ShipmentsPage() {
               </>
             )}
           </div>
-          <button onClick={openNew} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium">
+          {perm.can_create && <button onClick={openNew} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium">
             <Plus size={16} /> 新增出貨單
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -375,10 +379,10 @@ export default function ShipmentsPage() {
                         </button>
                         <button onClick={() => window.open(`/shipments/${r.id}/print`, '_blank')} title="列印／分享 PDF"
                           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
-                        <button onClick={() => openEdit(r)} title="編輯"
-                          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Pencil size={15} /></button>
-                        <button onClick={() => remove(r)} title="刪除"
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={15} /></button>
+                        {perm.can_edit && <button onClick={() => openEdit(r)} title="編輯"
+                          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Pencil size={15} /></button>}
+                        {perm.can_delete && <button onClick={() => remove(r)} title="刪除"
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={15} /></button>}
                       </div>
                     </td>
                   </tr>
