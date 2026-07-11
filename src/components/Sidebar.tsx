@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, IdCard
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -50,6 +50,11 @@ const accountingItems = [
   { href: '/accounting/balance-sheet',  label: '資產負債表',   icon: Scale },
   { href: '/accounting/cash-flow',      label: '現金流量表',   icon: Wallet },
   { href: '/accounting/equity-changes', label: '權益變動表',   icon: PiggyBank },
+]
+
+const hrItems = [
+  { href: '/hr/employees',   label: '員工資料',        icon: IdCard },
+  { href: '/hr/contractors', label: '協力廠商／臨時工', icon: HardHat },
 ]
 
 const navItemsAfter = [
@@ -137,16 +142,19 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const isCompanyActive  = companyItems.some(({ href }) => isActive(href))
   const isPsiActive      = psiItems.some(({ href }) => isActive(href))
   const isAcctActive     = pathname.startsWith('/accounting')
+  const isHrActive       = pathname.startsWith('/hr')
 
   const [businessOpen, setBusinessOpen] = useState(isBusinessActive)
   const [companyOpen,  setCompanyOpen]  = useState(isCompanyActive)
   const [psiOpen,      setPsiOpen]      = useState(isPsiActive)
   const [acctOpen,     setAcctOpen]     = useState(isAcctActive)
+  const [hrOpen,       setHrOpen]       = useState(isHrActive)
 
   useEffect(() => { if (isBusinessActive) setBusinessOpen(true) }, [isBusinessActive])
   useEffect(() => { if (isCompanyActive)  setCompanyOpen(true) },  [isCompanyActive])
   useEffect(() => { if (isPsiActive)      setPsiOpen(true) },      [isPsiActive])
   useEffect(() => { if (isAcctActive)     setAcctOpen(true) },     [isAcctActive])
+  useEffect(() => { if (isHrActive)       setHrOpen(true) },       [isHrActive])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -237,6 +245,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             active={isAcctActive}
             open={acctOpen}
             onToggle={() => setAcctOpen(o => !o)}
+            isActive={isActive}
+            onClose={onClose}
+          />
+
+          {/* 人資管理 分類（可收合） */}
+          <NavGroup
+            label="人資管理"
+            icon={UserCog}
+            items={hrItems}
+            active={isHrActive}
+            open={hrOpen}
+            onToggle={() => setHrOpen(o => !o)}
             isActive={isActive}
             onClose={onClose}
           />
