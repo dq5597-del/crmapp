@@ -133,6 +133,7 @@ export async function POST(
       delete c.id
       delete c.created_at
       delete c.updated_at
+      delete c.amount        // generated column（quantity * unit_price），不可帶值
       c[cfg.itemFk!] = created!.id
       return c
     })
