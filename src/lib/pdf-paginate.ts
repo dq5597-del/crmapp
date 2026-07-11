@@ -3,6 +3,12 @@
 // 區塊（.section 等）的上緣，避免內容被切成兩半。頁數不限。
 
 export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
+  const { pdf } = await buildPaginatedPdfWithPages(opts)
+  return pdf
+}
+
+/** 產生 PDF，同時回傳每頁的圖片 dataURL（供列印預覽使用） */
+export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean }) {
   const landscape = opts?.landscape ?? false
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import('html2canvas'),
@@ -73,6 +79,7 @@ export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
   const pxPerMm = canvas.width / pageW                      // canvas 像素 ↔ mm 換算
   const capacity = Math.floor((pageH - marginTop - marginBottom) * pxPerMm) // 每頁可放的 canvas 高度
 
+  const pages: string[] = []
   let y = 0
   let firstPage = true
   while (y < canvas.height - 4) {
@@ -98,13 +105,16 @@ export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
     ctx.fillRect(0, 0, tmp.width, tmp.height)
     ctx.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH)
 
+    const dataUrl = tmp.toDataURL('image/jpeg', 0.95)
+    pages.push(dataUrl)
+
     if (!firstPage) pdf.addPage()
-    pdf.addImage(tmp.toDataURL('image/jpeg', 0.95), 'JPEG', 0, marginTop, pageW, sliceH / pxPerMm)
+    pdf.addImage(dataUrl, 'JPEG', 0, marginTop, pageW, sliceH / pxPerMm)
     firstPage = false
     y = end
   }
 
-  return pdf
+  return { pdf, pages }
 }
 
 /** 下載 PDF */
