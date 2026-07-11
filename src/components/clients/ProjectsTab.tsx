@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { ProjectStatus } from '@/types'
 import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload } from 'lucide-react'
 import RackDesigner from '@/components/RackDesigner'
+import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
 import { formatDate } from '@/lib/utils'
 
 const STATUS_OPTIONS: ProjectStatus[] = ['規劃中', '進行中', '施工中', '完工', '暫停', '取消']
@@ -1684,6 +1685,13 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 projectId={editingId as string}
                 supabase={supabase}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="👷 施工團隊（工頭／工班人員）" color={PURPLE}>
+              <ProjectCrewSection
+                projectId={editingId as string}
+                onBeforeSave={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
 
