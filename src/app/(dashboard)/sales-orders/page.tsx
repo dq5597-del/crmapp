@@ -102,7 +102,7 @@ export default function SalesOrdersPage() {
     try {
       const order_no = await generateOrderNo()
       const subtotal = validItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)
-      const tax_amount = Math.round(subtotal * 0.05 * 100) / 100
+      const tax_amount = 0 // 系統價格含稅，不另加稅
       const total_amount = subtotal + tax_amount
 
       const { data: order, error } = await supabase
@@ -145,7 +145,7 @@ export default function SalesOrdersPage() {
   function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
 
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
-  const tax = Math.round(subtotal * 0.05 * 100) / 100
+  const tax = 0 // 系統價格含稅，不另加稅
   const total = subtotal + tax
 
   const selectedClientName = clients.find(c => c.id === clientId)?.company_name ?? ''
@@ -378,8 +378,6 @@ export default function SalesOrdersPage() {
                 </div>
                 <div className="flex justify-end mt-2">
                   <div className="text-right space-y-0.5 text-xs min-w-[200px]">
-                    <div className="flex justify-between text-gray-500"><span>小計</span><span>{formatCurrency(subtotal)}</span></div>
-                    <div className="flex justify-between text-gray-500"><span>稅額（5%）</span><span>{formatCurrency(tax)}</span></div>
                     <div className="flex justify-between font-bold text-gray-900 border-t pt-0.5">
                       <span>含稅總計</span><span className="text-green-700">{formatCurrency(total)}</span>
                     </div>
