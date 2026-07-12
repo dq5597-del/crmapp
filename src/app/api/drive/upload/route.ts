@@ -55,7 +55,7 @@ export async function GET() {
     const raw = process.env.GOOGLE_SA_PRIVATE_KEY ?? ''
     const hint =
       /DECODER|unsupported|PEM/i.test(e.message ?? '')
-        ? '私鑰格式不正確。請確認貼進 GOOGLE_SA_PRIVATE_KEY 的是 JSON 檔裡 private_key 引號「內」的整段（-----BEGIN PRIVATE KEY----- 開頭、-----END PRIVATE KEY----- 結尾），不要把外層的雙引號一起貼進去。'
+        ? '私鑰讀不出來。GOOGLE_SA_PRIVATE_KEY 只要「含有」-----BEGIN PRIVATE KEY----- 到 -----END PRIVATE KEY----- 這一整段即可（前後多貼引號、逗號、甚至整個 JSON 檔內容都沒關係，系統會自動抓出來）。請確認這一整段有完整貼上、沒有被截斷。'
         : /not found|404/i.test(e.message ?? '')
           ? '找不到資料夾。請確認 GDRIVE_FOLDER_ID 正確，且該資料夾已用「編輯者」權限分享給服務帳戶。'
           : /Drive API|has not been used|disabled/i.test(e.message ?? '')
@@ -71,6 +71,8 @@ export async function GET() {
         key_len: raw.length,
         key_starts_with_begin: raw.trim().startsWith('-----BEGIN'),
         key_has_quotes: raw.trim().startsWith('"'),
+        key_has_begin_marker: raw.includes('BEGIN PRIVATE KEY'),
+        key_has_end_marker: raw.includes('END PRIVATE KEY'),
         has_folder: !!process.env.GDRIVE_FOLDER_ID,
       },
     })

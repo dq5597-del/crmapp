@@ -30,33 +30,29 @@ function b64url(input: Buffer | string) {
 function normalizePrivateKey(raw: string): string {
   let k = (raw ?? '').trim()
 
-  // 去掉前後可能被一起貼上的引號
-  if ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'"))) {
-    k = k.slice(1, -1)
-  }
-  // 把字面上的 \n 轉成真正的換行
+  // 字面上的 \n → 真正的換行；去掉 \r
   k = k.replace(/\\n/g, '\n').replace(/\r/g, '')
 
-  // 若沒有 PEM 標頭，嘗試當作 base64 整包解開
-  if (!k.includes('BEGIN PRIVATE KEY')) {
+  // 沒有 PEM 標頭 → 試著當成整包 base64 解開
+  if (!/BEGIN [A-Z ]*PRIVATE KEY/.test(k)) {
     try {
       const decoded = Buffer.from(k, 'base64').toString('utf8')
-      if (decoded.includes('BEGIN PRIVATE KEY')) k = decoded
+      if (/BEGIN [A-Z ]*PRIVATE KEY/.test(decoded)) k = decoded
     } catch { /* ignore */ }
   }
 
-  // 重新排版成標準 PEM（處理被壓成一行的情況）
-  if (k.includes('BEGIN PRIVATE KEY') && !k.includes('\n')) {
-    const body = k
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .replace(/\s+/g, '')
-    const lines = body.match(/.{1,64}/g) ?? []
-    k = ['-----BEGIN PRIVATE KEY-----', ...lines, '-----END PRIVATE KEY-----'].join('\n')
+  // 直接把 PEM 區塊「挖」出來 —— 前後多貼了引號、逗號、"private_key":、
+  // 甚至整個 JSON 檔都無所謂，一律只取 BEGIN…END 之間的內容。
+  const m = k.match(/-----BEGIN ([A-Z ]*PRIVATE KEY)-----([\s\S]*?)-----END \1-----/)
+  if (!m) {
+    throw new Error('找不到 PEM 私鑰區塊。請確認 GOOGLE_SA_PRIVATE_KEY 內含 -----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY----- 這一整段。')
   }
 
-  if (!k.endsWith('\n')) k += '\n'
-  return k
+  const label = m[1]
+  const body = m[2].replace(/[^A-Za-z0-9+/=]/g, '')   // 只留 base64 字元
+  const lines = body.match(/.{1,64}/g) ?? []
+
+  return [`-----BEGIN ${label}-----`, ...lines, `-----END ${label}-----`, ''].join('\n')
 }
 
 async function getAccessToken(): Promise<string> {
