@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { buildWooPayload, validateForWeb, type CrmProductRow, type CrmSubData } from '@/lib/web-product-mapper'
 
 /**
  * POST /api/woocommerce/push
  * body: { product_ids: string[], publish?: boolean }
  *
  * 把 CRM 產品推到 av-shop.com（WooCommerce REST API v3）。
- * 已推過的（有 web_product_id）→ 更新；沒推過的 → 新建（預設草稿）。
+ * 已推過的（有 web_product_id）→ 更新（不覆蓋官網的發佈狀態）；沒推過的 → 新建為草稿。
+ * 商品會帶 av_source=crm，出現在 WP 後台「商品 → CRM 待審」清單。
+ *
+ * 欄位對應集中在 src/lib/web-product-mapper.ts：
+ *   product_features  → feature_1~10（特色標章）+ av_feature_item_1~8（產品特色列表）
+ *   web_spec_html     → av_tab_specs（詳細規格分頁）
+ *   catalog/manual/CAD→ av_download_*（檔案下載分頁）
  *
  * 需要的環境變數（設在 Vercel，勿寫進程式碼）：
- *   WC_STORE_URL        例：https://av-shop.com
- *   WC_CONSUMER_KEY     ck_xxx
- *   WC_CONSUMER_SECRET  cs_xxx
+ *   WC_STORE_URL / WC_CONSUMER_KEY / WC_CONSUMER_SECRET
  */
 
 function wcAuthHeader() {
@@ -21,63 +26,31 @@ function wcAuthHeader() {
   return 'Basic ' + Buffer.from(`${k}:${s}`).toString('base64')
 }
 
-/** 把 CRM 產品組成 WooCommerce 商品 payload */
-function buildPayload(p: any, features: string[], images: string[], publish: boolean) {
-  const name = [
-    p.brand ? `【${p.brand}】` : '',
-    p.model ?? '',
-    p.product_name ?? '',
-  ].filter(Boolean).join(' ').trim()
-
-  // 短描述：產品特色（chip）→ 條列
-  const shortDesc = features.length
-    ? `<ul>${features.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`
-    : ''
-
-  // 完整描述：商品介紹 HTML + 規格 HTML
-  const desc = [
-    p.web_description ?? '',
-    p.web_spec_html ? `<h3>詳細規格</h3>${p.web_spec_html}` : '',
-    p.web_bsmi_no ? `<p>BSMI 商檢字號：${escapeHtml(p.web_bsmi_no)}</p>` : '',
-    p.web_ncc_no ? `<p>NCC 認證字號：${escapeHtml(p.web_ncc_no)}</p>` : '',
-  ].filter(Boolean).join('\n')
-
-  const imgs = [p.web_main_image_url, ...images].filter(Boolean).map((src: string) => ({ src }))
-
-  const payload: any = {
-    name,
-    type: 'simple',
-    status: publish ? 'publish' : 'draft',
-    sku: p.web_sku || p.model || undefined,
-    regular_price: p.web_sale_price != null ? String(p.web_sale_price) : (p.list_price != null ? String(p.list_price) : undefined),
-    short_description: shortDesc,
-    description: desc,
-    manage_stock: true,
-    stock_quantity: Number(p.stock_qty ?? 0),
-    backorders: p.web_allow_backorder ? 'yes' : 'no',
-  }
-
-  // 限時促銷
-  if (p.web_promo_price != null && Number(p.web_promo_price) > 0) {
-    payload.sale_price = String(p.web_promo_price)
-    if (p.web_promo_price_from) payload.date_on_sale_from = p.web_promo_price_from
-    if (p.web_promo_price_to) payload.date_on_sale_to = p.web_promo_price_to
-  }
-
-  if (imgs.length) payload.images = imgs
-  if (p.web_category) payload.categories = [{ name: p.web_category }]
-  if (p.brand) payload.brands = [{ name: p.brand }]   // WooCommerce Brands（若外掛支援）
-
-  return payload
+function storeBase() {
+  return (process.env.WC_STORE_URL ?? '').replace(/\/$/, '')
 }
 
-function escapeHtml(s: string) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+/** 依分類名稱找官網分類 ID（找不到回 null，不自動新增分類） */
+async function findCategoryId(name: string, auth: string): Promise<number | null> {
+  if (!name?.trim()) return null
+  try {
+    const res = await fetch(
+      `${storeBase()}/wp-json/wc/v3/products/categories?search=${encodeURIComponent(name.trim())}&per_page=20`,
+      { headers: { Authorization: auth }, cache: 'no-store' }
+    )
+    if (!res.ok) return null
+    const list = await res.json()
+    if (!Array.isArray(list) || list.length === 0) return null
+    const exact = list.find((c: any) => c.name?.trim() === name.trim())
+    return (exact ?? list[0]).id ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function POST(req: Request) {
   const auth = wcAuthHeader()
-  const store = process.env.WC_STORE_URL
+  const store = storeBase()
   if (!auth || !store) {
     return NextResponse.json({
       error: '尚未設定官網 API 金鑰。請在 Vercel 環境變數加入 WC_STORE_URL / WC_CONSUMER_KEY / WC_CONSUMER_SECRET 後重新部署。',
@@ -93,24 +66,40 @@ export async function POST(req: Request) {
   const results: any[] = []
 
   for (const id of product_ids) {
-    const [{ data: p }, { data: feats }, { data: imgs }] = await Promise.all([
+    const [{ data: p }, { data: feats }, { data: imgs }, { data: dls }] = await Promise.all([
       supabase.from('products').select('*').eq('id', id).single(),
-      supabase.from('product_features').select('feature_text').eq('product_id', id).order('sort_order'),
-      supabase.from('product_images').select('image_url').eq('product_id', id).order('sort_order'),
+      supabase.from('product_features').select('feature_text, sort_order').eq('product_id', id).order('sort_order'),
+      supabase.from('product_images').select('image_url, sort_order').eq('product_id', id).order('sort_order'),
+      supabase.from('product_downloads').select('file_name, file_url, sort_order').eq('product_id', id).order('sort_order'),
     ])
     if (!p) { results.push({ id, ok: false, error: '找不到產品' }); continue }
 
-    const payload = buildPayload(
-      p,
-      (feats ?? []).map((f: any) => f.feature_text).filter(Boolean),
-      (imgs ?? []).map((i: any) => i.image_url).filter(Boolean),
-      !!publish,
-    )
+    const sub: CrmSubData = {
+      features: (feats ?? []) as any,
+      images: (imgs ?? []) as any,
+      downloads: (dls ?? []) as any,
+    }
+    const row = p as CrmProductRow
+    const missing = validateForWeb(row, sub)
 
-    const wcId = p.web_product_id
+    const categoryId = await findCategoryId(row.web_category ?? '', auth)
+    const payload: any = buildWooPayload(row, sub, categoryId, { status: publish ? 'publish' : 'draft' })
+
+    // 官網分類找不到時，退回用名稱建立關聯（WooCommerce 會自行比對）
+    if (!categoryId && row.web_category) {
+      payload.categories = [{ name: row.web_category }]
+    }
+    // 庫存
+    payload.manage_stock = true
+    payload.stock_quantity = Number((p as any).stock_qty ?? 0)
+
+    const wcId = row.web_product_id
     const url = wcId
-      ? `${store.replace(/\/$/, '')}/wp-json/wc/v3/products/${wcId}`
-      : `${store.replace(/\/$/, '')}/wp-json/wc/v3/products`
+      ? `${store}/wp-json/wc/v3/products/${wcId}`
+      : `${store}/wp-json/wc/v3/products`
+
+    // 更新既有商品時不動 status，避免把已上架商品打回草稿
+    if (wcId) delete payload.status
 
     try {
       const res = await fetch(url, {
@@ -125,7 +114,7 @@ export async function POST(req: Request) {
         if (res.status === 404 && wcId) {
           await supabase.from('products').update({ web_product_id: null, web_product_url: null }).eq('id', id)
         }
-        results.push({ id, name: p.product_name, ok: false, error: data?.message ?? `HTTP ${res.status}` })
+        results.push({ id, name: row.product_name, ok: false, error: data?.message ?? `HTTP ${res.status}` })
         continue
       }
 
@@ -137,12 +126,18 @@ export async function POST(req: Request) {
       }).eq('id', id)
 
       results.push({
-        id, name: p.product_name, ok: true,
-        wc_id: data.id, url: data.permalink, status: data.status,
+        id,
+        name: row.product_name,
+        ok: true,
+        wc_id: data.id,
+        url: data.permalink,
+        status: data.status,
         action: wcId ? '已更新' : '已建立',
+        missing,                       // 缺少的欄位（僅提醒，不阻擋）
+        category_matched: !!categoryId,
       })
     } catch (e: any) {
-      results.push({ id, name: p.product_name, ok: false, error: e.message ?? '連線失敗' })
+      results.push({ id, name: row.product_name, ok: false, error: e.message ?? '連線失敗' })
     }
   }
 
@@ -153,12 +148,12 @@ export async function POST(req: Request) {
 /** GET /api/woocommerce/push → 測試連線 */
 export async function GET() {
   const auth = wcAuthHeader()
-  const store = process.env.WC_STORE_URL
+  const store = storeBase()
   if (!auth || !store) {
     return NextResponse.json({ connected: false, error: '尚未設定 WC_STORE_URL / WC_CONSUMER_KEY / WC_CONSUMER_SECRET' })
   }
   try {
-    const res = await fetch(`${store.replace(/\/$/, '')}/wp-json/wc/v3/products?per_page=1`, {
+    const res = await fetch(`${store}/wp-json/wc/v3/products?per_page=1`, {
       headers: { Authorization: auth },
     })
     if (!res.ok) {
