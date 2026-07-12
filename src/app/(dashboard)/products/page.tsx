@@ -430,6 +430,8 @@ export default function ProductsPage() {
     const [webDownloads, setWebDownloads] = useState<{ id?: string; file_name: string; file_url: string }[]>([])
     const [webVendors, setWebVendors] = useState<{ id?: string; vendor_id: string; cost: number | null; is_primary: boolean }[]>([])
     const [vendorList, setVendorList] = useState<Vendor[]>([])
+    const [webUploading, setWebUploading] = useState(false)
+    const [webUploadMsg, setWebUploadMsg] = useState<{ type: 'ok' | 'warn' | 'err'; text: string; url?: string } | null>(null)
 
     useEffect(() => { fetchAll() }, [])
 
@@ -576,6 +578,64 @@ export default function ProductsPage() {
         fetchAll()
     }
 
+
+    /**
+     * 上傳到 av-shop.com（先存檔，再以「草稿」推到 WooCommerce）
+     * 網站端會出現在「商品 → CRM 待審」清單，確認後由人工按發佈。
+     */
+    async function uploadToWeb(force = false) {
+        if (!form.product_name.trim()) return
+        setWebUploading(true)
+        setWebUploadMsg(null)
+        try {
+            // 先確保資料已存進 Supabase（含子表），再上傳
+            let pid = editingId as string
+            const payload = {
+                ...form,
+                web_promo_price: promoEnabled ? form.web_promo_price : null,
+                web_promo_price_from: promoEnabled && form.web_promo_price_from ? form.web_promo_price_from : null,
+                web_promo_price_to: promoEnabled && form.web_promo_price_to ? form.web_promo_price_to : null,
+            }
+            if (editingId === 'new') {
+                const { data } = await supabase.from('products').insert(payload).select('id').single()
+                if (!data?.id) throw new Error('產品儲存失敗')
+                pid = data.id
+                setEditingId(pid)
+            } else {
+                await supabase.from('products').update(payload).eq('id', pid)
+            }
+            await syncWebSubData(pid)
+
+            const res = await fetch('/api/web/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product_id: pid, force }),
+            })
+            const data = await res.json()
+
+            if (res.status === 422 && data.need_force) {
+                const ok = confirm(`尚缺欄位：${data.missing.join('、')}\n\n仍要上傳為草稿嗎？（可稍後在網站後台補齊）`)
+                setWebUploading(false)
+                if (ok) await uploadToWeb(true)
+                return
+            }
+            if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+
+            setForm(p => ({ ...p, web_product_id: String(data.web_product_id), web_product_url: data.permalink ?? '' }))
+            const warn = data.warnings?.length ? `（缺：${data.warnings.join('、')}）` : ''
+            const catWarn = data.category_matched ? '' : '（網站找不到對應分類，請到後台指定）'
+            setWebUploadMsg({
+                type: warn || catWarn ? 'warn' : 'ok',
+                text: `${data.mode === 'created' ? '已建立網站草稿' : '已更新網站商品'}：ID ${data.web_product_id}${warn}${catWarn}`,
+                url: data.edit_url,
+            })
+            fetchAll()
+        } catch (e: any) {
+            setWebUploadMsg({ type: 'err', text: e?.message ?? '上傳失敗' })
+        } finally {
+            setWebUploading(false)
+        }
+    }
 
   async function handleDelete(id: string) {
     if (!confirm('確定刪除此產品？')) return
@@ -1116,8 +1176,25 @@ export default function ProductsPage() {
                             </>
                         )}
 
+                        {webUploadMsg && (
+                            <div className={`mb-3 text-xs rounded-lg px-3 py-2 ${webUploadMsg.type === 'ok' ? 'bg-emerald-50 text-emerald-700' : webUploadMsg.type === 'warn' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'}`}>
+                                {webUploadMsg.text}
+                                {webUploadMsg.url && (
+                                    <a href={webUploadMsg.url} target="_blank" rel="noreferrer" className="underline ml-2">開啟網站後台</a>
+                                )}
+                            </div>
+                        )}
+
                         <div className="flex justify-end gap-2">
                             <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+                            <button
+                                onClick={() => uploadToWeb(false)}
+                                disabled={webUploading}
+                                className="px-4 py-2 border border-emerald-600 text-emerald-700 rounded-lg text-sm font-medium disabled:opacity-50"
+                                title="存檔並以草稿上傳到 av-shop.com，網站後台確認後再發佈"
+                            >
+                                {webUploading ? '上傳中…' : '上傳到網站（草稿）'}
+                            </button>
                             <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">儲存</button>
                         </div>
                     </div>
@@ -1160,7 +1237,7 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-500">{p.brand ?? '—'}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{p.product_name}</td>
-                      <td className="px-4 py-3 text-gray-500">{p.model ?? '—'}</td>
+                                     <td className="px-4 py-3 text-gray-500">{p.model ?? '—'}</td>
                       <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(p.list_price)}</td>
                       <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(p.cost_price)}</td>
                       <td className="px-4 py-3 text-right">
