@@ -26,9 +26,42 @@ function b64url(input: Buffer | string) {
 }
 
 /** 用服務帳號私鑰簽 JWT，換取 access token */
+/** 私鑰容錯：使用者可能連 JSON 的引號一起貼、換行被轉義、或前後有空白 */
+function normalizePrivateKey(raw: string): string {
+  let k = (raw ?? '').trim()
+
+  // 去掉前後可能被一起貼上的引號
+  if ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'"))) {
+    k = k.slice(1, -1)
+  }
+  // 把字面上的 \n 轉成真正的換行
+  k = k.replace(/\\n/g, '\n').replace(/\r/g, '')
+
+  // 若沒有 PEM 標頭，嘗試當作 base64 整包解開
+  if (!k.includes('BEGIN PRIVATE KEY')) {
+    try {
+      const decoded = Buffer.from(k, 'base64').toString('utf8')
+      if (decoded.includes('BEGIN PRIVATE KEY')) k = decoded
+    } catch { /* ignore */ }
+  }
+
+  // 重新排版成標準 PEM（處理被壓成一行的情況）
+  if (k.includes('BEGIN PRIVATE KEY') && !k.includes('\n')) {
+    const body = k
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .replace(/\s+/g, '')
+    const lines = body.match(/.{1,64}/g) ?? []
+    k = ['-----BEGIN PRIVATE KEY-----', ...lines, '-----END PRIVATE KEY-----'].join('\n')
+  }
+
+  if (!k.endsWith('\n')) k += '\n'
+  return k
+}
+
 async function getAccessToken(): Promise<string> {
   const email = process.env.GOOGLE_SA_EMAIL!
-  const key = (process.env.GOOGLE_SA_PRIVATE_KEY ?? '').replace(/\\n/g, '\n')
+  const key = normalizePrivateKey(process.env.GOOGLE_SA_PRIVATE_KEY ?? '')
 
   const now = Math.floor(Date.now() / 1000)
   const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
