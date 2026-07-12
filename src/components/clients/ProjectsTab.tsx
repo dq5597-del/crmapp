@@ -122,7 +122,9 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
     setLoading(false)
   }
 
+  /** 新照片存 Google Drive（storage_path = 'gdrive:檔案ID'），舊照片仍在 Supabase */
   function getUrl(path: string) {
+    if (path?.startsWith('gdrive:')) return `/api/drive/file/${path.slice(7)}`
     return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
   }
 
@@ -130,12 +132,15 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
     if (onBeforeUpload && !(await onBeforeUpload())) return
     setUploading(true)
     try {
-      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
-      const path = `${projectId}/${cat}/${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
-      if (error) throw error
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', `專案照片/${cat}`)
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+
       const { error: dbErr } = await supabase.from('project_photos').insert({
-        project_id: projectId, category: cat, storage_path: path, notes: '',
+        project_id: projectId, category: cat, storage_path: `gdrive:${data.file_id}`, notes: '',
       })
       if (dbErr) throw dbErr
       await fetchPhotos()
@@ -147,7 +152,11 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
 
   async function handleDelete(photo: Photo) {
     if (!confirm('確認刪除此照片？')) return
-    await supabase.storage.from(BUCKET).remove([photo.storage_path])
+    if (photo.storage_path?.startsWith('gdrive:')) {
+      await fetch(`/api/drive/file/${photo.storage_path.slice(7)}`, { method: 'DELETE' }).catch(() => {})
+    } else {
+      await supabase.storage.from(BUCKET).remove([photo.storage_path])
+    }
     await supabase.from('project_photos').delete().eq('id', photo.id)
     setPhotos(prev => prev.filter(p => p.id !== photo.id))
   }
@@ -287,19 +296,24 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
   }
 
   function getUrl(path: string) {
+    if (path?.startsWith('gdrive:')) return `/api/drive/file/${path.slice(7)}`
     return supabase.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl
   }
 
+  /** 新檔案存 Google Drive */
   async function handleUpload(file: File) {
     if (onBeforeUpload && !(await onBeforeUpload())) return
     setUploading(true)
     try {
-      const ext = (file.name.split('.').pop() ?? '').toLowerCase()
-      const path = `${projectId}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}${ext ? '.' + ext : ''}`
-      const { error } = await supabase.storage.from(FILE_BUCKET).upload(path, file, { upsert: false })
-      if (error) throw error
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', '專案檔案')
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+
       const { error: dbErr } = await supabase.from('project_files').insert({
-        project_id: projectId, file_name: file.name, storage_path: path,
+        project_id: projectId, file_name: file.name, storage_path: `gdrive:${data.file_id}`,
         file_size: file.size, mime_type: file.type || null, notes: '',
       })
       if (dbErr) throw dbErr
