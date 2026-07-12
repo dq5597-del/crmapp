@@ -32,11 +32,13 @@ export async function POST(req: NextRequest) {
   const supabase = createSupabaseClient(url, key, { auth: { persistSession: false } })
 
   const isPublished = body.status === 'publish'
-  const update = {
+  const update: Record<string, any> = {
     web_publish: isPublished,
-    web_product_id: body.product_id ? String(body.product_id) : undefined,
-    web_product_url: body.permalink ?? undefined,
+    web_sync_status: body.status ?? null,     // CRM 列表「官網」欄位讀這個
+    web_synced_at: new Date().toISOString(),
   }
+  if (body.product_id) update.web_product_id = String(body.product_id)
+  if (body.permalink) update.web_product_url = body.permalink
 
   const query = supabase.from('products').update(update)
   const { error } = body.crm_id
