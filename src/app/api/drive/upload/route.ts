@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { uploadToDrive, driveConfigured, testDrive } from '@/lib/gdrive'
+import { uploadToDrive, driveConfigured, testDrive, driveMode } from '@/lib/gdrive'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 /** GET /api/drive/upload → 測試連線 */
 export async function GET() {
   if (!driveConfigured()) {
-    return NextResponse.json({ connected: false, error: '尚未設定 GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY / GDRIVE_FOLDER_ID' })
+    return NextResponse.json({ connected: false, error: '尚未設定 Google Drive。OAuth 模式需要 GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REFRESH_TOKEN / GDRIVE_FOLDER_ID' })
   }
   try {
     const info = await testDrive()
@@ -58,7 +58,9 @@ export async function GET() {
         ? '私鑰讀不出來。GOOGLE_SA_PRIVATE_KEY 只要「含有」-----BEGIN PRIVATE KEY----- 到 -----END PRIVATE KEY----- 這一整段即可（前後多貼引號、逗號、甚至整個 JSON 檔內容都沒關係，系統會自動抓出來）。請確認這一整段有完整貼上、沒有被截斷。'
         : /not found|404/i.test(e.message ?? '')
           ? '找不到資料夾。請確認 GDRIVE_FOLDER_ID 正確，且該資料夾已用「編輯者」權限分享給服務帳戶。'
-          : /Drive API|has not been used|disabled/i.test(e.message ?? '')
+          : /storage quota/i.test(e.message ?? '')
+        ? '服務帳戶沒有儲存空間，無法寫入個人 Google Drive。請改用 OAuth 模式：開啟 /api/drive/oauth/start 授權你自己的 Google 帳號，再把 refresh token 設成 GOOGLE_OAUTH_REFRESH_TOKEN。'
+      : /Drive API|has not been used|disabled/i.test(e.message ?? '')
             ? 'Google Drive API 尚未啟用，請到 Google Cloud Console 啟用 Drive API。'
             : undefined
     return NextResponse.json({
@@ -66,6 +68,9 @@ export async function GET() {
       error: e.message,
       hint,
       debug: {
+        mode: driveMode(),
+        has_oauth_client: !!process.env.GOOGLE_OAUTH_CLIENT_ID,
+        has_oauth_refresh: !!process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
         has_email: !!process.env.GOOGLE_SA_EMAIL,
         has_key: !!raw,
         key_len: raw.length,

@@ -16,8 +16,28 @@ import crypto from 'crypto'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const SCOPE = 'https://www.googleapis.com/auth/drive'
 
+/** 使用者 OAuth 模式（檔案存進「你自己的」Google Drive，吃你的 15GB） */
+export function oauthConfigured() {
+  return !!(
+    process.env.GOOGLE_OAUTH_CLIENT_ID &&
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
+    process.env.GOOGLE_OAUTH_REFRESH_TOKEN
+  )
+}
+
+/** 服務帳戶模式（只能寫「共用雲端硬碟」，個人 Gmail 無法使用 —— 服務帳戶沒有儲存配額） */
+export function serviceAccountConfigured() {
+  return !!(process.env.GOOGLE_SA_EMAIL && process.env.GOOGLE_SA_PRIVATE_KEY)
+}
+
 export function driveConfigured() {
-  return !!(process.env.GOOGLE_SA_EMAIL && process.env.GOOGLE_SA_PRIVATE_KEY && process.env.GDRIVE_FOLDER_ID)
+  return !!process.env.GDRIVE_FOLDER_ID && (oauthConfigured() || serviceAccountConfigured())
+}
+
+export function driveMode(): 'oauth' | 'service_account' | 'none' {
+  if (oauthConfigured()) return 'oauth'
+  if (serviceAccountConfigured()) return 'service_account'
+  return 'none'
 }
 
 function b64url(input: Buffer | string) {
@@ -55,7 +75,28 @@ function normalizePrivateKey(raw: string): string {
   return [`-----BEGIN ${label}-----`, ...lines, `-----END ${label}-----`, ''].join('\n')
 }
 
+/** 用使用者的 refresh token 換 access token（檔案歸使用者所有） */
+async function getAccessTokenViaOAuth(): Promise<string> {
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_OAUTH_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
+      refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN!,
+      grant_type: 'refresh_token',
+    }),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error('Google 授權失敗（refresh token 可能已失效，請重新授權）：' + (data.error_description ?? data.error ?? res.status))
+  }
+  return data.access_token
+}
+
 async function getAccessToken(): Promise<string> {
+  if (oauthConfigured()) return getAccessTokenViaOAuth()
+
   const email = process.env.GOOGLE_SA_EMAIL!
   const key = normalizePrivateKey(process.env.GOOGLE_SA_PRIVATE_KEY ?? '')
 
@@ -204,5 +245,5 @@ export async function testDrive() {
   )
   const data = await res.json()
   if (!res.ok) throw new Error(data.error?.message ?? 'HTTP ' + res.status)
-  return { folder_id: data.id, folder_name: data.name }
+  return { mode: driveMode(), folder_id: data.id, folder_name: data.name }
 }
