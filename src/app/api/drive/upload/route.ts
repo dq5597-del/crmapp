@@ -51,6 +51,28 @@ export async function GET() {
     const info = await testDrive()
     return NextResponse.json({ connected: true, ...info })
   } catch (e: any) {
-    return NextResponse.json({ connected: false, error: e.message })
+    // 給出可行動的診斷，而不是只有一句英文錯誤
+    const raw = process.env.GOOGLE_SA_PRIVATE_KEY ?? ''
+    const hint =
+      /DECODER|unsupported|PEM/i.test(e.message ?? '')
+        ? '私鑰格式不正確。請確認貼進 GOOGLE_SA_PRIVATE_KEY 的是 JSON 檔裡 private_key 引號「內」的整段（-----BEGIN PRIVATE KEY----- 開頭、-----END PRIVATE KEY----- 結尾），不要把外層的雙引號一起貼進去。'
+        : /not found|404/i.test(e.message ?? '')
+          ? '找不到資料夾。請確認 GDRIVE_FOLDER_ID 正確，且該資料夾已用「編輯者」權限分享給服務帳戶。'
+          : /Drive API|has not been used|disabled/i.test(e.message ?? '')
+            ? 'Google Drive API 尚未啟用，請到 Google Cloud Console 啟用 Drive API。'
+            : undefined
+    return NextResponse.json({
+      connected: false,
+      error: e.message,
+      hint,
+      debug: {
+        has_email: !!process.env.GOOGLE_SA_EMAIL,
+        has_key: !!raw,
+        key_len: raw.length,
+        key_starts_with_begin: raw.trim().startsWith('-----BEGIN'),
+        key_has_quotes: raw.trim().startsWith('"'),
+        has_folder: !!process.env.GDRIVE_FOLDER_ID,
+      },
+    })
   }
 }
