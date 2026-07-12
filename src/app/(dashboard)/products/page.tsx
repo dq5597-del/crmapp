@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp } from 'lucide-react'
 import Link from 'next/link'
+import ProductImportModal from '@/components/products/ProductImportModal'
 
 type MarketPriceRow = {
   product_id: string
@@ -404,6 +405,7 @@ export default function ProductsPage() {
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
   const [marketMap, setMarketMap] = useState<Record<string, MarketPriceRow[]>>({})
   const [marketRefreshing, setMarketRefreshing] = useState<string | null>(null)
@@ -718,6 +720,7 @@ export default function ProductsPage() {
       {showBatchModal && <BatchPriceModal onClose={() => setShowBatchModal(false)} onDone={() => { setShowBatchModal(false); fetchAll() }} />}
       {showCatModal && <CategoryManagerModal onClose={() => setShowCatModal(false)} onDone={() => fetchAll()} />}
       {historyProduct && <InquiryHistoryModal product={historyProduct} onClose={() => setHistoryProduct(null)} />}
+      {showImportModal && <ProductImportModal products={products} onClose={() => setShowImportModal(false)} onDone={() => fetchAll()} />}
 
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -745,6 +748,13 @@ export default function ProductsPage() {
               className="flex items-center gap-2 border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50">
               <Globe size={16} className={pushing === "batch" ? "animate-spin" : ""} />
               {pushing === "batch" ? "推送中…" : "批次推送官網"}
+            </button>
+          )}
+          {perm.can_create && (
+            <button onClick={() => setShowImportModal(true)}
+              title="從 Excel / CSV 批次匯入產品"
+              className="flex items-center gap-2 border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2.5 rounded-xl text-sm font-medium">
+              <FileUp size={16} /> 匯入產品
             </button>
           )}
           {perm.can_create && <button onClick={() => startEdit()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
