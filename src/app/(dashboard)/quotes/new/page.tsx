@@ -19,6 +19,8 @@ function QuoteNewInner() {
         prefillClientName={sp.get('client_name') ?? undefined}
         prefillPhone={sp.get('phone') ?? undefined}
         prefillContact={sp.get('contact') ?? undefined}
+        prefillProjectId={sp.get('project_id') ?? undefined}
+        prefillProjectName={sp.get('project_name') ?? undefined}
       />
     </div>
   )

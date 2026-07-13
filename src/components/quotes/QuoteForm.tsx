@@ -45,6 +45,8 @@ interface QuoteFormProps {
   prefillClientName?: string
   prefillPhone?: string
   prefillContact?: string
+  prefillProjectId?: string
+  prefillProjectName?: string
   onSuccess?: () => void
 }
 
@@ -312,8 +314,10 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
 export default function QuoteForm({
   initialQuote, initialItems,
   prefillClientId, prefillClientName, prefillPhone, prefillContact,
+  prefillProjectId, prefillProjectName,
   onSuccess
 }: QuoteFormProps) {
+  const projectId = (initialQuote as any)?.project_id ?? prefillProjectId ?? null
   const router = useRouter()
   const supabase = createClient()
 
@@ -342,7 +346,7 @@ export default function QuoteForm({
     quote_no: initialQuote?.quote_no ?? '',
     client_id: initialQuote?.client_id ?? prefillClientId ?? '',
     client_name_display: initialQuote?.client_id ? '' : (prefillClientName ?? ''),
-    project_name: initialQuote?.project_name ?? '',
+    project_name: initialQuote?.project_name ?? prefillProjectName ?? '',
     contact_name: initialQuote?.contact_name ?? prefillContact ?? '',
     client_phone: initialQuote?.client_phone ?? prefillPhone ?? '',
     client_address: initialQuote?.client_address ?? '',
@@ -560,6 +564,7 @@ export default function QuoteForm({
       quote_no: header.quote_no,
       client_id: header.client_id || null,
       project_name: header.project_name || null,
+      project_id: projectId,
       contact_name: header.contact_name || null,
       client_phone: header.client_phone || null,
       client_address: header.client_address || null,
