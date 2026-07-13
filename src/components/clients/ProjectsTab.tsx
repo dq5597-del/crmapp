@@ -22,6 +22,7 @@ const BLUE   = { header: 'bg-blue-600',    light: 'bg-blue-50',    border: 'bord
 const GREEN  = { header: 'bg-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' }
 const ORG    = { header: 'bg-orange-500',  light: 'bg-orange-50',  border: 'border-orange-200',  text: 'text-orange-700'  }
 const PURPLE = { header: 'bg-purple-600',  light: 'bg-purple-50',  border: 'border-purple-200',  text: 'text-purple-700'  }
+const AMBER  = { header: 'bg-amber-600',   light: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700'   }
 
 const BUCKET = 'project-photos' // 專案照片 bucket
 
@@ -238,8 +239,27 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   )
 }
 
-// ── File Section (客戶提供的檔案) ──────────────────────────
+// ── File Section (客戶／業主提供的檔案) ──────────────────────────
 const FILE_BUCKET = 'project-files'
+
+type FileCategory = 'client' | 'owner'
+
+const FILE_CATEGORY_META: Record<FileCategory, {
+  emptyText: string; folder: string; btnClass: string; ringClass: string
+}> = {
+  client: {
+    emptyText: '尚無客戶提供的檔案，點上方按鈕新增',
+    folder: '專案檔案',
+    btnClass: 'bg-blue-600 hover:bg-blue-700',
+    ringClass: 'focus:ring-blue-400',
+  },
+  owner: {
+    emptyText: '尚無業主提供的檔案，點上方按鈕新增',
+    folder: '專案檔案-業主',
+    btnClass: 'bg-amber-600 hover:bg-amber-700',
+    ringClass: 'focus:ring-amber-400',
+  },
+}
 
 type ProjectFile = {
   id: string
@@ -249,6 +269,7 @@ type ProjectFile = {
   file_size: number | null
   mime_type: string | null
   notes: string
+  category: FileCategory
   created_at: string
 }
 
@@ -268,24 +289,27 @@ function fileIcon(mime: string | null) {
   return '📄'
 }
 
-function FileSection({ projectId, supabase, onBeforeUpload }: {
+function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' }: {
   projectId: string
   supabase: ReturnType<typeof createClient>
   onBeforeUpload?: () => Promise<boolean>
+  category?: FileCategory
 }) {
+  const meta = FILE_CATEGORY_META[category]
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { fetchFiles() }, [projectId])
+  useEffect(() => { fetchFiles() }, [projectId, category])
 
   async function fetchFiles() {
     setLoading(true)
     const { data } = await supabase
       .from('project_files').select('*')
       .eq('project_id', projectId)
+      .eq('category', category)
       .order('created_at')
     const list = (data ?? []) as ProjectFile[]
     setFiles(list)
@@ -307,14 +331,14 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('folder', '專案檔案')
+      fd.append('folder', meta.folder)
       const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '上傳失敗')
 
       const { error: dbErr } = await supabase.from('project_files').insert({
         project_id: projectId, file_name: file.name, storage_path: `gdrive:${data.file_id}`,
-        file_size: file.size, mime_type: file.type || null, notes: '',
+        file_size: file.size, mime_type: file.type || null, notes: '', category,
       })
       if (dbErr) throw dbErr
       await fetchFiles()
@@ -343,7 +367,7 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
         <input ref={fileRef} type="file" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
+          className={`flex items-center gap-1.5 px-3 py-1.5 ${meta.btnClass} text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors`}>
           <Upload size={14} /> 上傳檔案
         </button>
         {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
@@ -353,7 +377,7 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
         <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
       ) : files.length === 0 ? (
         <div className="text-center py-6 text-gray-400 text-sm">
-          尚無客戶提供的檔案，點上方按鈕新增
+          {meta.emptyText}
         </div>
       ) : (
         <div className="space-y-2">
@@ -372,7 +396,7 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
                 <textarea rows={1} value={localNotes[f.id] ?? ''}
                   onChange={e => setLocalNotes(prev => ({ ...prev, [f.id]: e.target.value }))}
                   onBlur={() => saveNotes(f.id)} placeholder="檔案備註..."
-                  className="mt-1.5 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50" />
+                  className={`mt-1.5 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 ${meta.ringClass} bg-gray-50`} />
               </div>
               <button type="button" onClick={() => handleDelete(f)}
                 className="shrink-0 p-1.5 text-gray-400 hover:text-red-500 rounded-lg" title="刪除檔案">
@@ -1588,6 +1612,16 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 projectId={editingId as string}
                 supabase={supabase}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                category="client"
+              />
+            </Accordion>
+
+            <Accordion title="🏛️ 業主提供的檔案" color={AMBER}>
+              <FileSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                category="owner"
               />
             </Accordion>
 
