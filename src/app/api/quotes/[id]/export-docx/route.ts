@@ -36,6 +36,12 @@ function bodyCell(text: string, width: number, align: (typeof AlignmentType)[key
   })
 }
 
+/** 品牌顯示在產品名稱前：【JBL】CBT 1000 */
+function itemDisplayName(item: any) {
+  const brand = (item?.brand ?? '').trim()
+  return brand ? `【${brand}】${item.product_name ?? ''}` : String(item?.product_name ?? '')
+}
+
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createServerSupabaseClient()
 
@@ -88,7 +94,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             columnSpan: 7,
             shading: { fill: 'ECECEC' },
             borders: cellBorder,
-            children: [new Paragraph({ children: [new TextRun({ text: String(item.product_name ?? ''), bold: true, size: 20 })] })],
+            children: [new Paragraph({ children: [new TextRun({ text: itemDisplayName(item), bold: true, size: 20 })] })],
           }),
         ],
       }))
@@ -98,7 +104,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     itemRows.push(new TableRow({
       children: [
         bodyCell(String(dispNo), colWidths[0], AlignmentType.CENTER),
-        bodyCell(item.product_name ?? '', colWidths[1]),
+        bodyCell(itemDisplayName(item), colWidths[1]),
         bodyCell(item.model ?? '', colWidths[2]),
         bodyCell(item.unit ?? '', colWidths[3], AlignmentType.CENTER),
         bodyCell(String(item.quantity), colWidths[4], AlignmentType.CENTER),

@@ -86,6 +86,7 @@ export default function QuoteDetailPage() {
         quote_id: newQuote.id,
         seq_no: i.seq_no,
         product_id: i.product_id,
+        brand: (i as any).brand ?? null,
         product_name: i.product_name,
         model: i.model,
         unit: i.unit,
@@ -323,7 +324,9 @@ export default function QuoteDetailPage() {
               {items.map(item => (
                 <tr key={item.id} className="border-b border-gray-50">
                   <td className="px-4 py-3 text-gray-400">{item.seq_no}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{item.product_name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {(item as any).brand ? <span className="text-gray-500">【{(item as any).brand}】</span> : null}{item.product_name}
+                  </td>
                   <td className="px-4 py-3 text-gray-500">{item.model ?? '—'}</td>
                   <td className="px-3 py-3 text-center text-gray-700">{item.quantity}</td>
                   <td className="px-3 py-3 text-center text-gray-500">{item.unit}</td>

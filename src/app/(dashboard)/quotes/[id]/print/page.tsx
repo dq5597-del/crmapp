@@ -5,6 +5,12 @@ import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
 import { buildQuoteFileName } from '@/lib/utils'
 
+/** 品牌顯示在產品名稱前：【JBL】CBT 1000 */
+function itemDisplayName(item: any) {
+  const brand = (item?.brand ?? '').trim()
+  return brand ? `【${brand}】${item.product_name ?? ''}` : (item?.product_name ?? '')
+}
+
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const supabase = createClient()
   const { data: quote } = await supabase
@@ -205,12 +211,12 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <Fragment key={item.id}>
                 {item.is_category ? (
                   <tr className="cat-row">
-                    <td colSpan={7}>{item.product_name}</td>
+                    <td colSpan={7}>{itemDisplayName(item)}</td>
                   </tr>
                 ) : (
                 <tr>
                   <td className="center">{item.display_no}</td>
-                  <td style={{ fontWeight: 500 }}>{item.product_name}</td>
+                  <td style={{ fontWeight: 500 }}>{itemDisplayName(item)}</td>
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>
                   <td className="center">{item.quantity}</td>

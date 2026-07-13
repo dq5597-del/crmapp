@@ -27,6 +27,7 @@ interface ProductCategory {
 interface QuoteItemForm {
   id?: string
   product_id: string | null
+  brand: string
   product_name: string
   item_notes: string
   model: string
@@ -51,11 +52,13 @@ interface QuoteFormProps {
 }
 
 const emptyItem = (): QuoteItemForm => ({
+  brand: '',
   product_id: null, product_name: '', item_notes: '', model: '', unit: '台',
   quantity: 1, unit_price: 0, provide_catalog: false, provide_manual: false, is_category: false,
 })
 
 const categoryItem = (): QuoteItemForm => ({
+  brand: '',
   product_id: null, product_name: '', item_notes: '', model: '', unit: '',
   quantity: 0, unit_price: 0, provide_catalog: false, provide_manual: false, is_category: true,
 })
@@ -364,6 +367,7 @@ export default function QuoteForm({
     initialItems?.map(i => ({
       id: i.id,
       product_id: i.product_id,
+      brand: (i as any).brand ?? '',
       product_name: i.product_name,
       item_notes: i.item_notes ?? '',
       model: i.model ?? '',
@@ -436,7 +440,7 @@ export default function QuoteForm({
 
   function onProductSelect(idx: number, product: Product) {
     setItems(prev => prev.map((item, i) => i !== idx ? item : {
-      ...item, product_id: product.id, product_name: product.product_name,
+      ...item, product_id: product.id, brand: product.brand ?? '', product_name: product.product_name,
       model: product.model ?? '', unit: product.unit, unit_price: product.list_price,
     }))
     setProductDropdown(null)
@@ -596,6 +600,7 @@ export default function QuoteForm({
       quote_id: quoteId,
       seq_no: i + 1,
       product_id: item.product_id,
+      brand: item.brand || null,
       product_name: item.product_name,
       item_notes: item.item_notes || null,
       model: item.model || null,
@@ -801,9 +806,16 @@ export default function QuoteForm({
                   <tr className="hover:bg-blue-50/30 group">
                     <td className="px-3 py-2 text-xs text-gray-400 text-center">{displayNos[idx]}</td>
 
-                    {/* 品名 */}
+                    {/* 品名（品牌顯示在產品名稱前） */}
                     <td className="px-3 py-2 relative">
-                      <div className="relative">
+                      <div className="relative flex items-center gap-1">
+                        <input
+                          value={item.brand}
+                          onChange={e => setItem(idx, 'brand', e.target.value)}
+                          placeholder="品牌"
+                          title="品牌（顯示在產品名稱前）"
+                          className={tdInput + ' w-20 shrink-0 font-medium text-gray-500'}
+                        />
                         <input
                           value={productDropdown === idx ? searchStr || item.product_name : item.product_name}
                           onFocus={() => { setProductDropdown(idx); setProductSearch(p => ({ ...p, [idx]: '' })) }}
@@ -823,7 +835,7 @@ export default function QuoteForm({
                                 return (
                                   <button key={p.id} type="button" onMouseDown={() => onProductSelect(idx, p)}
                                     className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-none">
-                                    <div className="font-medium text-gray-900">{p.product_name}</div>
+                                    <div className="font-medium text-gray-900">{p.brand ? `【${p.brand}】` : ''}{p.product_name}</div>
                                     <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
                                       {pc && <span className="text-blue-500">{pc.main_category} · {pc.sub_category}</span>}
                                       {pc && <span className="text-gray-300">|</span>}

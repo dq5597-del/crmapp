@@ -3,6 +3,12 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { buildQuoteFileName } from '@/lib/utils'
 import ExcelJS from 'exceljs'
 
+/** 品牌顯示在產品名稱前：【JBL】CBT 1000 */
+function itemDisplayName(item: any) {
+  const brand = (item?.brand ?? '').trim()
+  return brand ? `【${brand}】${item.product_name ?? ''}` : String(item?.product_name ?? '')
+}
+
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createServerSupabaseClient()
 
@@ -100,7 +106,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       dispNo = 0
       sheet.mergeCells(`A${r}:H${r}`)
       const catCell = sheet.getCell(`A${r}`)
-      catCell.value = item.product_name ?? ''
+      catCell.value = itemDisplayName(item)
       catCell.font = { bold: true }
       catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECECEC' } }
       row.eachCell(cell => { cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } })
@@ -111,7 +117,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const amount = Number(item.quantity) * Number(item.unit_price)
     row.values = [
       dispNo,
-      item.product_name ?? '',
+      itemDisplayName(item),
       item.model ?? '',
       item.unit ?? '',
       Number(item.quantity),
