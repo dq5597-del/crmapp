@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ProjectStatus } from '@/types'
-import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload } from 'lucide-react'
+import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload, FileText, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
 import { formatDate } from '@/lib/utils'
@@ -23,6 +24,7 @@ const GREEN  = { header: 'bg-emerald-600', light: 'bg-emerald-50', border: 'bord
 const ORG    = { header: 'bg-orange-500',  light: 'bg-orange-50',  border: 'border-orange-200',  text: 'text-orange-700'  }
 const PURPLE = { header: 'bg-purple-600',  light: 'bg-purple-50',  border: 'border-purple-200',  text: 'text-purple-700'  }
 const AMBER  = { header: 'bg-amber-600',   light: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700'   }
+const TEAL   = { header: 'bg-teal-600',    light: 'bg-teal-50',    border: 'border-teal-200',    text: 'text-teal-700'    }
 
 const BUCKET = 'project-photos' // 專案照片 bucket
 
@@ -403,6 +405,109 @@ function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' 
                 <X size={14} />
               </button>
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Project Quotes (本專案的報價單作業) ──────────────────────────
+type ProjectQuote = {
+  id: string
+  quote_no: string
+  project_name: string | null
+  status: string | null
+  total_amount: number | null
+  created_at: string
+}
+
+const QUOTE_STATUS_COLORS: Record<string, string> = {
+  '草稿':   'bg-gray-100 text-gray-600',
+  '已送出': 'bg-blue-100 text-blue-700',
+  '已成交': 'bg-green-100 text-green-700',
+  '已失單': 'bg-red-100 text-red-700',
+}
+
+function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBeforeCreate }: {
+  projectId: string
+  clientId: string
+  projectName: string
+  supabase: ReturnType<typeof createClient>
+  onBeforeCreate?: () => Promise<boolean>
+}) {
+  const [quotes, setQuotes] = useState<ProjectQuote[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { fetchQuotes() }, [projectId])
+
+  async function fetchQuotes() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('quotes')
+      .select('id, quote_no, project_name, status, total_amount, created_at')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+    setQuotes((data ?? []) as ProjectQuote[])
+    setLoading(false)
+  }
+
+  const newQuoteHref = `/quotes/new?client_id=${encodeURIComponent(clientId)}` +
+    `&project_id=${encodeURIComponent(projectId)}` +
+    `&project_name=${encodeURIComponent(projectName || '')}`
+
+  async function handleNewQuote(e: React.MouseEvent) {
+    if (onBeforeCreate) {
+      e.preventDefault()
+      if (await onBeforeCreate()) window.location.href = newQuoteHref
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <Link href={newQuoteHref} onClick={handleNewQuote}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors">
+          <Plus size={14} /> 新增報價單
+        </Link>
+        <span className="text-xs text-gray-400">共 {quotes.length} 張</span>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
+      ) : quotes.length === 0 ? (
+        <div className="text-center py-6 text-gray-400 text-sm">
+          此專案尚無報價單，點上方按鈕新增（會自動帶入客戶與專案）
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {quotes.map(q => (
+            <Link key={q.id} href={`/quotes/${q.id}`} target="_blank"
+              className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:border-teal-300 hover:bg-teal-50/40 transition-colors">
+              <FileText size={18} className="shrink-0 text-teal-600" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-900">{q.quote_no}</span>
+                  {q.status && (
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${QUOTE_STATUS_COLORS[q.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {q.status}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-400">
+                    {new Date(q.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                  </span>
+                </div>
+                {q.project_name && (
+                  <div className="text-xs text-gray-500 truncate mt-0.5">{q.project_name}</div>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-sm font-semibold text-gray-900">
+                  NT$ {Number(q.total_amount ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <ExternalLink size={14} className="shrink-0 text-gray-300" />
+            </Link>
           ))}
         </div>
       )}
@@ -1622,6 +1727,16 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 supabase={supabase}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
                 category="owner"
+              />
+            </Accordion>
+
+            <Accordion title="📄 報價單作業" color={TEAL}>
+              <ProjectQuotesSection
+                projectId={editingId as string}
+                clientId={clientId}
+                projectName={form.project_name}
+                supabase={supabase}
+                onBeforeCreate={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
 
