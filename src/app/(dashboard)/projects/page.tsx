@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import {
-  FolderKanban, Plus, Search, Printer, FileDown, Edit2, Trash2, X, ChevronDown
+  FolderKanban, Plus, Search, Printer, FileDown, Edit2, Trash2, X, ChevronDown, Users
 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 
@@ -53,7 +53,49 @@ export default function ProjectsFolderPage() {
   const [pdfMenu, setPdfMenu] = useState<string | null>(null)
   const [crew, setCrew] = useState<Record<string, any[]>>({})
 
-  useEffect(() => { fetchData() }, [])
+  // 負責業務／可見人員（僅管理員可管理）
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [users, setUsers] = useState<any[]>([])
+  const [membersByProject, setMembersByProject] = useState<Record<string, string[]>>({})
+  const [memberPanel, setMemberPanel] = useState<string | null>(null)
+  const [panelOwner, setPanelOwner] = useState<string>('')
+  const [panelMembers, setPanelMembers] = useState<Set<string>>(new Set())
+  const [savingMembers, setSavingMembers] = useState(false)
+
+  useEffect(() => { fetchData(); fetchMeAndUsers() }, [])
+
+  async function fetchMeAndUsers() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: prof } = await supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle()
+    const admin = (prof as any)?.role === 'admin' || (prof as any)?.role === '管理員'
+    setIsAdmin(admin)
+    if (admin) {
+      const { data: us } = await supabase.from('user_profiles').select('id, full_name, role, is_active').order('full_name')
+      setUsers((us ?? []).filter((u: any) => u.is_active !== false))
+    }
+  }
+
+  function openMemberPanel(p: any) {
+    setMemberPanel(p.id)
+    setPanelOwner(p.owner_id ?? '')
+    setPanelMembers(new Set(membersByProject[p.id] ?? []))
+  }
+
+  async function saveMembers() {
+    if (!memberPanel) return
+    setSavingMembers(true)
+    const pid = memberPanel
+    const members = new Set(panelMembers)
+    if (panelOwner) members.add(panelOwner)   // 負責人一定是成員
+    await supabase.from('projects').update({ owner_id: panelOwner || null }).eq('id', pid)
+    await supabase.from('project_members').delete().eq('project_id', pid)
+    const rows = Array.from(members).map(uid => ({ project_id: pid, user_id: uid }))
+    if (rows.length) await supabase.from('project_members').insert(rows)
+    setSavingMembers(false)
+    setMemberPanel(null)
+    fetchData()
+  }
 
   async function fetchData() {
     setLoading(true)
@@ -71,6 +113,14 @@ export default function ProjectsFolderPage() {
       const map: Record<string, any[]> = {}
       crewRows.forEach((c: any) => { (map[c.project_id] ??= []).push(c) })
       setCrew(map)
+    }
+
+    // 可見人員（勾選）— 資料表未建立時靜默略過
+    const { data: pmRows } = await supabase.from('project_members').select('project_id, user_id')
+    if (pmRows) {
+      const pmap: Record<string, string[]> = {}
+      pmRows.forEach((r: any) => { (pmap[r.project_id] ??= []).push(r.user_id) })
+      setMembersByProject(pmap)
     }
   }
 
@@ -235,6 +285,9 @@ export default function ProjectsFolderPage() {
                     <td className="px-4 text-right text-gray-700">{p.budget != null ? `NT$${Number(p.budget).toLocaleString()}` : '—'}</td>
                     <td className="px-4">
                       <div className="flex items-center justify-end gap-1">
+                        {isAdmin && (
+                          <button onClick={() => openMemberPanel(p)} title="負責業務／可見人員" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Users size={15} /></button>
+                        )}
                         <button onClick={() => router.push(`/clients/${p.client_id}?tab=projects&edit=${p.id}`)} title="編輯（完整欄位）" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Edit2 size={15} /></button>
                         <CopyDocButton type="projects" id={p.id} compact title="複製此專案（案名加「（複製）」）" gotoPath={() => `/clients/${p.client_id}?tab=projects`} />
                         <button onClick={() => window.open(`/projects/${p.id}/print`, '_blank')} title="列印總覽" className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><Printer size={15} /></button>
@@ -259,6 +312,54 @@ export default function ProjectsFolderPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* 負責業務／可見人員 panel */}
+      {memberPanel && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white">
+              <h3 className="font-semibold">負責業務／可見人員</h3>
+              <button onClick={() => setMemberPanel(null)} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">負責業務</label>
+                <select value={panelOwner} onChange={e => setPanelOwner(e.target.value)} className={inp}>
+                  <option value="">（未指定）</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.full_name || u.id.slice(0, 8)}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">可見人員（勾選才看得到此專案）</label>
+                <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-50">
+                  {users.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-gray-400">沒有可指派的帳號</p>
+                  ) : users.map(u => (
+                    <label key={u.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer">
+                      <input type="checkbox"
+                        checked={panelMembers.has(u.id) || u.id === panelOwner}
+                        disabled={u.id === panelOwner}
+                        onChange={e => setPanelMembers(prev => {
+                          const n = new Set(prev)
+                          if (e.target.checked) n.add(u.id); else n.delete(u.id)
+                          return n
+                        })}
+                        className="w-4 h-4 accent-blue-600" />
+                      <span className="text-gray-700">{u.full_name || u.id.slice(0, 8)}</span>
+                      {u.id === panelOwner && <span className="text-xs text-blue-600">（負責人）</span>}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">負責人一定看得到，不需勾選。只有被勾選的人（及主管、管理員）才看得到此專案。</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4 border-t sticky bottom-0 bg-white">
+              <button onClick={() => setMemberPanel(null)} className="px-4 py-2 text-sm rounded-lg border">取消</button>
+              <button onClick={saveMembers} disabled={savingMembers} className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white disabled:opacity-60">{savingMembers ? '儲存中…' : '儲存'}</button>
+            </div>
           </div>
         </div>
       )}
