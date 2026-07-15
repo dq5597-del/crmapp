@@ -1,6 +1,6 @@
 {
   "buildCommand": "next build",
-  "installCommand": "npm ci",
+  "installCommand": "npm install",
   "framework": "nextjs",
   "crons": [
     { "path": "/api/reminders/run", "schedule": "0 0 * * *" }
