@@ -3,6 +3,7 @@ import KPICard from '@/components/dashboard/KPICard'
 import WeatherWidget from '@/components/dashboard/WeatherWidget'
 import TodaySchedule from '@/components/dashboard/TodaySchedule'
 import QuickNotes from '@/components/dashboard/QuickNotes'
+import MessagesWidget from '@/components/dashboard/MessagesWidget'
 import DraggableDashboard, { type DashboardBlock } from '@/components/dashboard/DraggableDashboard'
 import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle, CalendarClock, Timer } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -173,6 +174,12 @@ export default async function DashboardPage() {
   const data = await getDashboardData()
 
   const blocks: DashboardBlock[] = []
+
+  blocks.push({
+    id: 'messages',
+    title: '訊息',
+    node: <MessagesWidget />,
+  })
 
   blocks.push({
     id: 'today-schedule',

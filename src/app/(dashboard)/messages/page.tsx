@@ -68,6 +68,25 @@ export default function MessagesPage() {
 
   useEffect(() => { if (activeId) loadMsgs(activeId) }, [activeId, loadMsgs])
 
+  // 從戰情室訊息卡點進來時，自動開啟指定對話（?t=<threadId>）
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('t')
+    if (t) setActiveId(t)
+  }, [])
+
+  // 即時更新：有人送出訊息就立刻反映
+  useEffect(() => {
+    const ch = supabase
+      .channel('chat-rt-' + Math.random().toString(36).slice(2, 8))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload: any) => {
+        const m = payload.new
+        if (m?.thread_id && m.thread_id === activeId) loadMsgs(activeId)
+        loadThreads()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [activeId, loadMsgs, loadThreads])
+
   function threadName(t: Thread): string {
     if (t.is_group) return t.title || '群組'
     const others = (membersByThread[t.id] ?? []).filter(u => u !== me)
