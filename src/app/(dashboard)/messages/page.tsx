@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { MessageSquare, Plus, Send, Paperclip, X, Navigation, Users, Video } from 'lucide-react'
+import { MessageSquare, Plus, Send, Paperclip, X, Navigation, Users, Video, Trash2 } from 'lucide-react'
 
 type RosterUser = { id: string; full_name: string | null; role: string }
 type Thread = { id: string; title: string | null; is_group: boolean; created_by: string | null; updated_at: string }
@@ -102,6 +102,22 @@ export default function MessagesPage() {
       const { data } = supabase.storage.from('chat-files').getPublicUrl(path)
       setAtt({ url: data.publicUrl, name: file.name, type: file.type })
     } finally { setUploading(false) }
+  }
+
+  async function deleteMessage(id: string) {
+    if (!confirm('刪除這則訊息？')) return
+    const { error } = await supabase.from('chat_messages').delete().eq('id', id)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    if (activeId) loadMsgs(activeId)
+    loadThreads()
+  }
+
+  async function deleteThread() {
+    if (!activeId) return
+    if (!confirm('刪除整個對話？所有訊息會一起刪除，且無法復原。')) return
+    const { error } = await supabase.from('chat_threads').delete().eq('id', activeId)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    setActiveId(null); setMsgs([]); loadThreads()
   }
 
   async function notifyMembers(title: string, text: string) {
@@ -211,10 +227,16 @@ export default function MessagesPage() {
             <>
               <div className="p-3 border-b flex items-center justify-between">
                 <span className="font-semibold text-gray-800 text-sm">{threadName(active)}</span>
-                <button onClick={startCall} title="發起視訊／語音通話"
-                  className="flex items-center gap-1 text-sm text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg">
-                  <Video size={15} /> 通話
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={startCall} title="發起視訊／語音通話"
+                    className="flex items-center gap-1 text-sm text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg">
+                    <Video size={15} /> 通話
+                  </button>
+                  <button onClick={deleteThread} title="刪除整個對話"
+                    className="flex items-center gap-1 text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 px-2 py-1 rounded-lg">
+                    <Trash2 size={15} /> 刪除對話
+                  </button>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {msgs.map(m => {
@@ -243,8 +265,11 @@ export default function MessagesPage() {
                             </a>
                           )
                         )}
-                        <div className={`text-[10px] mt-1 ${mine ? 'text-blue-200' : 'text-gray-400'}`}>
-                          {new Date(m.created_at).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        <div className={`flex items-center gap-2 mt-1 text-[10px] ${mine ? 'text-blue-200' : 'text-gray-400'}`}>
+                          <span>{new Date(m.created_at).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          {mine && (
+                            <button onClick={() => deleteMessage(m.id)} title="刪除這則訊息" className="hover:text-white underline">刪除</button>
+                          )}
                         </div>
                       </div>
                     </div>
