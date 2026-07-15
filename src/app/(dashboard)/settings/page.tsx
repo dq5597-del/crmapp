@@ -13,6 +13,10 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<UserProfile[]>([])
   // 角色清單（與權限管理同一份 app_roles，帳號管理下拉動態載入）
   const [roles, setRoles] = useState<{ key: string; name: string }[]>([])
+  // 重設密碼 UI
+  const [pwUserId, setPwUserId] = useState<string | null>(null)
+  const [pwValue, setPwValue] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
   // 新增使用者
   const [showNewUser, setShowNewUser] = useState(false)
   const [newUser, setNewUser] = useState({ email: '', full_name: '', role: 'user', password: '' })
@@ -105,6 +109,43 @@ export default function SettingsPage() {
     if (data) setRoles(data)
   }
 
+  // 讀取帳號清單（含登入信箱，需管理員 API）
+  async function loadUsersWithEmail() {
+    const { data: sess } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/users', {
+      headers: { Authorization: `Bearer ${sess.session?.access_token ?? ''}` },
+    })
+    if (res.ok) {
+      const json = await res.json()
+      if (json.users) setUsers(json.users)
+    }
+  }
+
+  // 管理員重設某帳號密碼
+  async function handleResetPassword(userId: string) {
+    if (pwValue.length < 8) { setUserSaveError(userId, '新密碼至少 8 碼'); return }
+    setPwSaving(true)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const res = await fetch(`/api/admin/users/${userId}/password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sess.session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ password: pwValue }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setUserSaveError(userId, json.error || '重設密碼失敗'); return }
+      setUserSaveError(userId, null)
+      setPwUserId(null)
+      setPwValue('')
+      alert('密碼已重設，請把新密碼交給該員工，並提醒他登入後自行修改。')
+    } finally {
+      setPwSaving(false)
+    }
+  }
+
   async function fetchMyRole() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setMyRole('user'); return }
@@ -140,6 +181,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (tab === 'audit' && isAdmin) fetchAuditLogs()
+  }, [tab, isAdmin])
+
+  // 進入帳號管理時，補抓每個帳號的登入信箱
+  useEffect(() => {
+    if (tab === 'users' && isAdmin) loadUsersWithEmail()
   }, [tab, isAdmin])
 
   async function fetchExpCategories() {
@@ -551,7 +597,27 @@ export default function SettingsPage() {
                       placeholder="輸入員工姓名"
                       className="w-full max-w-xs px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <div className="text-xs text-gray-400 mt-1">ID: {u.id.slice(0, 8)}...</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      登入信箱：<span className="text-gray-700">{(u as any).email || '—'}</span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5">ID: {u.id.slice(0, 8)}...</div>
+                    {pwUserId === u.id && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <input
+                          type="text"
+                          value={pwValue}
+                          onChange={e => setPwValue(e.target.value)}
+                          placeholder="輸入新密碼（至少 8 碼）"
+                          className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button type="button" onClick={() => handleResetPassword(u.id)} disabled={pwSaving}
+                          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+                          {pwSaving ? '設定中…' : '確認設定'}
+                        </button>
+                        <button type="button" onClick={() => { setPwUserId(null); setPwValue('') }}
+                          className="text-xs text-gray-500 hover:text-gray-700 px-2">取消</button>
+                      </div>
+                    )}
                     {userSaveErrors[u.id] && (
                       <div className="text-xs text-red-600 mt-1 font-medium">{userSaveErrors[u.id]}</div>
                     )}
@@ -568,6 +634,13 @@ export default function SettingsPage() {
                       className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
                       {roleOptions.map(r => <option key={r.key} value={r.key}>{r.name}</option>)}
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => { setPwUserId(pwUserId === u.id ? null : u.id); setPwValue('') }}
+                      className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 shrink-0"
+                    >
+                      重設密碼
+                    </button>
                   </div>
                 </div>
               ))}
