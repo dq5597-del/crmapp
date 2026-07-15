@@ -124,6 +124,18 @@ async function getDashboardData() {
   const overdueReceivableTotal = (overdueReceivables.data ?? []).reduce((sum: number, r: any) => sum + Number(r.balance || 0), 0)
   const conversionRate = quotesEligible && quotesEligible > 0 ? Math.round(((quotesConverted ?? 0) / quotesEligible) * 100) : 0
 
+  // 目前登入者姓名（右上角問候列用）：優先 user_profiles.full_name，退回 email 前綴
+  const { data: { user } } = await supabase.auth.getUser()
+  let currentUserName = ''
+  if (user) {
+    const { data: prof } = await supabase
+      .from('user_profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .maybeSingle()
+    currentUserName = (prof?.full_name?.trim() || user.email?.split('@')[0] || '')
+  }
+
   const s = (settingsRes.data ?? {}) as any
   const targets = {
     needsClients: s.target_needs_clients ?? DEFAULT_TARGETS.needsClients,
@@ -150,6 +162,7 @@ async function getDashboardData() {
     expiringQuotes: (expiringQuotes.data ?? []).map((q: any) => ({ ...q, isExpired: q.valid_until < todayStr })),
     avgCycleDays: cycleTime.avgDays,
     cycleSampleCount: cycleTime.count,
+    currentUserName,
   }
 }
 
@@ -427,9 +440,22 @@ export default async function DashboardPage() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">業務戰情總覽</h1>
-        <p className="text-sm text-gray-500 mt-0.5">更新日期：{new Date().toLocaleDateString('zh-TW')}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">業務戰情總覽</h1>
+          <p className="text-sm text-gray-500 mt-0.5">更新日期：{new Date().toLocaleDateString('zh-TW')}</p>
+        </div>
+        {data.currentUserName && (
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="text-right leading-tight">
+              <div className="text-xs text-gray-400">您好</div>
+              <div className="text-sm font-semibold text-gray-900">{data.currentUserName}</div>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+              {data.currentUserName[0]}
+            </div>
+          </div>
+        )}
       </div>
 
       <DraggableDashboard blocks={blocks} storageKey="dashboard-widget-order-v1" />

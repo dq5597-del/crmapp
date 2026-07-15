@@ -11,6 +11,8 @@ export default function SettingsPage() {
   const supabase = createClient()
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [users, setUsers] = useState<UserProfile[]>([])
+  // 角色清單（與權限管理同一份 app_roles，帳號管理下拉動態載入）
+  const [roles, setRoles] = useState<{ key: string; name: string }[]>([])
   // 新增使用者
   const [showNewUser, setShowNewUser] = useState(false)
   const [newUser, setNewUser] = useState({ email: '', full_name: '', role: 'user', password: '' })
@@ -95,7 +97,13 @@ export default function SettingsPage() {
     })
     fetchExpCategories()
     fetchMyRole()
+    fetchRoles()
   }, [])
+
+  async function fetchRoles() {
+    const { data } = await supabase.from('app_roles').select('key, name').order('sort_order')
+    if (data) setRoles(data)
+  }
 
   async function fetchMyRole() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -315,6 +323,13 @@ export default function SettingsPage() {
   const inputClass = "w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
   const labelClass = "block text-sm font-medium text-gray-700 mb-1.5"
 
+  // 角色下拉選項：優先用 app_roles；載入前／表尚未建立時退回基本三種
+  const roleOptions = roles.length > 0 ? roles : [
+    { key: 'user', name: '一般使用者' },
+    { key: 'manager', name: '主管' },
+    { key: 'admin', name: '管理員' },
+  ]
+
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -504,9 +519,7 @@ export default function SettingsPage() {
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">角色</label>
                   <select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} className={inputClass}>
-                    <option value="user">一般使用者</option>
-                    <option value="manager">主管</option>
-                    <option value="admin">管理員</option>
+                    {roleOptions.map(r => <option key={r.key} value={r.key}>{r.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -553,9 +566,7 @@ export default function SettingsPage() {
                     </button>
                     <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)}
                       className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="user">一般使用者</option>
-                      <option value="manager">主管</option>
-                      <option value="admin">管理員</option>
+                      {roleOptions.map(r => <option key={r.key} value={r.key}>{r.name}</option>)}
                     </select>
                   </div>
                 </div>
