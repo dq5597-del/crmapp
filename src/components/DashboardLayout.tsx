@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { usePermissions, FEATURES } from '@/lib/permissions'
 import Sidebar from './Sidebar'
+import PushInit from './PushInit'
 import { Menu } from 'lucide-react'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="app-shell flex h-screen bg-gray-50 overflow-hidden">
+      <PushInit />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

@@ -85,6 +85,16 @@ export default function MessagesPage() {
     } finally { setUploading(false) }
   }
 
+  async function notifyMembers(title: string, text: string) {
+    if (!activeId) return
+    const { data: sess } = await supabase.auth.getSession()
+    fetch('/api/push/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token ?? ''}` },
+      body: JSON.stringify({ threadId: activeId, title, body: text, url: '/messages' }),
+    }).catch(() => {})
+  }
+
   async function send() {
     if (!activeId) return
     if (!body.trim() && !address.trim() && !att) return
@@ -96,8 +106,10 @@ export default function MessagesPage() {
     })
     setSending(false)
     if (error) { alert('送出失敗：' + error.message); return }
+    const summary = body.trim() || (att ? '📎 傳送了附件' : address.trim() ? '📍 傳送了地址' : '新訊息')
     setBody(''); setAddress(''); setAtt(null)
     loadMsgs(activeId); loadThreads()
+    notifyMembers(nameById(me) + '：訊息', summary)
   }
 
   // 發起 Jitsi 視訊/語音通話：產生房間、把連結貼進對話、自己先開視窗
@@ -111,6 +123,7 @@ export default function MessagesPage() {
     })
     window.open(url, '_blank')
     loadMsgs(activeId); loadThreads()
+    notifyMembers(nameById(me) + ' 發起通話', '📹 點開加入視訊通話')
   }
 
   function linkify(text: string) {
