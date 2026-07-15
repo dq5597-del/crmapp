@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { Client, ClientStatus } from '@/types'
 import { Camera, Loader2, CheckCircle } from 'lucide-react'
 import AppearanceTagPicker from '@/components/ui/AppearanceTagPicker'
+import Link from 'next/link'
 
 const STATUS_OPTIONS: ClientStatus[] = ['有需求', '規劃中', '服務未完成', '已完成', '暫緩']
 
@@ -20,6 +21,9 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrDone, setOcrDone] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 同名／相似客戶偵測（僅新增時，提醒不擋）
+  const [dupes, setDupes] = useState<{ id: string; company_name: string; contact_name: string | null }[]>([])
 
   const [form, setForm] = useState({
     company_name: initialData?.company_name ?? '',
@@ -41,6 +45,20 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
 
   const set = (k: keyof typeof form, v: unknown) =>
     setForm(prev => ({ ...prev, [k]: v }))
+
+  // 輸入公司名時偵測既有相似客戶（避免重複建檔）。失敗不影響表單。
+  async function checkDuplicates(name: string) {
+    const n = name.trim()
+    if (initialData?.id || n.length < 2) { setDupes([]); return }
+    try {
+      const { data } = await supabase
+        .from('clients')
+        .select('id, company_name, contact_name')
+        .ilike('company_name', `%${n}%`)
+        .limit(5)
+      setDupes(data ?? [])
+    } catch { setDupes([]) }
+  }
 
   // ── 名片 OCR ──────────────────────────────────────────────
   function fileToBase64(file: File): Promise<string> {
@@ -144,8 +162,36 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
           <label className={labelClass}>公司 / 單位名稱 <span className="text-red-500">*</span></label>
-          <input value={form.company_name} onChange={e => set('company_name', e.target.value)} className={inputClass} placeholder="例：花蓮縣政府" required />
+          <input
+            value={form.company_name}
+            onChange={e => set('company_name', e.target.value)}
+            onBlur={e => checkDuplicates(e.target.value)}
+            className={inputClass}
+            placeholder="例：花蓮縣政府"
+            required
+          />
         </div>
+
+        {!initialData?.id && dupes.length > 0 && (
+          <div className="sm:col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-sm">
+            <div className="font-medium text-amber-800 mb-2">
+              已有相似客戶（{dupes.length}）—— 可能是同一家。建議改在既有客戶底下「新增聯絡人」，避免重複建檔。
+            </div>
+            <ul className="space-y-1.5">
+              {dupes.map(d => (
+                <li key={d.id} className="flex items-center justify-between gap-2">
+                  <span className="text-gray-700">
+                    {d.company_name}{d.contact_name ? `（${d.contact_name}）` : ''}
+                  </span>
+                  <Link href={`/clients/${d.id}`} className="text-blue-600 hover:underline shrink-0">
+                    查看
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="text-xs text-amber-700 mt-2">若確定是不同單位，仍可繼續填寫並儲存。</div>
+          </div>
+        )}
 
         <div>
           <label className={labelClass}>聯絡人姓名</label>
