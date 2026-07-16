@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
@@ -20,6 +20,7 @@ const navItemsTop = [
 ] // top nav
 
 const businessItems = [
+  { href: '/messages',         label: '訊息',     icon: MessageSquare },
   { href: '/todos',            label: '事情清單', icon: ListTodo },
   { href: '/schedule',         label: '每日行程', icon: CalendarDays },
   { href: '/quotes',           label: '報價單',   icon: FileText },
@@ -201,9 +202,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-gray-700 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-sm font-bold shrink-0">
-              光
-            </div>
+            <img src="/icons/icon-192.png" alt="GH" className="w-8 h-8 rounded-lg shrink-0 object-cover" />
             <span className="font-semibold text-sm leading-tight">光輝影音科技<br/>CRM系統</span>
           </div>
           <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-white">

@@ -4,6 +4,7 @@ import WeatherWidget from '@/components/dashboard/WeatherWidget'
 import TodaySchedule from '@/components/dashboard/TodaySchedule'
 import CalendarWidget from '@/components/dashboard/CalendarWidget'
 import QuickNotes from '@/components/dashboard/QuickNotes'
+import MessagesWidget from '@/components/dashboard/MessagesWidget'
 import DraggableDashboard, { type DashboardBlock } from '@/components/dashboard/DraggableDashboard'
 import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle, CalendarClock, Timer } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -125,16 +126,18 @@ async function getDashboardData() {
   const overdueReceivableTotal = (overdueReceivables.data ?? []).reduce((sum: number, r: any) => sum + Number(r.balance || 0), 0)
   const conversionRate = quotesEligible && quotesEligible > 0 ? Math.round(((quotesConverted ?? 0) / quotesEligible) * 100) : 0
 
-  // 目前登入者姓名（右上角問候列用）：優先 user_profiles.full_name，退回 email 前綴
+  // 目前登入者姓名 + 角色（右上角問候列 / 財務數字顯示控制）
   const { data: { user } } = await supabase.auth.getUser()
   let currentUserName = ''
+  let hideRevenue = false   // 第一線業務不顯示全公司本月營收
   if (user) {
     const { data: prof } = await supabase
       .from('user_profiles')
-      .select('full_name')
+      .select('full_name, role')
       .eq('id', user.id)
       .maybeSingle()
     currentUserName = (prof?.full_name?.trim() || user.email?.split('@')[0] || '')
+    hideRevenue = ['sales', '業務', '業務員', 'salesperson'].includes((prof as any)?.role ?? '')
   }
 
   const s = (settingsRes.data ?? {}) as any
@@ -164,6 +167,7 @@ async function getDashboardData() {
     avgCycleDays: cycleTime.avgDays,
     cycleSampleCount: cycleTime.count,
     currentUserName,
+    hideRevenue,
   }
 }
 
@@ -171,6 +175,12 @@ export default async function DashboardPage() {
   const data = await getDashboardData()
 
   const blocks: DashboardBlock[] = []
+
+  blocks.push({
+    id: 'messages',
+    title: '訊息',
+    node: <MessagesWidget />,
+  })
 
   blocks.push({
     id: 'today-schedule',
@@ -305,16 +315,18 @@ export default async function DashboardPage() {
     title: 'KPI — 財務與流程構面',
     node: (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard
-          title="本月營收"
-          value={data.monthlyRevenue}
-          displayValue={formatCurrency(data.monthlyRevenue)}
-          target={data.targets.monthlyRevenue}
-          targetDisplay={formatCurrency(data.targets.monthlyRevenue)}
-          subtitle="累計已開票金額"
-          icon={DollarSign}
-          color="green"
-        />
+        {!data.hideRevenue && (
+          <KPICard
+            title="本月營收"
+            value={data.monthlyRevenue}
+            displayValue={formatCurrency(data.monthlyRevenue)}
+            target={data.targets.monthlyRevenue}
+            targetDisplay={formatCurrency(data.targets.monthlyRevenue)}
+            subtitle="累計已開票金額"
+            icon={DollarSign}
+            color="green"
+          />
+        )}
         <KPICard
           title="報價轉換率"
           value={data.conversionRate}

@@ -8,6 +8,11 @@
   html {
     font-family: 'Noto Sans TC', system-ui, sans-serif;
   }
+  /* 防止任何元素比螢幕寬而撐大版面（手機版被縮小的元凶） */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
   * {
     @apply box-border;
   }

@@ -23,6 +23,37 @@ async function requireAdmin(req: NextRequest, sb: ReturnType<typeof createClient
   return { ok: true as const, user }
 }
 
+// 允許指派的角色（與權限管理 app_roles 一致）
+const ALLOWED_ROLES = ['user', 'manager', 'admin', 'sales', 'tech', 'accountant', 'hr', 'viewer']
+
+/**
+ * 列出所有帳號（含登入信箱）。email 存在 auth 系統，一般查詢讀不到，
+ * 需用 service role 的 admin.listUsers 取回後與 user_profiles 合併。
+ */
+export async function GET(req: NextRequest) {
+  const sb = admin()
+  if (!sb) {
+    return NextResponse.json(
+      { error: '系統尚未設定 SUPABASE_SERVICE_ROLE_KEY，請至 Vercel 設定環境變數後重新部署' },
+      { status: 500 },
+    )
+  }
+
+  const g = await requireAdmin(req, sb)
+  if (!g.ok) return NextResponse.json({ error: g.msg }, { status: g.status })
+
+  const { data: list, error: lErr } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  if (lErr) return NextResponse.json({ error: '讀取帳號失敗：' + lErr.message }, { status: 500 })
+
+  const emailById: Record<string, string> = {}
+  for (const u of list.users) emailById[u.id] = u.email ?? ''
+
+  const { data: profiles } = await sb.from('user_profiles').select('*').order('created_at')
+  const users = (profiles ?? []).map((p: any) => ({ ...p, email: emailById[p.id] ?? '' }))
+
+  return NextResponse.json({ ok: true, users })
+}
+
 export async function POST(req: NextRequest) {
   const sb = admin()
   if (!sb) {
@@ -38,7 +69,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const email = String(body?.email ?? '').trim().toLowerCase()
   const fullName = String(body?.full_name ?? '').trim()
-  const role = ['user', 'manager', 'admin'].includes(body?.role) ? body.role : 'user'
+  const role = ALLOWED_ROLES.includes(body?.role) ? body.role : 'user'
   const password = String(body?.password ?? '')
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return NextResponse.json({ error: 'Email 格式不正確' }, { status: 400 })

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ProjectStatus } from '@/types'
-import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload } from 'lucide-react'
+import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload, FileText, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
 import { formatDate } from '@/lib/utils'
@@ -22,6 +23,8 @@ const BLUE   = { header: 'bg-blue-600',    light: 'bg-blue-50',    border: 'bord
 const GREEN  = { header: 'bg-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' }
 const ORG    = { header: 'bg-orange-500',  light: 'bg-orange-50',  border: 'border-orange-200',  text: 'text-orange-700'  }
 const PURPLE = { header: 'bg-purple-600',  light: 'bg-purple-50',  border: 'border-purple-200',  text: 'text-purple-700'  }
+const AMBER  = { header: 'bg-amber-600',   light: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700'   }
+const TEAL   = { header: 'bg-teal-600',    light: 'bg-teal-50',    border: 'border-teal-200',    text: 'text-teal-700'    }
 
 const BUCKET = 'project-photos' // 專案照片 bucket
 
@@ -238,8 +241,27 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   )
 }
 
-// ── File Section (客戶提供的檔案) ──────────────────────────
+// ── File Section (客戶／業主提供的檔案) ──────────────────────────
 const FILE_BUCKET = 'project-files'
+
+type FileCategory = 'client' | 'owner'
+
+const FILE_CATEGORY_META: Record<FileCategory, {
+  emptyText: string; folder: string; btnClass: string; ringClass: string
+}> = {
+  client: {
+    emptyText: '尚無客戶提供的檔案，點上方按鈕新增',
+    folder: '專案檔案',
+    btnClass: 'bg-blue-600 hover:bg-blue-700',
+    ringClass: 'focus:ring-blue-400',
+  },
+  owner: {
+    emptyText: '尚無業主提供的檔案，點上方按鈕新增',
+    folder: '專案檔案-業主',
+    btnClass: 'bg-amber-600 hover:bg-amber-700',
+    ringClass: 'focus:ring-amber-400',
+  },
+}
 
 type ProjectFile = {
   id: string
@@ -249,6 +271,7 @@ type ProjectFile = {
   file_size: number | null
   mime_type: string | null
   notes: string
+  category: FileCategory
   created_at: string
 }
 
@@ -268,24 +291,27 @@ function fileIcon(mime: string | null) {
   return '📄'
 }
 
-function FileSection({ projectId, supabase, onBeforeUpload }: {
+function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' }: {
   projectId: string
   supabase: ReturnType<typeof createClient>
   onBeforeUpload?: () => Promise<boolean>
+  category?: FileCategory
 }) {
+  const meta = FILE_CATEGORY_META[category]
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { fetchFiles() }, [projectId])
+  useEffect(() => { fetchFiles() }, [projectId, category])
 
   async function fetchFiles() {
     setLoading(true)
     const { data } = await supabase
       .from('project_files').select('*')
       .eq('project_id', projectId)
+      .eq('category', category)
       .order('created_at')
     const list = (data ?? []) as ProjectFile[]
     setFiles(list)
@@ -307,14 +333,14 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('folder', '專案檔案')
+      fd.append('folder', meta.folder)
       const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '上傳失敗')
 
       const { error: dbErr } = await supabase.from('project_files').insert({
         project_id: projectId, file_name: file.name, storage_path: `gdrive:${data.file_id}`,
-        file_size: file.size, mime_type: file.type || null, notes: '',
+        file_size: file.size, mime_type: file.type || null, notes: '', category,
       })
       if (dbErr) throw dbErr
       await fetchFiles()
@@ -343,7 +369,7 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
         <input ref={fileRef} type="file" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
+          className={`flex items-center gap-1.5 px-3 py-1.5 ${meta.btnClass} text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors`}>
           <Upload size={14} /> 上傳檔案
         </button>
         {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
@@ -353,7 +379,7 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
         <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
       ) : files.length === 0 ? (
         <div className="text-center py-6 text-gray-400 text-sm">
-          尚無單位提供的檔案，點上方按鈕新增
+          {meta.emptyText}
         </div>
       ) : (
         <div className="space-y-2">
@@ -372,13 +398,116 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
                 <textarea rows={1} value={localNotes[f.id] ?? ''}
                   onChange={e => setLocalNotes(prev => ({ ...prev, [f.id]: e.target.value }))}
                   onBlur={() => saveNotes(f.id)} placeholder="檔案備註..."
-                  className="mt-1.5 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50" />
+                  className={`mt-1.5 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs resize-none focus:outline-none focus:ring-1 ${meta.ringClass} bg-gray-50`} />
               </div>
               <button type="button" onClick={() => handleDelete(f)}
                 className="shrink-0 p-1.5 text-gray-400 hover:text-red-500 rounded-lg" title="刪除檔案">
                 <X size={14} />
               </button>
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Project Quotes (本專案的報價單作業) ──────────────────────────
+type ProjectQuote = {
+  id: string
+  quote_no: string
+  project_name: string | null
+  status: string | null
+  total_amount: number | null
+  created_at: string
+}
+
+const QUOTE_STATUS_COLORS: Record<string, string> = {
+  '草稿':   'bg-gray-100 text-gray-600',
+  '已送出': 'bg-blue-100 text-blue-700',
+  '已成交': 'bg-green-100 text-green-700',
+  '已失單': 'bg-red-100 text-red-700',
+}
+
+function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBeforeCreate }: {
+  projectId: string
+  clientId: string
+  projectName: string
+  supabase: ReturnType<typeof createClient>
+  onBeforeCreate?: () => Promise<boolean>
+}) {
+  const [quotes, setQuotes] = useState<ProjectQuote[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { fetchQuotes() }, [projectId])
+
+  async function fetchQuotes() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('quotes')
+      .select('id, quote_no, project_name, status, total_amount, created_at')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+    setQuotes((data ?? []) as ProjectQuote[])
+    setLoading(false)
+  }
+
+  const newQuoteHref = `/quotes/new?client_id=${encodeURIComponent(clientId)}` +
+    `&project_id=${encodeURIComponent(projectId)}` +
+    `&project_name=${encodeURIComponent(projectName || '')}`
+
+  async function handleNewQuote(e: React.MouseEvent) {
+    if (onBeforeCreate) {
+      e.preventDefault()
+      if (await onBeforeCreate()) window.location.href = newQuoteHref
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <Link href={newQuoteHref} onClick={handleNewQuote}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors">
+          <Plus size={14} /> 新增報價單
+        </Link>
+        <span className="text-xs text-gray-400">共 {quotes.length} 張</span>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
+      ) : quotes.length === 0 ? (
+        <div className="text-center py-6 text-gray-400 text-sm">
+          此專案尚無報價單，點上方按鈕新增（會自動帶入客戶與專案）
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {quotes.map(q => (
+            <Link key={q.id} href={`/quotes/${q.id}`} target="_blank"
+              className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:border-teal-300 hover:bg-teal-50/40 transition-colors">
+              <FileText size={18} className="shrink-0 text-teal-600" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-900">{q.quote_no}</span>
+                  {q.status && (
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${QUOTE_STATUS_COLORS[q.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {q.status}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-400">
+                    {new Date(q.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                  </span>
+                </div>
+                {q.project_name && (
+                  <div className="text-xs text-gray-500 truncate mt-0.5">{q.project_name}</div>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-sm font-semibold text-gray-900">
+                  NT$ {Number(q.total_amount ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <ExternalLink size={14} className="shrink-0 text-gray-300" />
+            </Link>
           ))}
         </div>
       )}
@@ -1588,6 +1717,26 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 projectId={editingId as string}
                 supabase={supabase}
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                category="client"
+              />
+            </Accordion>
+
+            <Accordion title="🏛️ 業主提供的檔案" color={AMBER}>
+              <FileSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                category="owner"
+              />
+            </Accordion>
+
+            <Accordion title="📄 報價單作業" color={TEAL}>
+              <ProjectQuotesSection
+                projectId={editingId as string}
+                clientId={clientId}
+                projectName={form.project_name}
+                supabase={supabase}
+                onBeforeCreate={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
 
