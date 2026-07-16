@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
@@ -403,6 +403,14 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const editFormRef = useRef<HTMLDivElement>(null)
+  // 點編輯/新增時，自動捲動到表單（產品很多時，表單開在上方容易被忽略）
+  useEffect(() => {
+    if (editingId !== null) {
+      const t = setTimeout(() => editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
+      return () => clearTimeout(t)
+    }
+  }, [editingId])
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
@@ -781,7 +789,7 @@ export default function ProductsPage() {
 
                 {/* 編輯 / 新增表單 */}
                 {editingId !== null && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-5 space-y-4">
+                    <div ref={editFormRef} className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-5 space-y-4">
                         <div className="flex items-center justify-between flex-wrap gap-2">
                             <div className="font-semibold text-blue-900">{editingId === 'new' ? '新增產品' : '編輯產品'}</div>
                             <div className="flex bg-white rounded-lg p-0.5 border border-gray-200">
