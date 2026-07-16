@@ -429,11 +429,11 @@ export default function SettingsPage() {
           <p className="text-xs text-gray-400 -mt-3">用來計算戰情室 KPI 卡片的達成率，可依季度或年度調整。</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>有需求客戶目標（位）</label>
+              <label className={labelClass}>有需求單位目標（位）</label>
               <input type="number" value={form.target_needs_clients} onChange={e => setForm(p => ({ ...p, target_needs_clients: Number(e.target.value) }))} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>規劃中客戶目標（位）</label>
+              <label className={labelClass}>規劃中單位目標（位）</label>
               <input type="number" value={form.target_planning_clients} onChange={e => setForm(p => ({ ...p, target_planning_clients: Number(e.target.value) }))} className={inputClass} />
             </div>
             <div>
@@ -620,7 +620,7 @@ export default function SettingsPage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 mb-1">匯出備份</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  將所有客戶、報價單、產品、廠商等資料匯出為 JSON 檔案，建議定期備份保存。
+                  將所有單位名稱、報價單、產品、廠商等資料匯出為 JSON 檔案，建議定期備份保存。
                 </p>
                 <button onClick={handleBackup} disabled={backingUp}
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl text-sm font-medium">
@@ -693,7 +693,7 @@ export default function SettingsPage() {
             <Lock size={14} className="text-gray-400" />
             <h2 className="font-semibold text-gray-900">操作稽核紀錄</h2>
           </div>
-          <p className="text-xs text-gray-400 mb-4">記錄客戶、報價單、銷貨單、應收／應付帳款、叫修單的新增、修改、刪除操作，僅管理員可查閱。</p>
+          <p className="text-xs text-gray-400 mb-4">記錄單位名稱、報價單、銷貨單、應收／應付帳款、叫修單的新增、修改、刪除操作，僅管理員可查閱。</p>
           {auditLoading ? (
             <p className="text-center text-gray-400 text-sm py-8">載入中...</p>
           ) : auditError ? (

@@ -56,7 +56,7 @@ export default function NewPurchaseOrderPage() {
   }
 
   async function handleSave() {
-    if (!vendorName.trim()) { alert('請輸入客戶名稱'); return }
+    if (!vendorName.trim()) { alert('請輸入單位名稱'); return }
     const validItems = items.filter(i => i.product_name.trim())
     if (validItems.length === 0) { alert('請至少新增一項品項'); return }
 
@@ -115,18 +115,18 @@ export default function NewPurchaseOrderPage() {
 
       {/* 客戶資訊 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-        <h2 className="font-semibold text-gray-900 mb-4">客戶資訊</h2>
+        <h2 className="font-semibold text-gray-900 mb-4">單位資訊</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">客戶名稱</label>
+            <label className="text-xs text-gray-600 mb-1 block">單位名稱</label>
             <input value={vendorName} onChange={e => setVendorName(e.target.value)} className={inputClass} placeholder="必填" />
           </div>
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">客戶聯絡人</label>
+            <label className="text-xs text-gray-600 mb-1 block">單位聯絡人</label>
             <input value={vendorContact} onChange={e => setVendorContact(e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">客戶電話</label>
+            <label className="text-xs text-gray-600 mb-1 block">單位電話</label>
             <input value={vendorPhone} onChange={e => setVendorPhone(e.target.value)} className={inputClass} />
           </div>
           <div>

@@ -16,13 +16,13 @@ export async function POST(req: NextRequest) {
     <h2>📋 報價單通知</h2>
     <table style="border-collapse:collapse; font-family: sans-serif;">
       <tr><td style="padding:4px 12px 4px 0; color:#666;">報價單編號</td><td><strong>${quote_no}</strong></td></tr>
-      <tr><td style="padding:4px 12px 4px 0; color:#666;">客戶</td><td>${client_name}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0; color:#666;">單位名稱</td><td>${client_name}</td></tr>
       <tr><td style="padding:4px 12px 4px 0; color:#666;">含稅總金額</td><td><strong>NT$${Number(total_amount).toLocaleString('zh-TW')}</strong></td></tr>
-      ${has_catalog ? '<tr><td colspan="2" style="color:#2563eb; padding-top:8px;">⚠️ 此報價單含型錄/說明書附件，請確認附件後轉寄客戶</td></tr>' : ''}
+      ${has_catalog ? '<tr><td colspan="2" style="color:#2563eb; padding-top:8px;">⚠️ 此報價單含型錄/說明書附件，請確認附件後轉寄單位名稱</td></tr>' : ''}
     </table>
     ${pdf_url ? `<p style="margin-top:16px;"><a href="${pdf_url}" style="background:#2563eb;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;">查看報價單 PDF</a></p>` : ''}
     <hr style="margin:24px 0; border:none; border-top:1px solid #e5e7eb;" />
-    <p style="color:#9ca3af; font-size:12px;">光輝影音科技 CRM 系統自動發送 — 請確認後再轉寄給客戶</p>
+    <p style="color:#9ca3af; font-size:12px;">光輝影音科技 CRM 系統自動發送 — 請確認後再轉寄給單位名稱</p>
   `
 
   const res = await fetch('https://api.resend.com/emails', {

@@ -218,10 +218,10 @@ export default function SalesOrderDetailPage() {
         <h2 className="text-sm font-semibold text-gray-700 mb-4">基本資料</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">客戶</label>
+            <label className="text-xs text-gray-500 mb-1 block">單位名稱</label>
             <select value={clientId} onChange={e => setClientId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="">選擇客戶</option>
+              <option value="">選擇單位名稱</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
             </select>
           </div>
@@ -362,15 +362,15 @@ export default function SalesOrderDetailPage() {
 
       {/* 客戶簽名 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">客戶簽名確認</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">單位簽名確認</h2>
         <div className="border border-dashed border-gray-300 rounded-xl h-24 flex items-end px-4 pb-2 mb-4">
-          <span className="text-xs text-gray-400">客戶簽名</span>
+          <span className="text-xs text-gray-400">單位簽名</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <label className="text-xs text-gray-500 mb-1 block">簽署人姓名</label>
             <input value={signerName} onChange={e => setSignerName(e.target.value)}
-              placeholder="客戶簽回後，由業務登錄簽署人姓名"
+              placeholder="單位簽回後，由業務登錄簽署人姓名"
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <div>

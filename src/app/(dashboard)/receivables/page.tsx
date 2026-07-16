@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { Receivable } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Plus, Search, DollarSign, AlertCircle, CheckCircle, Clock, Printer } from 'lucide-react'
+import RowDeleteButton from '@/components/RowDeleteButton'
 
 const STATUS_COLORS: Record<string, string> = {
   '未收':     'bg-red-100 text-red-700',
@@ -160,7 +161,7 @@ export default function ReceivablesPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">客戶</label>
+              <label className="text-xs text-gray-600 mb-1 block">單位名稱</label>
               <select value={form.client_id} onChange={e => setForm(p => ({ ...p, client_id: e.target.value }))} className={inputClass}>
                 <option value="">請選擇</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
@@ -210,7 +211,7 @@ export default function ReceivablesPage() {
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋單號、客戶、發票號碼..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋單號、單位名稱、發票號碼..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="flex gap-2 flex-wrap">
           {STATUS_OPTIONS.map(s => (
@@ -228,7 +229,7 @@ export default function ReceivablesPage() {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">單號</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">客戶</th>
+                <th className="text-left px-4 py-3 text-gray-600 font-medium">單位名稱</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">發票號碼</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">到期日</th>
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">應收</th>
@@ -274,6 +275,14 @@ export default function ReceivablesPage() {
                             title="列印／分享對帳單 PDF" className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
                             <Printer size={14} />
                           </button>
+                          <RowDeleteButton
+                            table="receivables"
+                            id={r.id}
+                            label="應收帳款"
+                            confirmMessage={`確定刪除應收帳款 ${r.receivable_no}？收款紀錄將一併刪除，此動作無法復原。`}
+                            onDeleted={id => setReceivables(prev => prev.filter(x => x.id !== id))}
+                            iconOnly
+                          />
                         </div>
                       </td>
                     </tr>

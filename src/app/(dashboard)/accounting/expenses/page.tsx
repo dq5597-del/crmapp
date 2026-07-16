@@ -325,7 +325,7 @@ export default function ExpensesPage() {
               </div>
               {/* 備註客戶 */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">備註(客戶名)</label>
+                <label className="text-xs text-gray-500 mb-1 block">備註(單位名)</label>
                 <input value={form.note_client} onChange={e => handleChange('note_client', e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>

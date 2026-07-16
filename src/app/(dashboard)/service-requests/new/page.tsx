@@ -123,10 +123,10 @@ export default function NewServiceRequestPage() {
 
       {/* 客戶資訊 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-800">客戶資訊</h2>
+        <h2 className="text-sm font-semibold text-gray-800">單位資訊</h2>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2 relative">
-            <label className={labelClass}>客戶</label>
+            <label className={labelClass}>單位名稱</label>
             <input
               className={inputClass}
               value={clientSearch || selectedClientName}
@@ -137,7 +137,7 @@ export default function NewServiceRequestPage() {
               }}
               onFocus={() => setShowClientDropdown(true)}
               onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
-              placeholder="輸入搜尋客戶"
+              placeholder="輸入搜尋單位名稱"
               autoComplete="off"
             />
             {showClientDropdown && (
@@ -152,7 +152,7 @@ export default function NewServiceRequestPage() {
                     {c.company_name}
                   </button>
                 )) : (
-                  <div className="px-3 py-2 text-sm text-gray-400">查無符合的客戶</div>
+                  <div className="px-3 py-2 text-sm text-gray-400">查無符合的單位名稱</div>
                 )}
               </div>
             )}

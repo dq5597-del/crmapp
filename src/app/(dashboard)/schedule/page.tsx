@@ -645,7 +645,7 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, addClien
     const { data, error } = await supabase.from('clients')
       .insert({ company_name: name, status: '有需求' })
       .select('id, company_name, address').single()
-    if (error || !data) { alert('新增客戶失敗：' + (error?.message ?? '')); return }
+    if (error || !data) { alert('新增單位名稱失敗：' + (error?.message ?? '')); return }
     addClient(data as Company)
     setF(p => ({ ...p, client_id: data.id, contact_id: '' }))
   }
@@ -739,12 +739,12 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, addClien
               </select>
             </div>
             <div>
-              <label className={labelClass}>客戶（可搜尋，找不到可直接新增）</label>
+              <label className={labelClass}>單位名稱（可搜尋，找不到可直接新增）</label>
               <SearchSelect
                 items={clients}
                 valueId={f.client_id}
-                placeholder="輸入關鍵字搜尋客戶"
-                createLabel="新增客戶"
+                placeholder="輸入關鍵字搜尋單位名稱"
+                createLabel="新增單位名稱"
                 onSelect={id => setF(p => ({ ...p, client_id: id, contact_id: '' }))}
                 onCreate={createClient_}
               />

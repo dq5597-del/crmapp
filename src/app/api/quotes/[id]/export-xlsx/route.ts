@@ -70,7 +70,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
     r++
   }
-  infoLine('客戶名稱', clientName, '單號', quote.quote_no)
+  infoLine('單位名稱', clientName, '單號', quote.quote_no)
   infoLine('聯絡人', quote.contact_name ?? '—', '日期', quote.created_at ? new Date(quote.created_at).toLocaleDateString('zh-TW') : '')
   infoLine('電話', quote.client_phone ?? '—', '有效期限', quote.valid_until ?? '—')
   infoLine('地址', clientAddress || '—', '交貨工期', quote.delivery_days ? `${quote.delivery_days} 天` : '—')

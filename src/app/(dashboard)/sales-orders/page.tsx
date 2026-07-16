@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, ShoppingCart, Plus, X, Trash2 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
+import RowDeleteButton from '@/components/RowDeleteButton'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -43,6 +44,7 @@ export default function SalesOrdersPage() {
   const [clientId, setClientId] = useState('')
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
+  const [creatingClient, setCreatingClient] = useState(false)
   const [projectName, setProjectName] = useState('')
   const [contactName, setContactName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
@@ -96,7 +98,7 @@ export default function SalesOrdersPage() {
   }
 
   async function handleCreate() {
-    if (!clientId) return alert('請選擇客戶')
+    if (!clientId) return alert('請選擇單位名稱')
     const validItems = items.filter(i => i.product_name.trim())
     if (validItems.length === 0) return alert('請至少填一筆品項')
     setSaving(true)
@@ -160,6 +162,23 @@ export default function SalesOrdersPage() {
     setShowClientDropdown(false)
   }
 
+  async function handleQuickCreateClient(name: string) {
+    const value = name.trim()
+    if (!value || creatingClient) return
+    setCreatingClient(true)
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({ company_name: value })
+      .select('id, company_name')
+      .single()
+    setCreatingClient(false)
+    if (error || !data) { alert('新增失敗: ' + (error?.message ?? '')); return }
+    setClients(prev =>
+      [...prev, data].sort((a, b) => a.company_name.localeCompare(b.company_name, 'zh-Hant'))
+    )
+    onClientPick(data)
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-5">
@@ -179,7 +198,7 @@ export default function SalesOrdersPage() {
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="搜尋單號、客戶..."
+          placeholder="搜尋單號、單位名稱..."
           className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
         />
       </div>
@@ -190,7 +209,7 @@ export default function SalesOrdersPage() {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">銷貨單號</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">客戶</th>
+                <th className="text-left px-4 py-3 text-gray-600 font-medium">單位名稱</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">案名</th>
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
                 <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>
@@ -221,6 +240,13 @@ export default function SalesOrdersPage() {
                   <td className="px-4 py-3 text-gray-500">{formatDate(o.created_at)}</td>
                   <td className="px-4 py-3 text-center whitespace-nowrap">
                     <CopyDocButton type="sales-orders" id={o.id} title="複製此銷貨單（單號重新產生、狀態回草稿）" />
+                    <RowDeleteButton
+                      table="sales_orders"
+                      id={o.id}
+                      label="銷貨單"
+                      confirmMessage={`確定刪除銷貨單 ${o.order_no}？品項將一併刪除，此動作無法復原。`}
+                      onDeleted={id => setOrders(prev => prev.filter(x => x.id !== id))}
+                    />
                   </td>
                 </tr>
               ))}
@@ -244,7 +270,7 @@ export default function SalesOrdersPage() {
               {/* 基本資料 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="relative">
-                  <label className="text-xs text-gray-500 mb-1 block">客戶 *</label>
+                  <label className="text-xs text-gray-500 mb-1 block">單位名稱 *</label>
                   <input
                     value={clientSearch || selectedClientName}
                     onChange={e => {
@@ -254,13 +280,13 @@ export default function SalesOrdersPage() {
                     }}
                     onFocus={() => setShowClientDropdown(true)}
                     onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
-                    placeholder="輸入搜尋客戶"
+                    placeholder="輸入搜尋或新增單位名稱"
                     autoComplete="off"
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   {showClientDropdown && (
                     <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-52 overflow-y-auto">
-                      {filteredClients.length > 0 ? filteredClients.map(c => (
+                      {filteredClients.map(c => (
                         <button
                           key={c.id}
                           type="button"
@@ -269,8 +295,19 @@ export default function SalesOrdersPage() {
                         >
                           {c.company_name}
                         </button>
-                      )) : (
-                        <div className="px-3 py-2 text-sm text-gray-400">查無符合的客戶</div>
+                      ))}
+                      {clientSearch.trim() && !clients.some(c => c.company_name === clientSearch.trim()) && (
+                        <button
+                          type="button"
+                          onMouseDown={() => handleQuickCreateClient(clientSearch)}
+                          className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-1.5 border-t border-gray-100"
+                        >
+                          <Plus size={14} />
+                          {creatingClient ? '新增中…' : `新增單位名稱「${clientSearch.trim()}」`}
+                        </button>
+                      )}
+                      {filteredClients.length === 0 && !clientSearch.trim() && (
+                        <div className="px-3 py-2 text-sm text-gray-400">無單位名稱資料</div>
                       )}
                     </div>
                   )}

@@ -8,7 +8,7 @@ export default function NewClientPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-gray-900 mb-6">新增客戶</h1>
+      <h1 className="text-xl font-bold text-gray-900 mb-6">新增單位名稱</h1>
       <ClientForm onSuccess={(id) => router.push(`/clients/${id}`)} />
     </div>
   )

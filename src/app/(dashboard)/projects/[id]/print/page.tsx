@@ -25,7 +25,7 @@ export default async function ProjectOverviewPrintPage({ params }: { params: { i
   const budget = project.budget != null ? `NT$${Number(project.budget).toLocaleString()}` : '—'
 
   const rows: [string, string][] = [
-    ['客戶名稱', client.company_name ?? '—'],
+    ['單位名稱', client.company_name ?? '—'],
     ['聯絡電話', client.phone ?? '—'],
     ['地址', client.address ?? '—'],
     ['專案狀態', project.status ?? '—'],

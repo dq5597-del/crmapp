@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { ServiceRequest, ServiceStatus } from '@/types'
 import { Plus, Search, Wrench, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
+import RowDeleteButton from '@/components/RowDeleteButton'
 import { cn } from '@/lib/utils'
 
 const STATUS_COLORS: Record<ServiceStatus, string> = {
@@ -118,7 +119,7 @@ export default function ServiceRequestsPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="搜尋單號、客戶、設備名稱..."
+            placeholder="搜尋單號、單位名稱、設備名稱..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -163,7 +164,7 @@ export default function ServiceRequestsPage() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">單號</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">客戶</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">單位名稱</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">設備</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">保固</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">維修方式</th>
@@ -202,6 +203,13 @@ export default function ServiceRequestsPage() {
                   </td>
                   <td className="px-4 py-3 text-center whitespace-nowrap">
                     <CopyDocButton type="service-requests" id={r.id} title="複製此叫修單（單號重新產生、狀態回待處理）" />
+                    <RowDeleteButton
+                      table="service_requests"
+                      id={r.id}
+                      label="叫修單"
+                      confirmMessage={`確定刪除叫修單 ${r.service_no}？相關維修報價／送修資料將一併刪除，此動作無法復原。`}
+                      onDeleted={id => setRequests(prev => prev.filter(x => x.id !== id))}
+                    />
                   </td>
                 </tr>
               ))}

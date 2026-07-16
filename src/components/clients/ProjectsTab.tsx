@@ -353,7 +353,7 @@ function FileSection({ projectId, supabase, onBeforeUpload }: {
         <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
       ) : files.length === 0 ? (
         <div className="text-center py-6 text-gray-400 text-sm">
-          尚無客戶提供的檔案，點上方按鈕新增
+          尚無單位提供的檔案，點上方按鈕新增
         </div>
       ) : (
         <div className="space-y-2">
@@ -1583,7 +1583,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               </div>
             </Accordion>
 
-            <Accordion title="📎 客戶提供的檔案" color={BLUE}>
+            <Accordion title="📎 單位提供的檔案" color={BLUE}>
               <FileSection
                 projectId={editingId as string}
                 supabase={supabase}
@@ -1699,7 +1699,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
                 <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
                 <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
-                <Field label="客戶期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
+                <Field label="單位期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
                 <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
                 <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
               </div>

@@ -148,7 +148,7 @@ export default function ShipmentsPage() {
   }
 
   async function save() {
-    if (!form.client_id) { alert('請選擇客戶'); return }
+    if (!form.client_id) { alert('請選擇單位名稱'); return }
     const valid = items.filter(i => i.product_name?.trim() && num(i.quantity) > 0)
     if (!valid.length) { alert('請至少填一筆品項'); return }
     setSaving(true)
@@ -314,7 +314,7 @@ export default function ShipmentsPage() {
         ))}
         <div className="relative ml-auto">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋單號／客戶／託運單號"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋單號／單位名稱／託運單號"
             className="pl-9 pr-3 py-1.5 border border-gray-200 rounded-xl text-sm w-64" />
         </div>
       </div>
@@ -330,7 +330,7 @@ export default function ShipmentsPage() {
               <thead>
                 <tr className="text-left text-gray-500 border-b bg-gray-50">
                   <th className="py-2.5 px-4">出貨單號</th>
-                  <th className="px-4">客戶／案名</th>
+                  <th className="px-4">單位／案名</th>
                   <th className="px-4">來源銷貨單</th>
                   <th className="px-4">出貨日</th>
                   <th className="px-4">配送</th>
@@ -373,7 +373,7 @@ export default function ShipmentsPage() {
                           <button onClick={() => revertShip(r)} disabled={busy === r.id} title="退回待出貨（沖銷庫存）"
                             className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 disabled:opacity-50"><Undo2 size={15} /></button>
                         )}
-                        <button onClick={() => copyTrack(r)} title="複製客戶追蹤／簽收連結"
+                        <button onClick={() => copyTrack(r)} title="複製單位追蹤／簽收連結"
                           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600">
                           {copiedId === r.id ? <Check size={15} className="text-green-600" /> : <Link2 size={15} />}
                         </button>
@@ -406,7 +406,7 @@ export default function ShipmentsPage() {
 
             <div className="p-5 space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <F label="客戶 *">
+                <F label="單位名稱 *">
                   <select value={form.client_id ?? ''} onChange={e => pickClient(e.target.value)} className={inp}>
                     <option value="">— 選擇 —</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}

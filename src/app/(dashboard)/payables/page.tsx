@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Plus, Search, Receipt, Printer } from 'lucide-react'
+import RowDeleteButton from '@/components/RowDeleteButton'
 
 const STATUS_COLORS: Record<string, string> = {
   '未付':     'bg-red-100 text-red-700',
@@ -300,6 +301,14 @@ export default function PayablesPage() {
                             title="列印／分享對帳單 PDF" className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
                             <Printer size={14} />
                           </button>
+                          <RowDeleteButton
+                            table="payables"
+                            id={p.id}
+                            label="應付帳款"
+                            confirmMessage={`確定刪除應付帳款 ${p.payable_no}？付款紀錄將一併刪除，此動作無法復原。`}
+                            onDeleted={id => setPayables(prev => prev.filter(x => x.id !== id))}
+                            iconOnly
+                          />
                         </div>
                       </td>
                     </tr>

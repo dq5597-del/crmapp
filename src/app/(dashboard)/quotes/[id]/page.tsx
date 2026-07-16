@@ -50,7 +50,7 @@ export default function QuoteDetailPage() {
         has_catalog: hasCatalog,
       }),
     })
-    alert('✅ 已寄送到您的信箱，請確認後轉寄給客戶')
+    alert('✅ 已寄送到您的信箱，請確認後轉寄給單位名稱')
     setActionLoading('')
   }
 
@@ -289,7 +289,7 @@ export default function QuoteDetailPage() {
       {/* Quote info */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-          <div><div className="text-gray-500 text-xs mb-0.5">客戶</div><div className="font-medium">{clientName}</div></div>
+          <div><div className="text-gray-500 text-xs mb-0.5">單位名稱</div><div className="font-medium">{clientName}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">案名</div><div>{quote.project_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">聯絡人</div><div>{quote.contact_name ?? '—'}</div></div>
           <div><div className="text-gray-500 text-xs mb-0.5">電話</div><div>{quote.client_phone ?? '—'}</div></div>

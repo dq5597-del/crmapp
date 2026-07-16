@@ -53,7 +53,7 @@ export default function ReceivablePrintPage() {
           <tbody>
             <tr>
               <Th>對帳單號</Th><Td>{row.receivable_no ?? '—'}</Td>
-              <Th>客戶</Th><Td>{c.company_name ?? '—'}</Td>
+              <Th>單位名稱</Th><Td>{c.company_name ?? '—'}</Td>
             </tr>
             <tr>
               <Th>統一編號</Th><Td>{c.tax_id ?? '—'}</Td>
@@ -123,7 +123,7 @@ export default function ReceivablePrintPage() {
 
         <div className="grid grid-cols-2 gap-10 mt-12 text-sm">
           <div className="border-t border-gray-400 pt-2 text-center text-gray-500">本公司蓋章</div>
-          <div className="border-t border-gray-400 pt-2 text-center text-gray-500">客戶對帳簽收</div>
+          <div className="border-t border-gray-400 pt-2 text-center text-gray-500">單位對帳簽收</div>
         </div>
       </div>
     </div>

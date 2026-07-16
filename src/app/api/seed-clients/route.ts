@@ -80,7 +80,7 @@ export async function GET() {
     let clientsInserted = 0
     if (toInsert.length > 0) {
       const { error } = await supabase.from('clients').insert(toInsert)
-      if (error) throw new Error('客戶匯入失敗：' + error.message)
+      if (error) throw new Error('單位名稱匯入失敗：' + error.message)
       clientsInserted = toInsert.length
     }
 

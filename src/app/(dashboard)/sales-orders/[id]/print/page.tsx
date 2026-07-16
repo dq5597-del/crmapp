@@ -156,7 +156,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
 
         <div className="info-row">
           <span>
-            客戶名稱：<strong>{clientName}</strong>
+            單位名稱：<strong>{clientName}</strong>
             {order.contact_name && `　聯絡人：${order.contact_name}`}
             {order.client_phone && `　電話：${order.client_phone}`}
           </span>
@@ -224,7 +224,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
 
         <div className="sign-row">
           <div className="sign-box">
-            <div className="sign-title">客戶簽名確認</div>
+            <div className="sign-title">單位簽名確認</div>
             <div className="sign-line"></div>
             <div className="sign-meta">
               簽署人：{order.signer_name || '＿＿＿＿＿＿＿＿'}　　簽署日期：{order.signed_date ? new Date(order.signed_date).toLocaleDateString('zh-TW') : '＿＿＿＿＿＿＿＿'}

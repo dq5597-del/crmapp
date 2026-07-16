@@ -8,7 +8,7 @@ export type SignRole = 'customer' | 'engineer' | 'sales'
 export type DocType = 'survey' | 'acceptance' | 'diagram' | 'quote'
 
 const ROLES: { key: SignRole; label: string }[] = [
-  { key: 'customer', label: '客戶簽認' },
+  { key: 'customer', label: '單位簽認' },
   { key: 'engineer', label: '工程師' },
   { key: 'sales',    label: '業務' },
 ]

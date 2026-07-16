@@ -103,7 +103,7 @@ export default function ProjectsFolderPage() {
 // (編輯改為深連結至完整編輯器，見列表按鈕)
 
   async function save() {
-    if (!form.client_id) { alert('請選擇客戶'); return }
+    if (!form.client_id) { alert('請選擇單位名稱'); return }
     if (!form.project_name.trim()) { alert('請填專案名稱'); return }
     setSaving(true)
     const payload = {
@@ -181,7 +181,7 @@ export default function ProjectsFolderPage() {
 
       <div className="relative mb-4 max-w-sm">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋案名或客戶名稱…"
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋案名或單位名稱…"
           className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
 
@@ -197,7 +197,7 @@ export default function ProjectsFolderPage() {
               <thead>
                 <tr className="text-left text-gray-500 border-b bg-gray-50">
                   <th className="py-2.5 px-4">案名</th>
-                  <th className="px-4">客戶</th>
+                  <th className="px-4">單位名稱</th>
                   <th className="px-4">狀態</th>
                   <th className="px-4">施工團隊</th>
                   <th className="px-4">施工／完工</th>
@@ -274,19 +274,19 @@ export default function ProjectsFolderPage() {
             <div className="p-5 space-y-3">
               {/* 客戶（可搜尋） */}
               <div className="relative">
-                <label className="block text-xs text-gray-500 mb-1">客戶 *</label>
+                <label className="block text-xs text-gray-500 mb-1">單位名稱 *</label>
                 <input
                   value={clientSearch}
                   onChange={e => { setClientSearch(e.target.value); setForm(f => ({ ...f, client_id: '' })); setClientListOpen(true) }}
                   onFocusCapture={() => setClientListOpen(true)}
-                  placeholder="輸入客戶名稱搜尋…"
+                  placeholder="輸入單位名稱搜尋…"
                   className={inp}
                 />
                 {form.client_id && <span className="absolute right-3 top-8 text-green-600 text-xs">✓ 已選</span>}
                 {clientListOpen && !form.client_id && (
                   <div className="absolute z-30 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
                     {filteredClients.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-400">找不到客戶</div>
+                      <div className="px-3 py-2 text-sm text-gray-400">找不到單位名稱</div>
                     ) : filteredClients.map(c => (
                       <button key={c.id} onClick={() => { setForm(f => ({ ...f, client_id: c.id })); setClientSearch(c.company_name); setClientListOpen(false) }}
                         className="block w-full text-left px-3 py-2 text-sm hover:bg-blue-50">{c.company_name}</button>

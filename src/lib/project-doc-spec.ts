@@ -154,7 +154,7 @@ export const REPORT_SECTIONS: SectionDef[] = [
   {
     title: '⑨ 中類 — 場勘備註', source: 'survey',
     fields: [
-      { key: 'client_expected_functions', label: '客戶期望功能/期望達成目標' },
+      { key: 'client_expected_functions', label: '單位期望功能/期望達成目標' },
       { key: 'other_special_needs',       label: '其他特殊需求說明' },
       { key: 'preliminary_budget_range',  label: '初步預算範圍' },
       { key: 'survey_notes',              label: '場勘備註內容' },

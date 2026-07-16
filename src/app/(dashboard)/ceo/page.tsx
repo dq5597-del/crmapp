@@ -130,7 +130,7 @@ export default function CeoDashboard() {
     const byClient: Record<string, { name: string; amt: number }> = {}
     rows.forEach(r => {
       const k = r.client_id ?? 'unknown'
-      const name = (r as any).clients?.company_name ?? '未指定客戶'
+      const name = (r as any).clients?.company_name ?? '未指定單位名稱'
       byClient[k] = { name, amt: (byClient[k]?.amt ?? 0) + r.weighted }
     })
     const clientRank = Object.values(byClient).sort((a, b) => b.amt - a.amt)
@@ -324,7 +324,7 @@ export default function CeoDashboard() {
           <Mini label="進行中案件" value={`${funnel.rows.length} 案`} />
           <Mini label="報價總額" value={money(funnel.total)} />
           <Mini label="加權預測營收" value={money(funnel.weighted)} color="text-blue-700" />
-          <Mini label="最大客戶佔比" value={`${(funnel.topShare * 100).toFixed(0)}%`} color={funnel.topShare > 0.5 ? 'text-amber-600' : ''} />
+          <Mini label="最大單位佔比" value={`${(funnel.topShare * 100).toFixed(0)}%`} color={funnel.topShare > 0.5 ? 'text-amber-600' : ''} />
         </div>
 
         <div className="mb-4">
@@ -350,7 +350,7 @@ export default function CeoDashboard() {
             <thead>
               <tr className="text-left text-gray-500 border-b bg-gray-50">
                 <th className="py-2 px-3">報價單</th>
-                <th className="px-3">客戶／案名</th>
+                <th className="px-3">單位／案名</th>
                 <th className="px-3">狀態</th>
                 <th className="px-3 text-center">勝率</th>
                 <th className="px-3">預計結案</th>

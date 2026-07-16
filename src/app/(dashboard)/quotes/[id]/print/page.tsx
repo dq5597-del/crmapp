@@ -176,7 +176,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         {/* Client + quote info (merged into 2 rows) */}
         <div className="info-row">
           <span>
-            客戶名稱：<strong>{clientName}</strong>
+            單位名稱：<strong>{clientName}</strong>
             {quote.contact_name && `　聯絡人：${quote.contact_name}`}
             {quote.client_phone && `　電話：${quote.client_phone}`}
           </span>

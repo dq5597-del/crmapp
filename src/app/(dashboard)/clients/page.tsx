@@ -7,6 +7,7 @@ import { usePermissions } from '@/lib/permissions'
 import { Client } from '@/types'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
 import { Plus, Search, Phone, MapPin, Calendar, Award } from 'lucide-react'
+import RowDeleteButton from '@/components/RowDeleteButton'
 
 const STATUS_OPTIONS = ['全部', '有需求', '規劃中', '服務未完成', '已完成', '暫緩']
 const TIER_OPTIONS = ['全部分級', '高價值', '中價值', '一般', '尚無交易']
@@ -82,7 +83,7 @@ export default function ClientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">客戶資料</h1>
+          <h1 className="text-xl font-bold text-gray-900">單位資料</h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {filtered.length} 筆</p>
         </div>
 {perm.can_create && (
@@ -91,7 +92,7 @@ export default function ClientsPage() {
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition"
         >
           <Plus size={16} />
-          新增客戶
+          新增單位名稱
         </Link>
         )}
       </div>
@@ -147,9 +148,9 @@ export default function ClientsPage() {
         <div className="text-center py-16 text-gray-400">載入中...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p>沒有符合的客戶</p>
+          <p>沒有符合的單位名稱</p>
           <Link href="/clients/new" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
-            新增第一筆客戶
+            新增第一筆單位名稱
           </Link>
         </div>
       ) : (
@@ -158,8 +159,18 @@ export default function ClientsPage() {
             <Link
               key={client.id}
               href={`/clients/${client.id}`}
-              className="bg-white border border-gray-100 rounded-2xl p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+              className="relative bg-white border border-gray-100 rounded-2xl p-4 hover:border-blue-300 hover:shadow-md transition-all group"
             >
+              <div className="absolute bottom-2 right-2 z-10">
+                <RowDeleteButton
+                  table="clients"
+                  id={client.id}
+                  label="單位"
+                  confirmMessage={`確定刪除單位「${client.company_name}」？相關聯絡人將一併刪除，此動作無法復原。`}
+                  onDeleted={id => setClients(prev => prev.filter(x => x.id !== id))}
+                  iconOnly
+                />
+              </div>
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">

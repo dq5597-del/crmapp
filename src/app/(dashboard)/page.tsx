@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import KPICard from '@/components/dashboard/KPICard'
 import WeatherWidget from '@/components/dashboard/WeatherWidget'
 import TodaySchedule from '@/components/dashboard/TodaySchedule'
+import CalendarWidget from '@/components/dashboard/CalendarWidget'
 import QuickNotes from '@/components/dashboard/QuickNotes'
 import DraggableDashboard, { type DashboardBlock } from '@/components/dashboard/DraggableDashboard'
 import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle, CalendarClock, Timer } from 'lucide-react'
@@ -178,6 +179,12 @@ export default async function DashboardPage() {
   })
 
   blocks.push({
+    id: 'calendar',
+    title: '行事曆',
+    node: <CalendarWidget />,
+  })
+
+  blocks.push({
     id: 'quick-notes',
     title: '快速筆記',
     node: <QuickNotes />,
@@ -186,12 +193,12 @@ export default async function DashboardPage() {
   if (data.overdueVisits.length > 0) {
     blocks.push({
       id: 'overdue-visits',
-      title: '已逾期未回訪客戶',
+      title: '已逾期未回訪單位',
       node: (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={18} className="text-red-600" />
-            <h2 className="font-semibold text-red-800">已逾期未回訪客戶（{data.overdueVisits.length} 位）</h2>
+            <h2 className="font-semibold text-red-800">已逾期未回訪單位（{data.overdueVisits.length} 位）</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.overdueVisits.map((c: any) => (
@@ -249,7 +256,7 @@ export default async function DashboardPage() {
     node: (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KPICard
-          title="有需求客戶"
+          title="有需求單位"
           value={data.withNeeds}
           target={data.targets.needsClients}
           subtitle="積極開發中"
@@ -257,7 +264,7 @@ export default async function DashboardPage() {
           color="blue"
         />
         <KPICard
-          title="規劃中客戶"
+          title="規劃中單位"
           value={data.planning}
           target={data.targets.planningClients}
           subtitle="方案規劃階段"
@@ -272,13 +279,13 @@ export default async function DashboardPage() {
           color="yellow"
         />
         <KPICard
-          title="已完成客戶"
+          title="已完成單位"
           value={data.completed}
           icon={CheckCircle}
           color="green"
         />
         <KPICard
-          title="客戶總數"
+          title="單位總數"
           value={data.totalClients}
           icon={Users}
           color="gray"
@@ -340,10 +347,10 @@ export default async function DashboardPage() {
 
   blocks.push({
     id: 'status-distribution',
-    title: '客戶狀態分布',
+    title: '單位狀態分布',
     node: (
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <h2 className="font-semibold text-gray-900 mb-4">客戶狀態分布</h2>
+        <h2 className="font-semibold text-gray-900 mb-4">單位狀態分布</h2>
         <div className="space-y-3">
           {[
             { label: '有需求', value: data.withNeeds, color: 'bg-blue-500' },
@@ -401,12 +408,12 @@ export default async function DashboardPage() {
 
   blocks.push({
     id: 'upcoming-visits',
-    title: '近30天應回訪客戶',
+    title: '近30天應回訪單位',
     node: (
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <h2 className="font-semibold text-gray-900 mb-4">近30天應回訪客戶</h2>
+        <h2 className="font-semibold text-gray-900 mb-4">近30天應回訪單位</h2>
         {data.upcomingVisits.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-4">近30天無需回訪客戶</p>
+          <p className="text-gray-400 text-sm text-center py-4">近30天無需回訪單位</p>
         ) : (
           <div className="space-y-3">
             {data.upcomingVisits.map((c: any) => (

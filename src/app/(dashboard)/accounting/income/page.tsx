@@ -186,7 +186,7 @@ export default function IncomePage() {
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋客戶／說明／發票號碼"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋單位名稱／說明／發票號碼"
             className="pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm w-64" />
         </div>
         <select value={cat} onChange={e => setCat(e.target.value)} className="text-sm border border-gray-200 rounded-xl px-3 py-2">
@@ -211,7 +211,7 @@ export default function IncomePage() {
             <thead>
               <tr className="bg-gray-50 text-gray-500 text-xs">
                 <th className="px-4 py-3 text-left">發票日期</th>
-                <th className="px-4 py-3 text-left">客戶</th>
+                <th className="px-4 py-3 text-left">單位名稱</th>
                 <th className="px-4 py-3 text-left">品名/說明</th>
                 <th className="px-4 py-3 text-left">科目</th>
                 <th className="px-4 py-3 text-right">未稅金額</th>
@@ -282,9 +282,9 @@ export default function IncomePage() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="AB-12345678" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">客戶名稱</label>
+                <label className="text-xs text-gray-500 mb-1 block">單位名稱</label>
                 <input value={form.client_name} onChange={e => handleChange('client_name', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="客戶公司名稱" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="單位公司名稱" />
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-gray-500 mb-1 block">品名/說明</label>

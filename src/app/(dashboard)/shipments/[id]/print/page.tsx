@@ -52,7 +52,7 @@ export default function ShipmentPrintPage() {
               <Th>出貨日期</Th><Td>{row.ship_date ?? '—'}</Td>
             </tr>
             <tr>
-              <Th>客戶</Th><Td>{c.company_name ?? '—'}</Td>
+              <Th>單位名稱</Th><Td>{c.company_name ?? '—'}</Td>
               <Th>來源銷貨單</Th><Td>{row.sales_orders?.order_no ?? '—'}</Td>
             </tr>
             <tr>
@@ -108,7 +108,7 @@ export default function ShipmentPrintPage() {
         <div className="grid grid-cols-3 gap-8 mt-12 text-sm">
           <div className="border-t border-gray-400 pt-2 text-center text-gray-500">出貨人</div>
           <div className="border-t border-gray-400 pt-2 text-center text-gray-500">送貨人</div>
-          <div className="border-t border-gray-400 pt-2 text-center text-gray-500">客戶簽收</div>
+          <div className="border-t border-gray-400 pt-2 text-center text-gray-500">單位簽收</div>
         </div>
 
         <div className="text-xs text-gray-400 mt-8 text-center">

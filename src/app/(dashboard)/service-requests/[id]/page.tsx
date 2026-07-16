@@ -311,7 +311,7 @@ function InfoTab({ req, locked, onSave }: {
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-800">客戶資訊</h3>
+        <h3 className="text-sm font-semibold text-gray-800">單位資訊</h3>
         <div className="grid grid-cols-2 gap-4">
           <div><label className={labelClass}>聯絡人</label><input disabled={locked} className={inputClass} value={form.contact_name ?? ''} onChange={e => set('contact_name', e.target.value)} /></div>
           <div><label className={labelClass}>電話</label><input disabled={locked} className={inputClass} value={form.phone ?? ''} onChange={e => set('phone', e.target.value)} /></div>
@@ -451,12 +451,12 @@ function VendorRepairTab({ req, vendorRepair, vendors, locked, onSave }: {
       </div>
 
       <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-blue-800">送修客戶資料（供廠商參考）</h3>
+        <h3 className="text-sm font-semibold text-blue-800">送修單位資料（供廠商參考）</h3>
         <div className="grid grid-cols-2 gap-4">
-          <div><label className={labelClass}>客戶公司</label><input disabled={locked} className={inputClass} value={form.client_name} onChange={e => set('client_name', e.target.value)} /></div>
-          <div><label className={labelClass}>客戶聯絡人</label><input disabled={locked} className={inputClass} value={form.client_contact} onChange={e => set('client_contact', e.target.value)} /></div>
-          <div><label className={labelClass}>客戶電話</label><input disabled={locked} className={inputClass} value={form.client_phone} onChange={e => set('client_phone', e.target.value)} /></div>
-          <div><label className={labelClass}>客戶 Email（選填）</label><input disabled={locked} className={inputClass} value={form.client_email} onChange={e => set('client_email', e.target.value)} /></div>
+          <div><label className={labelClass}>單位公司</label><input disabled={locked} className={inputClass} value={form.client_name} onChange={e => set('client_name', e.target.value)} /></div>
+          <div><label className={labelClass}>單位聯絡人</label><input disabled={locked} className={inputClass} value={form.client_contact} onChange={e => set('client_contact', e.target.value)} /></div>
+          <div><label className={labelClass}>單位電話</label><input disabled={locked} className={inputClass} value={form.client_phone} onChange={e => set('client_phone', e.target.value)} /></div>
+          <div><label className={labelClass}>單位 Email（選填）</label><input disabled={locked} className={inputClass} value={form.client_email} onChange={e => set('client_email', e.target.value)} /></div>
           <div><label className={labelClass}>設備序號</label><input disabled={locked} className={inputClass} value={form.equipment_serial_no} onChange={e => set('equipment_serial_no', e.target.value)} /></div>
           <div><label className={labelClass}>送修外觀說明</label><input disabled={locked} className={inputClass} value={form.condition_note} onChange={e => set('condition_note', e.target.value)} placeholder="如：外殼有刮痕" /></div>
         </div>
@@ -812,18 +812,18 @@ function RepairQuoteTab({ req, repairQuote, repairItems, products, categories, o
           {hasDecision ? (
             <span className={cn('text-sm font-medium px-3 py-1.5 rounded-full',
               repairQuote.customer_decision === '確認維修' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}>
-              客戶決定：{repairQuote.customer_decision}
+              單位決定：{repairQuote.customer_decision}
             </span>
           ) : (
             !locked && (
               <div className="flex gap-2">
                 <button disabled={deciding} onClick={async () => { setDeciding(true); await onDecision('確認維修'); setDeciding(false) }}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
-                  <CheckCircle size={14} /> 客戶確認維修
+                  <CheckCircle size={14} /> 單位確認維修
                 </button>
                 <button disabled={deciding} onClick={async () => { setDeciding(true); await onDecision('放棄維修'); setDeciding(false) }}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50">
-                  <XCircle size={14} /> 客戶放棄維修
+                  <XCircle size={14} /> 單位放棄維修
                 </button>
               </div>
             )
@@ -1018,15 +1018,15 @@ function CloseTab({ req, locked, onClose }: {
         {(req as any).satisfaction_rating ? (
           <div className="pt-3 mt-1 border-t border-gray-100">
             <p className="text-sm text-gray-700">
-              客戶滿意度：{'★'.repeat((req as any).satisfaction_rating)}{'☆'.repeat(5 - (req as any).satisfaction_rating)}
+              單位滿意度：{'★'.repeat((req as any).satisfaction_rating)}{'☆'.repeat(5 - (req as any).satisfaction_rating)}
               <span className="text-gray-400 ml-1">（{(req as any).satisfaction_rating}/5）</span>
             </p>
             {(req as any).satisfaction_comment && (
-              <p className="text-sm text-gray-600 mt-1">客戶留言：{(req as any).satisfaction_comment}</p>
+              <p className="text-sm text-gray-600 mt-1">單位留言：{(req as any).satisfaction_comment}</p>
             )}
           </div>
         ) : (
-          <p className="text-xs text-gray-400 pt-2 mt-1 border-t border-gray-100">客戶尚未填寫滿意度評分</p>
+          <p className="text-xs text-gray-400 pt-2 mt-1 border-t border-gray-100">單位尚未填寫滿意度評分</p>
         )}
       </div>
     )
@@ -1060,7 +1060,7 @@ function CloseTab({ req, locked, onClose }: {
             </label>
             <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
               <input type="checkbox" checked={form.pickup_confirmed} onChange={e => setForm(f => ({ ...f, pickup_confirmed: e.target.checked }))} className="w-4 h-4" />
-              客戶取件已確認
+              單位取件已確認
             </label>
           </div>
           <div className="col-span-2">

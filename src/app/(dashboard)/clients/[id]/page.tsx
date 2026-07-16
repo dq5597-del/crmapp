@@ -84,7 +84,7 @@ export default function ClientDetailPage() {
   }
 
   if (loading) return <div className="p-8 text-center text-gray-400">載入中...</div>
-  if (!client) return <div className="p-8 text-center text-red-500">找不到客戶</div>
+  if (!client) return <div className="p-8 text-center text-red-500">找不到單位名稱</div>
 
   if (editing) {
     return (
@@ -93,7 +93,7 @@ export default function ClientDetailPage() {
           <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-900">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">編輯客戶</h1>
+          <h1 className="text-xl font-bold text-gray-900">編輯單位名稱</h1>
         </div>
         <ClientForm
           initialData={client}

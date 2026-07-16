@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
@@ -20,6 +20,7 @@ const navItemsTop = [
 ] // top nav
 
 const businessItems = [
+  { href: '/todos',            label: '事情清單', icon: ListTodo },
   { href: '/schedule',         label: '每日行程', icon: CalendarDays },
   { href: '/quotes',           label: '報價單',   icon: FileText },
   { href: '/service-requests', label: '叫修管理', icon: Wrench },
@@ -27,7 +28,7 @@ const businessItems = [
 ]
 
 const companyItems = [
-  { href: '/clients', label: '客戶資料', icon: Users },
+  { href: '/clients', label: '單位資料', icon: Users },
   { href: '/vendors', label: '廠商建檔', icon: Building2 },
 ]
 

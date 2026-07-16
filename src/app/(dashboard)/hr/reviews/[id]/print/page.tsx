@@ -8,7 +8,7 @@ import PrintDocButtons from '@/components/PrintDocButtons'
 const num = (v: any) => Number(v ?? 0) || 0
 const DIMS = [
   { key: 'financial', label: '財務構面', hint: '營收 / 毛利 / 成本達成' },
-  { key: 'customer', label: '顧客構面', hint: '客戶滿意度 / 回購 / 新客開發' },
+  { key: 'customer', label: '顧客構面', hint: '單位滿意度 / 回購 / 新客開發' },
   { key: 'process', label: '內部流程', hint: '交期 / 品質 / 錯誤率' },
   { key: 'learning', label: '學習與成長', hint: '技能 / 證照 / 知識分享' },
 ]

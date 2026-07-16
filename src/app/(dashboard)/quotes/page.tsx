@@ -125,7 +125,7 @@ export default function QuotesPage() {
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋報價單號、客戶、案名..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋報價單號、單位名稱、案名..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <div className="flex gap-2 flex-wrap">
           {STATUS_OPTIONS.map(s => (
@@ -148,7 +148,7 @@ export default function QuotesPage() {
                     <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-blue-600 w-4 h-4 align-middle" title="全選" />
                   </th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">報價單號</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">客戶</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">單位名稱</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">案名</th>
                   <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>

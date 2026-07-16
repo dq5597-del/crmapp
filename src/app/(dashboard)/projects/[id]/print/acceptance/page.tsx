@@ -89,7 +89,7 @@ export default async function AcceptancePrintPage({ params }: { params: { id: st
         </div>
 
         <div className="info-row">
-          <span>客戶名稱：<strong>{(project as any).clients?.company_name ?? ''}</strong></span>
+          <span>單位名稱：<strong>{(project as any).clients?.company_name ?? ''}</strong></span>
           <span>驗收日期：{new Date().toLocaleDateString('zh-TW')}</span>
         </div>
         <div className="info-row">
@@ -165,7 +165,7 @@ export default async function AcceptancePrintPage({ params }: { params: { id: st
         {/* 驗收聲明 */}
         <div className="declare section">
           茲證明上列工程項目業經雙方會同檢驗完竣，設備安裝與功能運作均符合約定規格。
-          客戶簽認後即視同驗收完成；保固期間依合約約定，自驗收日起算。
+          單位簽認後即視同驗收完成；保固期間依合約約定，自驗收日起算。
           如有未盡事項，雙方同意於備註欄註明並依約處理。
         </div>
 

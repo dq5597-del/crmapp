@@ -114,7 +114,7 @@ export default async function SurveyReportPrintPage({ params }: { params: { id: 
         </div>
 
         <div className="info-row">
-          <span>客戶名稱：<strong>{clientName}</strong></span>
+          <span>單位名稱：<strong>{clientName}</strong></span>
           <span>報告日期：{fmtDate(new Date().toISOString())}</span>
         </div>
         <div className="info-row">

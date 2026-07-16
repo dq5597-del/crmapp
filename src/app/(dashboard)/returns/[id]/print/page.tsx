@@ -53,7 +53,7 @@ export default function ReturnPrintPage() {
               <Th>退貨類型</Th><Td>{row.return_type ?? '—'}</Td>
             </tr>
             <tr>
-              <Th>{row.return_type === '供應商退貨' ? '廠商' : '客戶'}</Th><Td>{party?.company_name ?? '—'}</Td>
+              <Th>{row.return_type === '供應商退貨' ? '廠商' : '單位名稱'}</Th><Td>{party?.company_name ?? '—'}</Td>
               <Th>電話</Th><Td>{party?.phone ?? '—'}</Td>
             </tr>
             <tr>

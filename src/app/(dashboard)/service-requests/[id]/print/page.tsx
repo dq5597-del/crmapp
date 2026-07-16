@@ -87,11 +87,11 @@ export default async function ServiceRequestPrintPage({ params }: { params: { id
 
         {/* 客戶資訊 */}
         <div className="section">
-          <div className="section-title">客戶資訊</div>
+          <div className="section-title">單位資訊</div>
           <table className="field-table">
             <tbody>
               <tr>
-                <td className="field-label">客戶名稱</td>
+                <td className="field-label">單位名稱</td>
                 <td className="field-value">{clientName || '—'}</td>
                 <td className="field-label">聯絡人</td>
                 <td className="field-value">{req.contact_name || '—'}</td>
@@ -104,7 +104,7 @@ export default async function ServiceRequestPrintPage({ params }: { params: { id
               </tr>
               {clientAddress && (
                 <tr>
-                  <td className="field-label">客戶地址</td>
+                  <td className="field-label">單位地址</td>
                   <td className="field-value" colSpan={3}>{clientAddress}</td>
                 </tr>
               )}
@@ -181,7 +181,7 @@ export default async function ServiceRequestPrintPage({ params }: { params: { id
         {/* 簽名欄 */}
         <div className="sign-row">
           <div className="sign-box">
-            <div className="sign-line">客戶簽名 / 日期</div>
+            <div className="sign-line">單位簽名 / 日期</div>
           </div>
           <div className="sign-box">
             <div className="sign-line">經辦人員簽名 / 日期</div>

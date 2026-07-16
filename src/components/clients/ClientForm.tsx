@@ -175,7 +175,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
         {!initialData?.id && dupes.length > 0 && (
           <div className="sm:col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-sm">
             <div className="font-medium text-amber-800 mb-2">
-              已有相似客戶（{dupes.length}）—— 可能是同一家。建議改在既有客戶底下「新增聯絡人」，避免重複建檔。
+              已有相似單位名稱（{dupes.length}）—— 可能是同一家。建議改在既有單位名稱底下「新增聯絡人」，避免重複建檔。
             </div>
             <ul className="space-y-1.5">
               {dupes.map(d => (
@@ -234,7 +234,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
         </div>
 
         <div>
-          <label className={labelClass}>客戶狀態</label>
+          <label className={labelClass}>單位狀態</label>
           <select value={form.status} onChange={e => set('status', e.target.value)} className={inputClass}>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
