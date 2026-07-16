@@ -27,6 +27,10 @@ export default function NewPurchaseOrderPage() {
   const [vendorName, setVendorName] = useState('')
   const [vendorContact, setVendorContact] = useState('')
   const [vendorPhone, setVendorPhone] = useState('')
+  const [vendors, setVendors] = useState<any[]>([])
+  const [vendorSearch, setVendorSearch] = useState('')
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false)
+  const [creatingVendor, setCreatingVendor] = useState(false)
   const [salespersonId, setSalespersonId] = useState('')
   const [paymentTerms, setPaymentTerms] = useState('')
   const [notes, setNotes] = useState('')
@@ -37,7 +41,41 @@ export default function NewPurchaseOrderPage() {
   useEffect(() => {
     supabase.from('user_profiles').select('id, full_name').eq('is_active', true).order('full_name')
       .then(({ data }) => setSalespeople(data ?? []))
+    supabase.from('vendors').select('id, company_name, contact_name, phone').order('company_name')
+      .then(({ data }) => setVendors(data ?? []))
   }, [])
+
+  const filteredVendors = vendorSearch
+    ? vendors.filter(v =>
+        (v.company_name ?? '').toLowerCase().includes(vendorSearch.toLowerCase()) ||
+        (v.contact_name ?? '').toLowerCase().includes(vendorSearch.toLowerCase())
+      )
+    : vendors
+
+  function onVendorPick(v: any) {
+    setVendorName(v.company_name)
+    setVendorContact(v.contact_name ?? '')
+    setVendorPhone(v.phone ?? '')
+    setVendorSearch('')
+    setShowVendorDropdown(false)
+  }
+
+  async function handleQuickCreateVendor(name: string) {
+    const value = name.trim()
+    if (!value || creatingVendor) return
+    setCreatingVendor(true)
+    const { data, error } = await supabase
+      .from('vendors')
+      .insert({ company_name: value })
+      .select('id, company_name, contact_name, phone')
+      .single()
+    setCreatingVendor(false)
+    if (error || !data) { alert('新增失敗: ' + (error?.message ?? '')); return }
+    setVendors(prev =>
+      [...prev, data].sort((a, b) => (a.company_name ?? '').localeCompare(b.company_name ?? '', 'zh-Hant'))
+    )
+    onVendorPick(data)
+  }
 
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
   const taxAmount = 0 // 系統價格含稅，不另加稅
@@ -117,9 +155,49 @@ export default function NewPurchaseOrderPage() {
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
         <h2 className="font-semibold text-gray-900 mb-4">單位資訊</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
+          <div className="relative">
             <label className="text-xs text-gray-600 mb-1 block">單位名稱</label>
-            <input value={vendorName} onChange={e => setVendorName(e.target.value)} className={inputClass} placeholder="必填" />
+            <input
+              value={vendorSearch || vendorName}
+              onChange={e => {
+                setVendorSearch(e.target.value)
+                setVendorName(e.target.value)
+                setShowVendorDropdown(true)
+              }}
+              onFocus={() => setShowVendorDropdown(true)}
+              onBlur={() => setTimeout(() => setShowVendorDropdown(false), 150)}
+              className={inputClass}
+              placeholder="輸入搜尋或新增單位名稱"
+              autoComplete="off"
+            />
+            {showVendorDropdown && (
+              <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+                {filteredVendors.map(v => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onMouseDown={() => onVendorPick(v)}
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-purple-50 flex flex-col border-b border-gray-50 last:border-0"
+                  >
+                    <span className="font-medium text-gray-900">{v.company_name}</span>
+                    {v.contact_name && <span className="text-xs text-gray-400">{v.contact_name}</span>}
+                  </button>
+                ))}
+                {vendorSearch.trim() && !vendors.some(v => v.company_name === vendorSearch.trim()) && (
+                  <button
+                    type="button"
+                    onMouseDown={() => handleQuickCreateVendor(vendorSearch)}
+                    className="w-full px-3 py-2 text-sm text-left text-purple-600 hover:bg-purple-50 flex items-center gap-1.5 border-t border-gray-100"
+                  >
+                    <Plus size={14} />
+                    {creatingVendor ? '新增中…' : `新增單位名稱「${vendorSearch.trim()}」`}
+                  </button>
+                )}
+                {filteredVendors.length === 0 && !vendorSearch.trim() && (
+                  <div className="px-3 py-2 text-sm text-gray-400">無單位名稱資料</div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs text-gray-600 mb-1 block">單位聯絡人</label>
