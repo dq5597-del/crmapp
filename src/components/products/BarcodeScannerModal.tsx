@@ -35,7 +35,16 @@ export default function BarcodeScannerModal({
         { fps: 10, qrbox: { width: 260, height: 160 } },
         (decoded: string) => { onDetected(decoded) },
         () => {},
-      ).catch((e: any) => setErr('無法開啟相機：' + (e?.message ?? e) + '（請確認已授權相機權限，並使用 https）'))
+      ).catch((e: any) => {
+        const name = e?.name ?? ''
+        if (name === 'NotFoundError' || /device not found/i.test(e?.message ?? '')) {
+          setErr('找不到相機裝置。這台裝置可能沒有相機，請改用有鏡頭的手機或平板開啟此頁掃描。')
+        } else if (name === 'NotAllowedError' || /permission/i.test(e?.message ?? '')) {
+          setErr('相機權限被拒。請到瀏覽器網站設定允許相機權限後再試。')
+        } else {
+          setErr('無法開啟相機：' + (e?.message ?? e))
+        }
+      })
     }).catch((e: any) => setErr('載入掃描元件失敗：' + (e?.message ?? e)))
 
     return () => {
