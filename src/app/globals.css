@@ -35,3 +35,15 @@ input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* 統一頁面容器寬度：桌機（>=768px）一律加寬到 1536px，手機維持滿版不受影響。
+   只針對同時有 mx-auto 與 max-w-* 的頁面容器，彈窗（靠 flex 置中、無 mx-auto）不受影響。 */
+@media (min-width: 768px) {
+  .mx-auto.max-w-3xl,
+  .mx-auto.max-w-4xl,
+  .mx-auto.max-w-5xl,
+  .mx-auto.max-w-6xl,
+  .mx-auto.max-w-7xl {
+    max-width: 1536px;
+  }
+}
