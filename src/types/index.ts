@@ -153,6 +153,7 @@ export interface QuoteItem {
   quote_id: string
   seq_no: number
   product_id: string | null
+  brand: string | null
   product_name: string
   model: string | null
   unit: string

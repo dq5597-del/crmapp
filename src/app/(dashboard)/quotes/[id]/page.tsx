@@ -86,6 +86,7 @@ export default function QuoteDetailPage() {
         quote_id: newQuote.id,
         seq_no: i.seq_no,
         product_id: i.product_id,
+        brand: i.brand,
         product_name: i.product_name,
         model: i.model,
         unit: i.unit,

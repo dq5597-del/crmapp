@@ -27,6 +27,7 @@ interface ProductCategory {
 interface QuoteItemForm {
   id?: string
   product_id: string | null
+  brand: string
   product_name: string
   item_notes: string
   model: string
@@ -51,12 +52,12 @@ interface QuoteFormProps {
 }
 
 const emptyItem = (): QuoteItemForm => ({
-  product_id: null, product_name: '', item_notes: '', model: '', unit: '台',
+  product_id: null, brand: '', product_name: '', item_notes: '', model: '', unit: '台',
   quantity: 1, unit_price: 0, provide_catalog: false, provide_manual: false, is_category: false,
 })
 
 const categoryItem = (): QuoteItemForm => ({
-  product_id: null, product_name: '', item_notes: '', model: '', unit: '',
+  product_id: null, brand: '', product_name: '', item_notes: '', model: '', unit: '',
   quantity: 0, unit_price: 0, provide_catalog: false, provide_manual: false, is_category: true,
 })
 
@@ -364,6 +365,7 @@ export default function QuoteForm({
     initialItems?.map(i => ({
       id: i.id,
       product_id: i.product_id,
+      brand: (i as any).brand ?? '',
       product_name: i.product_name,
       item_notes: i.item_notes ?? '',
       model: i.model ?? '',
@@ -436,7 +438,7 @@ export default function QuoteForm({
 
   function onProductSelect(idx: number, product: Product) {
     setItems(prev => prev.map((item, i) => i !== idx ? item : {
-      ...item, product_id: product.id, product_name: product.product_name,
+      ...item, product_id: product.id, brand: product.brand ?? '', product_name: product.product_name,
       model: product.model ?? '', unit: product.unit, unit_price: product.list_price,
     }))
     setProductDropdown(null)
@@ -596,6 +598,7 @@ export default function QuoteForm({
       quote_id: quoteId,
       seq_no: i + 1,
       product_id: item.product_id,
+      brand: item.brand || null,
       product_name: item.product_name,
       item_notes: item.item_notes || null,
       model: item.model || null,
@@ -760,6 +763,7 @@ export default function QuoteForm({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[90px]">品牌</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[300px]">品名</th>
                 <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">單位</th>
@@ -778,7 +782,7 @@ export default function QuoteForm({
                   return (
                     <tr key={idx} className="bg-purple-50/70">
                       <td className="px-3 py-2 text-center text-purple-500"><Tag size={13} /></td>
-                      <td colSpan={5} className="px-3 py-2">
+                      <td colSpan={6} className="px-3 py-2">
                         <input
                           value={item.product_name}
                           onChange={e => setItem(idx, 'product_name', e.target.value)}
@@ -800,6 +804,11 @@ export default function QuoteForm({
                   <Fragment key={idx}>
                   <tr className="hover:bg-blue-50/30 group">
                     <td className="px-3 py-2 text-xs text-gray-400 text-center">{displayNos[idx]}</td>
+
+                    {/* 品牌 */}
+                    <td className="px-3 py-2">
+                      <input value={item.brand} onChange={e => setItem(idx, 'brand', e.target.value)} placeholder="品牌" className={tdInput} />
+                    </td>
 
                     {/* 品名 */}
                     <td className="px-3 py-2 relative">
@@ -989,7 +998,7 @@ export default function QuoteForm({
                         <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} title="下移" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={14} /></button>
                       </div>
                     </td>
-                    <td colSpan={6} className="px-3 pb-2 pt-0">
+                    <td colSpan={7} className="px-3 pb-2 pt-0">
                       <div className="flex items-center gap-3">
                         <input
                           value={item.item_notes}
@@ -1021,13 +1030,13 @@ export default function QuoteForm({
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t border-gray-200">
-                <td colSpan={6} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
+                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
                 <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
                 <td colSpan={1} />
               </tr>
               {grossMarginPct != null && (
                 <tr className="bg-gray-50">
-                  <td colSpan={6} className="px-3 pb-3 text-right text-xs text-gray-400">
+                  <td colSpan={7} className="px-3 pb-3 text-right text-xs text-gray-400">
                     預估毛利（內部參考，不會出現在報價單上）
                     {marginTotals.revenue < subtotal && '，僅計入有成本資料的品項'}
                   </td>

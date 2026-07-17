@@ -192,6 +192,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           <thead>
             <tr>
               <th style={{ width: 36 }}>編號</th>
+              <th style={{ textAlign: 'left', width: 90 }}>品牌</th>
               <th style={{ textAlign: 'left' }}>產品名稱</th>
               <th style={{ textAlign: 'left', width: 110 }}>規格型號</th>
               <th style={{ width: 44 }}>單位</th>
@@ -205,11 +206,12 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <Fragment key={item.id}>
                 {item.is_category ? (
                   <tr className="cat-row">
-                    <td colSpan={7}>{item.product_name}</td>
+                    <td colSpan={8}>{item.product_name}</td>
                   </tr>
                 ) : (
                 <tr>
                   <td className="center">{item.display_no}</td>
+                  <td>{item.brand ?? ''}</td>
                   <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>
@@ -220,7 +222,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
                 )}
                 {!item.is_category && !!item.item_notes?.trim() && (
                   <tr className="notes-row">
-                    <td colSpan={7}>備註：{item.item_notes}</td>
+                    <td colSpan={8}>備註：{item.item_notes}</td>
                   </tr>
                 )}
               </Fragment>
@@ -228,7 +230,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           </tbody>
           <tfoot>
             <tr className="total-row">
-              <td colSpan={4}>總金額　{totalChinese}</td>
+              <td colSpan={5}>總金額　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(quote.total_amount))}</td>
             </tr>
           </tfoot>
