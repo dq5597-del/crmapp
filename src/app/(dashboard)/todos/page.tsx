@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { formatDate } from '@/lib/utils'
 import {
-  Plus, X, Check, Trash2, Pencil, CalendarPlus, CalendarCheck, ListTodo, Tag,
+  Plus, X, Check, Trash2, Pencil, CalendarPlus, CalendarCheck, ListTodo, Tag, Target, Flag,
 } from 'lucide-react'
 
 const DEFAULT_CATEGORIES = ['工作', '家庭', '興趣']
@@ -39,18 +39,41 @@ interface Todo {
   done_at: string | null
   due_date: string | null
   schedule_id: string | null
+  goal_id: string | null
   created_at: string
 }
 
-const emptyForm = () => ({ title: '', category: '工作', notes: '', due_date: '' })
+interface Goal {
+  id: string
+  title: string
+  category: string | null
+  due_date: string | null
+  metric_type: 'task' | 'number'
+  target_value: number | null
+  current_value: number | null
+  status: string
+  sort_order: number | null
+  created_at: string
+}
+
+const emptyForm = () => ({ title: '', category: '工作', notes: '', due_date: '', goal_id: '' })
+const emptyGoalForm = () => ({ title: '', category: '工作', due_date: '', metric_type: 'task' as 'task' | 'number', target_value: '', current_value: '' })
+
+function daysLeft(due: string | null): number | null {
+  if (!due) return null
+  const d = new Date(due).getTime() - new Date(new Date().toDateString()).getTime()
+  return Math.round(d / 86400000)
+}
 
 export default function TodosPage() {
   const supabase = createClient()
   const { permOf } = usePermissions()
   const perm = permOf('todos')
   const [todos, setTodos] = useState<Todo[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('全部')
+  const [goalFilter, setGoalFilter] = useState<string | null>(null)
   const [showDone, setShowDone] = useState(true)
 
   // 新增 / 編輯表單
@@ -62,7 +85,13 @@ export default function TodosPage() {
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  useEffect(() => { fetchTodos() }, [])
+  // 目標表單
+  const [showGoalForm, setShowGoalForm] = useState(false)
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null)
+  const [goalForm, setGoalForm] = useState(emptyGoalForm())
+  const [savingGoal, setSavingGoal] = useState(false)
+
+  useEffect(() => { fetchTodos(); fetchGoals() }, [])
 
   async function fetchTodos() {
     setLoading(true)
@@ -76,6 +105,73 @@ export default function TodosPage() {
     setLoading(false)
   }
 
+  async function fetchGoals() {
+    const { data } = await supabase
+      .from('goals')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+    setGoals((data as Goal[]) ?? [])
+  }
+
+  // 目標進度計算
+  function progressOf(goal: Goal) {
+    const linked = todos.filter(t => t.goal_id === goal.id)
+    const done = linked.filter(t => t.is_done).length
+    if (goal.metric_type === 'number' && Number(goal.target_value) > 0) {
+      const cur = Number(goal.current_value ?? 0)
+      const tgt = Number(goal.target_value)
+      return { pct: Math.min(100, Math.round((cur / tgt) * 100)), done, total: linked.length, isNumber: true, cur, tgt }
+    }
+    return { pct: linked.length > 0 ? Math.round((done / linked.length) * 100) : 0, done, total: linked.length, isNumber: false, cur: done, tgt: linked.length }
+  }
+
+  const selectedGoal = goals.find(g => g.id === goalFilter) ?? null
+
+  function openAddGoal() { setEditingGoalId(null); setGoalForm(emptyGoalForm()); setShowGoalForm(true) }
+  function openEditGoal(g: Goal) {
+    setEditingGoalId(g.id)
+    setGoalForm({
+      title: g.title, category: g.category ?? '工作', due_date: g.due_date ?? '',
+      metric_type: g.metric_type, target_value: g.target_value != null ? String(g.target_value) : '',
+      current_value: g.current_value != null ? String(g.current_value) : '',
+    })
+    setShowGoalForm(true)
+  }
+
+  async function handleSaveGoal() {
+    const title = goalForm.title.trim()
+    if (!title) { alert('請輸入目標名稱'); return }
+    setSavingGoal(true)
+    const payload = {
+      title,
+      category: goalForm.category || null,
+      due_date: goalForm.due_date || null,
+      metric_type: goalForm.metric_type,
+      target_value: goalForm.metric_type === 'number' && goalForm.target_value !== '' ? Number(goalForm.target_value) : null,
+      current_value: goalForm.metric_type === 'number' && goalForm.current_value !== '' ? Number(goalForm.current_value) : 0,
+    }
+    const res = editingGoalId
+      ? await supabase.from('goals').update(payload).eq('id', editingGoalId)
+      : await supabase.from('goals').insert(payload)
+    setSavingGoal(false)
+    if (res.error) { alert('儲存失敗：' + res.error.message); return }
+    setShowGoalForm(false)
+    fetchGoals()
+  }
+
+  async function handleDeleteGoal() {
+    if (!editingGoalId) return
+    if (!confirm('確定刪除此目標？關聯的事項會保留，只會解除與此目標的連結。')) return
+    setSavingGoal(true)
+    const { error } = await supabase.from('goals').delete().eq('id', editingGoalId)
+    setSavingGoal(false)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    setShowGoalForm(false)
+    if (goalFilter === editingGoalId) setGoalFilter(null)
+    fetchGoals(); fetchTodos()
+  }
+
   const allCategories = useMemo(() => {
     const set = new Set<string>(DEFAULT_CATEGORIES)
     todos.forEach(t => t.category && set.add(t.category))
@@ -83,15 +179,16 @@ export default function TodosPage() {
   }, [todos])
 
   const filtered = todos.filter(t => {
+    if (goalFilter && t.goal_id !== goalFilter) return false
     if (filter !== '全部' && t.category !== filter) return false
     if (!showDone && t.is_done) return false
     return true
   })
 
-  const openAdd = () => { setEditingId(null); setForm(emptyForm()); setAddingCat(false); setNewCat(''); setShowForm(true) }
+  const openAdd = () => { setEditingId(null); setForm({ ...emptyForm(), goal_id: goalFilter ?? '' }); setAddingCat(false); setNewCat(''); setShowForm(true) }
   const openEdit = (t: Todo) => {
     setEditingId(t.id)
-    setForm({ title: t.title, category: t.category, notes: t.notes ?? '', due_date: t.due_date ?? '' })
+    setForm({ title: t.title, category: t.category, notes: t.notes ?? '', due_date: t.due_date ?? '', goal_id: t.goal_id ?? '' })
     setAddingCat(false); setNewCat(''); setShowForm(true)
   }
 
@@ -105,6 +202,7 @@ export default function TodosPage() {
       category,
       notes: form.notes.trim() || null,
       due_date: form.due_date || null,
+      goal_id: form.goal_id || null,
     }
     const res = editingId
       ? await supabase.from('todos').update(payload).eq('id', editingId)
@@ -178,14 +276,92 @@ export default function TodosPage() {
           </div>
         </div>
         {perm.can_create && (
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            <Plus size={16} /> 新增事項
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openAddGoal}
+              className="flex items-center gap-2 px-4 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-100 transition-colors"
+            >
+              <Target size={16} /> 新增目標
+            </button>
+            <button
+              onClick={openAdd}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              <Plus size={16} /> 新增事項
+            </button>
+          </div>
         )}
       </div>
+
+      {/* 目標卡片列 */}
+      {goals.length > 0 && (
+        <div className="mb-5">
+          <div className="text-xs text-gray-500 mb-2">目標（點卡片可篩選下方事項）</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {goals.map(g => {
+              const p = progressOf(g)
+              const dl = daysLeft(g.due_date)
+              const active = goalFilter === g.id
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => setGoalFilter(active ? null : g.id)}
+                  className={`text-left bg-white rounded-xl p-3.5 border transition-colors ${active ? 'border-blue-500 border-2 ring-2 ring-blue-100' : 'border-gray-200 hover:border-blue-300'}`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    {g.category
+                      ? <span className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${catStyle(g.category, allCategories)}`}>{g.category}</span>
+                      : <span />}
+                    <span className="flex items-center gap-1.5">
+                      {dl != null && (
+                        <span className={`text-[11px] ${dl < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                          {dl < 0 ? `逾期 ${-dl} 天` : `剩 ${dl} 天`}
+                        </span>
+                      )}
+                      <span onClick={e => { e.stopPropagation(); openEditGoal(g) }} className="p-1 -m-1 text-gray-300 hover:text-gray-600" title="編輯目標">
+                        <Pencil size={12} />
+                      </span>
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">{g.title}</div>
+                  <div className="text-[11px] text-gray-500 mb-2">
+                    {p.isNumber ? `目前 ${p.cur.toLocaleString()} / 目標 ${p.tgt.toLocaleString()}` : '任務完成率'}
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-blue-600" style={{ width: `${p.pct}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-500">
+                    <span className="font-medium text-gray-700">{p.pct}%</span>
+                    <span>關聯事項 {p.done}/{p.total}</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 選定目標的進度提示列 */}
+      {selectedGoal && (() => {
+        const p = progressOf(selectedGoal)
+        const remainTxt = p.isNumber
+          ? `距目標還差 ${(p.tgt - p.cur).toLocaleString()}`
+          : `還有 ${p.total - p.done} 件待完成`
+        return (
+          <div className="mb-4 flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+            <div className="text-sm font-medium text-blue-700 flex items-center gap-1.5">
+              <Flag size={14} /> {selectedGoal.title} 的相關事項
+            </div>
+            <div className="text-xs text-blue-700 flex items-center gap-3">
+              <span>{p.pct}% 完成</span>
+              <span>{remainTxt}</span>
+              <button onClick={() => setGoalFilter(null)} className="text-blue-500 hover:text-blue-700 flex items-center gap-0.5">
+                <X size={13} /> 清除篩選
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 分類篩選 */}
       <div className="flex gap-2 flex-wrap mb-4">
@@ -248,6 +424,14 @@ export default function TodosPage() {
                       <CalendarCheck size={11} /> 已排入行事曆
                     </span>
                   )}
+                  {t.goal_id && (() => {
+                    const g = goals.find(x => x.id === t.goal_id)
+                    return g ? (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700 flex items-center gap-0.5">
+                        <Target size={11} /> {g.title}
+                      </span>
+                    ) : null
+                  })()}
                 </div>
                 {t.notes && <div className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">{t.notes}</div>}
               </div>
@@ -332,6 +516,16 @@ export default function TodosPage() {
                 )}
               </div>
 
+              {goals.length > 0 && (
+                <div>
+                  <label className={labelClass}>所屬目標（選填）</label>
+                  <select value={form.goal_id} onChange={e => setForm(p => ({ ...p, goal_id: e.target.value }))} className={inputClass}>
+                    <option value="">— 不歸屬目標 —</option>
+                    {goals.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className={labelClass}>日期（選填，設定後可放入行事曆）</label>
                 <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
@@ -350,6 +544,82 @@ export default function TodosPage() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                 {saving ? '儲存中…' : (editingId ? '儲存' : '新增')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 新增 / 編輯 目標 Modal */}
+      {showGoalForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-900">{editingGoalId ? '編輯目標' : '新增目標'}</h2>
+              <button onClick={() => setShowGoalForm(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className={labelClass}>目標名稱 *</label>
+                <input value={goalForm.title} onChange={e => setGoalForm(p => ({ ...p, title: e.target.value }))}
+                  className={inputClass} placeholder="例：Q4 業績衝刺、考取證照" autoFocus />
+              </div>
+
+              <div>
+                <label className={labelClass}>分類</label>
+                <div className="flex gap-2 flex-wrap">
+                  {allCategories.map(c => (
+                    <button key={c} type="button"
+                      onClick={() => setGoalForm(p => ({ ...p, category: c }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${goalForm.category === c ? 'bg-gray-900 text-white border-gray-900' : catStyle(c, allCategories)}`}>
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>進度衡量方式</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setGoalForm(p => ({ ...p, metric_type: 'task' }))}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition ${goalForm.metric_type === 'task' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`}>
+                    任務完成率（依關聯事項）
+                  </button>
+                  <button type="button" onClick={() => setGoalForm(p => ({ ...p, metric_type: 'number' }))}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition ${goalForm.metric_type === 'number' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`}>
+                    數值目標（自訂數字）
+                  </button>
+                </div>
+              </div>
+
+              {goalForm.metric_type === 'number' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>目前值</label>
+                    <input type="number" value={goalForm.current_value} onChange={e => setGoalForm(p => ({ ...p, current_value: e.target.value }))} className={inputClass} placeholder="320" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>目標值</label>
+                    <input type="number" value={goalForm.target_value} onChange={e => setGoalForm(p => ({ ...p, target_value: e.target.value }))} className={inputClass} placeholder="500" />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className={labelClass}>期限（選填）</label>
+                <input type="date" value={goalForm.due_date} onChange={e => setGoalForm(p => ({ ...p, due_date: e.target.value }))} className={inputClass} />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+              {editingGoalId
+                ? <button onClick={handleDeleteGoal} disabled={savingGoal} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50">刪除目標</button>
+                : <span />}
+              <div className="flex gap-2">
+                <button onClick={() => setShowGoalForm(false)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+                <button onClick={handleSaveGoal} disabled={savingGoal || !goalForm.title.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {savingGoal ? '儲存中…' : (editingGoalId ? '儲存' : '新增')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
