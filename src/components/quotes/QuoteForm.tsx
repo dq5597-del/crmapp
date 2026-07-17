@@ -762,15 +762,15 @@ export default function QuoteForm({
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[90px]">品牌</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[300px]">品名</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[120px]">型號</th>
-                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">單位</th>
-                <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium min-w-[70px]">數量</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium min-w-[96px]">含稅單價</th>
-                <th className="px-3 py-2.5 text-right text-xs text-gray-500 font-medium w-36">含稅總計</th>
-                <th className="w-20"></th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-[84px]">品牌</th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[160px]">品名</th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-[96px]">型號</th>
+                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-[56px]">單位</th>
+                <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium w-[56px]">數量</th>
+                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium w-[92px]">含稅單價</th>
+                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium w-28">含稅總計</th>
+                <th className="w-8"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -806,12 +806,12 @@ export default function QuoteForm({
                     <td className="px-3 py-2 text-xs text-gray-400 text-center">{displayNos[idx]}</td>
 
                     {/* 品牌 */}
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2">
                       <input value={item.brand} onChange={e => setItem(idx, 'brand', e.target.value)} placeholder="品牌" className={tdInput} />
                     </td>
 
                     {/* 品名 */}
-                    <td className="px-3 py-2 relative">
+                    <td className="px-2 py-2 relative">
                       <div className="relative">
                         <input
                           value={productDropdown === idx ? searchStr || item.product_name : item.product_name}
@@ -863,7 +863,7 @@ export default function QuoteForm({
                     </td>
 
                     {/* 型號 */}
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2">
                       <input value={item.model} onChange={e => setItem(idx, 'model', e.target.value)} className={tdInput} />
                     </td>
 
