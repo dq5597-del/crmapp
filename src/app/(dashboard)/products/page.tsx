@@ -5,11 +5,12 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer } from 'lucide-react'
 import Link from 'next/link'
 import ProductImportModal from '@/components/products/ProductImportModal'
 import BarcodePreview from '@/components/products/BarcodePreview'
 import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
+import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
 
 type MarketPriceRow = {
   product_id: string
@@ -434,6 +435,7 @@ export default function ProductsPage() {
     })
     const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
     const [showScanner, setShowScanner] = useState(false)
+    const [showLabelPrint, setShowLabelPrint] = useState(false)
     const [promoEnabled, setPromoEnabled] = useState(false)
     const [activeTab, setActiveTab] = useState<'intro' | 'spec' | 'shop' | 'review'>('intro')
     const [webExpanded, setWebExpanded] = useState(false)
@@ -857,12 +859,24 @@ export default function ProductsPage() {
                                             className="flex items-center gap-1.5 px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 whitespace-nowrap">
                                             <ScanLine size={15} /> 掃描
                                         </button>
+                                        <button type="button" onClick={() => setShowLabelPrint(true)} disabled={!form.barcode.trim()}
+                                            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-40 whitespace-nowrap">
+                                            <Printer size={15} /> 列印條碼
+                                        </button>
                                     </div>
                                     {form.barcode.trim() && (
                                         <div className="mt-2">
                                             <BarcodePreview value={form.barcode} />
-                                            <div className="text-[11px] text-gray-400 mt-1">13 碼→EAN-13、8 碼→EAN-8，其餘自動用 Code128。列印時直接列印此區即可。</div>
+                                            <div className="text-[11px] text-gray-400 mt-1">13 碼→EAN-13、8 碼→EAN-8，其餘自動用 Code128。按「列印條碼」可設定張數批次列印。</div>
                                         </div>
+                                    )}
+                                    {showLabelPrint && (
+                                        <BarcodeLabelModal
+                                            value={form.barcode}
+                                            name={(form.brand ? `【${form.brand}】` : '') + form.product_name}
+                                            model={form.model}
+                                            onClose={() => setShowLabelPrint(false)}
+                                        />
                                     )}
                                 </div>
                                 {showScanner && (
