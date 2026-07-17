@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer, ListChecks } from 'lucide-react'
 import Link from 'next/link'
 import ProductImportModal from '@/components/products/ProductImportModal'
 import BarcodePreview from '@/components/products/BarcodePreview'
@@ -417,6 +417,28 @@ export default function ProductsPage() {
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+
+  // 欄位顯示設定（產品名稱與操作固定顯示，其餘可自選）
+  const COLUMN_DEFS: { key: string; label: string }[] = [
+    { key: 'cat', label: '分類' }, { key: 'brand', label: '品牌' }, { key: 'model', label: '型號' },
+    { key: 'price', label: '定價' }, { key: 'cost', label: '成本' }, { key: 'margin', label: '利潤率' },
+    { key: 'market', label: '市場行情' }, { key: 'stock', label: '庫存' }, { key: 'web', label: '官網' }, { key: 'status', label: '狀態' },
+  ]
+  const [cols, setCols] = useState<Record<string, boolean>>(() => {
+    const def = Object.fromEntries(COLUMN_DEFS.map(c => [c.key, true]))
+    if (typeof window !== 'undefined') {
+      try { const s = JSON.parse(localStorage.getItem('product-cols-v1') || 'null'); if (s) return { ...def, ...s } } catch { /* ignore */ }
+    }
+    return def
+  })
+  const [showColMenu, setShowColMenu] = useState(false)
+  function toggleCol(k: string) {
+    setCols(prev => {
+      const next = { ...prev, [k]: !prev[k] }
+      try { localStorage.setItem('product-cols-v1', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null)
   const [marketMap, setMarketMap] = useState<Record<string, MarketPriceRow[]>>({})
   const [marketRefreshing, setMarketRefreshing] = useState<string | null>(null)
@@ -744,6 +766,25 @@ export default function ProductsPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <div className="relative">
+            <button onClick={() => setShowColMenu(v => !v)} className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 px-4 py-2.5 rounded-xl text-sm font-medium">
+              <ListChecks size={15} /> 欄位
+            </button>
+            {showColMenu && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowColMenu(false)} />
+                <div className="absolute right-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-44">
+                  <div className="px-2 py-1 text-[11px] text-gray-400">顯示欄位</div>
+                  {COLUMN_DEFS.map(c => (
+                    <label key={c.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                      <input type="checkbox" checked={!!cols[c.key]} onChange={() => toggleCol(c.key)} className="accent-blue-600 w-4 h-4" />
+                      {c.label}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={() => setShowCatModal(true)} className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 px-4 py-2.5 rounded-xl text-sm font-medium">
             <Tag size={15} /> 管理分類
           </button>
@@ -1192,46 +1233,46 @@ export default function ProductsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-3 py-3 text-gray-600 font-medium">分類</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">品牌</th>
+                {cols.cat && <th className="text-left px-3 py-3 text-gray-600 font-medium">分類</th>}
+                {cols.brand && <th className="text-left px-4 py-3 text-gray-600 font-medium">品牌</th>}
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">產品名稱</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">型號</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-medium">定價</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-medium">成本</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-medium">利潤率</th>
-                <th className="text-right px-3 py-3 text-gray-600 font-medium">市場行情</th>
-                <th className="text-center px-3 py-3 text-gray-600 font-medium">庫存</th>
-                <th className="text-center px-3 py-3 text-gray-600 font-medium">官網</th>
-                <th className="text-center px-3 py-3 text-gray-600 font-medium">狀態</th>
+                {cols.model && <th className="text-left px-4 py-3 text-gray-600 font-medium">型號</th>}
+                {cols.price && <th className="text-right px-4 py-3 text-gray-600 font-medium">定價</th>}
+                {cols.cost && <th className="text-right px-4 py-3 text-gray-600 font-medium">成本</th>}
+                {cols.margin && <th className="text-right px-4 py-3 text-gray-600 font-medium">利潤率</th>}
+                {cols.market && <th className="text-right px-3 py-3 text-gray-600 font-medium">市場行情</th>}
+                {cols.stock && <th className="text-center px-3 py-3 text-gray-600 font-medium">庫存</th>}
+                {cols.web && <th className="text-center px-3 py-3 text-gray-600 font-medium">官網</th>}
+                {cols.status && <th className="text-center px-3 py-3 text-gray-600 font-medium">狀態</th>}
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={11} className="text-center py-12 text-gray-400">載入中...</td></tr>
+                <tr><td colSpan={12} className="text-center py-12 text-gray-400">載入中...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-12 text-gray-400">沒有產品，請先新增</td></tr>
+                <tr><td colSpan={12} className="text-center py-12 text-gray-400">沒有產品，請先新增</td></tr>
               ) : (
                 filtered.map(p => {
                   const catLabel = getCategoryLabel(p.category_id)
                   return (
                     <tr key={p.id} className={`border-b border-gray-50 hover:bg-blue-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
-                      <td className="px-3 py-3">
+                      {cols.cat && <td className="px-3 py-3">
                         {catLabel
                           ? <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full whitespace-nowrap">{catLabel}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{p.brand ?? '—'}</td>
+                      </td>}
+                      {cols.brand && <td className="px-4 py-3 text-gray-500">{p.brand ?? '—'}</td>}
                       <td className="px-4 py-3 font-medium text-gray-900">{p.product_name}</td>
-                                     <td className="px-4 py-3 text-gray-500">{p.model ?? '—'}</td>
-                      <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(p.list_price)}</td>
-                      <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(p.cost_price)}</td>
-                      <td className="px-4 py-3 text-right">
+                      {cols.model && <td className="px-4 py-3 text-gray-500">{p.model ?? '—'}</td>}
+                      {cols.price && <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(p.list_price)}</td>}
+                      {cols.cost && <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(p.cost_price)}</td>}
+                      {cols.margin && <td className="px-4 py-3 text-right">
                         <span className={`text-xs font-semibold ${p.list_price > 0 ? 'text-green-700' : 'text-gray-400'}`}>
                           {p.list_price > 0 ? `${Math.round((1 - p.cost_price / p.list_price) * 100)}%` : '—'}
                         </span>
-                      </td>
-                      <td className="px-3 py-3 text-right whitespace-nowrap">
+                      </td>}
+                      {cols.market && <td className="px-3 py-3 text-right whitespace-nowrap">
                         <div className="flex items-start justify-end gap-1">
                           <div className="text-[11px] leading-4 text-right">
                             {(marketMap[p.id]?.length ?? 0) > 0 ? (
@@ -1260,9 +1301,9 @@ export default function ProductsPage() {
                             <RefreshCw size={12} className={marketRefreshing === p.id ? 'animate-spin' : ''} />
                           </button>
                         </div>
-                      </td>
-                      <td className="px-3 py-3 text-center text-gray-700">{p.stock_qty}</td>
-                      <td className="px-3 py-3 text-center">
+                      </td>}
+                      {cols.stock && <td className="px-3 py-3 text-center text-gray-700">{p.stock_qty}</td>}
+                      {cols.web && <td className="px-3 py-3 text-center">
                         {p.web_product_id ? (
                           <a href={p.web_product_url ?? "#"} target="_blank" rel="noreferrer"
                             title={`官網狀態：${p.web_sync_status ?? "—"}｜最後同步：${p.web_synced_at ? new Date(p.web_synced_at).toLocaleString("zh-TW") : "—"}`}
@@ -1271,12 +1312,12 @@ export default function ProductsPage() {
                             <ExternalLink size={10} />
                           </a>
                         ) : <span className="text-xs text-gray-300">未上架</span>}
-                      </td>
-                      <td className="px-3 py-3 text-center">
+                      </td>}
+                      {cols.status && <td className="px-3 py-3 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {p.is_active ? '上架' : '下架'}
                         </span>
-                      </td>
+                      </td>}
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <button onClick={() => setHistoryProduct(p)} title="詢價紀錄" className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg"><MessageSquareQuote size={14} /></button>
