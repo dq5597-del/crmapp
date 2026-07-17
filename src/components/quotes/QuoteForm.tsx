@@ -970,11 +970,20 @@ export default function QuoteForm({
                       )}
                     </td>
 
-                    {/* 總計 + 毛利 */}
-                    <td className="pl-1 pr-3 py-2 text-right">
-                      <div className="font-semibold text-gray-700 text-[13px]">
-                        {(Number(item.quantity) * Number(item.unit_price)).toLocaleString()}
-                      </div>
+                    {/* 總計（可直接輸入，回算單價）+ 毛利 */}
+                    <td className="pl-1 pr-2 py-2 text-right">
+                      <input
+                        type="number" min="0"
+                        value={Number(item.quantity) * Number(item.unit_price) === 0 ? '' : Math.round(Number(item.quantity) * Number(item.unit_price))}
+                        onChange={e => {
+                          const total = e.target.value === '' ? 0 : (Number(e.target.value) || 0)
+                          const qty = Number(item.quantity)
+                          setItem(idx, 'unit_price', qty > 0 ? total / qty : total)
+                        }}
+                        onFocus={e => e.target.select()}
+                        title="可直接輸入含稅總計，系統會自動回算單價"
+                        className={tdInput + ' text-right font-semibold'}
+                      />
                       {(() => {
                         const c = costOf(item)
                         const price = Number(item.unit_price)
