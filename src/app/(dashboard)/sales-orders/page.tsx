@@ -39,6 +39,8 @@ export default function SalesOrdersPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   // form fields
   const [clientId, setClientId] = useState('')
@@ -72,6 +74,28 @@ export default function SalesOrdersPage() {
     (o.clients?.company_name?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
     (o.project_name?.toLowerCase() ?? '').includes(search.toLowerCase())
   )
+
+  const allSelected = filtered.length > 0 && filtered.every(o => selected.includes(o.id))
+  function toggleAll() { setSelected(allSelected ? [] : filtered.map(o => o.id)) }
+  function toggleOne(id: string) {
+    setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
+  }
+  async function handleDeleteSelected() {
+    const ids = filtered.filter(o => selected.includes(o.id)).map(o => o.id)
+    if (ids.length === 0) return
+    if (!confirm(`確定刪除選取的 ${ids.length} 張銷貨單？品項將一併刪除，此動作無法復原。`)) return
+    setDeleting(true)
+    const { error } = await supabase.from('sales_orders').delete().in('id', ids)
+    if (error) {
+      alert(error.code === '23503'
+        ? '其中有銷貨單已被其他單據關聯，無法刪除。請先解除相關關聯後再試。'
+        : '刪除失敗：' + error.message)
+    } else {
+      setOrders(prev => prev.filter(o => !ids.includes(o.id)))
+      setSelected([])
+    }
+    setDeleting(false)
+  }
 
   function resetForm() {
     setClientId(''); setClientSearch(''); setShowClientDropdown(false)
@@ -186,12 +210,23 @@ export default function SalesOrdersPage() {
           <ShoppingCart size={20} className="text-green-600" />
           <h1 className="text-xl font-bold text-gray-900">銷貨單</h1>
         </div>
-        <button
-          onClick={() => { resetForm(); setShowForm(true) }}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors"
-        >
-          <Plus size={16} /> 新增銷貨單
-        </button>
+        <div className="flex items-center gap-2">
+          {selected.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={deleting}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              <Trash2 size={16} /> {deleting ? '刪除中…' : `刪除選取（${selected.length}）`}
+            </button>
+          )}
+          <button
+            onClick={() => { resetForm(); setShowForm(true) }}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors"
+          >
+            <Plus size={16} /> 新增銷貨單
+          </button>
+        </div>
       </div>
 
       <div className="relative mb-5 max-w-md">
@@ -208,6 +243,9 @@ export default function SalesOrdersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="px-3 py-3 w-10 text-center">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-green-600 w-4 h-4 align-middle" title="全選" />
+                </th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">銷貨單號</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">單位名稱</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">案名</th>
@@ -219,11 +257,14 @@ export default function SalesOrdersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">載入中...</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">載入中...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">沒有銷貨單</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">沒有銷貨單</td></tr>
               ) : filtered.map(o => (
-                <tr key={o.id} className="border-b border-gray-50 hover:bg-green-50 transition-colors">
+                <tr key={o.id} className={`border-b border-gray-50 transition-colors ${selected.includes(o.id) ? 'bg-green-50/70' : 'hover:bg-green-50'}`}>
+                  <td className="px-3 py-3 text-center">
+                    <input type="checkbox" checked={selected.includes(o.id)} onChange={() => toggleOne(o.id)} className="accent-green-600 w-4 h-4 align-middle" />
+                  </td>
                   <td className="px-4 py-3">
                     <Link href={`/sales-orders/${o.id}`} className="font-semibold text-green-700 hover:underline">
                       {o.order_no}
