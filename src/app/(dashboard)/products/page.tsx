@@ -5,9 +5,11 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine } from 'lucide-react'
 import Link from 'next/link'
 import ProductImportModal from '@/components/products/ProductImportModal'
+import BarcodePreview from '@/components/products/BarcodePreview'
+import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 
 type MarketPriceRow = {
   product_id: string
@@ -420,7 +422,7 @@ export default function ProductsPage() {
   const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
     const [form, setForm] = useState({
         category_id: null as string | null,
-        brand: '', product_name: '', model: '', unit: '台',
+        brand: '', product_name: '', model: '', unit: '台', barcode: '',
         list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
         web_sku: '', web_category: '', web_description: '',
@@ -431,6 +433,7 @@ export default function ProductsPage() {
         web_spec_html: '' as string,
     })
     const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
+    const [showScanner, setShowScanner] = useState(false)
     const [promoEnabled, setPromoEnabled] = useState(false)
     const [activeTab, setActiveTab] = useState<'intro' | 'spec' | 'shop' | 'review'>('intro')
     const [webExpanded, setWebExpanded] = useState(false)
@@ -497,7 +500,7 @@ export default function ProductsPage() {
         if (p) {
             const pAny = p as any
             setForm({
-                category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit,
+                category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '',
                 list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
                 width_cm: pAny.width_cm ?? 0, depth_cm: pAny.depth_cm ?? 0, height_cm: pAny.height_cm ?? 0,
                 web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
@@ -516,7 +519,7 @@ export default function ProductsPage() {
             loadWebSubData(p.id)
         } else {
             setForm({
-                category_id: null, brand: '', product_name: '', model: '', unit: '台',
+                category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '',
                 list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
                 web_sku: '', web_category: '', web_description: '',
@@ -840,6 +843,34 @@ export default function ProductsPage() {
                                     <label className="text-xs text-gray-600 mb-1 block">庫存（唯讀）</label>
                                     <input type="number" value={form.stock_qty} readOnly className={inputClass + ' bg-gray-100 cursor-default'} />
                                 </div>
+                                <div className="col-span-2 sm:col-span-3">
+                                    <label className="text-xs text-gray-600 mb-1 block">條碼（EAN-13 / UPC，可掃描）</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            value={form.barcode}
+                                            onChange={e => setForm(p => ({ ...p, barcode: e.target.value.trim() }))}
+                                            className={inputClass + ' flex-1'}
+                                            placeholder="輸入或掃描一般國際條碼，例：4712345678901"
+                                            inputMode="numeric"
+                                        />
+                                        <button type="button" onClick={() => setShowScanner(true)}
+                                            className="flex items-center gap-1.5 px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 whitespace-nowrap">
+                                            <ScanLine size={15} /> 掃描
+                                        </button>
+                                    </div>
+                                    {form.barcode.trim() && (
+                                        <div className="mt-2">
+                                            <BarcodePreview value={form.barcode} />
+                                            <div className="text-[11px] text-gray-400 mt-1">13 碼→EAN-13、8 碼→EAN-8，其餘自動用 Code128。列印時直接列印此區即可。</div>
+                                        </div>
+                                    )}
+                                </div>
+                                {showScanner && (
+                                    <BarcodeScannerModal
+                                        onDetected={text => { setForm(p => ({ ...p, barcode: text.trim() })); setShowScanner(false) }}
+                                        onClose={() => setShowScanner(false)}
+                                    />
+                                )}
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">定價（售價）</label>
                                     <input type="number" value={form.list_price} onChange={e => setForm(p => ({ ...p, list_price: Number(e.target.value) }))} className={inputClass} />
