@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { ServiceRequest, ServiceStatus } from '@/types'
-import { Plus, Search, Wrench, Clock, CheckCircle, AlertCircle, Printer } from 'lucide-react'
+import { Plus, Search, Wrench, Clock, CheckCircle, AlertCircle, Printer, Trash2 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,8 @@ export default function ServiceRequestsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ServiceStatus | 'all'>('all')
+  const [selected, setSelected] = useState<string[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { fetchRequests() }, [])
 
@@ -54,6 +56,28 @@ export default function ServiceRequestsPage() {
     return matchStatus && matchSearch
   })
 
+  const allSelected = filtered.length > 0 && filtered.every(r => selected.includes(r.id))
+  function toggleAll() { setSelected(allSelected ? [] : filtered.map(r => r.id)) }
+  function toggleOne(id: string) {
+    setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
+  }
+  async function handleDeleteSelected() {
+    const ids = filtered.filter(r => selected.includes(r.id)).map(r => r.id)
+    if (ids.length === 0) return
+    if (!confirm(`確定刪除選取的 ${ids.length} 張叫修單？相關維修報價／送修資料將一併刪除，此動作無法復原。`)) return
+    setDeleting(true)
+    const { error } = await supabase.from('service_requests').delete().in('id', ids)
+    if (error) {
+      alert(error.code === '23503'
+        ? '其中有叫修單已被其他單據關聯，無法刪除。請先解除相關關聯後再試。'
+        : '刪除失敗：' + error.message)
+    } else {
+      setRequests(prev => prev.filter(r => !ids.includes(r.id)))
+      setSelected([])
+    }
+    setDeleting(false)
+  }
+
   // KPIs
   const active = requests.filter(r => !r.is_closed).length
   const pending = requests.filter(r => r.status === '待處理').length
@@ -67,13 +91,25 @@ export default function ServiceRequestsPage() {
           <h1 className="text-2xl font-bold text-gray-900">叫修管理</h1>
           <p className="text-sm text-gray-500 mt-0.5">設備報修、維修追蹤與結案管理</p>
         </div>
-        <Link
-          href="/service-requests/new"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={16} />
-          新增叫修單
-        </Link>
+        <div className="flex items-center gap-2">
+          {selected.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={deleting}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              <Trash2 size={16} />
+              {deleting ? '刪除中…' : `刪除選取（${selected.length}）`}
+            </button>
+          )}
+          <Link
+            href="/service-requests/new"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={16} />
+            新增叫修單
+          </Link>
+        </div>
       </div>
 
       {/* KPI */}
@@ -163,6 +199,9 @@ export default function ServiceRequestsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-3 py-3 w-10 text-center">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-blue-600 w-4 h-4 align-middle" title="全選" />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">單號</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">單位名稱</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">設備</th>
@@ -175,7 +214,10 @@ export default function ServiceRequestsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={r.id} className={`transition-colors ${selected.includes(r.id) ? 'bg-blue-50/70' : 'hover:bg-gray-50'}`}>
+                  <td className="px-3 py-3 text-center">
+                    <input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggleOne(r.id)} className="accent-blue-600 w-4 h-4 align-middle" />
+                  </td>
                   <td className="px-4 py-3">
                     <Link href={`/service-requests/${r.id}`} className="text-blue-600 hover:underline font-medium">
                       {r.service_no}
