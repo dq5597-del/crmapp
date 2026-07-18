@@ -9,6 +9,7 @@ import {
   Plus, Trash2, Link2, Mail, Copy, Send, CheckCircle, Sparkles,
   RotateCcw, Lock, AlertTriangle, X, DownloadCloud, FileText,
 } from 'lucide-react'
+import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
 const fmt = new Intl.NumberFormat('zh-TW')
 
@@ -22,6 +23,7 @@ export const INQUIRY_STATUS_COLORS: Record<InquiryStatus, string> = {
 type ItemForm = {
   id?: string
   product_id: string | null
+  brand: string
   product_name: string
   model: string
   unit: string
@@ -90,6 +92,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     initialItems?.map(i => ({
       id: i.id,
       product_id: i.product_id,
+      brand: (i as any).brand ?? '',
       product_name: i.product_name,
       model: i.model ?? '',
       unit: i.unit,
@@ -223,6 +226,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
   function addProduct(p: any) {
     setItems(prev => [...prev, {
       product_id: p.id,
+      brand: p.brand ?? '',
       product_name: p.product_name,
       model: p.model ?? '',
       unit: p.unit ?? '台',
@@ -235,6 +239,36 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     }])
     setProductSearch('')
     setShowDropdown(false)
+  }
+
+  function addEmptyItem() {
+    setItems(prev => [...prev, {
+      product_id: null, brand: '', product_name: '', model: '', unit: '台',
+      quantity: 1, current_cost: 0, vendor_price: null, lead_time_days: null,
+      item_notes: '', cost_synced: false,
+    }])
+  }
+
+  // 每列品名搜尋下拉
+  const [rowSearch, setRowSearch] = useState<Record<number, string>>({})
+  const [rowDropdown, setRowDropdown] = useState<number | null>(null)
+  const rowFiltered = (idx: number) => {
+    const q = (rowSearch[idx] ?? '').toLowerCase()
+    const list = q
+      ? products.filter(p =>
+          p.product_name.toLowerCase().includes(q) ||
+          (p.model?.toLowerCase() ?? '').includes(q) ||
+          (p.brand?.toLowerCase() ?? '').includes(q))
+      : sellable
+    return list.slice(0, 20)
+  }
+  function onRowPick(idx: number, p: any) {
+    setItems(prev => prev.map((it, i) => i !== idx ? it : {
+      ...it, product_id: p.id, brand: p.brand ?? '', product_name: p.product_name,
+      model: p.model ?? '', unit: p.unit ?? '台', current_cost: p.cost_price ?? 0,
+    }))
+    setRowDropdown(null)
+    setRowSearch(prev => ({ ...prev, [idx]: '' }))
   }
 
   function setItem<K extends keyof ItemForm>(idx: number, key: K, val: ItemForm[K]) {
@@ -277,6 +311,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
       items.map((it, i) => ({
         inquiry_id: id,
         product_id: it.product_id,
+        brand: it.brand || null,
         product_name: it.product_name,
         model: it.model || null,
         unit: it.unit,
@@ -348,6 +383,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
       items.map((it, i) => ({
         inquiry_id: data.id,
         product_id: it.product_id,
+        brand: it.brand || null,
         product_name: it.product_name,
         model: it.model || null,
         unit: it.unit,
@@ -591,11 +627,18 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
           <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
             詢價品項 <span className="text-gray-400 normal-case">（共 {items.length} 項）</span>
           </div>
-          {status !== '草稿' && !readonly && (
-            <button onClick={() => setAiOpen(true)} className="flex items-center gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg font-medium">
-              <Sparkles size={13} /> AI 回填廠商報價
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {!readonly && (
+              <button onClick={addEmptyItem} className="flex items-center gap-1 text-xs text-blue-600 hover:underline font-medium">
+                <Plus size={13} /> 新增品項
+              </button>
+            )}
+            {status !== '草稿' && !readonly && (
+              <button onClick={() => setAiOpen(true)} className="flex items-center gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg font-medium">
+                <Sparkles size={13} /> AI 回填廠商報價
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 產品搜尋 */}
@@ -666,12 +709,13 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
               <thead>
                 <tr className="text-xs text-gray-500 border-b border-gray-100">
                   <th className="text-left py-2 pr-2 w-8">#</th>
+                  <th className="text-left py-2 pr-2 w-20">品牌</th>
                   <th className="text-left py-2 pr-2 min-w-[160px]">品名</th>
-                  <th className="text-left py-2 pr-2">型號</th>
-                  <th className="text-left py-2 pr-2 w-16">單位</th>
+                  <th className="text-left py-2 pr-2 w-24">型號</th>
+                  <th className="text-left py-2 pr-2 w-14">單位</th>
                   <th className="text-right py-2 pr-2 w-20">數量</th>
                   <th className="text-right py-2 pr-2 w-24">目前成本</th>
-                  <th className="text-right py-2 pr-2 w-28">回覆單價</th>
+                  <th className="text-right py-2 pr-2 w-28">進價</th>
                   <th className="text-right py-2 pr-2 w-20">交期(天)</th>
                   <th className="text-left py-2 pr-2 min-w-[120px]">品項備註</th>
                   <th className="py-2 w-20"></th>
@@ -682,10 +726,66 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
                   <tr key={idx} className="border-b border-gray-50 align-top">
                     <td className="py-2 pr-2 text-gray-400">{idx + 1}</td>
                     <td className="py-2 pr-2">
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{it.product_name}</div>
+                      {(() => {
+                        const logo = knownBrandLogoUrl(it.brand)
+                        // eslint-disable-next-line @next/next/no-img-element
+                        return logo ? <img src={logo} alt="" className="h-3.5 w-auto max-w-[56px] object-contain mb-0.5" /> : null
+                      })()}
+                      <input
+                        value={it.brand} disabled={readonly}
+                        onChange={e => setItem(idx, 'brand', e.target.value)}
+                        placeholder="品牌"
+                        className="w-full px-2 py-1.5 border border-gray-200 rounded-lg disabled:bg-gray-50" style={{ fontSize: 13 }}
+                      />
                     </td>
-                    <td className="py-2 pr-2 text-gray-500" style={{ fontSize: 13 }}>{it.model}</td>
-                    <td className="py-2 pr-2 text-gray-500" style={{ fontSize: 13 }}>{it.unit}</td>
+                    <td className="py-2 pr-2 relative">
+                      <input
+                        value={rowDropdown === idx ? (rowSearch[idx] || it.product_name) : it.product_name}
+                        disabled={readonly}
+                        onFocus={() => { setRowDropdown(idx); setRowSearch(p => ({ ...p, [idx]: '' })) }}
+                        onChange={e => {
+                          setRowSearch(p => ({ ...p, [idx]: e.target.value }))
+                          setItem(idx, 'product_name', e.target.value)
+                        }}
+                        onBlur={() => setTimeout(() => setRowDropdown(d => d === idx ? null : d), 200)}
+                        placeholder="輸入或搜尋產品"
+                        autoComplete="off"
+                        className="w-full px-2 py-1.5 border border-gray-200 rounded-lg disabled:bg-gray-50" style={{ fontSize: 13, fontWeight: 500 }}
+                      />
+                      {rowDropdown === idx && !readonly && (
+                        <div className="absolute top-full left-0 z-40 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 w-80 max-h-52 overflow-y-auto">
+                          {rowFiltered(idx).map(p => (
+                            <button key={p.id} type="button" onMouseDown={() => onRowPick(idx, p)}
+                              className="w-full text-left px-3 py-2 hover:bg-blue-50 text-xs border-b border-gray-50 last:border-none">
+                              <div className="font-medium text-gray-900">
+                                {p.brand && <span className="text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mr-1.5">{p.brand}</span>}
+                                {p.product_name}{p.model ? ` — ${p.model}` : ''}
+                              </div>
+                              <div className="text-[11px] text-gray-400 mt-0.5">
+                                成本 NT${fmt.format(p.cost_price ?? 0)}　庫存 {p.stock_qty}
+                              </div>
+                            </button>
+                          ))}
+                          {rowFiltered(idx).length === 0 && (
+                            <div className="px-3 py-2 text-xs text-gray-400">找不到符合的產品，可直接手動輸入</div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        value={it.model} disabled={readonly}
+                        onChange={e => setItem(idx, 'model', e.target.value)}
+                        className="w-full px-2 py-1.5 border border-gray-200 rounded-lg disabled:bg-gray-50" style={{ fontSize: 13 }}
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        value={it.unit} disabled={readonly}
+                        onChange={e => setItem(idx, 'unit', e.target.value)}
+                        className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-center disabled:bg-gray-50" style={{ fontSize: 13 }}
+                      />
+                    </td>
                     <td className="py-2 pr-2">
                       <input
                         type="number" min={1} value={it.quantity} disabled={readonly}
