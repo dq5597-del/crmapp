@@ -43,12 +43,11 @@ const psiItems = [
   { href: '/products',        label: '產品管理', icon: Package },
 ]
 
-const navItemsMid = [
-  { href: '/receivables', label: '應收帳款', icon: CreditCard },
-  { href: '/payables',    label: '應付帳款', icon: Receipt },
-]
+const navItemsMid: { href: string; label: string; icon: any }[] = []
 
 const accountingItems = [
+  { href: '/receivables',               label: '應收帳款',     icon: CreditCard },
+  { href: '/payables',                  label: '應付帳款',     icon: Receipt },
   { href: '/accounting/income',         label: '收入記錄',     icon: BookOpen },
   { href: '/accounting/expenses',       label: '支出記錄',     icon: BookOpen },
   { href: '/accounting/pnl',            label: '損益表',       icon: BookOpen },
@@ -163,7 +162,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const isBusinessActive = businessItems.some(({ href }) => isActive(href))
   const isCompanyActive  = companyItems.some(({ href }) => isActive(href))
   const isPsiActive      = psiItems.some(({ href }) => isActive(href))
-  const isAcctActive     = pathname.startsWith('/accounting')
+  const isAcctActive     = pathname.startsWith('/accounting') || pathname.startsWith('/receivables') || pathname.startsWith('/payables')
   const isHrActive       = pathname.startsWith('/hr')
 
   const [businessOpen, setBusinessOpen] = useState(isBusinessActive)
