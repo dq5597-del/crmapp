@@ -7,6 +7,7 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, ShoppingCart, Plus, X, Trash2 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
+import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -152,6 +153,10 @@ export default function SalesOrdersPage() {
           item_notes: i.item_notes,
         }))
       )
+
+      // 銷貨成立 → 自動產生應收帳款
+      const arResult = await ensureReceivableForSalesOrder(supabase, order.id, status)
+      if (arResult === 'created') alert('銷貨單已建立，並自動產生應收帳款。')
 
       const { data: refreshed } = await supabase
         .from('sales_orders').select('*, clients(company_name)')

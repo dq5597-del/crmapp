@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck } from 'lucide-react'
+import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
 
@@ -171,11 +172,14 @@ export default function SalesOrderDetailPage() {
         if (itemErr) throw itemErr
       }
 
+      // 銷貨成立 → 自動產生應收帳款
+      const arResult = await ensureReceivableForSalesOrder(supabase, id as string, status)
+
       // Refresh order to get updated data
       const { data: refreshed } = await supabase
         .from('sales_orders').select('*, clients(company_name)').eq('id', id).single()
       setOrder(refreshed)
-      alert('已儲存')
+      alert(arResult === 'created' ? '已儲存，並自動產生應收帳款。' : '已儲存')
     } catch (e: any) {
       alert('儲存失敗: ' + e.message)
     }

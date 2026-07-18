@@ -15,7 +15,7 @@ const STATUS_COLORS: Record<string, string> = {
   '已開立發票': 'bg-blue-100 text-blue-700',
 }
 
-const PAYMENT_METHODS = ['現金', '匯款', '票期', '信用卡']
+import { PAYMENT_METHODS } from '@/lib/auto-ledger'
 
 export default function ReceivableDetailPage() {
   const { id } = useParams<{ id: string }>()

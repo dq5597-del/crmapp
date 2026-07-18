@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, RotateCcw, FileDown, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import { ensurePayableForPurchaseOrder } from '@/lib/auto-ledger'
 
 const STATUS_OPTIONS = ['草稿', '已送出', '已確認', '已到貨', '取消']
 
@@ -113,9 +114,12 @@ export default function PurchaseOrderDetailPage() {
         if (itemErr) throw itemErr
       }
 
+      // 進貨成立 → 自動產生應付帳款
+      const apResult = await ensurePayableForPurchaseOrder(supabase, id as string, form.status)
+
       const { data: refreshed } = await supabase.from('purchase_orders').select('*').eq('id', id).single()
       setOrder(refreshed)
-      alert('已儲存')
+      alert(apResult === 'created' ? '已儲存，並自動產生應付帳款。' : '已儲存')
     } catch (e: any) {
       alert('儲存失敗：' + e.message)
     }

@@ -7,6 +7,7 @@ import { Receivable } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Plus, Search, DollarSign, AlertCircle, CheckCircle, Clock, Printer } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
+import { PAYMENT_METHODS } from '@/lib/auto-ledger'
 
 const STATUS_COLORS: Record<string, string> = {
   '未收':     'bg-red-100 text-red-700',
@@ -187,10 +188,7 @@ export default function ReceivablesPage() {
               <label className="text-xs text-gray-600 mb-1 block">付款方式</label>
               <select value={form.payment_method} onChange={e => setForm(p => ({ ...p, payment_method: e.target.value }))} className={inputClass}>
                 <option value="">請選擇</option>
-                <option>現金</option>
-                <option>匯款</option>
-                <option>票期</option>
-                <option>信用卡</option>
+                {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
               </select>
             </div>
             <div className="sm:col-span-3">

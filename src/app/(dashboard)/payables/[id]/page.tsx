@@ -13,7 +13,7 @@ const STATUS_COLORS: Record<string, string> = {
   '作廢':     'bg-gray-100 text-gray-400',
 }
 
-const PAYMENT_METHODS = ['現金', '匯款', '票期', '信用卡']
+import { PAYMENT_METHODS } from '@/lib/auto-ledger'
 
 export default function PayableDetailPage() {
   const { id } = useParams<{ id: string }>()
