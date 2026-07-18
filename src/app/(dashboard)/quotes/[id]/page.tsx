@@ -273,6 +273,23 @@ export default function QuoteDetailPage() {
         <button onClick={handleShare} disabled={actionLoading === 'share'} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
           <Send size={14} /> {actionLoading === 'share' ? '寄送中...' : '分享報價單'}
         </button>
+        <button
+          onClick={async () => {
+            const to = prompt('請輸入客戶收件 Email：')
+            if (!to) return
+            setActionLoading('email-client')
+            const res = await fetch(`/api/quotes/${id}/send-email`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to }),
+            })
+            const data = await res.json()
+            setActionLoading('')
+            alert(data.success ? `✅ 已寄出估價單給 ${to}` : `寄送失敗：${data.error ?? ''}`)
+          }}
+          disabled={actionLoading === 'email-client'}
+          className="flex items-center gap-1.5 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-60"
+        >
+          <Send size={14} /> {actionLoading === 'email-client' ? '寄送中...' : 'Email 給客戶'}
+        </button>
         <button onClick={handleCopy} disabled={actionLoading === 'copy'} className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700">
           <Copy size={14} /> {actionLoading === 'copy' ? '複製中...' : '複製報價單'}
         </button>

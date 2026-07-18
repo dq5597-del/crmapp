@@ -32,7 +32,7 @@ async function runReminders() {
   const md = today.slice(5)
   const maxAhead = addDaysStr(today, 31)
 
-  const [todayRes, futureRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
+  const [todayRes, futureRes, gapRes, impRes, cbRes, clbRes, arRes, quoteRes, visitRes, stockRes] = await Promise.all([
     supabase.from('schedules')
       .select('*, clients(company_name), vendors(company_name)')
       .eq('is_gap_task', false).eq('schedule_date', today)
@@ -50,6 +50,18 @@ async function runReminders() {
       .eq('is_active', true).eq('remind_email', true),
     supabase.from('contacts').select('id, name, birthday, clients(company_name)').not('birthday', 'is', null),
     supabase.from('clients').select('id, company_name, contact_name, birthday').not('birthday', 'is', null),
+    // 應收逾期
+    supabase.from('receivables').select('receivable_no, due_date, balance, clients(company_name)')
+      .lt('due_date', today).gt('balance', 0).not('status', 'in', '("已收清","作廢","壞帳")'),
+    // 報價效期 7 天內到期或已過期（未轉單）
+    supabase.from('quotes').select('quote_no, valid_until, total_amount, clients(company_name)')
+      .in('status', ['草稿', '已確認']).not('valid_until', 'is', null).lte('valid_until', addDaysStr(today, 7)),
+    // 逾期未回訪
+    supabase.from('clients').select('company_name, contact_name, next_visit_date')
+      .not('next_visit_date', 'is', null).lt('next_visit_date', today),
+    // 低於安全庫存
+    supabase.from('products').select('brand, product_name, model, stock_qty, safe_stock')
+      .eq('is_active', true).gt('safe_stock', 0),
   ])
 
   const todaySchedules = todayRes.data ?? []
@@ -83,7 +95,13 @@ async function runReminders() {
   for (const c of (clbRes.data ?? []) as any[])
     pushOcc(c.birthday, true, `${c.contact_name ?? c.company_name} 生日`, '生日', c.company_name, 3)
 
-  const hasContent = todaySchedules.length > 0 || futureReminders.length > 0 || occs.length > 0 || gapOverdue.length > 0
+  const overdueAR = (arRes.data ?? []) as any[]
+  const expQuotes = (quoteRes.data ?? []) as any[]
+  const overdueVisits = (visitRes.data ?? []) as any[]
+  const lowStock = ((stockRes.data ?? []) as any[]).filter(p => Number(p.stock_qty) < Number(p.safe_stock))
+
+  const hasContent = todaySchedules.length > 0 || futureReminders.length > 0 || occs.length > 0 || gapOverdue.length > 0 ||
+    overdueAR.length > 0 || expQuotes.length > 0 || overdueVisits.length > 0 || lowStock.length > 0
   if (!hasContent) return { sent: false, reason: 'nothing to remind' }
 
   const row = (cells: string[]) =>
@@ -113,6 +131,32 @@ async function runReminders() {
     t.title,
   ])).join('')
 
+  const arRows = overdueAR.map((r: any) => row([
+    `<strong style="color:#dc2626;">${(r.due_date ?? '').replace(/-/g, '/')}</strong>`,
+    r.receivable_no,
+    r.clients?.company_name ?? '—',
+    `<strong>NT$${Number(r.balance).toLocaleString('zh-TW')}</strong>`,
+  ])).join('')
+
+  const quoteRows = expQuotes.map((q: any) => row([
+    `<strong style="color:${q.valid_until < today ? '#dc2626' : '#d97706'};">${q.valid_until.replace(/-/g, '/')}${q.valid_until < today ? '（已過期）' : ''}</strong>`,
+    q.quote_no,
+    q.clients?.company_name ?? '—',
+    `NT$${Number(q.total_amount).toLocaleString('zh-TW')}`,
+  ])).join('')
+
+  const visitRows = overdueVisits.map((c: any) => row([
+    `<strong style="color:#dc2626;">${c.next_visit_date.replace(/-/g, '/')}</strong>`,
+    c.company_name,
+    c.contact_name ?? '—',
+  ])).join('')
+
+  const stockRows = lowStock.map((p: any) => row([
+    `${[p.brand, p.product_name, p.model].filter(Boolean).join(' ')}`,
+    `<strong style="color:#d97706;">庫存 ${p.stock_qty}</strong>`,
+    `安全量 ${p.safe_stock}`,
+  ])).join('')
+
   const section = (title: string, rows: string, empty: string) => `
     <h3 style="margin:20px 0 6px; font-size:15px;">${title}</h3>
     ${rows ? `<table style="border-collapse:collapse; font-size:14px; width:100%;">${rows}</table>` : `<p style="color:#9ca3af; font-size:13px; margin:4px 0;">${empty}</p>`}
@@ -126,7 +170,12 @@ async function runReminders() {
       ${futureRows ? section('未來行程提醒（你設定要提前通知的）', futureRows, '') : ''}
       ${occRows ? section('生日／重要日子', occRows, '') : ''}
       ${gapRows ? section('空檔任務即將到期／已逾期', gapRows, '') : ''}
-      <p style="margin-top:20px;"><a href="https://crmapp-topaz.vercel.app/schedule" style="background:#2563eb;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">開啟行事曆</a></p>
+      ${arRows ? section(`💰 應收帳款逾期未收（${overdueAR.length} 筆）`, arRows, '') : ''}
+      ${quoteRows ? section(`📄 報價單效期將到期／已過期（${expQuotes.length} 筆）`, quoteRows, '') : ''}
+      ${visitRows ? section(`🚗 逾期未回訪單位（${overdueVisits.length} 位）`, visitRows, '') : ''}
+      ${stockRows ? section(`📦 低於安全庫存（${lowStock.length} 項）`, stockRows, '') : ''}
+      <p style="margin-top:20px;"><a href="https://crmapp-topaz.vercel.app/schedule" style="background:#2563eb;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">開啟行事曆</a>
+      <a href="https://crmapp-topaz.vercel.app/" style="background:#4b5563;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;margin-left:8px;">開啟戰情室</a></p>
     </div>
   `
 

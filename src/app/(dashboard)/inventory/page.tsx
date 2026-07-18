@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Product, InventoryTransaction, InventoryTransactionType } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Search, Plus, Package, ArrowDown, ArrowUp, RotateCcw, Undo2, Pencil } from 'lucide-react'
+import { Search, Plus, Package, ArrowDown, ArrowUp, RotateCcw, Undo2, Pencil, ScanLine, X, Trash2 } from 'lucide-react'
+import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 
 const TRANS_TYPES: InventoryTransactionType[] = ['入庫', '出庫', '盤盈', '盤虧', '退貨入庫', '供應商退貨出庫', '報廢']
 
@@ -38,6 +39,61 @@ export default function InventoryPage() {
     reference_no: '',
     notes: '',
   })
+
+  // ── 掃碼盤點 ──
+  type CountRow = { product_id: string; name: string; model: string; book: number; actual: number }
+  const [countOpen, setCountOpen] = useState(false)
+  const [countRows, setCountRows] = useState<CountRow[]>([])
+  const [scanCode, setScanCode] = useState('')
+  const [countCamera, setCountCamera] = useState(false)
+  const [countApplying, setCountApplying] = useState(false)
+  const [countMsg, setCountMsg] = useState('')
+
+  function addCountByCode(codeRaw: string) {
+    const code = codeRaw.trim()
+    if (!code) return
+    const p = products.find(x =>
+      ((x as any).barcode ?? '') === code ||
+      (x.model ?? '').toUpperCase() === code.toUpperCase()
+    )
+    if (!p) { setCountMsg(`找不到條碼／型號「${code}」的產品`); return }
+    setCountMsg('')
+    setCountRows(prev => {
+      if (prev.some(r => r.product_id === p.id)) return prev  // 已在清單
+      return [...prev, { product_id: p.id, name: p.product_name, model: p.model ?? '', book: Number(p.stock_qty) || 0, actual: Number(p.stock_qty) || 0 }]
+    })
+    setScanCode('')
+  }
+
+  function addCountByProduct(pid: string) {
+    const p = products.find(x => x.id === pid)
+    if (!p) return
+    setCountRows(prev => prev.some(r => r.product_id === p.id) ? prev
+      : [...prev, { product_id: p.id, name: p.product_name, model: p.model ?? '', book: Number(p.stock_qty) || 0, actual: Number(p.stock_qty) || 0 }])
+  }
+
+  async function applyCount() {
+    const diffs = countRows.filter(r => r.actual !== r.book)
+    if (diffs.length === 0) { alert('沒有差異需要調整'); return }
+    if (!confirm(`共 ${diffs.length} 項有差異，確認建立盤盈／盤虧異動？`)) return
+    setCountApplying(true)
+    const dateTag = new Date().toISOString().slice(0, 10)
+    const { error } = await supabase.from('inventory_transactions').insert(
+      diffs.map(r => ({
+        product_id: r.product_id,
+        type: r.actual > r.book ? '盤盈' : '盤虧',
+        quantity: r.actual - r.book,
+        reference_no: `盤點-${dateTag}`,
+        notes: `盤點調整：帳面 ${r.book} → 實際 ${r.actual}`,
+      }))
+    )
+    setCountApplying(false)
+    if (error) { alert('盤點套用失敗：' + error.message); return }
+    alert(`盤點完成，已調整 ${diffs.length} 項庫存。`)
+    setCountOpen(false)
+    setCountRows([])
+    await Promise.all([fetchProducts(), fetchTransactions()])
+  }
 
   useEffect(() => {
     Promise.all([
@@ -148,9 +204,14 @@ export default function InventoryPage() {
           <Package size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-gray-900">庫存管理</h1>
         </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
-          <Plus size={16} /> 庫存異動
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setCountOpen(true); setCountRows([]); setCountMsg('') }} className="flex items-center gap-2 border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 px-4 py-2.5 rounded-xl text-sm font-medium">
+            <ScanLine size={16} /> 掃碼盤點
+          </button>
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
+            <Plus size={16} /> 庫存異動
+          </button>
+        </div>
       </div>
 
       {/* KPI */}
@@ -381,6 +442,107 @@ export default function InventoryPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* 掃碼盤點 Modal */}
+      {countOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+              <h3 className="font-semibold text-gray-900">掃碼盤點</h3>
+              <button onClick={() => setCountOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+
+            <div className="p-4 space-y-3 shrink-0">
+              <div className="flex gap-2">
+                <input
+                  value={scanCode}
+                  onChange={e => setScanCode(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addCountByCode(scanCode) }}
+                  placeholder="掃描槍掃條碼，或輸入條碼／型號後按 Enter"
+                  autoFocus
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <button onClick={() => setCountCamera(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-teal-200 bg-teal-50 text-teal-700 rounded-lg text-sm font-medium hover:bg-teal-100 whitespace-nowrap">
+                  <ScanLine size={15} /> 相機掃描
+                </button>
+              </div>
+              <div className="flex gap-2 items-center">
+                <select onChange={e => { if (e.target.value) { addCountByProduct(e.target.value); e.target.value = '' } }}
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" defaultValue="">
+                  <option value="">— 或直接挑選產品加入盤點 —</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.product_name}{p.model ? `（${p.model}）` : ''}　帳面 {p.stock_qty}</option>)}
+                </select>
+              </div>
+              {countMsg && <p className="text-xs text-red-600">{countMsg}</p>}
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto border-t border-gray-100">
+              {countRows.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">尚未加入盤點品項——掃條碼或挑選產品</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="text-left px-4 py-2 text-xs text-gray-500">產品</th>
+                      <th className="text-right px-3 py-2 text-xs text-gray-500 w-20">帳面</th>
+                      <th className="text-right px-3 py-2 text-xs text-gray-500 w-28">實際</th>
+                      <th className="text-right px-3 py-2 text-xs text-gray-500 w-20">差異</th>
+                      <th className="w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {countRows.map((r, i) => {
+                      const diff = r.actual - r.book
+                      return (
+                        <tr key={r.product_id} className="border-b border-gray-50">
+                          <td className="px-4 py-2">
+                            <div className="font-medium text-gray-900 text-[13px]">{r.name}</div>
+                            {r.model && <div className="text-[11px] text-gray-400">{r.model}</div>}
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-500">{r.book}</td>
+                          <td className="px-3 py-2">
+                            <input type="number" min={0} value={r.actual}
+                              onFocus={e => e.target.select()}
+                              onChange={e => setCountRows(prev => prev.map((x, j) => j !== i ? x : { ...x, actual: Number(e.target.value) || 0 }))}
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                          </td>
+                          <td className={`px-3 py-2 text-right font-semibold ${diff > 0 ? 'text-blue-600' : diff < 0 ? 'text-red-600' : 'text-gray-300'}`}>
+                            {diff > 0 ? `+${diff}` : diff}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <button onClick={() => setCountRows(prev => prev.filter((_, j) => j !== i))} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200 shrink-0">
+              <span className="text-xs text-gray-500">
+                共 {countRows.length} 項，{countRows.filter(r => r.actual !== r.book).length} 項有差異
+              </span>
+              <div className="flex gap-2">
+                <button onClick={() => setCountOpen(false)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+                <button onClick={applyCount} disabled={countApplying || countRows.length === 0}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-40">
+                  {countApplying ? '套用中…' : '套用盤點（自動盤盈虧）'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {countCamera && (
+            <BarcodeScannerModal
+              onDetected={text => { addCountByCode(text); setCountCamera(false) }}
+              onClose={() => setCountCamera(false)}
+            />
+          )}
         </div>
       )}
     </div>
