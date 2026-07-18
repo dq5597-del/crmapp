@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Search } from 'lucide-react'
+import ProductPickerModal from '@/components/ProductPickerModal'
 
 type Item = {
   seq_no: number
+  product_id?: string | null
   product_name: string
   model: string
   unit: string
@@ -93,7 +95,31 @@ export default function NewPurchaseOrderPage() {
   }
 
   function addItem() {
-    setItems(prev => [...prev, { seq_no: prev.length + 1, product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' }])
+    setItems(prev => [...prev, { seq_no: prev.length + 1, product_id: null, product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' }])
+  }
+
+  // 選產品視窗（帶入成本價當進貨單價）
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerProducts, setPickerProducts] = useState<any[]>([])
+  useEffect(() => {
+    supabase.from('products').select('id, brand, product_name, model, unit, list_price, cost_price, stock_qty, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name')
+      .then(({ data }) => setPickerProducts(data ?? []))
+  }, [])
+  function handlePickerConfirm(picked: any[]) {
+    setItems(prev => [
+      ...prev,
+      ...picked.map((p, i) => ({
+        seq_no: prev.length + i + 1,
+        product_id: p.id,
+        product_name: p.product_name,
+        model: p.model ?? '',
+        unit: p.unit ?? '台',
+        quantity: 1,
+        unit_price: Number(p.cost_price) || 0,
+        item_notes: '',
+      })),
+    ])
+    setPickerOpen(false)
   }
 
   function removeItem(idx: number) {
@@ -132,6 +158,7 @@ export default function NewPurchaseOrderPage() {
         validItems.map((i, idx) => ({
           order_id: newOrder.id,
           seq_no: idx + 1,
+          product_id: i.product_id ?? null,
           product_name: i.product_name,
           model: i.model,
           unit: i.unit,
@@ -232,9 +259,14 @@ export default function NewPurchaseOrderPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-700">品項明細</h2>
-          <button onClick={addItem} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
-            <Plus size={12} /> 加一行
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setPickerOpen(true)} className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
+              <Search size={12} /> 選產品（多選）
+            </button>
+            <button onClick={addItem} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
+              <Plus size={12} /> 加一行
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -311,6 +343,15 @@ export default function NewPurchaseOrderPage() {
           {saving ? '建立中...' : '建立訂購單'}
         </button>
       </div>
+
+      {pickerOpen && (
+        <ProductPickerModal
+          products={pickerProducts}
+          onClose={() => setPickerOpen(false)}
+          onConfirm={handlePickerConfirm}
+          confirmLabel="帶入訂購單"
+        />
+      )}
     </div>
   )
 }

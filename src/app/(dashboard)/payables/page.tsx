@@ -62,6 +62,33 @@ export default function PayablesPage() {
     setPayables(data ?? [])
   }
 
+  // ── 列表快速付款 ──
+  const [quickPay, setQuickPay] = useState<any | null>(null)
+  const [qpForm, setQpForm] = useState({ payment_date: new Date().toISOString().slice(0, 10), amount: 0, payment_method: '', bank_ref: '' })
+  const [qpSaving, setQpSaving] = useState(false)
+
+  function openQuickPay(p: any) {
+    setQuickPay(p)
+    setQpForm({ payment_date: new Date().toISOString().slice(0, 10), amount: Number(p.balance) || 0, payment_method: '', bank_ref: '' })
+  }
+
+  async function handleQuickPay() {
+    if (!quickPay) return
+    if (!qpForm.amount || qpForm.amount <= 0) { alert('請輸入付款金額'); return }
+    setQpSaving(true)
+    const { error } = await supabase.from('payable_payments').insert({
+      payable_id: quickPay.id,
+      payment_date: qpForm.payment_date,
+      amount: qpForm.amount,
+      payment_method: qpForm.payment_method || null,
+      bank_ref: qpForm.bank_ref || null,
+    })
+    setQpSaving(false)
+    if (error) { alert('付款登錄失敗：' + error.message); return }
+    setQuickPay(null)
+    fetchPayables()
+  }
+
   // ── 從訂購單同步（補建缺少的應付） ──
   const [syncing, setSyncing] = useState(false)
   async function handleSyncFromPurchase() {
@@ -320,9 +347,16 @@ export default function PayablesPage() {
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
-                          <Link href={`/payables/${p.id}`} className="text-xs text-blue-600 hover:underline">
-                            付款
-                          </Link>
+                          {Number(p.balance) > 0 && p.status !== '作廢' ? (
+                            <button onClick={() => openQuickPay(p)}
+                              className="text-xs px-2.5 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium">
+                              付款
+                            </button>
+                          ) : (
+                            <Link href={`/payables/${p.id}`} className="text-xs text-blue-600 hover:underline">
+                              明細
+                            </Link>
+                          )}
                           <button onClick={() => window.open(`/payables/${p.id}/print`, '_blank')}
                             title="列印／分享對帳單 PDF" className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
                             <Printer size={14} />
@@ -356,6 +390,60 @@ export default function PayablesPage() {
           </table>
         </div>
       </div>
+
+      {/* 快速付款 Modal */}
+      {quickPay && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="px-5 py-3 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900">付款登錄</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {quickPay.payable_no}　{quickPay.vendors?.company_name ?? ''}　未付 <span className="text-red-600 font-semibold">{formatCurrency(quickPay.balance)}</span>
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">付款日期</label>
+                  <input type="date" value={qpForm.payment_date} onChange={e => setQpForm(p => ({ ...p, payment_date: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">付款金額 *</label>
+                  <input type="number" min={0} value={qpForm.amount} onFocus={e => e.target.select()}
+                    onChange={e => setQpForm(p => ({ ...p, amount: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">付款方式</label>
+                  <select value={qpForm.payment_method} onChange={e => setQpForm(p => ({ ...p, payment_method: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">請選擇</option>
+                    {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">轉帳末5碼／票號</label>
+                  <input value={qpForm.bank_ref} onChange={e => setQpForm(p => ({ ...p, bank_ref: e.target.value }))}
+                    placeholder="選填"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400">預設帶入未付餘額（一次付清）；部分付款請自行改金額。</p>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-200 flex justify-between items-center">
+              <Link href={`/payables/${quickPay.id}`} className="text-xs text-blue-600 hover:underline">查看明細 →</Link>
+              <div className="flex gap-2">
+                <button onClick={() => setQuickPay(null)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+                <button onClick={handleQuickPay} disabled={qpSaving}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50">
+                  {qpSaving ? '登錄中…' : '確認付款'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

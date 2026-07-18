@@ -7,7 +7,7 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, ShoppingCart, Plus, X, Trash2 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
-import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
+import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 
@@ -22,6 +22,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
 
 type Item = {
+  product_id: string | null
   brand: string
   product_name: string
   model: string
@@ -32,7 +33,7 @@ type Item = {
 }
 
 const emptyItem = (): Item => ({
-  brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '',
+  product_id: null, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '',
 })
 
 export default function SalesOrdersPage() {
@@ -103,7 +104,7 @@ export default function SalesOrdersPage() {
 
   function onProductPick(idx: number, p: any) {
     setItems(prev => prev.map((it, i) => i !== idx ? it : {
-      ...it, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0,
+      ...it, product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0,
     }))
     setProductDropdown(null)
     setProductSearch(prev => ({ ...prev, [idx]: '' }))
@@ -124,7 +125,7 @@ export default function SalesOrdersPage() {
     if (error || !data) { alert('新增產品失敗：' + (error?.message ?? '')); return }
     setProducts(prev => [...prev, data].sort((a, b) => a.product_name.localeCompare(b.product_name, 'zh-Hant')))
     if (quickAddIdx === -1) {
-      setItems(prev => [...prev, { ...emptyItem(), brand: data.brand ?? '', product_name: data.product_name, model: data.model ?? '', unit: data.unit ?? '台', unit_price: Number(data.list_price) || 0 }])
+      setItems(prev => [...prev, { ...emptyItem(), product_id: data.id, brand: data.brand ?? '', product_name: data.product_name, model: data.model ?? '', unit: data.unit ?? '台', unit_price: Number(data.list_price) || 0 }])
     } else {
       onProductPick(quickAddIdx, data)
     }
@@ -139,11 +140,11 @@ export default function SalesOrdersPage() {
         const t = next[pickerTarget]
         if (t && !t.product_name.trim() && picked.length > 0) {
           const p = picked[0]
-          next[pickerTarget] = { ...t, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0 }
+          next[pickerTarget] = { ...t, product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0 }
           list = picked.slice(1)
         }
       }
-      list.forEach(p => next.push({ ...emptyItem(), brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0 }))
+      list.forEach(p => next.push({ ...emptyItem(), product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0 }))
       return next
     })
     setPickerTarget(null)
@@ -235,6 +236,7 @@ export default function SalesOrdersPage() {
       await supabase.from('sales_order_items').insert(
         validItems.map((i, idx) => ({
           order_id: order.id, seq_no: idx + 1,
+          product_id: i.product_id,
           brand: i.brand || null,
           product_name: i.product_name, model: i.model,
           unit: i.unit, quantity: i.quantity, unit_price: i.unit_price,
@@ -242,9 +244,13 @@ export default function SalesOrdersPage() {
         }))
       )
 
-      // 銷貨成立 → 自動產生應收帳款
+      // 銷貨成立 → 自動產生應收帳款；出貨中/已完成 → 自動扣庫存
       const arResult = await ensureReceivableForSalesOrder(supabase, order.id, status)
-      if (arResult === 'created') alert('銷貨單已建立，並自動產生應收帳款。')
+      const stockResult = await ensureStockOutForSalesOrder(supabase, order.id, status)
+      const msgs: string[] = []
+      if (arResult === 'created') msgs.push('已自動產生應收帳款')
+      if (stockResult === 'created') msgs.push('已自動扣減庫存')
+      if (msgs.length > 0) alert(`銷貨單已建立，${msgs.join('、')}。`)
 
       const { data: refreshed } = await supabase
         .from('sales_orders').select('*, clients(company_name)')

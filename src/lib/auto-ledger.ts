@@ -42,6 +42,71 @@ export async function ensureReceivableForSalesOrder(
   return error ? 'skipped' : 'created'
 }
 
+/** 銷貨出貨 → 自動扣庫存（同一張單只扣一次；只處理有連結產品的品項） */
+export async function ensureStockOutForSalesOrder(
+  supabase: SupabaseClient, orderId: string, status: string,
+): Promise<'created' | 'exists' | 'skipped'> {
+  if (!['出貨中', '已完成'].includes(status)) return 'skipped'
+
+  const { data: order } = await supabase.from('sales_orders').select('id, order_no').eq('id', orderId).single()
+  if (!order) return 'skipped'
+
+  const { data: existing } = await supabase
+    .from('inventory_transactions').select('id')
+    .eq('reference_no', order.order_no).eq('type', '出庫').limit(1)
+  if (existing && existing.length > 0) return 'exists'
+
+  const { data: items } = await supabase
+    .from('sales_order_items').select('product_id, quantity')
+    .eq('order_id', orderId).not('product_id', 'is', null)
+  const rows = (items ?? []).filter(i => Number(i.quantity) > 0)
+  if (rows.length === 0) return 'skipped'
+
+  const { error } = await supabase.from('inventory_transactions').insert(
+    rows.map(i => ({
+      product_id: i.product_id,
+      type: '出庫',
+      quantity: -Math.abs(Number(i.quantity)),
+      reference_no: order.order_no,
+      notes: `銷貨單 ${order.order_no} 出貨自動扣庫存`,
+    }))
+  )
+  return error ? 'skipped' : 'created'
+}
+
+/** 訂購到貨 → 自動入庫（同一張單只入一次；unit_cost 帶品項單價） */
+export async function ensureStockInForPurchaseOrder(
+  supabase: SupabaseClient, orderId: string, status: string,
+): Promise<'created' | 'exists' | 'skipped'> {
+  if (status !== '已到貨') return 'skipped'
+
+  const { data: order } = await supabase.from('purchase_orders').select('id, order_no').eq('id', orderId).single()
+  if (!order) return 'skipped'
+
+  const { data: existing } = await supabase
+    .from('inventory_transactions').select('id')
+    .eq('reference_no', order.order_no).eq('type', '入庫').limit(1)
+  if (existing && existing.length > 0) return 'exists'
+
+  const { data: items } = await supabase
+    .from('purchase_order_items').select('product_id, quantity, unit_price')
+    .eq('order_id', orderId).not('product_id', 'is', null)
+  const rows = (items ?? []).filter(i => Number(i.quantity) > 0)
+  if (rows.length === 0) return 'skipped'
+
+  const { error } = await supabase.from('inventory_transactions').insert(
+    rows.map(i => ({
+      product_id: i.product_id,
+      type: '入庫',
+      quantity: Math.abs(Number(i.quantity)),
+      unit_cost: Number(i.unit_price) || null,
+      reference_no: order.order_no,
+      notes: `訂購單 ${order.order_no} 到貨自動入庫`,
+    }))
+  )
+  return error ? 'skipped' : 'created'
+}
+
 /**
  * 訂購單（進貨）成立時自動產生應付帳款（若該訂購單已有應付則不重複建）。
  */

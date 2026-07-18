@@ -65,6 +65,7 @@ async function getDashboardData() {
     goalsRes,
     goalTodosRes,
     goalSalesRes,
+    lowStockRes,
   ] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', '有需求'),
@@ -129,6 +130,8 @@ async function getDashboardData() {
     supabase.from('todos').select('goal_id, is_done').not('goal_id', 'is', null),
     // 銷貨金額（數值目標自動累計用）
     supabase.from('sales_orders').select('created_at, total_amount').neq('status', '取消').neq('status', '草稿'),
+    // 低於安全庫存的產品
+    supabase.from('products').select('id, brand, product_name, model, stock_qty, safe_stock').eq('is_active', true).gt('safe_stock', 0),
   ])
 
   // 目標進度（任務完成率 / 數值目標）
@@ -204,6 +207,7 @@ async function getDashboardData() {
     currentUserName,
     hideRevenue,
     goalsProgress,
+    lowStock: ((lowStockRes?.data ?? []) as any[]).filter(p => Number(p.stock_qty) < Number(p.safe_stock)),
   }
 }
 
@@ -270,6 +274,35 @@ export default async function DashboardPage() {
     title: '快速筆記',
     node: <QuickNotes />,
   })
+
+  if (data.lowStock.length > 0) {
+    blocks.push({
+      id: 'low-stock',
+      title: '低於安全庫存',
+      node: (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={18} className="text-orange-600" />
+            <h2 className="font-semibold text-orange-800">低於安全庫存（{data.lowStock.length} 項）</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {data.lowStock.map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between text-sm bg-white rounded-xl px-3.5 py-2.5 border border-orange-100">
+                <div>
+                  <div className="font-medium text-gray-900">{p.product_name}</div>
+                  <div className="text-gray-500 text-xs">{[p.brand, p.model].filter(Boolean).join(' ') || '—'}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-orange-600 font-semibold">庫存 {p.stock_qty}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">安全量 {p.safe_stock}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+    })
+  }
 
   if (data.overdueVisits.length > 0) {
     blocks.push({

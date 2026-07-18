@@ -446,7 +446,7 @@ export default function ProductsPage() {
   const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
     const [form, setForm] = useState({
         category_id: null as string | null,
-        brand: '', product_name: '', model: '', unit: '台', barcode: '',
+        brand: '', product_name: '', model: '', unit: '台', barcode: '', safe_stock: 0,
         list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
         web_sku: '', web_category: '', web_description: '',
@@ -525,7 +525,7 @@ export default function ProductsPage() {
         if (p) {
             const pAny = p as any
             setForm({
-                category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '',
+                category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '', safe_stock: pAny.safe_stock ?? 0,
                 list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
                 width_cm: pAny.width_cm ?? 0, depth_cm: pAny.depth_cm ?? 0, height_cm: pAny.height_cm ?? 0,
                 web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
@@ -544,7 +544,7 @@ export default function ProductsPage() {
             loadWebSubData(p.id)
         } else {
             setForm({
-                category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '',
+                category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '', safe_stock: 0,
                 list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
                 web_sku: '', web_category: '', web_description: '',
@@ -886,6 +886,10 @@ export default function ProductsPage() {
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">庫存（唯讀）</label>
                                     <input type="number" value={form.stock_qty} readOnly className={inputClass + ' bg-gray-100 cursor-default'} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">安全庫存量（低於警示）</label>
+                                    <input type="number" min={0} value={form.safe_stock} onChange={e => setForm(p => ({ ...p, safe_stock: Number(e.target.value) }))} className={inputClass} />
                                 </div>
                                 <div className="col-span-2 sm:col-span-3">
                                     <label className="text-xs text-gray-600 mb-1 block">條碼（EAN-13 / UPC，可掃描）</label>
@@ -1312,7 +1316,16 @@ export default function ProductsPage() {
                           </button>
                         </div>
                       </td>}
-                      {cols.stock && <td className="px-3 py-3 text-center text-gray-700">{p.stock_qty}</td>}
+                      {cols.stock && <td className="px-3 py-3 text-center">
+                        <span className={
+                          Number(p.stock_qty) <= 0 ? 'text-red-600 font-semibold'
+                            : Number((p as any).safe_stock) > 0 && Number(p.stock_qty) < Number((p as any).safe_stock) ? 'text-orange-600 font-semibold'
+                            : 'text-gray-700'
+                        } title={Number((p as any).safe_stock) > 0 ? `安全庫存 ${(p as any).safe_stock}` : ''}>
+                          {p.stock_qty}
+                          {Number((p as any).safe_stock) > 0 && Number(p.stock_qty) < Number((p as any).safe_stock) && ' ⚠'}
+                        </span>
+                      </td>}
                       {cols.web && <td className="px-3 py-3 text-center">
                         {p.web_product_id ? (
                           <a href={p.web_product_url ?? "#"} target="_blank" rel="noreferrer"
