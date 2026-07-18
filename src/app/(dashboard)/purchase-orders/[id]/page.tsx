@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
-import { ArrowLeft, RotateCcw, FileDown, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, RotateCcw, FileDown, Plus, Trash2, ShoppingCart } from 'lucide-react'
 import Link from 'next/link'
+import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 
 const STATUS_OPTIONS = ['草稿', '已送出', '已確認', '已到貨', '取消']
 
@@ -86,6 +87,59 @@ export default function PurchaseOrderDetailPage() {
     setItems(prev => prev.filter((_, i) => i !== idx))
   }
 
+  // 訂購單 → 轉銷貨單（客戶確認下訂後）
+  const [converting, setConverting] = useState(false)
+  async function handleToSalesOrder() {
+    if (!confirm('將此訂購單轉為銷貨單？（品項會複製過去，銷貨單狀態為已確認並自動產生應收）')) return
+    setConverting(true)
+    try {
+      const d = new Date()
+      const yy = String(d.getFullYear()).slice(2)
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      const prefix = `SO-${yy}${mm}${dd}-`
+      const { data: last } = await supabase.from('sales_orders').select('order_no').like('order_no', `${prefix}%`).order('order_no', { ascending: false }).limit(1)
+      const seq = last?.[0]?.order_no ? parseInt(last[0].order_no.split('-').pop() ?? '0') + 1 : 1
+      const order_no = `${prefix}${String(seq).padStart(3, '0')}`
+
+      // 用單位名稱對應客戶檔
+      const { data: c } = await supabase.from('clients').select('id').eq('company_name', form.vendor_name).limit(1)
+
+      const { data: so, error } = await supabase.from('sales_orders').insert({
+        order_no,
+        client_id: c?.[0]?.id ?? null,
+        contact_name: form.vendor_contact || null,
+        client_phone: form.vendor_phone || null,
+        payment_terms: (order as any)?.payment_terms ?? null,
+        subtotal, tax_amount: taxAmount, total_amount: totalAmount,
+        status: '已確認',
+        notes: `由訂購單 ${order?.order_no} 轉入`,
+        salesperson_id: form.salesperson_id || null,
+      }).select('id').single()
+      if (error || !so) throw error ?? new Error('轉換失敗')
+
+      const validItems = items.filter(i => i.product_name.trim())
+      if (validItems.length > 0) {
+        await supabase.from('sales_order_items').insert(
+          validItems.map((i, idx) => ({
+            order_id: so.id, seq_no: idx + 1,
+            product_id: i.product_id ?? null,
+            product_name: i.product_name, model: i.model,
+            unit: i.unit, quantity: i.quantity, unit_price: i.unit_price,
+            item_notes: i.item_notes,
+          }))
+        )
+      }
+      await ensureReceivableForSalesOrder(supabase, so.id, '已確認')
+      alert('已轉為銷貨單並自動產生應收帳款。')
+      router.push(`/sales-orders/${so.id}`)
+    } catch (e: any) {
+      alert('轉銷貨單失敗：' + (e?.message ?? ''))
+    } finally {
+      setConverting(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -150,6 +204,10 @@ export default function PurchaseOrderDetailPage() {
           {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
         </select>
         <div className="flex-1" />
+        <button onClick={handleToSalesOrder} disabled={converting}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-green-200 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50">
+          <ShoppingCart size={13} /> {converting ? '轉換中…' : '轉銷貨單'}
+        </button>
         <button
           onClick={() => window.open(`/purchase-orders/${id}/print`, '_blank')}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
