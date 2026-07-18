@@ -276,24 +276,9 @@ export default function SalesOrderDetailPage() {
               {salespeople.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">交貨日期</label>
-            <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">付款條件</label>
-            <input value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
           <div className="sm:col-span-2">
             <label className="text-xs text-gray-500 mb-1 block">交貨地址</label>
             <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-xs text-gray-500 mb-1 block">銀行帳號</label>
-            <input value={bankAccount} onChange={e => setBankAccount(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
         </div>
@@ -377,15 +362,36 @@ export default function SalesOrderDetailPage() {
         </div>
       </div>
 
-      {/* 備註 */}
+      {/* 銷貨條款 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-        <label className="text-sm font-medium text-gray-700 block mb-2">備註</label>
-        <textarea
-          value={notes} onChange={e => setNotes(e.target.value)}
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-          placeholder="輸入備註..."
-        />
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">銷貨條款</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">交貨日期</label>
+            <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">付款條件</label>
+            <input value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)}
+              placeholder="例：30天月結"
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-gray-500 mb-1 block">匯款帳號</label>
+            <input value={bankAccount} onChange={e => setBankAccount(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-gray-500 mb-1 block">備註</label>
+            <textarea
+              value={notes} onChange={e => setNotes(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+              placeholder="其他條款說明..."
+            />
+          </div>
+        </div>
       </div>
 
       {/* 客戶簽名 */}

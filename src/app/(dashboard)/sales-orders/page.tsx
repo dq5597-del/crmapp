@@ -421,25 +421,9 @@ export default function SalesOrdersPage() {
                   <input value={clientPhone} onChange={e => setClientPhone(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">交貨日期</label>
-                  <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">付款條件</label>
-                  <input value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="月結30天" />
-                </div>
                 <div className="sm:col-span-2">
                   <label className="text-xs text-gray-500 mb-1 block">交貨地址</label>
                   <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">銀行帳號</label>
-                  <input value={bankAccount} onChange={e => setBankAccount(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
                 <div>
@@ -580,11 +564,33 @@ export default function SalesOrdersPage() {
                 </div>
               </div>
 
-              {/* 備註 */}
+              {/* 銷貨條款 */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">備註</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                <label className="text-xs font-medium text-gray-700 block mb-2">銷貨條款</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">交貨日期</label>
+                    <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">付款條件</label>
+                    <input value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="月結30天" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-gray-500 mb-1 block">匯款帳號</label>
+                    <input value={bankAccount} onChange={e => setBankAccount(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-gray-500 mb-1 block">備註</label>
+                    <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                      placeholder="其他條款說明..."
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                  </div>
+                </div>
               </div>
             </div>
 
