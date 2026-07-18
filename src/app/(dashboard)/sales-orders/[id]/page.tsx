@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
-import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck, Eye, FileText, Sheet, Send } from 'lucide-react'
 import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
@@ -203,9 +203,33 @@ export default function SalesOrderDetailPage() {
         </select>
         <div className="flex-1" />
         <button
+          onClick={() => window.open(`/sales-orders/${id}/print?preview=1`, '_blank')}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-amber-200 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100">
+          <Eye size={13} /> 預覽列印
+        </button>
+        <button
           onClick={() => window.open(`/sales-orders/${id}/print`, '_blank')}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
-          <FileDown size={13} /> 列印 / PDF
+          <FileDown size={13} /> 匯出 PDF
+        </button>
+        <button
+          onClick={() => { window.location.href = `/api/sales-orders/${id}/export-docx` }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
+          <FileText size={13} /> 匯出 Word
+        </button>
+        <button
+          onClick={() => { window.location.href = `/api/sales-orders/${id}/export-xlsx` }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
+          <Sheet size={13} /> 匯出 Excel
+        </button>
+        <button
+          onClick={async () => {
+            const url = `${window.location.origin}/sales-orders/${id}/print`
+            try { await navigator.clipboard.writeText(url); alert('已複製銷貨單列印連結，可貼給客戶或同事。') }
+            catch { prompt('複製此連結：', url) }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <Send size={13} /> 分享銷貨單
         </button>
         <button onClick={handleToShipment} disabled={shipping}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50">
