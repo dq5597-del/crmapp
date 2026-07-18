@@ -4,6 +4,7 @@ import { createServerSupabaseClient as createClient } from '@/lib/supabase-serve
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
 import { buildQuoteFileName } from '@/lib/utils'
+import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const supabase = createClient()
@@ -211,7 +212,18 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
                 ) : (
                 <tr>
                   <td className="center">{item.display_no}</td>
-                  <td>{item.brand ?? ''}</td>
+                  <td>
+                    {(() => {
+                      const logo = knownBrandLogoUrl(item.brand)
+                      return (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          {logo && <img src={logo} alt="" style={{ height: 14, width: 'auto', maxWidth: 56, objectFit: 'contain' }} />}
+                          <span>{item.brand ?? ''}</span>
+                        </span>
+                      )
+                    })()}
+                  </td>
                   <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>

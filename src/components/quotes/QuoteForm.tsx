@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
 import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, FolderPlus } from 'lucide-react'
+import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
 type MarketPlatform = {
   key: string
@@ -807,6 +808,13 @@ export default function QuoteForm({
 
                     {/* 品牌 */}
                     <td className="px-2 py-2">
+                      {(() => {
+                        const logo = knownBrandLogoUrl(item.brand)
+                        return logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={logo} alt="" className="h-4 w-auto max-w-[72px] object-contain mb-1" />
+                        ) : null
+                      })()}
                       <input value={item.brand} onChange={e => setItem(idx, 'brand', e.target.value)} placeholder="品牌" className={tdInput} />
                     </td>
 

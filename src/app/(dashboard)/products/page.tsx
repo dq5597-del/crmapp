@@ -11,6 +11,7 @@ import ProductImportModal from '@/components/products/ProductImportModal'
 import BarcodePreview from '@/components/products/BarcodePreview'
 import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
+import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
 type MarketPriceRow = {
   product_id: string
@@ -1262,7 +1263,16 @@ export default function ProductsPage() {
                           ? <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full whitespace-nowrap">{catLabel}</span>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>}
-                      {cols.brand && <td className="px-4 py-3 text-gray-500">{p.brand ?? '—'}</td>}
+                      {cols.brand && <td className="px-4 py-3 text-gray-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          {(() => {
+                            const logo = knownBrandLogoUrl(p.brand)
+                            // eslint-disable-next-line @next/next/no-img-element
+                            return logo ? <img src={logo} alt="" className="h-4 w-auto max-w-[64px] object-contain" /> : null
+                          })()}
+                          {p.brand ?? '—'}
+                        </span>
+                      </td>}
                       <td className="px-4 py-3 font-medium text-gray-900">{p.product_name}</td>
                       {cols.model && <td className="px-4 py-3 text-gray-500">{p.model ?? '—'}</td>}
                       {cols.price && <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(p.list_price)}</td>}
