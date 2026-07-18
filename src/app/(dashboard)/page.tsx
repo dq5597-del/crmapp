@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import KPICard from '@/components/dashboard/KPICard'
 import WeatherWidget from '@/components/dashboard/WeatherWidget'
+import TrainWidget from '@/components/dashboard/TrainWidget'
 import TodaySchedule from '@/components/dashboard/TodaySchedule'
 import CalendarWidget from '@/components/dashboard/CalendarWidget'
 import QuickNotes from '@/components/dashboard/QuickNotes'
@@ -552,6 +553,12 @@ export default async function DashboardPage() {
         )}
       </div>
     ),
+  })
+
+  blocks.push({
+    id: 'train',
+    title: '火車時刻',
+    node: <TrainWidget />,
   })
 
   blocks.push({
