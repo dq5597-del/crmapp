@@ -13,12 +13,14 @@ export const STATIONS: Record<string, string> = {
 
 let cachedToken: { token: string; exp: number } | null = null
 
-async function getToken(): Promise<string | null> {
-  const id = process.env.TDX_CLIENT_ID
-  const secret = process.env.TDX_CLIENT_SECRET
-  if (!id || !secret) return null
+async function getToken(): Promise<{ token: string } | { error: string }> {
+  const id = process.env.TDX_CLIENT_ID?.trim()
+  const secret = process.env.TDX_CLIENT_SECRET?.trim()
+  if (!id || !secret) {
+    return { error: `環境變數未讀到（TDX_CLIENT_ID:${id ? 'OK' : '缺'}／TDX_CLIENT_SECRET:${secret ? 'OK' : '缺'}）。請確認 Vercel 變數名稱正確並重新部署。` }
+  }
 
-  if (cachedToken && Date.now() < cachedToken.exp) return cachedToken.token
+  if (cachedToken && Date.now() < cachedToken.exp) return { token: cachedToken.token }
 
   const res = await fetch('https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token', {
     method: 'POST',
@@ -29,10 +31,13 @@ async function getToken(): Promise<string | null> {
       client_secret: secret,
     }),
   })
-  if (!res.ok) return null
+  if (!res.ok) {
+    const t = await res.text()
+    return { error: `TDX 驗證失敗（${res.status}）：${t.slice(0, 200)}` }
+  }
   const data = await res.json()
   cachedToken = { token: data.access_token, exp: Date.now() + (data.expires_in - 60) * 1000 }
-  return cachedToken.token
+  return { token: cachedToken.token }
 }
 
 function todayTaipei(): string {
@@ -53,8 +58,9 @@ export async function GET(req: NextRequest) {
   const toId = STATIONS[to]
   if (!fromId || !toId) return NextResponse.json({ error: '未支援的車站' }, { status: 400 })
 
-  const token = await getToken()
-  if (!token) return NextResponse.json({ error: 'TDX 金鑰未設定或驗證失敗' }, { status: 500 })
+  const auth = await getToken()
+  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: 500 })
+  const token = auth.token
 
   const date = todayTaipei()
   const url = `https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/OD/${fromId}/to/${toId}/${date}?%24format=JSON`

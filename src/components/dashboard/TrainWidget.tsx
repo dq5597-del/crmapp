@@ -10,6 +10,14 @@ const ROUTES = [
   { from: '台北', to: '花蓮' },
   { from: '花蓮', to: '台東' },
   { from: '台東', to: '花蓮' },
+  { from: '花蓮', to: '玉里' },
+  { from: '玉里', to: '花蓮' },
+  { from: '花蓮', to: '瑞穗' },
+  { from: '瑞穗', to: '花蓮' },
+  { from: '花蓮', to: '羅東' },
+  { from: '羅東', to: '花蓮' },
+  { from: '花蓮', to: '宜蘭' },
+  { from: '宜蘭', to: '花蓮' },
 ]
 
 export default function TrainWidget() {
