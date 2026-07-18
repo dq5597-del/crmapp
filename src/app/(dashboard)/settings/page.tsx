@@ -297,11 +297,14 @@ export default function SettingsPage() {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, full_name } : u))
   }
 
+  const [userSavedFlags, setUserSavedFlags] = useState<Record<string, boolean>>({})
   async function handleNameSave(userId: string, full_name: string) {
     const { data, error } = await supabase.from('user_profiles').update({ full_name: full_name.trim() || null }).eq('id', userId).select()
     if (error) { console.error('[user_profiles update error]', error); setUserSaveError(userId, '儲存姓名失敗：' + error.message); return }
     if (!data || data.length === 0) { console.error('[user_profiles update] zero rows affected (RLS blocked?)', { userId, full_name }); setUserSaveError(userId, '儲存姓名失敗：資料庫拒絕了這筆修改（權限規則問題）'); return }
     setUserSaveError(userId, null)
+    setUserSavedFlags(prev => ({ ...prev, [userId]: true }))
+    setTimeout(() => setUserSavedFlags(prev => ({ ...prev, [userId]: false })), 2500)
   }
 
   async function handleCreateUser() {
@@ -608,13 +611,27 @@ export default function SettingsPage() {
                 <div key={u.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border border-gray-100 rounded-xl">
                   <div className="flex-1 min-w-0">
                     <label className="text-xs text-gray-500 mb-1 block">姓名（業務員選單顯示用）</label>
-                    <input
-                      value={u.full_name ?? ''}
-                      onChange={e => handleNameInput(u.id, e.target.value)}
-                      onBlur={e => handleNameSave(u.id, e.target.value)}
-                      placeholder="輸入員工姓名"
-                      className="w-full max-w-xs px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex items-center gap-2 max-w-md">
+                      <input
+                        value={u.full_name ?? ''}
+                        onChange={e => handleNameInput(u.id, e.target.value)}
+                        onBlur={e => handleNameSave(u.id, e.target.value)}
+                        placeholder="輸入員工姓名"
+                        className="w-full max-w-xs px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleNameSave(u.id, u.full_name ?? '')}
+                        className="shrink-0 flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg"
+                      >
+                        <Save size={12} /> 儲存
+                      </button>
+                      {userSavedFlags[u.id] && (
+                        <span className="text-xs text-green-600 font-medium flex items-center gap-0.5 shrink-0">
+                          <CheckCircle2 size={13} /> 已儲存
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500 mt-1">
                       登入信箱：<span className="text-gray-700">{(u as any).email || '—'}</span>
                     </div>
