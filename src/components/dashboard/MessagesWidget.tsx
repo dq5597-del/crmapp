@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Trash2 } from 'lucide-react'
 
 type Row = { id: string; name: string; preview: string; at: string | null; unread: boolean }
 
@@ -57,6 +57,20 @@ export default function MessagesWidget() {
 
   const unreadCount = rows.filter(r => r.unread).length
 
+  const [deleting, setDeleting] = useState<string | null>(null)
+  async function handleDelete(e: React.MouseEvent, r: Row) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm(`確定刪除與「${r.name}」的對話？對話內所有訊息將一併刪除，此動作無法復原。`)) return
+    setDeleting(r.id)
+    await supabase.from('chat_messages').delete().eq('thread_id', r.id)
+    await supabase.from('chat_members').delete().eq('thread_id', r.id)
+    const { error } = await supabase.from('chat_threads').delete().eq('id', r.id)
+    setDeleting(null)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    setRows(prev => prev.filter(x => x.id !== r.id))
+  }
+
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-3">
@@ -74,7 +88,7 @@ export default function MessagesWidget() {
         <div className="space-y-1">
           {rows.map(r => (
             <Link key={r.id} href={`/messages?t=${r.id}`}
-              className="flex items-center gap-2.5 py-2 border-t border-gray-50 text-sm hover:bg-gray-50 -mx-2 px-2 rounded">
+              className="group flex items-center gap-2.5 py-2 border-t border-gray-50 text-sm hover:bg-gray-50 -mx-2 px-2 rounded">
               <span className={`w-2 h-2 rounded-full shrink-0 ${r.unread ? 'bg-red-500' : 'bg-transparent'}`} />
               <div className="flex-1 min-w-0">
                 <span className={`font-medium ${r.unread ? 'text-gray-900' : 'text-gray-700'}`}>{r.name}</span>
@@ -85,6 +99,14 @@ export default function MessagesWidget() {
                   {new Date(r.at).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
+              <button
+                onClick={e => handleDelete(e, r)}
+                disabled={deleting === r.id}
+                title="刪除此對話"
+                className="shrink-0 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+              </button>
             </Link>
           ))}
         </div>

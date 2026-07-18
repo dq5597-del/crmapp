@@ -15,7 +15,7 @@ import { usePermissions, FEATURES } from '@/lib/permissions'
 
 const navItemsTop = [
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
-  { href: '/', label: '戰情室', icon: LayoutDashboard },
+  { href: '/', label: '業務戰情室', icon: LayoutDashboard },
   { href: '/projects', label: '專案資料夾', icon: FolderKanban },
 ] // top nav
 
