@@ -65,7 +65,7 @@ export default function SalesOrdersPage() {
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [paymentTerms, setPaymentTerms] = useState('')
   const [bankAccount, setBankAccount] = useState('')
-  const [status, setStatus] = useState('草稿')
+  const [status, setStatus] = useState('已確認')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<Item[]>([emptyItem()])
 
@@ -189,7 +189,7 @@ export default function SalesOrdersPage() {
     setDeliveryDate(''); setDeliveryAddress('')
     setPaymentTerms(termDefaults.payment_terms)
     setBankAccount(termDefaults.bank_account)
-    setStatus('草稿'); setNotes(termDefaults.notes); setItems([emptyItem()])
+    setStatus('已確認'); setNotes(termDefaults.notes); setItems([emptyItem()])
   }
 
   async function generateOrderNo() {
