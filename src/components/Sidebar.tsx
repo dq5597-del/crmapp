@@ -28,10 +28,7 @@ const businessItems = [
   { href: '/notes',            label: '業務筆記', icon: StickyNote },
 ]
 
-const companyItems = [
-  { href: '/clients', label: '單位資料', icon: Users },
-  { href: '/vendors', label: '廠商建檔', icon: Building2 },
-]
+const companyItems: { href: string; label: string; icon: any }[] = []
 
 const psiItems = [
   { href: '/sales-orders',    label: '銷貨單',   icon: ShoppingCart },
@@ -40,7 +37,6 @@ const psiItems = [
   { href: '/shipments',       label: '出貨管理', icon: PackageCheck },
   { href: '/inventory',       label: '庫存管理', icon: Warehouse },
   { href: '/returns',         label: '退貨管理', icon: RotateCcw },
-  { href: '/products',        label: '產品管理', icon: Package },
 ]
 
 const navItemsMid: { href: string; label: string; icon: any }[] = []

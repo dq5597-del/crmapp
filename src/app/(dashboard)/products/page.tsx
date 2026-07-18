@@ -761,7 +761,7 @@ export default function ProductsPage() {
         <div className="flex items-center gap-3">
           <Package size={20} className="text-blue-600" />
           <div>
-            <h1 className="text-xl font-bold text-gray-900">產品管理</h1>
+            <h1 className="text-xl font-bold text-gray-900">產品資料</h1>
             <p className="text-sm text-gray-500 mt-0.5">共 {filtered.length} 筆</p>
           </div>
         </div>
