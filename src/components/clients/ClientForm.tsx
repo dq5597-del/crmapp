@@ -36,7 +36,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
     birthday: initialData?.birthday ?? '',
     interest: initialData?.interest ?? '',
     dm_provided: initialData?.dm_provided ?? false,
-    status: (initialData?.status ?? '有需求') as ClientStatus,
+    status: (initialData?.status ?? '') as ClientStatus | '',
     service_cycle_months: initialData?.service_cycle_months ?? '',
     last_service_date: initialData?.last_service_date ?? '',
     next_visit_date: initialData?.next_visit_date ?? '',
@@ -109,6 +109,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
 
     const payload = {
       ...form,
+      status: form.status || null,
       service_cycle_months: form.service_cycle_months !== '' ? Number(form.service_cycle_months) : null,
       birthday: form.birthday || null,
       last_service_date: form.last_service_date || null,
@@ -236,6 +237,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
         <div>
           <label className={labelClass}>單位狀態</label>
           <select value={form.status} onChange={e => set('status', e.target.value)} className={inputClass}>
+            <option value="">— 請選擇 —</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
