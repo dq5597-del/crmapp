@@ -23,7 +23,6 @@ const businessItems = [
   { href: '/messages',         label: '訊息',     icon: MessageSquare },
   { href: '/todos',            label: '事情清單', icon: ListTodo },
   { href: '/schedule',         label: '每日行程', icon: CalendarDays },
-  { href: '/quotes',           label: '報價單',   icon: FileText },
   { href: '/service-requests', label: '叫修管理', icon: Wrench },
   { href: '/notes',            label: '業務筆記', icon: StickyNote },
 ]
@@ -31,6 +30,7 @@ const businessItems = [
 const companyItems: { href: string; label: string; icon: any }[] = []
 
 const psiItems = [
+  { href: '/quotes',          label: '報價單',   icon: FileText },
   { href: '/sales-orders',    label: '銷貨單',   icon: ShoppingCart },
   { href: '/inquiries',       label: '廠商詢價單', icon: MessageSquareQuote },
   { href: '/purchases',       label: '進貨單',   icon: PackageCheck },
