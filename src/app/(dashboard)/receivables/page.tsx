@@ -5,9 +5,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Receivable } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Plus, Search, DollarSign, AlertCircle, CheckCircle, Clock, Printer } from 'lucide-react'
+import { Plus, Search, DollarSign, AlertCircle, CheckCircle, Clock, Printer, RefreshCw } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
-import { PAYMENT_METHODS } from '@/lib/auto-ledger'
+import { PAYMENT_METHODS, ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 
 const STATUS_COLORS: Record<string, string> = {
   '未收':     'bg-red-100 text-red-700',
@@ -57,6 +57,27 @@ export default function ReceivablesPage() {
   async function fetchReceivables() {
     const { data } = await supabase.from('receivables').select('*, clients(company_name), sales_orders(order_no)').order('created_at', { ascending: false })
     setReceivables(data ?? [])
+  }
+
+  // ── 從銷貨單同步（補建缺少的應收） ──
+  const [syncing, setSyncing] = useState(false)
+  async function handleSyncFromSales() {
+    setSyncing(true)
+    try {
+      const { data: orders } = await supabase
+        .from('sales_orders')
+        .select('id, status')
+        .in('status', ['已確認', '出貨中', '已完成'])
+      let created = 0
+      for (const o of orders ?? []) {
+        const result = await ensureReceivableForSalesOrder(supabase, o.id, o.status)
+        if (result === 'created') created++
+      }
+      alert(created > 0 ? `已從銷貨單補建 ${created} 筆應收帳款` : '沒有需要補建的銷貨單（草稿與取消不計入）')
+      fetchReceivables()
+    } finally {
+      setSyncing(false)
+    }
   }
 
   // ── 列表快速收款 ──
@@ -151,9 +172,16 @@ export default function ReceivablesPage() {
           <DollarSign size={20} className="text-green-600" />
           <h1 className="text-xl font-bold text-gray-900">應收帳款</h1>
         </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
-          <Plus size={16} /> 新增應收
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleSyncFromSales} disabled={syncing}
+            className="flex items-center gap-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50">
+            <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? '同步中…' : '從銷貨單同步'}
+          </button>
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">
+            <Plus size={16} /> 新增應收
+          </button>
+        </div>
       </div>
 
       {/* KPI */}
