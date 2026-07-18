@@ -64,6 +64,7 @@ async function getDashboardData() {
     cycleTime,
     goalsRes,
     goalTodosRes,
+    goalSalesRes,
   ] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', '有需求'),
@@ -126,17 +127,28 @@ async function getDashboardData() {
     supabase.from('goals').select('*').neq('status', '已完成').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
     // 掛勾目標的事項（算任務完成率）
     supabase.from('todos').select('goal_id, is_done').not('goal_id', 'is', null),
+    // 銷貨金額（數值目標自動累計用）
+    supabase.from('sales_orders').select('created_at, total_amount').neq('status', '取消').neq('status', '草稿'),
   ])
 
   // 目標進度（任務完成率 / 數值目標）
   const goalTodos = (goalTodosRes?.data ?? []) as any[]
+  const goalSales = (goalSalesRes?.data ?? []) as any[]
   const goalsProgress = ((goalsRes?.data ?? []) as any[]).map((g: any) => {
     const linked = goalTodos.filter(t => t.goal_id === g.id)
     const done = linked.filter(t => t.is_done).length
     let pct = 0, detail = ''
     if (g.metric_type === 'number' && Number(g.target_value) > 0) {
-      pct = Math.min(100, Math.round((Number(g.current_value ?? 0) / Number(g.target_value)) * 100))
-      detail = `目前 ${Number(g.current_value ?? 0).toLocaleString()} / 目標 ${Number(g.target_value).toLocaleString()}`
+      let cur = Number(g.current_value ?? 0)
+      if (g.auto_source === 'sales_orders') {
+        const from = g.start_date ?? '0000-01-01'
+        const to = (g.due_date ?? '9999-12-31') + 'T23:59:59'
+        cur = goalSales
+          .filter((s: any) => s.created_at >= from && s.created_at <= to)
+          .reduce((sum: number, s: any) => sum + Number(s.total_amount || 0), 0)
+      }
+      pct = Math.min(100, Math.round((cur / Number(g.target_value)) * 100))
+      detail = `目前 ${cur.toLocaleString()} / 目標 ${Number(g.target_value).toLocaleString()}${g.auto_source === 'sales_orders' ? '（自動）' : ''}`
     } else {
       pct = linked.length > 0 ? Math.round((done / linked.length) * 100) : 0
       detail = `關聯事項 ${done}/${linked.length}`

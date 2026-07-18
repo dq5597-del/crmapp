@@ -51,13 +51,15 @@ interface Goal {
   metric_type: 'task' | 'number'
   target_value: number | null
   current_value: number | null
+  auto_source?: string | null
+  start_date?: string | null
   status: string
   sort_order: number | null
   created_at: string
 }
 
 const emptyForm = () => ({ title: '', category: '工作', notes: '', due_date: '', goal_id: '' })
-const emptyGoalForm = () => ({ title: '', category: '工作', due_date: '', metric_type: 'task' as 'task' | 'number', target_value: '', current_value: '' })
+const emptyGoalForm = () => ({ title: '', category: '工作', due_date: '', metric_type: 'task' as 'task' | 'number', target_value: '', current_value: '', auto_sales: false, start_date: '' })
 
 function daysLeft(due: string | null): number | null {
   if (!due) return null
@@ -105,13 +107,24 @@ export default function TodosPage() {
     setLoading(false)
   }
 
+  const [salesForGoals, setSalesForGoals] = useState<{ created_at: string; total_amount: number }[]>([])
+
   async function fetchGoals() {
-    const { data } = await supabase
-      .from('goals')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false })
+    const [{ data }, { data: sales }] = await Promise.all([
+      supabase.from('goals').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
+      supabase.from('sales_orders').select('created_at, total_amount').neq('status', '取消').neq('status', '草稿'),
+    ])
     setGoals((data as Goal[]) ?? [])
+    setSalesForGoals((sales as any[]) ?? [])
+  }
+
+  // 自動累計銷貨金額（起算日～期限/今天）
+  function autoSalesSum(goal: Goal): number {
+    const from = goal.start_date ?? '0000-01-01'
+    const to = (goal.due_date ?? '9999-12-31') + 'T23:59:59'
+    return salesForGoals
+      .filter(s => s.created_at >= from && s.created_at <= to)
+      .reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
   }
 
   // 目標進度計算
@@ -119,11 +132,12 @@ export default function TodosPage() {
     const linked = todos.filter(t => t.goal_id === goal.id)
     const done = linked.filter(t => t.is_done).length
     if (goal.metric_type === 'number' && Number(goal.target_value) > 0) {
-      const cur = Number(goal.current_value ?? 0)
+      const isAuto = goal.auto_source === 'sales_orders'
+      const cur = isAuto ? autoSalesSum(goal) : Number(goal.current_value ?? 0)
       const tgt = Number(goal.target_value)
-      return { pct: Math.min(100, Math.round((cur / tgt) * 100)), done, total: linked.length, isNumber: true, cur, tgt }
+      return { pct: Math.min(100, Math.round((cur / tgt) * 100)), done, total: linked.length, isNumber: true, cur, tgt, isAuto }
     }
-    return { pct: linked.length > 0 ? Math.round((done / linked.length) * 100) : 0, done, total: linked.length, isNumber: false, cur: done, tgt: linked.length }
+    return { pct: linked.length > 0 ? Math.round((done / linked.length) * 100) : 0, done, total: linked.length, isNumber: false, cur: done, tgt: linked.length, isAuto: false }
   }
 
   const selectedGoal = goals.find(g => g.id === goalFilter) ?? null
@@ -135,6 +149,8 @@ export default function TodosPage() {
       title: g.title, category: g.category ?? '工作', due_date: g.due_date ?? '',
       metric_type: g.metric_type, target_value: g.target_value != null ? String(g.target_value) : '',
       current_value: g.current_value != null ? String(g.current_value) : '',
+      auto_sales: g.auto_source === 'sales_orders',
+      start_date: g.start_date ?? '',
     })
     setShowGoalForm(true)
   }
@@ -150,6 +166,8 @@ export default function TodosPage() {
       metric_type: goalForm.metric_type,
       target_value: goalForm.metric_type === 'number' && goalForm.target_value !== '' ? Number(goalForm.target_value) : null,
       current_value: goalForm.metric_type === 'number' && goalForm.current_value !== '' ? Number(goalForm.current_value) : 0,
+      auto_source: goalForm.metric_type === 'number' && goalForm.auto_sales ? 'sales_orders' : 'none',
+      start_date: goalForm.metric_type === 'number' && goalForm.auto_sales && goalForm.start_date ? goalForm.start_date : null,
     }
     const res = editingGoalId
       ? await supabase.from('goals').update(payload).eq('id', editingGoalId)
@@ -325,7 +343,9 @@ export default function TodosPage() {
                   </div>
                   <div className="text-sm font-semibold text-gray-900 mb-1">{g.title}</div>
                   <div className="text-[11px] text-gray-500 mb-2">
-                    {p.isNumber ? `目前 ${p.cur.toLocaleString()} / 目標 ${p.tgt.toLocaleString()}` : '任務完成率'}
+                    {p.isNumber
+                      ? <>目前 {p.cur.toLocaleString()} / 目標 {p.tgt.toLocaleString()}{p.isAuto && <span className="ml-1 text-green-600">（自動：銷貨累計）</span>}</>
+                      : '任務完成率'}
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full rounded-full bg-blue-600" style={{ width: `${p.pct}%` }} />
@@ -592,16 +612,40 @@ export default function TodosPage() {
               </div>
 
               {goalForm.metric_type === 'number' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>目前值</label>
-                    <input type="number" value={goalForm.current_value} onChange={e => setGoalForm(p => ({ ...p, current_value: e.target.value }))} className={inputClass} placeholder="320" />
-                  </div>
-                  <div>
-                    <label className={labelClass}>目標值</label>
-                    <input type="number" value={goalForm.target_value} onChange={e => setGoalForm(p => ({ ...p, target_value: e.target.value }))} className={inputClass} placeholder="500" />
-                  </div>
-                </div>
+                <>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={goalForm.auto_sales}
+                      onChange={e => setGoalForm(p => ({ ...p, auto_sales: e.target.checked }))}
+                      className="accent-blue-600 w-4 h-4" />
+                    自動累計銷貨金額（目前值不用手動更新）
+                  </label>
+                  {goalForm.auto_sales ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClass}>起算日（此日起的銷貨計入）</label>
+                        <input type="date" value={goalForm.start_date} onChange={e => setGoalForm(p => ({ ...p, start_date: e.target.value }))} className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>目標值</label>
+                        <input type="number" value={goalForm.target_value} onChange={e => setGoalForm(p => ({ ...p, target_value: e.target.value }))} className={inputClass} placeholder="5000000" />
+                      </div>
+                      <p className="col-span-2 text-[11px] text-gray-400 -mt-1">
+                        自動加總「起算日～期限」內銷貨單金額（排除草稿與取消），銷貨一建立進度就更新。
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClass}>目前值</label>
+                        <input type="number" value={goalForm.current_value} onChange={e => setGoalForm(p => ({ ...p, current_value: e.target.value }))} className={inputClass} placeholder="320" />
+                      </div>
+                      <div>
+                        <label className={labelClass}>目標值</label>
+                        <input type="number" value={goalForm.target_value} onChange={e => setGoalForm(p => ({ ...p, target_value: e.target.value }))} className={inputClass} placeholder="500" />
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <div>
