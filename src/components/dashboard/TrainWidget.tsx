@@ -5,6 +5,8 @@ import { TrainFront, RefreshCw, ArrowRightLeft } from 'lucide-react'
 
 type Train = { trainNo: string; trainType: string; departure: string; arrival: string }
 
+const WEEK = ['日', '一', '二', '三', '四', '五', '六']
+
 const ROUTES = [
   { from: '花蓮', to: '台北' },
   { from: '台北', to: '花蓮' },
@@ -26,6 +28,8 @@ export default function TrainWidget() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [now, setNow] = useState('')
+  const [nextDay, setNextDay] = useState(false)
+  const [date, setDate] = useState('')
 
   const route = ROUTES[idx]
 
@@ -35,7 +39,12 @@ export default function TrainWidget() {
       const res = await fetch(`/api/train?from=${encodeURIComponent(route.from)}&to=${encodeURIComponent(route.to)}&limit=5`)
       const data = await res.json()
       if (data.error) { setErr(data.error); setTrains([]) }
-      else { setTrains(data.trains ?? []); setNow(data.now ?? '') }
+      else {
+        setTrains(data.trains ?? [])
+        setNow(data.now ?? '')
+        setNextDay(!!data.nextDay)
+        setDate(data.date ?? '')
+      }
     } catch (e: any) {
       setErr(e?.message ?? '查詢失敗')
     } finally {
@@ -54,7 +63,14 @@ export default function TrainWidget() {
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
           <TrainFront size={17} className="text-indigo-600" /> 火車時刻
-          {now && <span className="text-xs text-gray-400 font-normal">（{now} 之後）</span>}
+          {nextDay ? (
+            <span className="text-xs text-amber-600 font-normal">
+              （今日已無班次，顯示 {date.slice(5)}
+              {(() => { const d = new Date(date + 'T00:00:00'); return isNaN(d.getTime()) ? '' : ` 週${WEEK[d.getDay()]}` })()} 首班）
+            </span>
+          ) : now ? (
+            <span className="text-xs text-gray-400 font-normal">（{now} 之後）</span>
+          ) : null}
         </h2>
         <div className="flex items-center gap-2">
           <button onClick={() => setIdx(i => (i % 2 === 0 ? i + 1 : i - 1))}

@@ -40,8 +40,9 @@ async function getToken(): Promise<{ token: string } | { error: string }> {
   return { token: cachedToken.token }
 }
 
-function todayTaipei(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
+function todayTaipei(offsetDays = 0): string {
+  const d = new Date(Date.now() + offsetDays * 86400000)
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
 }
 function nowHM(): string {
   return new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit' })
@@ -62,20 +63,16 @@ export async function GET(req: NextRequest) {
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: 500 })
   const token = auth.token
 
-  const date = todayTaipei()
-  const url = `https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/OD/${fromId}/to/${toId}/${date}?%24format=JSON`
-
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
-  if (!res.ok) {
-    const t = await res.text()
-    return NextResponse.json({ error: 'TDX 查詢失敗：' + t.slice(0, 200) }, { status: 500 })
-  }
-  const data = await res.json()
-  const list: any[] = data?.TrainTimetables ?? []
-
-  const now = nowHM()
-  const trains = list
-    .map(t => {
+  async function query(date: string) {
+    const url = `https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/DailyTrainTimetable/OD/${fromId}/to/${toId}/${date}?%24format=JSON`
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+    if (!res.ok) {
+      const t = await res.text()
+      throw new Error('TDX 查詢失敗：' + t.slice(0, 200))
+    }
+    const data = await res.json()
+    const list: any[] = data?.TrainTimetables ?? []
+    return list.map(t => {
       const stops = t.StopTimes ?? []
       const dep = stops[0]?.DepartureTime ?? ''
       const arr = stops[stops.length - 1]?.ArrivalTime ?? ''
@@ -86,9 +83,29 @@ export async function GET(req: NextRequest) {
         arrival: arr.slice(0, 5),
       }
     })
-    .filter(t => t.departure && t.departure >= now)
-    .sort((a, b) => a.departure.localeCompare(b.departure))
-    .slice(0, limit)
+  }
 
-  return NextResponse.json({ from, to, date, now, trains })
+  const now = nowHM()
+  try {
+    const today = todayTaipei()
+    let trains = (await query(today))
+      .filter(t => t.departure && t.departure >= now)
+      .sort((a, b) => a.departure.localeCompare(b.departure))
+      .slice(0, limit)
+
+    if (trains.length > 0) {
+      return NextResponse.json({ from, to, date: today, now, nextDay: false, trains })
+    }
+
+    // 今日已無班次 → 自動查隔天
+    const tomorrow = todayTaipei(1)
+    trains = (await query(tomorrow))
+      .filter(t => t.departure)
+      .sort((a, b) => a.departure.localeCompare(b.departure))
+      .slice(0, limit)
+
+    return NextResponse.json({ from, to, date: tomorrow, now, nextDay: true, trains })
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? '查詢失敗' }, { status: 500 })
+  }
 }
