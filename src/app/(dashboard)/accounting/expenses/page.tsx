@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Save, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Save, Search, Upload } from 'lucide-react'
 
 const INVOICE_TYPES = ['二聯式', '三聯式', '電子發票', '郵資', '無']
 
@@ -121,6 +121,22 @@ export default function ExpensesPage() {
     fetchExpenses()
   }
 
+  const [importing, setImporting] = useState(false)
+  async function handleImportExcel(file: File) {
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/accounting/import-excel', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.error) { alert('匯入失敗：' + data.error); return }
+      alert(`匯入完成：收入 ${data.incomes} 筆、支出 ${data.expenses} 筆`)
+      fetchExpenses()
+    } finally {
+      setImporting(false)
+    }
+  }
+
   // 篩選：關鍵字（供應商／品名／發票號碼）＋科目＋月份
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('全部')
@@ -159,6 +175,12 @@ export default function ExpensesPage() {
               <option key={y} value={y}>{y} 年</option>
             ))}
           </select>
+          <label className={`flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm px-3 py-2 rounded-xl hover:bg-indigo-100 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload size={15} />
+            {importing ? '匯入中…' : '匯入 Excel'}
+            <input type="file" accept=".xlsx" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleImportExcel(f); e.target.value = '' }} />
+          </label>
           <button onClick={openNew} className="flex items-center gap-1.5 bg-blue-600 text-white text-sm px-4 py-2 rounded-xl hover:bg-blue-700">
             <Plus size={16} /> 新增支出
           </button>

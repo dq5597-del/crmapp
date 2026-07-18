@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Save, RefreshCw, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Save, RefreshCw, Search, Upload } from 'lucide-react'
 
 const INVOICE_TYPES = ['三聯式', '二聯式', '電子發票', '無']
 
@@ -116,17 +116,33 @@ export default function IncomePage() {
   async function handleSync() {
     setSyncing(true)
     try {
-      const res = await fetch('/api/accounting/income/sync', {
+      const res = await fetch('/api/accounting/income/sync-receivables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ year }),
       })
       const data = await res.json()
       if (data.error) { alert('同步失敗：' + data.error); return }
-      alert(data.imported > 0 ? `已匯入 ${data.imported} 筆報價單` : data.message || '無新資料')
+      alert(data.imported > 0 ? `已從應收帳款匯入 ${data.imported} 筆收入` : data.message || '無新資料')
       fetchIncome()
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const [importing, setImporting] = useState(false)
+  async function handleImportExcel(file: File) {
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/accounting/import-excel', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.error) { alert('匯入失敗：' + data.error); return }
+      alert(`匯入完成：收入 ${data.incomes} 筆、支出 ${data.expenses} 筆`)
+      fetchIncome()
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -174,8 +190,14 @@ export default function IncomePage() {
             className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-sm px-3 py-2 rounded-xl hover:bg-gray-50 disabled:opacity-50"
           >
             <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
-            從報價單匯入
+            從應收帳款匯入
           </button>
+          <label className={`flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm px-3 py-2 rounded-xl hover:bg-indigo-100 cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload size={15} />
+            {importing ? '匯入中…' : '匯入 Excel'}
+            <input type="file" accept=".xlsx" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleImportExcel(f); e.target.value = '' }} />
+          </label>
           <button onClick={openNew} className="flex items-center gap-1.5 bg-blue-600 text-white text-sm px-4 py-2 rounded-xl hover:bg-blue-700">
             <Plus size={16} /> 新增收入
           </button>
