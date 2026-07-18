@@ -186,6 +186,7 @@ export default function PermissionsPage() {
       <div className="flex items-center gap-2 mb-1">
         <ShieldCheck className="text-blue-600" size={22} />
         <h1 className="text-xl font-bold text-gray-900">權限管理</h1>
+        <a href="/settings" className="ml-auto text-sm text-blue-600 hover:underline">← 返回系統設定</a>
       </div>
       <p className="text-sm text-gray-500 mb-5">勾選每個角色可以使用的功能與動作。個人有特例時，再到「個人例外」單獨調整。</p>
 

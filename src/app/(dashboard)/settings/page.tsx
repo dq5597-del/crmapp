@@ -396,6 +396,12 @@ export default function SettingsPage() {
             <Icon size={14} />{label}
           </button>
         ))}
+        {isAdmin && (
+          <a href="/permissions"
+            className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900">
+            <Lock size={14} />權限管理
+          </a>
+        )}
       </div>
 
       {tab === 'company' && (

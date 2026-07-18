@@ -281,9 +281,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             onClose={onClose}
           />
 
-          {isAdmin && (
-            <NavLink href="/permissions" label="權限管理" icon={ShieldCheck} active={isActive('/permissions')} onClick={onClose} />
-          )}
           {flt(navItemsAfter).map(({ href, label, icon }) => (
             <NavLink key={href} href={href} label={label} icon={icon} active={isActive(href)} onClick={onClose} />
           ))}
