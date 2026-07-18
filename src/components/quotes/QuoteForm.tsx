@@ -4,8 +4,9 @@ import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
-import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, FolderPlus } from 'lucide-react'
+import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, FolderPlus, Search } from 'lucide-react'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
+import ProductPickerModal from '@/components/ProductPickerModal'
 
 type MarketPlatform = {
   key: string
@@ -340,6 +341,7 @@ export default function QuoteForm({
   const [marketData, setMarketData] = useState<Record<number, MarketPlatform[]>>({})
   const [marketLoading, setMarketLoading] = useState<number | null>(null)
   const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)
+  const [pickerTarget, setPickerTarget] = useState<number | 'append' | null>(null)
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [showQuickAddClient, setShowQuickAddClient] = useState(false)
@@ -447,6 +449,44 @@ export default function QuoteForm({
   }
 
   function addItem() { setItems(prev => [...prev, emptyItem()]) }
+
+  function productToItem(p: any): QuoteItemForm {
+    return {
+      ...emptyItem(), product_id: p.id, brand: p.brand ?? '', product_name: p.product_name,
+      model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0,
+    }
+  }
+
+  function handlePickerConfirm(picked: any[]) {
+    setItems(prev => {
+      const next = [...prev]
+      let list = picked
+      if (typeof pickerTarget === 'number') {
+        const t = next[pickerTarget]
+        if (t && !t.is_category && !t.product_name.trim() && picked.length > 0) {
+          const p = picked[0]
+          next[pickerTarget] = { ...t, product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0 }
+          list = picked.slice(1)
+        }
+      }
+      list.forEach(p => next.push(productToItem(p)))
+      return next
+    })
+    setPickerTarget(null)
+  }
+
+  function handlePickerQuickAdd(text: string) {
+    let idx: number
+    if (typeof pickerTarget === 'number') {
+      idx = pickerTarget
+    } else {
+      idx = items.length
+      setItems(prev => [...prev, emptyItem()])
+    }
+    setProductSearch(p => ({ ...p, [idx]: text }))
+    setPickerTarget(null)
+    setQuickAddIdx(idx)
+  }
   function addCategory() { setItems(prev => [...prev, categoryItem()]) }
   function moveItem(idx: number, dir: -1 | 1) {
     setItems(prev => {
@@ -636,6 +676,16 @@ export default function QuoteForm({
         />
       )}
 
+      {pickerTarget !== null && (
+        <ProductPickerModal
+          products={products}
+          onClose={() => setPickerTarget(null)}
+          onConfirm={handlePickerConfirm}
+          onQuickAdd={handlePickerQuickAdd}
+          confirmLabel="帶入報價單"
+        />
+      )}
+
       {quickAddIdx !== null && (
         <QuickAddProductModal
           initialName={productSearch[quickAddIdx] ?? ''}
@@ -740,6 +790,9 @@ export default function QuoteForm({
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">品項明細</h2>
           <div className="flex items-center gap-4">
+            <button onClick={() => setPickerTarget('append')} className="flex items-center gap-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium">
+              <Search size={14} /> 選產品（多選）
+            </button>
             <button onClick={addCategory} className="flex items-center gap-1.5 text-sm text-purple-600 hover:underline font-medium">
               <FolderPlus size={14} /> 插入分類標題
             </button>
@@ -818,55 +871,19 @@ export default function QuoteForm({
                       <input value={item.brand} onChange={e => setItem(idx, 'brand', e.target.value)} placeholder="品牌" className={tdInput} />
                     </td>
 
-                    {/* 品名 */}
-                    <td className="px-2 py-2 relative">
-                      <div className="relative">
+                    {/* 品名（點放大鏡開選產品視窗） */}
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1">
                         <input
-                          value={productDropdown === idx ? searchStr || item.product_name : item.product_name}
-                          onFocus={() => { setProductDropdown(idx); setProductSearch(p => ({ ...p, [idx]: '' })) }}
-                          onChange={e => {
-                            setProductSearch(p => ({ ...p, [idx]: e.target.value }))
-                            setItem(idx, 'product_name', e.target.value)
-                          }}
-                          onBlur={() => setTimeout(() => setProductDropdown(null), 200)}
-                          placeholder="輸入或搜尋"
-                          className={tdInput}
+                          value={item.product_name}
+                          onChange={e => setItem(idx, 'product_name', e.target.value)}
+                          placeholder="輸入品名，或按放大鏡選產品"
+                          className={tdInput + ' flex-1'}
                         />
-                        {productDropdown === idx && (
-                          <div className="absolute top-full left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 w-80 max-h-56 overflow-y-auto">
-                            {results.length > 0 ? (
-                              results.map(p => {
-                                const pc = (p as any).product_categories
-                                return (
-                                  <button key={p.id} type="button" onMouseDown={() => onProductSelect(idx, p)}
-                                    className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-none">
-                                    <div className="font-medium text-gray-900">{p.product_name}</div>
-                                    <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
-                                      {pc && <span className="text-blue-500">{pc.main_category} · {pc.sub_category}</span>}
-                                      {pc && <span className="text-gray-300">|</span>}
-                                      <span>{p.brand} {p.model}</span>
-                                      <span className="text-gray-300">|</span>
-                                      <span className={p.stock_qty <= 0 ? 'text-red-500 font-medium' : ''}>
-                                        庫存 {p.stock_qty}
-                                      </span>
-                                      <span className="text-gray-300">|</span>
-                                      <span>NT${p.list_price.toLocaleString()}</span>
-                                    </div>
-                                  </button>
-                                )
-                              })
-                            ) : (
-                              <div className="px-3 py-2 text-sm text-gray-400">找不到符合的產品</div>
-                            )}
-                            <button
-                              type="button"
-                              onMouseDown={() => { setQuickAddIdx(idx); setProductDropdown(null) }}
-                              className="w-full text-left px-3 py-2.5 text-sm text-blue-600 font-medium hover:bg-blue-50 border-t border-gray-100 flex items-center gap-1.5"
-                            >
-                              <Plus size={13} /> 新增「{searchStr || '產品'}」到產品資料庫
-                            </button>
-                          </div>
-                        )}
+                        <button type="button" onClick={() => setPickerTarget(idx)} title="從產品庫選取（可多選）"
+                          className="p-1.5 text-gray-400 hover:text-blue-600 shrink-0">
+                          <Search size={14} />
+                        </button>
                       </div>
                     </td>
 

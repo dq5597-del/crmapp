@@ -9,6 +9,7 @@ import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
+import ProductPickerModal from '@/components/ProductPickerModal'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -41,7 +42,8 @@ export default function SalesOrdersPage() {
   const [products, setProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState<Record<number, string>>({})
   const [productDropdown, setProductDropdown] = useState<number | null>(null)
-  const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)
+  const [quickAddIdx, setQuickAddIdx] = useState<number | null>(null)  // -1 = 新增後直接加一列
+  const [pickerTarget, setPickerTarget] = useState<number | 'append' | null>(null)
   const [quickForm, setQuickForm] = useState({ brand: '', product_name: '', model: '', unit: '台', list_price: 0 })
   const [quickSaving, setQuickSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -73,7 +75,7 @@ export default function SalesOrdersPage() {
     Promise.all([
       supabase.from('sales_orders').select('*, clients(company_name)').order('created_at', { ascending: false }),
       supabase.from('clients').select('id, company_name').order('company_name'),
-      supabase.from('products').select('id, brand, product_name, model, unit, list_price, stock_qty').eq('is_active', true).order('product_name'),
+      supabase.from('products').select('id, brand, product_name, model, unit, list_price, stock_qty, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name'),
       supabase.from('system_settings').select('*').single(),
     ]).then(([ordersRes, clientsRes, productsRes, settingsRes]) => {
       setOrders(ordersRes.data ?? [])
@@ -121,8 +123,36 @@ export default function SalesOrdersPage() {
     setQuickSaving(false)
     if (error || !data) { alert('新增產品失敗：' + (error?.message ?? '')); return }
     setProducts(prev => [...prev, data].sort((a, b) => a.product_name.localeCompare(b.product_name, 'zh-Hant')))
-    onProductPick(quickAddIdx, data)
+    if (quickAddIdx === -1) {
+      setItems(prev => [...prev, { ...emptyItem(), brand: data.brand ?? '', product_name: data.product_name, model: data.model ?? '', unit: data.unit ?? '台', unit_price: Number(data.list_price) || 0 }])
+    } else {
+      onProductPick(quickAddIdx, data)
+    }
     setQuickAddIdx(null)
+  }
+
+  function handlePickerConfirm(picked: any[]) {
+    setItems(prev => {
+      const next = [...prev]
+      let list = picked
+      if (typeof pickerTarget === 'number') {
+        const t = next[pickerTarget]
+        if (t && !t.product_name.trim() && picked.length > 0) {
+          const p = picked[0]
+          next[pickerTarget] = { ...t, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0 }
+          list = picked.slice(1)
+        }
+      }
+      list.forEach(p => next.push({ ...emptyItem(), brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0 }))
+      return next
+    })
+    setPickerTarget(null)
+  }
+
+  function handlePickerQuickAdd(text: string) {
+    setQuickForm({ brand: '', product_name: text, model: '', unit: '台', list_price: 0 })
+    setQuickAddIdx(typeof pickerTarget === 'number' ? pickerTarget : -1)
+    setPickerTarget(null)
   }
 
   const filtered = orders.filter(o =>
@@ -450,9 +480,14 @@ export default function SalesOrdersPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-medium text-gray-700">品項明細</label>
-                  <button onClick={addItem} className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1">
-                    <Plus size={12} /> 加一行
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setPickerTarget('append')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
+                      <Search size={12} /> 選產品（多選）
+                    </button>
+                    <button onClick={addItem} className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1">
+                      <Plus size={12} /> 加一行
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto border border-gray-100 rounded-xl">
                   <table className="w-full text-xs">
@@ -481,41 +516,18 @@ export default function SalesOrdersPage() {
                             <input value={item.brand} onChange={e => updateItem(idx, 'brand', e.target.value)} placeholder="品牌"
                               className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
-                          <td className="px-2 py-1.5 relative">
-                            <input
-                              value={productDropdown === idx ? (productSearch[idx] || item.product_name) : item.product_name}
-                              onFocus={() => { setProductDropdown(idx); setProductSearch(p => ({ ...p, [idx]: '' })) }}
-                              onChange={e => {
-                                setProductSearch(p => ({ ...p, [idx]: e.target.value }))
-                                updateItem(idx, 'product_name', e.target.value)
-                              }}
-                              onBlur={() => setTimeout(() => setProductDropdown(d => d === idx ? null : d), 200)}
-                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400"
-                              placeholder="輸入或搜尋產品" autoComplete="off" />
-                            {productDropdown === idx && (
-                              <div className="absolute top-full left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 w-80 max-h-52 overflow-y-auto">
-                                {filteredProducts(idx).map(p => (
-                                  <button key={p.id} type="button" onMouseDown={() => onProductPick(idx, p)}
-                                    className="w-full text-left px-3 py-2 hover:bg-green-50 text-xs border-b border-gray-50 last:border-none">
-                                    <div className="font-medium text-gray-900">{p.product_name}</div>
-                                    <div className="text-[11px] text-gray-500">
-                                      {p.brand ?? ''} {p.model ?? ''}　庫存 {p.stock_qty}　NT${Number(p.list_price).toLocaleString()}
-                                    </div>
-                                  </button>
-                                ))}
-                                {filteredProducts(idx).length === 0 && (
-                                  <div className="px-3 py-2 text-xs text-gray-400">找不到符合的產品</div>
-                                )}
-                                <button type="button"
-                                  onMouseDown={() => {
-                                    setQuickForm({ brand: '', product_name: (productSearch[idx] || item.product_name || '').trim(), model: item.model || '', unit: '台', list_price: item.unit_price || 0 })
-                                    setQuickAddIdx(idx); setProductDropdown(null)
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs text-green-700 font-medium hover:bg-green-50 border-t border-gray-100 flex items-center gap-1">
-                                  <Plus size={12} /> 新增「{(productSearch[idx] || item.product_name || '產品').trim() || '產品'}」到產品資料庫
-                                </button>
-                              </div>
-                            )}
+                          <td className="px-2 py-1.5">
+                            <div className="flex items-center gap-1">
+                              <input
+                                value={item.product_name}
+                                onChange={e => updateItem(idx, 'product_name', e.target.value)}
+                                className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400"
+                                placeholder="輸入品名，或按放大鏡選產品" autoComplete="off" />
+                              <button type="button" onClick={() => setPickerTarget(idx)} title="從產品庫選取（可多選）"
+                                className="p-1 text-gray-400 hover:text-green-600 shrink-0">
+                                <Search size={13} />
+                              </button>
+                            </div>
                           </td>
                           <td className="px-2 py-1.5">
                             <input value={item.model} onChange={e => updateItem(idx, 'model', e.target.value)}
@@ -616,6 +628,17 @@ export default function SalesOrdersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 選產品 Modal */}
+      {pickerTarget !== null && (
+        <ProductPickerModal
+          products={products}
+          onClose={() => setPickerTarget(null)}
+          onConfirm={handlePickerConfirm}
+          onQuickAdd={handlePickerQuickAdd}
+          confirmLabel="帶入銷貨單"
+        />
       )}
 
       {/* 快速新增產品 Modal */}
