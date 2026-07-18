@@ -112,6 +112,13 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     loadVendors()
     loadProducts()
     if (!initialInquiry?.inquiry_no) generateNo()
+    // 新單帶入詢價單預設備註（系統設定）
+    if (!initialInquiry) {
+      supabase.from('system_settings').select('*').single().then(({ data }) => {
+        const s = data as any
+        if (s?.inquiry_notes) setHeader(p => ({ ...p, notes: p.notes || s.inquiry_notes }))
+      })
+    }
   }, [])
 
   async function loadVendors() {

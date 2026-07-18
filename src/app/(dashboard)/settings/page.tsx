@@ -58,6 +58,12 @@ export default function SettingsPage() {
     delivery_days: 14,
     valid_days: 30,
     quote_notes: '',
+    sales_payment_terms: '',
+    sales_bank_account: '',
+    sales_notes: '',
+    purchase_payment_terms: '',
+    purchase_notes: '',
+    inquiry_notes: '',
     target_needs_clients: 20,
     target_planning_clients: 20,
     target_monthly_revenue: 500000,
@@ -86,6 +92,12 @@ export default function SettingsPage() {
           delivery_days: sRes.data.delivery_days ?? 14,
           valid_days: sRes.data.valid_days ?? 30,
           quote_notes: sRes.data.quote_notes ?? '',
+          sales_payment_terms: (sRes.data as any).sales_payment_terms ?? '',
+          sales_bank_account: (sRes.data as any).sales_bank_account ?? '',
+          sales_notes: (sRes.data as any).sales_notes ?? '',
+          purchase_payment_terms: (sRes.data as any).purchase_payment_terms ?? '',
+          purchase_notes: (sRes.data as any).purchase_notes ?? '',
+          inquiry_notes: (sRes.data as any).inquiry_notes ?? '',
           target_needs_clients: (sRes.data as any).target_needs_clients ?? 20,
           target_planning_clients: (sRes.data as any).target_planning_clients ?? 20,
           target_monthly_revenue: (sRes.data as any).target_monthly_revenue ?? 500000,
@@ -218,8 +230,10 @@ export default function SettingsPage() {
       } as any
       const { error } = await supabase.from('system_settings').update(payload).eq('id', settings.id)
       if (error) {
-        // 目標欄位可能尚未執行 supabase/schema_dashboard_targets.sql 遷移，先移除目標欄位重試一次
-        const { target_needs_clients, target_planning_clients, target_monthly_revenue, target_conversion_rate, ...fallback } = payload
+        // 部分欄位可能尚未執行 SQL 遷移，先移除新欄位重試一次
+        const { target_needs_clients, target_planning_clients, target_monthly_revenue, target_conversion_rate,
+          sales_payment_terms, sales_bank_account, sales_notes, purchase_payment_terms, purchase_notes, inquiry_notes,
+          ...fallback } = payload
         const { error: error2 } = await supabase.from('system_settings').update(fallback).eq('id', settings.id)
         if (error2) {
           alert('儲存失敗：' + error2.message)
@@ -481,6 +495,45 @@ export default function SettingsPage() {
             <div className="sm:col-span-2">
               <label className={labelClass}>報價單預設備註</label>
               <textarea value={form.quote_notes} onChange={e => setForm(p => ({ ...p, quote_notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+          <h2 className="font-semibold text-gray-900">銷貨單條款預設值</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>預設付款條件</label>
+              <input value={form.sales_payment_terms} onChange={e => setForm(p => ({ ...p, sales_payment_terms: e.target.value }))} className={inputClass} placeholder="30天月結" />
+            </div>
+            <div>
+              <label className={labelClass}>預設匯款帳號</label>
+              <input value={form.sales_bank_account} onChange={e => setForm(p => ({ ...p, sales_bank_account: e.target.value }))} className={inputClass} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>銷貨單預設備註</label>
+              <textarea value={form.sales_notes} onChange={e => setForm(p => ({ ...p, sales_notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+          <h2 className="font-semibold text-gray-900">訂購單條款預設值</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>預設付款條件</label>
+              <input value={form.purchase_payment_terms} onChange={e => setForm(p => ({ ...p, purchase_payment_terms: e.target.value }))} className={inputClass} placeholder="30天月結" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>訂購單預設備註</label>
+              <textarea value={form.purchase_notes} onChange={e => setForm(p => ({ ...p, purchase_notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+          <h2 className="font-semibold text-gray-900">詢價單預設值</h2>
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className={labelClass}>詢價單預設備註（會顯示在廠商填價頁）</label>
+              <textarea value={form.inquiry_notes} onChange={e => setForm(p => ({ ...p, inquiry_notes: e.target.value }))} rows={2} className={inputClass + ' resize-none'} />
             </div>
           </div>
 

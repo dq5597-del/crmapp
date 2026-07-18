@@ -43,6 +43,13 @@ export default function NewPurchaseOrderPage() {
       .then(({ data }) => setSalespeople(data ?? []))
     supabase.from('vendors').select('id, company_name, contact_name, phone').order('company_name')
       .then(({ data }) => setVendors(data ?? []))
+    // 帶入訂購單條款預設值（系統設定）
+    supabase.from('system_settings').select('*').single().then(({ data }) => {
+      const s = data as any
+      if (!s) return
+      setPaymentTerms(p => p || (s.purchase_payment_terms ?? ''))
+      setNotes(p => p || (s.purchase_notes ?? ''))
+    })
   }, [])
 
   const filteredVendors = vendorSearch

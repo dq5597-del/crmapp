@@ -67,15 +67,24 @@ export default function SalesOrdersPage() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<Item[]>([emptyItem()])
 
+  const [termDefaults, setTermDefaults] = useState({ payment_terms: '', bank_account: '', notes: '' })
+
   useEffect(() => {
     Promise.all([
       supabase.from('sales_orders').select('*, clients(company_name)').order('created_at', { ascending: false }),
       supabase.from('clients').select('id, company_name').order('company_name'),
       supabase.from('products').select('id, brand, product_name, model, unit, list_price, stock_qty').eq('is_active', true).order('product_name'),
-    ]).then(([ordersRes, clientsRes, productsRes]) => {
+      supabase.from('system_settings').select('*').single(),
+    ]).then(([ordersRes, clientsRes, productsRes, settingsRes]) => {
       setOrders(ordersRes.data ?? [])
       setClients(clientsRes.data ?? [])
       setProducts(productsRes.data ?? [])
+      const s = settingsRes.data as any
+      if (s) setTermDefaults({
+        payment_terms: s.sales_payment_terms ?? '',
+        bank_account: s.sales_bank_account ?? s.bank_account ?? '',
+        notes: s.sales_notes ?? '',
+      })
       setLoading(false)
     })
   }, [])
@@ -147,8 +156,10 @@ export default function SalesOrdersPage() {
   function resetForm() {
     setClientId(''); setClientSearch(''); setShowClientDropdown(false)
     setProjectName(''); setContactName(''); setClientPhone('')
-    setDeliveryDate(''); setDeliveryAddress(''); setPaymentTerms(''); setBankAccount('')
-    setStatus('草稿'); setNotes(''); setItems([emptyItem()])
+    setDeliveryDate(''); setDeliveryAddress('')
+    setPaymentTerms(termDefaults.payment_terms)
+    setBankAccount(termDefaults.bank_account)
+    setStatus('草稿'); setNotes(termDefaults.notes); setItems([emptyItem()])
   }
 
   async function generateOrderNo() {
