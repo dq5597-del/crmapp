@@ -33,6 +33,7 @@ const companyItems: { href: string; label: string; icon: any }[] = []
 const psiItems = [
   { href: '/sales-orders',    label: '銷貨單',   icon: ShoppingCart },
   { href: '/inquiries',       label: '廠商詢價單', icon: MessageSquareQuote },
+  { href: '/purchases',       label: '進貨單',   icon: PackageCheck },
   { href: '/purchase-orders', label: '訂購單',   icon: Truck },
   { href: '/shipments',       label: '出貨管理', icon: PackageCheck },
   { href: '/inventory',       label: '庫存管理', icon: Warehouse },

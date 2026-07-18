@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Plus, Search, Receipt, Printer, RefreshCw } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
-import { PAYMENT_METHODS, ensurePayableForPurchaseOrder } from '@/lib/auto-ledger'
+import { PAYMENT_METHODS, ensurePayableForPurchase } from '@/lib/auto-ledger'
 
 const STATUS_COLORS: Record<string, string> = {
   '未付':     'bg-red-100 text-red-700',
@@ -89,21 +89,21 @@ export default function PayablesPage() {
     fetchPayables()
   }
 
-  // ── 從訂購單同步（補建缺少的應付） ──
+  // ── 從進貨單同步（補建缺少的應付） ──
   const [syncing, setSyncing] = useState(false)
   async function handleSyncFromPurchase() {
     setSyncing(true)
     try {
       const { data: orders } = await supabase
-        .from('purchase_orders')
+        .from('purchases')
         .select('id, status')
         .in('status', ['已確認', '已到貨'])
       let created = 0
       for (const o of orders ?? []) {
-        const result = await ensurePayableForPurchaseOrder(supabase, o.id, o.status)
+        const result = await ensurePayableForPurchase(supabase, o.id, o.status)
         if (result === 'created') created++
       }
-      alert(created > 0 ? `已從訂購單補建 ${created} 筆應付帳款` : '沒有需要補建的訂購單（限已確認／已到貨）')
+      alert(created > 0 ? `已從進貨單補建 ${created} 筆應付帳款` : '沒有需要補建的進貨單（限已確認／已到貨）')
       fetchPayables()
     } finally {
       setSyncing(false)
@@ -184,7 +184,7 @@ export default function PayablesPage() {
           <button onClick={handleSyncFromPurchase} disabled={syncing}
             className="flex items-center gap-2 border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50">
             <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? '同步中…' : '從訂購單同步'}
+            {syncing ? '同步中…' : '從進貨單同步'}
           </button>
           <button
             onClick={() => setShowForm(true)}

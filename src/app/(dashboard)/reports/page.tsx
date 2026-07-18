@@ -5,12 +5,14 @@ import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { ClipboardList, Printer, Search, X, CheckSquare, Square } from 'lucide-react'
 
-type ReportKey = 'statement' | 'sales' | 'receivable'
+type ReportKey = 'statement' | 'sales' | 'receivable' | 'salesperson' | 'clientprofit'
 
 const REPORTS: { key: ReportKey; label: string; desc: string }[] = [
   { key: 'statement', label: '客戶對帳單', desc: '各單位銷貨與收款彙整，一單位一區塊' },
   { key: 'sales', label: '銷貨統計報表', desc: '期間內銷貨單明細與金額彙總' },
   { key: 'receivable', label: '應收帳款明細', desc: '未收與逾期款項、到期日' },
+  { key: 'salesperson', label: '業務員業績', desc: '各業務接單金額、轉換率與估計毛利' },
+  { key: 'clientprofit', label: '客戶毛利分析', desc: '各單位銷貨、成本與毛利率排行' },
 ]
 
 function firstDayOfMonth(): string {
@@ -33,6 +35,8 @@ export default function ReportsPage() {
   const [generated, setGenerated] = useState(false)
   const [salesRows, setSalesRows] = useState<any[]>([])
   const [recvRows, setRecvRows] = useState<any[]>([])
+  const [spRows, setSpRows] = useState<any[]>([])
+  const [cpRows, setCpRows] = useState<any[]>([])
 
   useEffect(() => {
     supabase.from('clients').select('id, company_name').order('company_name')
@@ -77,6 +81,65 @@ export default function ReportsPage() {
     } else {
       setSalesRows([])
     }
+
+    if (report === 'salesperson') {
+      const [{ data: orders }, { data: quotes }, { data: people }] = await Promise.all([
+        supabase.from('sales_orders')
+          .select('salesperson_id, total_amount, client_id, sales_order_items(quantity, unit_price, products(cost_price))')
+          .gte('created_at', fromTs).lte('created_at', toTs).neq('status', '取消').neq('status', '草稿'),
+        supabase.from('quotes')
+          .select('salesperson_id, status, client_id')
+          .gte('created_at', fromTs).lte('created_at', toTs).neq('status', '作廢'),
+        supabase.from('user_profiles').select('id, full_name'),
+      ])
+      const filterClient = (r: any) => selectedClients.length === 0 || selectedClients.includes(r.client_id)
+      const nameOf = (pid: string | null) => (people ?? []).find((p: any) => p.id === pid)?.full_name ?? '（未指定）'
+      const map: Record<string, any> = {}
+      const key = (pid: string | null) => pid ?? '__none__'
+      ;(quotes ?? []).filter(filterClient).forEach((q: any) => {
+        const k = key(q.salesperson_id)
+        map[k] = map[k] ?? { name: nameOf(q.salesperson_id), quotes: 0, converted: 0, orders: 0, revenue: 0, cost: 0, costedRevenue: 0 }
+        map[k].quotes += 1
+        if (q.status === '已轉銷貨單') map[k].converted += 1
+      })
+      ;(orders ?? []).filter(filterClient).forEach((o: any) => {
+        const k = key(o.salesperson_id)
+        map[k] = map[k] ?? { name: nameOf(o.salesperson_id), quotes: 0, converted: 0, orders: 0, revenue: 0, cost: 0, costedRevenue: 0 }
+        map[k].orders += 1
+        map[k].revenue += Number(o.total_amount || 0)
+        ;(o.sales_order_items ?? []).forEach((it: any) => {
+          const c = it.products?.cost_price
+          if (c != null) {
+            map[k].cost += Number(it.quantity) * Number(c)
+            map[k].costedRevenue += Number(it.quantity) * Number(it.unit_price)
+          }
+        })
+      })
+      setSpRows(Object.values(map).sort((a: any, b: any) => b.revenue - a.revenue))
+    } else { setSpRows([]) }
+
+    if (report === 'clientprofit') {
+      let q = supabase.from('sales_orders')
+        .select('client_id, total_amount, clients(company_name), sales_order_items(quantity, unit_price, products(cost_price))')
+        .gte('created_at', fromTs).lte('created_at', toTs).neq('status', '取消').neq('status', '草稿')
+      if (selectedClients.length > 0) q = q.in('client_id', selectedClients)
+      const { data: orders } = await q
+      const map: Record<string, any> = {}
+      ;(orders ?? []).forEach((o: any) => {
+        const k = o.client_id ?? '__none__'
+        map[k] = map[k] ?? { name: o.clients?.company_name ?? '（未指定單位）', orders: 0, revenue: 0, cost: 0, costedRevenue: 0 }
+        map[k].orders += 1
+        map[k].revenue += Number(o.total_amount || 0)
+        ;(o.sales_order_items ?? []).forEach((it: any) => {
+          const c = it.products?.cost_price
+          if (c != null) {
+            map[k].cost += Number(it.quantity) * Number(c)
+            map[k].costedRevenue += Number(it.quantity) * Number(it.unit_price)
+          }
+        })
+      })
+      setCpRows(Object.values(map).sort((a: any, b: any) => (b.costedRevenue - b.cost) - (a.costedRevenue - a.cost)))
+    } else { setCpRows([]) }
 
     if (report === 'statement' || report === 'receivable') {
       let q = supabase.from('receivables')
@@ -329,6 +392,98 @@ export default function ReportsPage() {
                 </table>
               </>
             )
+          )}
+
+          {/* 業務員業績 */}
+          {report === 'salesperson' && (
+            spRows.length === 0 ? <p className="text-center text-gray-400 py-8 text-sm">此區間無資料</p> : (
+              <table className="w-full text-xs mt-4 border-collapse">
+                <thead><tr className="bg-gray-50 border-y border-gray-200">
+                  <th className="text-left px-2 py-1.5 text-gray-500">業務員</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">報價單數</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">已轉單</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">轉換率</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">銷貨單數</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">銷貨金額</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">估計毛利*</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">毛利率</th>
+                </tr></thead>
+                <tbody>
+                  {spRows.map((r: any, i: number) => {
+                    const gp = r.costedRevenue - r.cost
+                    const gm = r.costedRevenue > 0 ? (gp / r.costedRevenue) * 100 : null
+                    return (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="px-2 py-1.5 font-medium">{r.name}</td>
+                        <td className="px-2 py-1.5 text-right">{r.quotes}</td>
+                        <td className="px-2 py-1.5 text-right">{r.converted}</td>
+                        <td className="px-2 py-1.5 text-right">{r.quotes > 0 ? `${Math.round((r.converted / r.quotes) * 100)}%` : '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{r.orders}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(r.revenue)}</td>
+                        <td className="px-2 py-1.5 text-right">{formatCurrency(gp)}</td>
+                        <td className="px-2 py-1.5 text-right">{gm != null ? `${gm.toFixed(1)}%` : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot><tr className="border-t-2 border-gray-300 font-bold">
+                  <td className="px-2 py-2">合計</td>
+                  <td className="px-2 py-2 text-right">{spRows.reduce((s: number, r: any) => s + r.quotes, 0)}</td>
+                  <td className="px-2 py-2 text-right">{spRows.reduce((s: number, r: any) => s + r.converted, 0)}</td>
+                  <td className="px-2 py-2 text-right">—</td>
+                  <td className="px-2 py-2 text-right">{spRows.reduce((s: number, r: any) => s + r.orders, 0)}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(spRows.reduce((s: number, r: any) => s + r.revenue, 0))}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(spRows.reduce((s: number, r: any) => s + (r.costedRevenue - r.cost), 0))}</td>
+                  <td className="px-2 py-2 text-right">—</td>
+                </tr></tfoot>
+              </table>
+            )
+          )}
+          {report === 'salesperson' && spRows.length > 0 && (
+            <p className="text-[11px] text-gray-400 mt-2">＊估計毛利僅計入有連結產品資料庫（有成本資料）的品項；手動輸入品項不計。</p>
+          )}
+
+          {/* 客戶毛利分析 */}
+          {report === 'clientprofit' && (
+            cpRows.length === 0 ? <p className="text-center text-gray-400 py-8 text-sm">此區間無資料</p> : (
+              <table className="w-full text-xs mt-4 border-collapse">
+                <thead><tr className="bg-gray-50 border-y border-gray-200">
+                  <th className="text-left px-2 py-1.5 text-gray-500">單位名稱</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">銷貨單數</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">銷貨金額</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">估計成本*</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">估計毛利</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500">毛利率</th>
+                </tr></thead>
+                <tbody>
+                  {cpRows.map((r: any, i: number) => {
+                    const gp = r.costedRevenue - r.cost
+                    const gm = r.costedRevenue > 0 ? (gp / r.costedRevenue) * 100 : null
+                    return (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="px-2 py-1.5 font-medium">{r.name}</td>
+                        <td className="px-2 py-1.5 text-right">{r.orders}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(r.revenue)}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-500">{formatCurrency(r.cost)}</td>
+                        <td className={`px-2 py-1.5 text-right font-semibold ${gp >= 0 ? 'text-green-700' : 'text-red-600'}`}>{formatCurrency(gp)}</td>
+                        <td className="px-2 py-1.5 text-right">{gm != null ? `${gm.toFixed(1)}%` : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot><tr className="border-t-2 border-gray-300 font-bold">
+                  <td className="px-2 py-2">合計</td>
+                  <td className="px-2 py-2 text-right">{cpRows.reduce((s: number, r: any) => s + r.orders, 0)}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(cpRows.reduce((s: number, r: any) => s + r.revenue, 0))}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(cpRows.reduce((s: number, r: any) => s + r.cost, 0))}</td>
+                  <td className="px-2 py-2 text-right">{formatCurrency(cpRows.reduce((s: number, r: any) => s + (r.costedRevenue - r.cost), 0))}</td>
+                  <td className="px-2 py-2 text-right">—</td>
+                </tr></tfoot>
+              </table>
+            )
+          )}
+          {report === 'clientprofit' && cpRows.length > 0 && (
+            <p className="text-[11px] text-gray-400 mt-2">＊估計成本僅計入有連結產品資料庫（有成本資料）的品項；依毛利由高至低排序。</p>
           )}
 
           {/* 應收帳款明細 */}

@@ -74,23 +74,23 @@ export async function ensureStockOutForSalesOrder(
   return error ? 'skipped' : 'created'
 }
 
-/** 訂購到貨 → 自動入庫（同一張單只入一次；unit_cost 帶品項單價） */
-export async function ensureStockInForPurchaseOrder(
-  supabase: SupabaseClient, orderId: string, status: string,
+/** 進貨到貨 → 自動入庫（同一張進貨單只入一次；unit_cost 帶品項進價） */
+export async function ensureStockInForPurchase(
+  supabase: SupabaseClient, purchaseId: string, status: string,
 ): Promise<'created' | 'exists' | 'skipped'> {
   if (status !== '已到貨') return 'skipped'
 
-  const { data: order } = await supabase.from('purchase_orders').select('id, order_no').eq('id', orderId).single()
+  const { data: order } = await supabase.from('purchases').select('id, purchase_no').eq('id', purchaseId).single()
   if (!order) return 'skipped'
 
   const { data: existing } = await supabase
     .from('inventory_transactions').select('id')
-    .eq('reference_no', order.order_no).eq('type', '入庫').limit(1)
+    .eq('reference_no', order.purchase_no).eq('type', '入庫').limit(1)
   if (existing && existing.length > 0) return 'exists'
 
   const { data: items } = await supabase
-    .from('purchase_order_items').select('product_id, quantity, unit_price')
-    .eq('order_id', orderId).not('product_id', 'is', null)
+    .from('purchase_items').select('product_id, quantity, unit_price')
+    .eq('purchase_id', purchaseId).not('product_id', 'is', null)
   const rows = (items ?? []).filter(i => Number(i.quantity) > 0)
   if (rows.length === 0) return 'skipped'
 
@@ -100,36 +100,28 @@ export async function ensureStockInForPurchaseOrder(
       type: '入庫',
       quantity: Math.abs(Number(i.quantity)),
       unit_cost: Number(i.unit_price) || null,
-      reference_no: order.order_no,
-      notes: `訂購單 ${order.order_no} 到貨自動入庫`,
+      reference_no: order.purchase_no,
+      notes: `進貨單 ${order.purchase_no} 到貨自動入庫`,
     }))
   )
   return error ? 'skipped' : 'created'
 }
 
 /**
- * 訂購單（進貨）成立時自動產生應付帳款（若該訂購單已有應付則不重複建）。
+ * 進貨單成立時自動產生應付帳款（若該進貨單已有應付則不重複建）。
  */
-export async function ensurePayableForPurchaseOrder(
-  supabase: SupabaseClient, orderId: string, status: string,
+export async function ensurePayableForPurchase(
+  supabase: SupabaseClient, purchaseId: string, status: string,
 ): Promise<'created' | 'exists' | 'skipped'> {
   if (!PURCHASE_ACTIVE_STATUSES.includes(status)) return 'skipped'
 
   const { data: existing } = await supabase
-    .from('payables').select('id').eq('purchase_order_id', orderId).limit(1)
+    .from('payables').select('id').eq('purchase_id', purchaseId).limit(1)
   if (existing && existing.length > 0) return 'exists'
 
   const { data: order } = await supabase
-    .from('purchase_orders').select('id, order_no, vendor_name, total_amount').eq('id', orderId).single()
+    .from('purchases').select('id, purchase_no, vendor_id, vendor_name, total_amount').eq('id', purchaseId).single()
   if (!order || !Number(order.total_amount)) return 'skipped'
-
-  // 嘗試用廠商名稱對應 vendors 表（訂購單只存名稱）
-  let vendorId: string | null = null
-  if (order.vendor_name) {
-    const { data: v } = await supabase
-      .from('vendors').select('id').eq('company_name', order.vendor_name).limit(1)
-    vendorId = v?.[0]?.id ?? null
-  }
 
   const res = await fetch('/api/payables/generate-no')
   const { payable_no } = await res.json()
@@ -138,11 +130,11 @@ export async function ensurePayableForPurchaseOrder(
 
   const { error } = await supabase.from('payables').insert({
     payable_no,
-    vendor_id: vendorId,
-    purchase_order_id: order.id,
+    vendor_id: order.vendor_id ?? null,
+    purchase_id: order.id,
     due_date: due.toISOString().split('T')[0],
     amount: order.total_amount,
-    notes: `由訂購單 ${order.order_no} 自動產生${vendorId ? '' : `（廠商：${order.vendor_name ?? '未填'}）`}`,
+    notes: `由進貨單 ${order.purchase_no} 自動產生`,
     status: '未付',
   })
   return error ? 'skipped' : 'created'
