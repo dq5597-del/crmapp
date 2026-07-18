@@ -171,6 +171,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
           <thead>
             <tr>
               <th style={{ width: 36 }}>編號</th>
+              <th style={{ textAlign: 'left', width: 90 }}>品牌</th>
               <th style={{ textAlign: 'left' }}>產品名稱</th>
               <th style={{ textAlign: 'left', width: 110 }}>規格型號</th>
               <th style={{ width: 44 }}>單位</th>
@@ -184,6 +185,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
               <Fragment key={item.id}>
                 <tr>
                   <td className="center">{idx + 1}</td>
+                  <td>{item.brand ?? ''}</td>
                   <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>
@@ -193,7 +195,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
                 </tr>
                 {!!item.item_notes?.trim() && (
                   <tr className="notes-row">
-                    <td colSpan={7}>備註：{item.item_notes}</td>
+                    <td colSpan={8}>備註：{item.item_notes}</td>
                   </tr>
                 )}
               </Fragment>
@@ -201,7 +203,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
           </tbody>
           <tfoot>
             <tr className="total-row">
-              <td colSpan={4}>總金額　{totalChinese}</td>
+              <td colSpan={5}>總金額　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(order.total_amount))}</td>
             </tr>
           </tfoot>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -8,6 +8,7 @@ import { Search, ShoppingCart, Plus, X, Trash2 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
+import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -20,6 +21,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
 
 type Item = {
+  brand: string
   product_name: string
   model: string
   unit: string
@@ -29,7 +31,7 @@ type Item = {
 }
 
 const emptyItem = (): Item => ({
-  product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '',
+  brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '',
 })
 
 export default function SalesOrdersPage() {
@@ -90,7 +92,7 @@ export default function SalesOrdersPage() {
 
   function onProductPick(idx: number, p: any) {
     setItems(prev => prev.map((it, i) => i !== idx ? it : {
-      ...it, product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0,
+      ...it, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.list_price) || 0,
     }))
     setProductDropdown(null)
     setProductSearch(prev => ({ ...prev, [idx]: '' }))
@@ -192,6 +194,7 @@ export default function SalesOrdersPage() {
       await supabase.from('sales_order_items').insert(
         validItems.map((i, idx) => ({
           order_id: order.id, seq_no: idx + 1,
+          brand: i.brand || null,
           product_name: i.product_name, model: i.model,
           unit: i.unit, quantity: i.quantity, unit_price: i.unit_price,
           item_notes: i.item_notes,
@@ -460,18 +463,29 @@ export default function SalesOrdersPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="text-left px-2 py-2 text-gray-500 font-medium w-20">品牌</th>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium">品名 *</th>
-                        <th className="text-left px-3 py-2 text-gray-500 font-medium">型號</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium w-24">型號</th>
                         <th className="text-center px-2 py-2 text-gray-500 font-medium w-14">單位</th>
                         <th className="text-center px-2 py-2 text-gray-500 font-medium w-16">數量</th>
-                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-28">單價</th>
-                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-28">金額</th>
+                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">含稅單價</th>
+                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">含稅總計</th>
                         <th className="w-8"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {items.map((item, idx) => (
-                        <tr key={idx} className="border-t border-gray-100">
+                        <Fragment key={idx}>
+                        <tr className="border-t border-gray-100">
+                          <td className="px-2 py-1.5">
+                            {(() => {
+                              const logo = knownBrandLogoUrl(item.brand)
+                              // eslint-disable-next-line @next/next/no-img-element
+                              return logo ? <img src={logo} alt="" className="h-3.5 w-auto max-w-[60px] object-contain mb-0.5" /> : null
+                            })()}
+                            <input value={item.brand} onChange={e => updateItem(idx, 'brand', e.target.value)} placeholder="品牌"
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400" />
+                          </td>
                           <td className="px-2 py-1.5 relative">
                             <input
                               value={productDropdown === idx ? (productSearch[idx] || item.product_name) : item.product_name}
@@ -526,8 +540,16 @@ export default function SalesOrdersPage() {
                               onChange={e => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
                               className="w-28 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
-                          <td className="px-3 py-1.5 text-right font-semibold text-gray-800">
-                            {formatCurrency(item.quantity * item.unit_price)}
+                          <td className="px-2 py-1.5">
+                            <input type="number" min={0}
+                              value={item.quantity * item.unit_price === 0 ? '' : Math.round(item.quantity * item.unit_price)}
+                              onChange={e => {
+                                const total = e.target.value === '' ? 0 : (Number(e.target.value) || 0)
+                                updateItem(idx, 'unit_price', item.quantity > 0 ? total / item.quantity : total)
+                              }}
+                              onFocus={e => e.target.select()}
+                              title="可直接輸入含稅總計，系統會自動回算單價"
+                              className="w-24 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right font-semibold focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
                           <td className="px-1 py-1.5 text-center">
                             <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
@@ -535,6 +557,16 @@ export default function SalesOrdersPage() {
                             </button>
                           </td>
                         </tr>
+                        <tr>
+                          <td />
+                          <td colSpan={6} className="px-2 pb-1.5">
+                            <input value={item.item_notes} onChange={e => updateItem(idx, 'item_notes', e.target.value)}
+                              placeholder="品項備註（選填）"
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400" />
+                          </td>
+                          <td />
+                        </tr>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
