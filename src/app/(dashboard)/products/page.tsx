@@ -627,6 +627,8 @@ export default function ProductsPage() {
 
   // ── 圖片上傳到 Google Drive（產品圖需公開連結，官網才抓得到）──
   const [imgUploading, setImgUploading] = useState<string | null>(null)
+  // ── 點小圖放大預覽（燈箱）──
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   async function uploadImage(file: File, key: string): Promise<string | null> {
     setImgUploading(key)
@@ -993,14 +995,21 @@ export default function ProductsPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 mb-4">
                                         <div>
                                             <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center mb-2 overflow-hidden">
-                                                {form.web_main_image_url ? <img src={driveImageUrl(form.web_main_image_url)} alt="" className="w-full h-full object-cover" /> : <Package size={28} className="text-gray-300" />}
+                                                {form.web_main_image_url ? <img src={driveImageUrl(form.web_main_image_url)} alt="" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setPreviewUrl(driveImageUrl(form.web_main_image_url, 1600))} /> : <Package size={28} className="text-gray-300" />}
                                             </div>
+                                            {previewUrl && (
+                                                <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-6 cursor-zoom-out" onClick={() => setPreviewUrl(null)}>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={previewUrl} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" />
+                                                    <button type="button" className="absolute top-4 right-4 text-white/80 hover:text-white" onClick={() => setPreviewUrl(null)}><X size={28} /></button>
+                                                </div>
+                                            )}
                                             <div className="space-y-1.5 mb-3">
                                                 {webImages.map((img, i) => (
                                                     <div key={img.id ?? `new-${i}`} className="flex gap-1 items-center">
                                                         {img.image_url.trim() && (
                                                             // eslint-disable-next-line @next/next/no-img-element
-                                                            <img src={driveImageUrl(img.image_url, 100)} alt="" className="w-7 h-7 rounded object-cover bg-gray-50 border border-gray-100 shrink-0" onError={e => { (e.target as HTMLImageElement).style.opacity = '0.2' }} />
+                                                            <img src={driveImageUrl(img.image_url, 100)} alt="" className="w-7 h-7 rounded object-cover bg-gray-50 border border-gray-100 shrink-0 cursor-zoom-in" onClick={() => setPreviewUrl(driveImageUrl(img.image_url, 1600))} onError={e => { (e.target as HTMLImageElement).style.opacity = '0.2' }} />
                                                         )}
                                                         <input value={img.image_url} onChange={e => setWebImages(a => a.map((r, ri) => ri === i ? { ...r, image_url: e.target.value } : r))} placeholder="圖片網址" className={inputClass + ' text-xs py-1.5'} />
                                                         <button type="button" onClick={() => setWebImages(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
