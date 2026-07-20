@@ -598,7 +598,15 @@ export default function QuoteForm({
   async function handleSave(newStatus?: string) {
     if (!header.quote_no) { setError('請等待報價單號產生'); return }
     if (!header.client_id && !header.client_name_display) { setError('請選擇單位名稱'); return }
-    if (items.some(i => !i.product_name.trim())) { setError('請填寫所有品項的產品名稱'); return }
+
+    // 草稿可以沒有品項（空白列自動略過）；確認報價才要求至少一筆完整品項
+    const finalStatus = newStatus ?? (initialQuote?.status ?? '草稿')
+    const isDraft = finalStatus === '草稿'
+    const validItems = items.filter(i => i.is_category || i.product_name.trim())
+    if (!isDraft) {
+      if (items.some(i => !i.is_category && !i.product_name.trim())) { setError('請填寫所有品項的產品名稱'); return }
+      if (validItems.filter(i => !i.is_category).length === 0) { setError('確認報價前，請至少新增一個品項'); return }
+    }
 
     setSaving(true)
     setError('')
@@ -635,7 +643,7 @@ export default function QuoteForm({
       quoteId = data.id
     }
 
-    const itemsPayload = items.map((item, i) => ({
+    const itemsPayload = validItems.map((item, i) => ({
       quote_id: quoteId,
       seq_no: i + 1,
       product_id: item.product_id,
@@ -651,8 +659,10 @@ export default function QuoteForm({
       is_category: item.is_category,
     }))
 
-    const { error: itemsErr } = await supabase.from('quote_items').insert(itemsPayload)
-    if (itemsErr) { setError('品項儲存失敗：' + itemsErr.message); setSaving(false); return }
+    if (itemsPayload.length > 0) {
+      const { error: itemsErr } = await supabase.from('quote_items').insert(itemsPayload)
+      if (itemsErr) { setError('品項儲存失敗：' + itemsErr.message); setSaving(false); return }
+    }
 
     if (onSuccess) { onSuccess() } else { router.push(`/quotes/${quoteId}`) }
   }
