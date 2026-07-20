@@ -91,10 +91,11 @@ export default function WorkspacePage() {
   return (
     <div className="flex flex-col h-[calc(100vh-0px)]">
       {/* 工作分頁列 */}
-      <div className="flex items-end gap-1 px-3 pt-2 border-b border-gray-200 bg-white sticky top-0 z-20 overflow-x-auto">
+      <div className="flex items-end gap-1 px-3 pt-2 border-b border-gray-200 bg-white sticky top-0 z-20">
         <div className="flex items-center gap-1.5 px-2 pb-2 text-gray-400 text-xs shrink-0">
           <LayoutGrid size={14} /> 多工工作區
         </div>
+        <div className="flex items-end gap-1 overflow-x-auto flex-1 min-w-0">
         {open.map(key => {
           const m = MODULES[key]
           const Icon = m.icon
@@ -122,6 +123,7 @@ export default function WorkspacePage() {
             </div>
           )
         })}
+        </div>
         <div className="relative shrink-0 pb-1">
           <button type="button" onClick={() => setPicker(p => !p)}
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg">
