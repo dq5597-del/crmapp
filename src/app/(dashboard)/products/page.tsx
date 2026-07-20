@@ -12,6 +12,7 @@ import BarcodePreview from '@/components/products/BarcodePreview'
 import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
+import { driveImageUrl } from '@/lib/drive-url'
 
 type MarketPriceRow = {
   product_id: string
@@ -454,6 +455,7 @@ export default function ProductsPage() {
         web_bsmi_no: '', web_ncc_no: '', web_publish: false,
         web_product_id: '', web_product_url: '',
         web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
+        web_tab: 'none' as string,
         web_spec_html: '' as string,
     })
     const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
@@ -537,6 +539,7 @@ export default function ProductsPage() {
                 web_promo_price: pAny.web_promo_price ?? 0,
                 web_promo_price_from: pAny.web_promo_price_from ? String(pAny.web_promo_price_from).slice(0, 16) : '',
                 web_promo_price_to: pAny.web_promo_price_to ? String(pAny.web_promo_price_to).slice(0, 16) : '',
+                web_tab: pAny.web_tab ?? 'none',
                 web_spec_html: pAny.web_spec_html ?? '',
             })
             setPromoEnabled(!!pAny.web_promo_price_from)
@@ -552,6 +555,7 @@ export default function ProductsPage() {
                 web_bsmi_no: '', web_ncc_no: '', web_publish: false,
                 web_product_id: '', web_product_url: '',
                 web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
+                web_tab: 'none',
                 web_spec_html: '',
             })
             setPromoEnabled(false)
@@ -989,11 +993,15 @@ export default function ProductsPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 mb-4">
                                         <div>
                                             <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center mb-2 overflow-hidden">
-                                                {form.web_main_image_url ? <img src={form.web_main_image_url} alt="" className="w-full h-full object-cover" /> : <Package size={28} className="text-gray-300" />}
+                                                {form.web_main_image_url ? <img src={driveImageUrl(form.web_main_image_url)} alt="" className="w-full h-full object-cover" /> : <Package size={28} className="text-gray-300" />}
                                             </div>
                                             <div className="space-y-1.5 mb-3">
                                                 {webImages.map((img, i) => (
-                                                    <div key={img.id ?? `new-${i}`} className="flex gap-1">
+                                                    <div key={img.id ?? `new-${i}`} className="flex gap-1 items-center">
+                                                        {img.image_url.trim() && (
+                                                            // eslint-disable-next-line @next/next/no-img-element
+                                                            <img src={driveImageUrl(img.image_url, 100)} alt="" className="w-7 h-7 rounded object-cover bg-gray-50 border border-gray-100 shrink-0" onError={e => { (e.target as HTMLImageElement).style.opacity = '0.2' }} />
+                                                        )}
                                                         <input value={img.image_url} onChange={e => setWebImages(a => a.map((r, ri) => ri === i ? { ...r, image_url: e.target.value } : r))} placeholder="圖片網址" className={inputClass + ' text-xs py-1.5'} />
                                                         <button type="button" onClick={() => setWebImages(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
                                                     </div>
@@ -1086,6 +1094,19 @@ export default function ProductsPage() {
                                                         </div>
                                                     </div>
                                                 )}
+                                            </div>
+
+                                            <div className="border border-teal-200 rounded-lg p-3 bg-teal-50/50 mb-3">
+                                                <div className="text-xs font-medium text-teal-700 mb-2">官網首頁區塊</div>
+                                                <div className="flex items-center gap-4 text-xs text-gray-700">
+                                                    {([['none', '無'], ['new', '最新商品'], ['hot', '熱銷商品']] as const).map(([v, l]) => (
+                                                        <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+                                                            <input type="radio" name="web_tab" checked={form.web_tab === v} onChange={() => setForm(p => ({ ...p, web_tab: v }))} className="accent-teal-600 w-3.5 h-3.5" />
+                                                            {l}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 mt-1.5">「最新商品」上架滿 30 天官網自動轉「熱銷商品」；促銷區塊由限時促銷自動判斷，不需選擇</div>
                                             </div>
 
                                             <div className="border-t border-gray-100 pt-3">

@@ -10,6 +10,8 @@
  *   av_source / av_crm_id → 後台「CRM 待審」清單用
  */
 
+import { driveImageUrl } from './drive-url'
+
 export type CrmProductRow = {
   id: string
   brand: string | null
@@ -32,6 +34,7 @@ export type CrmProductRow = {
   web_promo_price_to?: string | null
   web_spec_html?: string | null
   web_product_id?: string | null
+  web_tab?: string | null // 官網首頁區塊：'none' | 'new'(最新商品) | 'hot'(熱銷商品)
 }
 
 export type CrmSubData = {
@@ -53,6 +56,7 @@ export type WooPayload = {
   backorders?: 'no' | 'notify' | 'yes'
   categories?: { id: number }[]
   images?: { src: string }[]
+  tags?: { name: string }[]
   meta_data: { key: string; value: string }[]
 }
 
@@ -68,10 +72,10 @@ export function buildWooPayload(
   opts: { status: 'draft' | 'publish' } = { status: 'draft' }
 ): WooPayload {
   const features = [...sub.features].sort((a, b) => a.sort_order - b.sort_order).map(f => f.feature_text.trim()).filter(Boolean)
-  const images = [...sub.images].sort((a, b) => a.sort_order - b.sort_order).map(i => i.image_url.trim()).filter(Boolean)
+  const images = [...sub.images].sort((a, b) => a.sort_order - b.sort_order).map(i => driveImageUrl(i.image_url, 1600)).filter(Boolean)
   const downloads = [...sub.downloads].sort((a, b) => a.sort_order - b.sort_order)
 
-  const mainImage = (p.web_main_image_url ?? '').trim()
+  const mainImage = driveImageUrl(p.web_main_image_url, 1600)
   const allImages = [mainImage, ...images].filter(Boolean)
   const uniqueImages = Array.from(new Set(allImages))
 
@@ -127,6 +131,12 @@ export function buildWooPayload(
 
   if (categoryId) payload.categories = [{ id: categoryId }]
   if (uniqueImages.length > 0) payload.images = uniqueImages.map(src => ({ src }))
+
+  // 官網首頁區塊標籤（網站端每日排程會把「最新商品」上架滿 30 天自動轉「熱銷商品」）
+  // 促銷區塊不用標籤：官網依限時促銷價自動判斷
+  if (p.web_tab === 'new') payload.tags = [{ name: '最新商品' }]
+  else if (p.web_tab === 'hot') payload.tags = [{ name: '熱銷商品' }]
+  else payload.tags = []
 
   return payload
 }
