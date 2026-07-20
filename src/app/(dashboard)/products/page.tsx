@@ -983,6 +983,15 @@ export default function ProductsPage() {
                                     <span className="text-gray-600">型號 <b className="font-medium text-gray-800">{form.model || '—'}</b></span>
                                     <span className="text-gray-600">單位 <b className="font-medium text-gray-800">{form.unit}</b></span>
                                     <span className="text-gray-600">庫存 <b className="font-medium text-gray-800">{form.stock_qty}</b></span>
+                                    {form.web_product_url ? (
+                                        <a href={form.web_product_url} target="_blank" rel="noreferrer"
+                                           className="flex items-center gap-1 text-emerald-700 hover:underline"
+                                           title={`官網商品 ID：${form.web_product_id || '—'}`}>
+                                            <ExternalLink size={12} /> 官網商品頁 <span className="text-gray-400 max-w-[260px] truncate hidden sm:inline">{form.web_product_url.replace(/^https?:\/\//, '')}</span>
+                                        </a>
+                                    ) : (
+                                        <span className="text-gray-300">尚未推送官網</span>
+                                    )}
                                     <label className="ml-auto flex items-center gap-1.5 text-gray-600">
                                         <input type="checkbox" checked={form.is_active} onChange={e => setForm(p => ({ ...p, is_active: e.target.checked }))} className="accent-blue-600 w-3.5 h-3.5" />
                                         上架
