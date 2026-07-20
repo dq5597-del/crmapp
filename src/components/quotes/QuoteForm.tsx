@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
-import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, FolderPlus, Search } from 'lucide-react'
+import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, FolderPlus, Search } from 'lucide-react'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 
@@ -498,6 +498,31 @@ export default function QuoteForm({
     })
   }
   function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
+  /** 整組移動：分類標題 + 底下所有品項一起，與上/下一個分類區塊交換位置（2026-07 新增） */
+  function moveCategoryBlock(idx: number, dir: -1 | 1) {
+    setItems(prev => {
+      if (!prev[idx]?.is_category) return prev
+      const blockEnd = (start: number) => {
+        let e = start + 1
+        while (e < prev.length && !prev[e].is_category) e++
+        return e
+      }
+      const end = blockEnd(idx)
+      const block = prev.slice(idx, end)
+      if (dir === -1) {
+        // 找上一個分類標題；沒有就代表已是第一個分類，不動（最前面的散裝品項不受影響）
+        let p = idx - 1
+        while (p >= 0 && !prev[p].is_category) p--
+        if (p < 0) return prev
+        return [...prev.slice(0, p), ...block, ...prev.slice(p, idx), ...prev.slice(end)]
+      } else {
+        // 下一個分類區塊
+        if (end >= prev.length || !prev[end].is_category) return prev
+        const nextEnd = blockEnd(end)
+        return [...prev.slice(0, idx), ...prev.slice(end, nextEnd), ...block, ...prev.slice(nextEnd)]
+      }
+    })
+  }
   function setItem<K extends keyof QuoteItemForm>(idx: number, key: K, val: QuoteItemForm[K]) {
     setItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, [key]: val }))
   }
@@ -856,8 +881,10 @@ export default function QuoteForm({
                       </td>
                       <td className="pl-1 pr-3 py-2 text-right text-xs text-purple-400">分類</td>
                       <td className="px-2 py-2 text-center whitespace-nowrap">
-                        <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={13} /></button>
-                        <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={13} /></button>
+                        <button onClick={() => moveCategoryBlock(idx, -1)} title="整組上移（含底下所有品項）" className="p-0.5 text-purple-400 hover:text-purple-700"><ChevronsUp size={13} /></button>
+                        <button onClick={() => moveCategoryBlock(idx, 1)} title="整組下移（含底下所有品項）" className="p-0.5 text-purple-400 hover:text-purple-700"><ChevronsDown size={13} /></button>
+                        <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} title="僅移動標題列" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={13} /></button>
+                        <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} title="僅移動標題列" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={13} /></button>
                         <button onClick={() => removeItem(idx)} className="p-0.5 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
                       </td>
                     </tr>
