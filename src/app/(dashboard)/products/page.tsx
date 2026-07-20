@@ -409,11 +409,15 @@ export default function ProductsPage() {
   const [catFilter, setCatFilter] = useState('')
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const editFormRef = useRef<HTMLDivElement>(null)
-  // 點編輯/新增時，自動捲動到表單（產品很多時，表單開在上方容易被忽略）
+  // 彈跳視窗開啟時：鎖定背景捲動 + 按 ESC 關閉（點背景不關，避免誤觸掉資料）
   useEffect(() => {
-    if (editingId !== null) {
-      const t = setTimeout(() => editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
-      return () => clearTimeout(t)
+    if (editingId === null) return
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditingId(null) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
     }
   }, [editingId])
   const [showBatchModal, setShowBatchModal] = useState(false)
@@ -840,16 +844,21 @@ export default function ProductsPage() {
         )}
       </div>
 
-                {/* 編輯 / 新增表單 */}
+                {/* 編輯 / 新增表單 — 彈跳視窗（2026-07 改版：原地彈出，不再捲到頁面頂端） */}
                 {editingId !== null && (
-                    <div ref={editFormRef} className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-5 space-y-4">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3 sm:p-6">
+                    <div ref={editFormRef} className="bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl">
+                        <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3.5 border-b border-gray-100 shrink-0">
                             <div className="font-semibold text-blue-900">{editingId === 'new' ? '新增產品' : '編輯產品'}</div>
-                            <div className="flex bg-white rounded-lg p-0.5 border border-gray-200">
-                                <button type="button" onClick={() => setFormMode('simple')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'simple' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>進銷存模式</button>
-                                <button type="button" onClick={() => setFormMode('full')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'full' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>官網產品模式</button>
+                            <div className="flex items-center gap-2">
+                                <div className="flex bg-gray-50 rounded-lg p-0.5 border border-gray-200">
+                                    <button type="button" onClick={() => setFormMode('simple')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'simple' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>進銷存模式</button>
+                                    <button type="button" onClick={() => setFormMode('full')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'full' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>官網產品模式</button>
+                                </div>
+                                <button type="button" onClick={() => setEditingId(null)} title="關閉" className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"><X size={18} /></button>
                             </div>
                         </div>
+                        <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1 min-h-0">
 
                         {formMode === 'simple' ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -1264,10 +1273,12 @@ export default function ProductsPage() {
                             </>
                         )}
 
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+                        </div>
+                        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-gray-100 bg-gray-50 rounded-b-2xl shrink-0">
+                            <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white">取消</button>
                             <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">儲存</button>
                         </div>
+                    </div>
                     </div>
                 )}
 
