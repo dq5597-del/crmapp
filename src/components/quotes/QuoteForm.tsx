@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
-import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, FolderPlus, Search } from 'lucide-react'
+import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, FolderPlus, Search, GripVertical } from 'lucide-react'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 
@@ -527,6 +527,42 @@ export default function QuoteForm({
     setItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, [key]: val }))
   }
 
+  // ── 拖拉排序（2026-07 新增）：抓左側把手拖動。品項=單筆移動、分類標題=整組移動 ──
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dropPos, setDropPos] = useState<{ idx: number; after: boolean } | null>(null)
+  function clearDrag() { setDragIdx(null); setDropPos(null) }
+  function rowDragOver(idx: number) {
+    return (e: React.DragEvent) => {
+      if (dragIdx === null) return
+      e.preventDefault()
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      setDropPos({ idx, after: e.clientY > r.top + r.height / 2 })
+    }
+  }
+  function rowDrop(e: React.DragEvent) {
+    e.preventDefault()
+    if (dragIdx === null || dropPos === null) { clearDrag(); return }
+    const insertAt = dropPos.idx + (dropPos.after ? 1 : 0)
+    const from = dragIdx
+    setItems(prev => {
+      let start = from, end = from + 1
+      if (prev[start]?.is_category) { while (end < prev.length && !prev[end].is_category) end++ }
+      if (insertAt >= start && insertAt <= end) return prev
+      const block = prev.slice(start, end)
+      const rest = [...prev.slice(0, start), ...prev.slice(end)]
+      const adj = insertAt > end ? insertAt - (end - start) : insertAt
+      return [...rest.slice(0, adj), ...block, ...rest.slice(adj)]
+    })
+    clearDrag()
+  }
+  const dropLine = (idx: number) =>
+    dropPos?.idx === idx ? (dropPos.after ? ' shadow-[inset_0_-2px_0_0_#3b82f6]' : ' shadow-[inset_0_2px_0_0_#3b82f6]') : ''
+  const gripProps = (idx: number) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move' },
+    onDragEnd: clearDrag,
+  })
+
   // 品項顯示編號：遇到分類標題就重新從 1 起算
   let __no = 0
   const displayNos = items.map(it => { if (it.is_category) { __no = 0; return 0 } __no += 1; return __no })
@@ -869,8 +905,11 @@ export default function QuoteForm({
 
                 if (item.is_category) {
                   return (
-                    <tr key={idx} className="bg-purple-50/70">
-                      <td className="px-3 py-2 text-center text-purple-500"><Tag size={13} /></td>
+                    <tr key={idx} className={'bg-purple-50/70' + dropLine(idx)} onDragOver={rowDragOver(idx)} onDrop={rowDrop}>
+                      <td className="px-3 py-2 text-center text-purple-500 whitespace-nowrap">
+                        <span {...gripProps(idx)} title="拖拉整組移動（含底下品項）" className="cursor-grab active:cursor-grabbing text-purple-300 hover:text-purple-600 inline-flex align-middle mr-0.5"><GripVertical size={13} /></span>
+                        <Tag size={13} className="inline-block align-middle" />
+                      </td>
                       <td colSpan={6} className="px-3 py-2">
                         <input
                           value={item.product_name}
@@ -893,8 +932,11 @@ export default function QuoteForm({
 
                 return (
                   <Fragment key={idx}>
-                  <tr className="hover:bg-blue-50/30 group">
-                    <td className="px-3 py-2 text-xs text-gray-400 text-center">{displayNos[idx]}</td>
+                  <tr className={'hover:bg-blue-50/30 group' + dropLine(idx)} onDragOver={rowDragOver(idx)} onDrop={rowDrop}>
+                    <td className="px-3 py-2 text-xs text-gray-400 text-center whitespace-nowrap">
+                      <span {...gripProps(idx)} title="拖拉移動" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-blue-500 inline-flex align-middle mr-0.5"><GripVertical size={12} /></span>
+                      {displayNos[idx]}
+                    </td>
 
                     {/* 品牌 */}
                     <td className="px-2 py-2">
@@ -1062,7 +1104,8 @@ export default function QuoteForm({
                     <td className="px-2 py-2" />
                   </tr>
 
-                  <tr className="border-b border-gray-100">
+                  <tr className={'border-b border-gray-100' + (dropPos?.idx === idx && dropPos.after ? ' shadow-[inset_0_-2px_0_0_#3b82f6]' : '')}
+                      onDragOver={e => { if (dragIdx === null) return; e.preventDefault(); setDropPos({ idx, after: true }) }} onDrop={rowDrop}>
                     <td className="px-2 pb-2 pt-0 text-center align-top">
                       <div className="flex items-center justify-center gap-0.5">
                         <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} title="上移" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={14} /></button>
