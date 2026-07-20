@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Plus, Receipt, CheckCircle } from 'lucide-react'
+import ApprovalBar from '@/components/approvals/ApprovalBar'
 
 const STATUS_COLORS: Record<string, string> = {
   '未付':     'bg-red-100 text-red-700',
@@ -25,6 +26,8 @@ export default function PayableDetailPage() {
   const [loading, setLoading] = useState(true)
   const [showPayForm, setShowPayForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  // undefined = 簽核系統未啟用；null = 尚未送簽；其餘為簽核狀態
+  const [approvalStatus, setApprovalStatus] = useState<string | null | undefined>(undefined)
 
   const [payForm, setPayForm] = useState({
     payment_date: new Date().toISOString().slice(0, 10),
@@ -114,6 +117,16 @@ export default function PayableDetailPage() {
         )}
       </div>
 
+      {/* 簽呈：付款前需經主管核准 */}
+      <div className="mb-4">
+        <ApprovalBar
+          docType="payable"
+          docId={id}
+          onChanged={fetchAll}
+          onState={setApprovalStatus}
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* 左：付款進度 */}
         <div className="lg:col-span-1 space-y-4">
@@ -193,8 +206,21 @@ export default function PayableDetailPage() {
 
         {/* 右：付款紀錄 */}
         <div className="lg:col-span-2 space-y-4">
+          {/* 簽核鎖：簽核系統啟用後，未核准前不可登錄付款 */}
+          {payable.status !== '已付清' && payable.status !== '作廢'
+            && approvalStatus !== undefined && approvalStatus !== 'approved' && (
+            <div className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+              {approvalStatus === 'pending'
+                ? '簽呈核准前無法登錄付款'
+                : approvalStatus === 'rejected'
+                ? '簽呈已被退回，請修改後重新送簽'
+                : '請先送出簽核，經主管核准後才能登錄付款'}
+            </div>
+          )}
+
           {/* 新增付款按鈕 */}
-          {payable.status !== '已付清' && payable.status !== '作廢' && (
+          {payable.status !== '已付清' && payable.status !== '作廢'
+            && (approvalStatus === undefined || approvalStatus === 'approved') && (
             <div>
               {!showPayForm ? (
                 <button

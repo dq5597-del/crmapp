@@ -10,7 +10,7 @@
  *   av_source / av_crm_id → 後台「CRM 待審」清單用
  */
 
-import { driveImageUrl } from './drive-url'
+import { wooImageUrl } from './drive-url'
 
 export type CrmProductRow = {
   id: string
@@ -72,10 +72,10 @@ export function buildWooPayload(
   opts: { status: 'draft' | 'publish' } = { status: 'draft' }
 ): WooPayload {
   const features = [...sub.features].sort((a, b) => a.sort_order - b.sort_order).map(f => f.feature_text.trim()).filter(Boolean)
-  const images = [...sub.images].sort((a, b) => a.sort_order - b.sort_order).map(i => driveImageUrl(i.image_url, 1600)).filter(Boolean)
+  const images = [...sub.images].sort((a, b) => a.sort_order - b.sort_order).map(i => wooImageUrl(i.image_url)).filter(Boolean)
   const downloads = [...sub.downloads].sort((a, b) => a.sort_order - b.sort_order)
 
-  const mainImage = driveImageUrl(p.web_main_image_url, 1600)
+  const mainImage = wooImageUrl(p.web_main_image_url)
   const allImages = [mainImage, ...images].filter(Boolean)
   const uniqueImages = Array.from(new Set(allImages))
 
