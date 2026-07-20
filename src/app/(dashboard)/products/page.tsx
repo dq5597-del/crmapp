@@ -407,6 +407,10 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
+  // 品牌篩選（2026-07 新增）：品牌清單自現有產品歸納，A-Z 簡碼快速定位
+  const [brandFilter, setBrandFilter] = useState('')
+  const [brandLetter, setBrandLetter] = useState('')
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false)
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const editFormRef = useRef<HTMLDivElement>(null)
   // 彈跳視窗開啟時：鎖定背景捲動 + 按 ESC 關閉（點背景不關，避免誤觸掉資料）
@@ -742,12 +746,27 @@ export default function ProductsPage() {
 
   const mainCats = [...new Set(categories.map(c => c.main_category))]
 
+  // 品牌清單：自產品歸納、去重、A-Z 排序
+  const allBrands = [...new Set(products.map(p => (p.brand ?? '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+  const brandLetters = [...new Set(allBrands.map(b => {
+    const c = b[0].toUpperCase()
+    return /[A-Z]/.test(c) ? c : '#'
+  }))].sort()
+  const shownBrands = brandLetter
+    ? allBrands.filter(b => {
+        const c = b[0].toUpperCase()
+        return brandLetter === '#' ? !/[A-Z]/.test(c) : c === brandLetter
+      })
+    : allBrands
+
   const filtered = products.filter(p => {
     const matchSearch = !search ||
       p.product_name.toLowerCase().includes(search.toLowerCase()) ||
       (p.brand?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
       (p.model?.toLowerCase() ?? '').includes(search.toLowerCase())
     if (!matchSearch) return false
+    if (brandFilter && (p.brand ?? '').trim().toLowerCase() !== brandFilter.toLowerCase()) return false
     if (!catFilter) return true
     const cat = categories.find(c => c.id === p.category_id)
     return cat?.main_category === catFilter
@@ -842,6 +861,31 @@ export default function ProductsPage() {
             ))}
           </div>
         )}
+        {/* 品牌篩選列：A-Z 簡碼定位 + 品牌膠囊（2026-07 新增） */}
+        {allBrands.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex gap-1 flex-wrap items-center">
+              <span className="text-[11px] text-gray-400 mr-1">品牌</span>
+              <button onClick={() => { setBrandLetter(''); setBrandFilter('') }}
+                className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${!brandLetter && !brandFilter ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>全部</button>
+              {brandLetters.map(L => (
+                <button key={L} onClick={() => setBrandLetter(brandLetter === L ? '' : L)}
+                  className={`w-6 py-0.5 rounded text-[11px] border font-mono transition-colors ${brandLetter === L ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>{L}</button>
+              ))}
+            </div>
+            {(brandLetter || brandFilter) && (
+              <div className="flex gap-1.5 flex-wrap">
+                {shownBrands.map(b => (
+                  <button key={b} onClick={() => setBrandFilter(brandFilter === b ? '' : b)}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${brandFilter === b ? 'bg-emerald-600 text-white border-emerald-600' : 'border-gray-200 text-gray-600 hover:border-emerald-400'}`}>
+                    {b}
+                  </button>
+                ))}
+                {shownBrands.length === 0 && <span className="text-xs text-gray-300">此字母沒有品牌</span>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
                 {/* 編輯 / 新增表單 — 彈跳視窗（2026-07 改版：原地彈出，不再捲到頁面頂端） */}
@@ -879,9 +923,33 @@ export default function ProductsPage() {
                                     </div>
                                 </div>
 
-                                <div>
+                                <div className="relative">
                                     <label className="text-xs text-gray-600 mb-1 block">品牌</label>
-                                    <input value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value.toUpperCase() }))} className={inputClass} placeholder="YAMAHA" />
+                                    <input value={form.brand}
+                                        onChange={e => { setForm(p => ({ ...p, brand: e.target.value.toUpperCase() })); setShowBrandDropdown(true) }}
+                                        onFocus={() => setShowBrandDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowBrandDropdown(false), 150)}
+                                        className={inputClass} placeholder="輸入 A-Z 開頭快速搜尋，例：Y" autoComplete="off" />
+                                    {showBrandDropdown && (() => {
+                                        const q = (form.brand ?? '').trim().toLowerCase()
+                                        const hits = allBrands.filter(b => !q || b.toLowerCase().startsWith(q)).slice(0, 12)
+                                        const exact = allBrands.some(b => b.toLowerCase() === q)
+                                        if (hits.length === 0 && (!q || exact)) return null
+                                        return (
+                                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-30 max-h-56 overflow-y-auto">
+                                                {hits.map(b => (
+                                                    <button key={b} type="button" onMouseDown={() => { setForm(p => ({ ...p, brand: b })); setShowBrandDropdown(false) }}
+                                                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50">{b}</button>
+                                                ))}
+                                                {q && !exact && (
+                                                    <button type="button" onMouseDown={() => setShowBrandDropdown(false)}
+                                                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 border-t border-gray-100">
+                                                        ＋ 新增品牌「{form.brand}」
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )
+                                    })()}
                                 </div>
                                 <div className="sm:col-span-2">
                                     <label className="text-xs text-gray-600 mb-1 block">產品名稱 *</label>
