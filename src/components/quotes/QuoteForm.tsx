@@ -1083,6 +1083,18 @@ export default function QuoteForm({
             </tfoot>
           </table>
         </div>
+        {/* 底部快速操作列：品項多時不用捲回上面（2026-07 新增） */}
+        <div className="flex items-center gap-4 px-5 py-3 border-t border-gray-100 bg-gray-50/60">
+          <button onClick={() => setPickerTarget('append')} className="flex items-center gap-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium">
+            <Search size={14} /> 選產品（多選）
+          </button>
+          <button onClick={addCategory} className="flex items-center gap-1.5 text-sm text-purple-600 hover:underline font-medium">
+            <FolderPlus size={14} /> 插入分類標題
+          </button>
+          <button onClick={addItem} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
+            <Plus size={14} /> 新增品項
+          </button>
+        </div>
       </div>
 
       {/* 報價條款 */}
