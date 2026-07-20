@@ -99,7 +99,8 @@ export async function POST(req: Request) {
       : `${store}/wp-json/wc/v3/products`
 
     // 更新既有商品時不動 status，避免把已上架商品打回草稿
-    if (wcId) delete payload.status
+    // 也不動 slug，避免更改已存在的官網網址（會壞掉已分享的連結與 SEO）
+    if (wcId) { delete payload.status; delete payload.slug }
 
     try {
       const res = await fetch(url, {

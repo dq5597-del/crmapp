@@ -18,6 +18,7 @@ export async function GET(_req: Request, { params }: { params: { file: string } 
     return NextResponse.json({ error: 'Google Drive 尚未設定' }, { status: 500 })
   }
 
+  const wantWebp = /\.webp$/i.test(params.file)
   const id = params.file.replace(/\.(jpe?g|png|webp|gif)$/i, '')
   if (!/^[\w-]{10,}$/.test(id)) {
     return NextResponse.json({ error: '無效檔案' }, { status: 400 })
@@ -28,10 +29,20 @@ export async function GET(_req: Request, { params }: { params: { file: string } 
     if (!mimeType.startsWith('image/')) {
       return NextResponse.json({ error: '僅允許圖片' }, { status: 403 })
     }
-    return new NextResponse(body as any, {
+
+    // 要求 .webp 時轉檔輸出（官網存 WebP，檔案更小）；原本就是 webp/gif 不重轉
+    let out: Buffer | ArrayBuffer = body
+    let outType = mimeType
+    if (wantWebp && mimeType !== 'image/webp' && mimeType !== 'image/gif') {
+      const sharp = (await import('sharp')).default
+      out = await sharp(Buffer.from(body)).rotate().webp({ quality: 85 }).toBuffer()
+      outType = 'image/webp'
+    }
+
+    return new NextResponse(out as any, {
       status: 200,
       headers: {
-        'Content-Type': mimeType,
+        'Content-Type': outType,
         'Cache-Control': 'public, max-age=86400',
       },
     })

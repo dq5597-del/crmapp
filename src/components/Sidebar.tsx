@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
@@ -16,6 +16,7 @@ import { usePermissions, FEATURES } from '@/lib/permissions'
 const navItemsTop = [
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
   { href: '/', label: '業務戰情室', icon: LayoutDashboard },
+  { href: '/workspace', label: '多工工作區', icon: Columns2 },
   { href: '/projects', label: '專案資料夾', icon: FolderKanban },
 ] // top nav
 

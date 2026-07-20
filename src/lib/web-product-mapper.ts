@@ -45,6 +45,7 @@ export type CrmSubData = {
 
 export type WooPayload = {
   name: string
+  slug?: string
   type: 'simple'
   status: 'draft' | 'publish'
   sku?: string
@@ -58,6 +59,22 @@ export type WooPayload = {
   images?: { src: string }[]
   tags?: { name: string }[]
   meta_data: { key: string; value: string }[]
+}
+
+/**
+ * 產生純英數的官網網址代稱（slug）：品牌 + 型號，
+ * 避免 WordPress 用中文品名生成網址（中文網址分享時會變一長串亂碼）。
+ * 例：YAMAHA + STAGEPAS 1K → yamaha-stagepas-1k
+ */
+export function makeSlug(p: CrmProductRow): string {
+  const raw = `${p.brand ?? ''} ${(p.web_sku || p.model) ?? ''}`
+  const slug = raw
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')   // 非英數（含中文）一律轉 -
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '')
+  return slug || `product-${p.id.slice(0, 8)}`
 }
 
 function metaPush(meta: { key: string; value: string }[], key: string, value: unknown) {
@@ -114,6 +131,7 @@ export function buildWooPayload(
 
   const payload: WooPayload = {
     name: p.product_name,
+    slug: makeSlug(p),
     type: 'simple',
     status: opts.status,
     sku: ((p.web_sku || p.model) ?? '').trim() || undefined,

@@ -46,5 +46,5 @@ export function wooImageUrl(url: string | null | undefined): string {
     (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') ??
     ''
   ) || 'https://crmapp-topaz.vercel.app'
-  return `${base.replace(/\/$/, '')}/api/drive/img/${id}.jpg`
+  return `${base.replace(/\/$/, '')}/api/drive/img/${id}.webp`
 }
