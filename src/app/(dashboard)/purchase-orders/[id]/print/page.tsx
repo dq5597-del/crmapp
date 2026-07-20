@@ -173,24 +173,39 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
             </tr>
           </thead>
           <tbody>
-            {(items ?? []).map((item: any, idx: number) => (
-              <Fragment key={item.id}>
-                <tr>
-                  <td className="center">{idx + 1}</td>
-                  <td style={{ fontWeight: 500 }}>{item.product_name}</td>
-                  <td style={{ color: '#444' }}>{item.model ?? ''}</td>
-                  <td className="center">{item.unit}</td>
-                  <td className="center">{item.quantity}</td>
-                  <td className="num">{fmt(Number(item.unit_price))}</td>
-                  <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
-                </tr>
-                {!!item.item_notes?.trim() && (
-                  <tr className="notes-row">
-                    <td colSpan={7}>備註：{item.item_notes}</td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
+            {(() => {
+              // 分類標題列：編號在每個分類內重新起算
+              let dispNo = 0
+              return (items ?? []).map((item: any) => {
+                if (item.is_category) {
+                  dispNo = 0
+                  return (
+                    <tr key={item.id} style={{ background: '#ececec' }}>
+                      <td colSpan={7} style={{ fontWeight: 700 }}>{item.product_name}</td>
+                    </tr>
+                  )
+                }
+                dispNo += 1
+                return (
+                  <Fragment key={item.id}>
+                    <tr>
+                      <td className="center">{dispNo}</td>
+                      <td style={{ fontWeight: 500 }}>{item.product_name}</td>
+                      <td style={{ color: '#444' }}>{item.model ?? ''}</td>
+                      <td className="center">{item.unit}</td>
+                      <td className="center">{item.quantity}</td>
+                      <td className="num">{fmt(Number(item.unit_price))}</td>
+                      <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
+                    </tr>
+                    {!!item.item_notes?.trim() && (
+                      <tr className="notes-row">
+                        <td colSpan={7}>備註：{item.item_notes}</td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })
+            })()}
           </tbody>
           <tfoot>
             <tr className="total-row">

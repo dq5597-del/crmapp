@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Search, ShoppingCart, Plus, X, Trash2 } from 'lucide-react'
+import { Search, ShoppingCart, Plus, X, Trash2, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
@@ -30,10 +30,15 @@ type Item = {
   quantity: number
   unit_price: number
   item_notes: string
+  is_category: boolean
 }
 
 const emptyItem = (): Item => ({
-  product_id: null, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '',
+  product_id: null, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '', is_category: false,
+})
+
+const categoryItem = (): Item => ({
+  product_id: null, brand: '', product_name: '', model: '', unit: '', quantity: 0, unit_price: 0, item_notes: '', is_category: true,
 })
 
 export default function SalesOrdersPage() {
@@ -213,7 +218,7 @@ export default function SalesOrdersPage() {
   async function handleCreate() {
     if (!clientId) return alert('請選擇單位名稱')
     const validItems = items.filter(i => i.product_name.trim())
-    if (validItems.length === 0) return alert('請至少填一筆品項')
+    if (validItems.filter(i => !i.is_category).length === 0) return alert('請至少填一筆品項')
     setSaving(true)
     try {
       const order_no = await generateOrderNo()
@@ -241,6 +246,7 @@ export default function SalesOrdersPage() {
           product_name: i.product_name, model: i.model,
           unit: i.unit, quantity: i.quantity, unit_price: i.unit_price,
           item_notes: i.item_notes,
+          is_category: i.is_category,
         }))
       )
 
@@ -268,7 +274,71 @@ export default function SalesOrdersPage() {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it))
   }
   function addItem() { setItems(prev => [...prev, emptyItem()]) }
+  function addCategory() { setItems(prev => [...prev, categoryItem()]) }
   function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
+  function moveItem(idx: number, dir: -1 | 1) {
+    setItems(prev => {
+      const to = idx + dir
+      if (to < 0 || to >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[to]] = [next[to], next[idx]]
+      return next
+    })
+  }
+  /** 分類整組移動（含底下所有品項），與上/下一個分類區塊交換 */
+  function moveCategoryBlock(idx: number, dir: -1 | 1) {
+    setItems(prev => {
+      if (!prev[idx]?.is_category) return prev
+      const blockEnd = (start: number) => { let e = start + 1; while (e < prev.length && !prev[e].is_category) e++; return e }
+      const end = blockEnd(idx)
+      const block = prev.slice(idx, end)
+      if (dir === -1) {
+        let p = idx - 1
+        while (p >= 0 && !prev[p].is_category) p--
+        if (p < 0) return prev
+        return [...prev.slice(0, p), ...block, ...prev.slice(p, idx), ...prev.slice(end)]
+      } else {
+        if (end >= prev.length || !prev[end].is_category) return prev
+        const nextEnd = blockEnd(end)
+        return [...prev.slice(0, idx), ...prev.slice(end, nextEnd), ...block, ...prev.slice(nextEnd)]
+      }
+    })
+  }
+  // 拖拉排序：品項單筆、分類整組
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dropPos, setDropPos] = useState<{ idx: number; after: boolean } | null>(null)
+  function clearDrag() { setDragIdx(null); setDropPos(null) }
+  function rowDragOver(idx: number) {
+    return (e: React.DragEvent) => {
+      if (dragIdx === null) return
+      e.preventDefault()
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      setDropPos({ idx, after: e.clientY > r.top + r.height / 2 })
+    }
+  }
+  function rowDrop(e: React.DragEvent) {
+    e.preventDefault()
+    if (dragIdx === null || dropPos === null) { clearDrag(); return }
+    const insertAt = dropPos.idx + (dropPos.after ? 1 : 0)
+    const from = dragIdx
+    setItems(prev => {
+      let start = from, end = from + 1
+      if (prev[start]?.is_category) { while (end < prev.length && !prev[end].is_category) end++ }
+      if (insertAt >= start && insertAt <= end) return prev
+      const block = prev.slice(start, end)
+      const rest = [...prev.slice(0, start), ...prev.slice(end)]
+      const adj = insertAt > end ? insertAt - (end - start) : insertAt
+      return [...rest.slice(0, adj), ...block, ...rest.slice(adj)]
+    })
+    clearDrag()
+  }
+  const dropLine = (idx: number) =>
+    dropPos?.idx === idx ? (dropPos.after ? ' shadow-[inset_0_-2px_0_0_#16a34a]' : ' shadow-[inset_0_2px_0_0_#16a34a]') : ''
+  const gripProps = (idx: number) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move' },
+    onDragEnd: clearDrag,
+  })
 
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
   const tax = 0 // 系統價格含稅，不另加稅
@@ -490,6 +560,9 @@ export default function SalesOrdersPage() {
                     <button onClick={() => setPickerTarget('append')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
                       <Search size={12} /> 選產品（多選）
                     </button>
+                    <button onClick={addCategory} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                      <FolderPlus size={12} /> 插入分類標題
+                    </button>
                     <button onClick={addItem} className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1">
                       <Plus size={12} /> 加一行
                     </button>
@@ -506,14 +579,34 @@ export default function SalesOrdersPage() {
                         <th className="text-center px-2 py-2 text-gray-500 font-medium w-16">數量</th>
                         <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">含稅單價</th>
                         <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">含稅總計</th>
-                        <th className="w-8"></th>
+                        <th className="w-20"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {items.map((item, idx) => (
+                        item.is_category ? (
+                        <tr key={idx} className={'border-t border-gray-100 bg-purple-50/70' + dropLine(idx)} onDragOver={rowDragOver(idx)} onDrop={rowDrop}>
+                          <td className="px-2 py-1.5 whitespace-nowrap text-purple-500">
+                            <span {...gripProps(idx)} title="拖拉整組移動（含底下品項）" className="cursor-grab active:cursor-grabbing text-purple-300 hover:text-purple-600 inline-flex align-middle"><GripVertical size={13} /></span>
+                            <Tag size={12} className="inline-block align-middle ml-0.5" />
+                          </td>
+                          <td colSpan={5} className="px-2 py-1.5">
+                            <input value={item.product_name} onChange={e => updateItem(idx, 'product_name', e.target.value)}
+                              placeholder="分類標題（例：音響設備、資訊設備）"
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs font-semibold text-purple-800 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-[11px] text-purple-400">分類</td>
+                          <td className="px-1 py-1.5 text-center whitespace-nowrap">
+                            <button onClick={() => moveCategoryBlock(idx, -1)} title="整組上移" className="p-0.5 text-purple-400 hover:text-purple-700"><ChevronsUp size={12} /></button>
+                            <button onClick={() => moveCategoryBlock(idx, 1)} title="整組下移" className="p-0.5 text-purple-400 hover:text-purple-700"><ChevronsDown size={12} /></button>
+                            <button onClick={() => removeItem(idx)} className="p-0.5 text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
+                          </td>
+                        </tr>
+                        ) : (
                         <Fragment key={idx}>
-                        <tr className="border-t border-gray-100">
+                        <tr className={'border-t border-gray-100' + dropLine(idx)} onDragOver={rowDragOver(idx)} onDrop={rowDrop}>
                           <td className="px-2 py-1.5">
+                            <span {...gripProps(idx)} title="拖拉移動" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-green-600 inline-flex align-middle mr-0.5 float-left mt-1.5"><GripVertical size={12} /></span>
                             {(() => {
                               const logo = knownBrandLogoUrl(item.brand)
                               // eslint-disable-next-line @next/next/no-img-element
@@ -564,13 +657,16 @@ export default function SalesOrdersPage() {
                               title="可直接輸入含稅總計，系統會自動回算單價"
                               className="w-24 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right font-semibold focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
-                          <td className="px-1 py-1.5 text-center">
-                            <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
+                          <td className="px-1 py-1.5 text-center whitespace-nowrap">
+                            <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} title="上移" className="p-0.5 text-gray-400 hover:text-green-600 disabled:opacity-20"><ChevronUp size={12} /></button>
+                            <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} title="下移" className="p-0.5 text-gray-400 hover:text-green-600 disabled:opacity-20"><ChevronDown size={12} /></button>
+                            <button onClick={() => removeItem(idx)} className="p-0.5 text-red-400 hover:text-red-600">
                               <Trash2 size={13} />
                             </button>
                           </td>
                         </tr>
-                        <tr>
+                        <tr onDragOver={e => { if (dragIdx === null) return; e.preventDefault(); setDropPos({ idx, after: true }) }} onDrop={rowDrop}
+                            className={dropPos?.idx === idx && dropPos.after ? 'shadow-[inset_0_-2px_0_0_#16a34a]' : ''}>
                           <td />
                           <td colSpan={6} className="px-2 pb-1.5">
                             <input value={item.item_notes} onChange={e => updateItem(idx, 'item_notes', e.target.value)}
@@ -580,9 +676,21 @@ export default function SalesOrdersPage() {
                           <td />
                         </tr>
                         </Fragment>
+                        )
                       ))}
                     </tbody>
                   </table>
+                  <div className="flex items-center gap-3 px-3 py-2 border-t border-gray-100 bg-gray-50/60">
+                    <button onClick={() => setPickerTarget('append')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
+                      <Search size={12} /> 選產品（多選）
+                    </button>
+                    <button onClick={addCategory} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                      <FolderPlus size={12} /> 插入分類標題
+                    </button>
+                    <button onClick={addItem} className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1">
+                      <Plus size={12} /> 加一行
+                    </button>
+                  </div>
                 </div>
                 <div className="flex justify-end mt-2">
                   <div className="text-right space-y-0.5 text-xs min-w-[200px]">
