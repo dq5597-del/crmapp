@@ -130,7 +130,7 @@ export default function WorkspacePage() {
             <Plus size={13} /> 新增作業
           </button>
           {picker && (
-            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-2 grid grid-cols-2 gap-1 w-64 z-30">
+            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-2 grid grid-cols-2 gap-1 w-64 z-30">
               {Object.entries(MODULES).map(([key, m]) => {
                 const Icon = m.icon
                 return (
