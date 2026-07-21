@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck, Eye, FileText, Sheet, Send } from 'lucide-react'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
 
@@ -40,6 +41,10 @@ export default function SalesOrderDetailPage() {
   const [contactName, setContactName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [deliveryDate, setDeliveryDate] = useState('')
+  // 欄寬微調：與銷貨單新增視窗共用同一份設定
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('sales-order-items', {
+    brand: 110, name: 220, model: 150, unit: 56, qty: 60, price: 110, total: 112,
+  })
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [paymentTerms, setPaymentTerms] = useState('')
   const [bankAccount, setBankAccount] = useState('')
@@ -298,21 +303,24 @@ export default function SalesOrderDetailPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-700">品項明細</h2>
-          <button onClick={addItem} className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1">
-            <Plus size={12} /> 加一行
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={addItem} className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1">
+              <Plus size={12} /> 加一行
+            </button>
+            <ColWidthTools tableKey="sales-order-items" widths={colW} onReset={resetColW} />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">品名</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">型號</th>
-                <th className="text-center px-2 py-2 text-gray-500 font-medium w-14">單位</th>
-                <th className="text-center px-2 py-2 text-gray-500 font-medium w-16">數量</th>
-                <th className="text-right px-3 py-2 text-gray-500 font-medium w-28">單價</th>
-                <th className="text-right px-3 py-2 text-gray-500 font-medium w-28">金額</th>
+                <ResizableTH col="name" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">品名</ResizableTH>
+                <ResizableTH col="model" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">型號</ResizableTH>
+                <ResizableTH col="unit" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">單位</ResizableTH>
+                <ResizableTH col="qty" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">數量</ResizableTH>
+                <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">單價</ResizableTH>
+                <ResizableTH col="total" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">金額</ResizableTH>
                 <th className="w-8"></th>
               </tr>
             </thead>
@@ -331,17 +339,17 @@ export default function SalesOrderDetailPage() {
                   </td>
                   <td className="px-2 py-1.5">
                     <input value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
-                      className="w-14 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
                   </td>
                   <td className="px-2 py-1.5">
                     <input type="number" min={0} value={item.quantity}
                       onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
                   </td>
                   <td className="px-2 py-1.5">
                     <input type="number" min={0} value={item.unit_price}
                       onChange={e => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-green-400" />
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-green-400" />
                   </td>
                   <td className="px-3 py-1.5 text-right font-semibold text-gray-800">
                     {formatCurrency(item.quantity * item.unit_price)}
@@ -378,7 +386,7 @@ export default function SalesOrderDetailPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <label className="text-xs text-gray-500 mb-1 block">交貨日期</label>
-            <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
+            <input type="text" placeholder="例：2026/08/15，或自行輸入說明" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <div>
