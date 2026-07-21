@@ -63,12 +63,15 @@ export function ResizableTH({ col, widths, startResize, className = '', children
   return (
     <th className={className + ' relative select-none'} style={{ width: widths[col], minWidth: widths[col] }}>
       {children}
+      {/* 欄寬拖曳把手：看得見的灰色短棒（hover 變藍），感應範圍 14px 跨在欄界兩側 */}
       <span
         onMouseDown={e => startResize(col, e)}
         onTouchStart={e => startResize(col, e)}
         title="左右拖曳調整欄寬"
-        className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 active:bg-blue-500/60"
-      />
+        className="absolute -right-[7px] top-0 h-full w-[14px] cursor-col-resize z-10 flex items-center justify-center group"
+      >
+        <span className="w-[3px] h-3/5 rounded-full bg-gray-300 group-hover:bg-blue-500 group-active:bg-blue-600 transition-colors" />
+      </span>
     </th>
   )
 }
