@@ -16,8 +16,11 @@ import ViewModeSwitch from '@/components/ViewModeSwitch'
 import PunchClock from '@/components/PunchClock'
 
 const navItemsTop = [
+  { href: '/chairman', label: '董事長戰情室', icon: Award },
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
-  { href: '/manager', label: '主管戰情室', icon: ShieldCheck },
+  { href: '/manager', label: '總經理戰情室', icon: ShieldCheck },
+  { href: '/dept', label: '經理戰情室', icon: Briefcase },
+  { href: '/team', label: '主任戰情室', icon: Users },
   { href: '/finance', label: '會計戰情室', icon: Calculator },
   { href: '/hr', label: '人資戰情室', icon: UserCog },
   { href: '/', label: '業務戰情室', icon: LayoutDashboard },

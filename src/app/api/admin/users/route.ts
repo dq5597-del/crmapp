@@ -71,6 +71,9 @@ export async function POST(req: NextRequest) {
   const fullName = String(body?.full_name ?? '').trim()
   const role = ALLOWED_ROLES.includes(body?.role) ? body.role : 'user'
   const password = String(body?.password ?? '')
+  const branchId = body?.branch_id || null // 通訊處（2026-07 新增）
+  const title = String(body?.title ?? '員工')          // 職稱（組織層級）
+  const managerId = body?.manager_id || null            // 上級主管（群組樹）
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return NextResponse.json({ error: 'Email 格式不正確' }, { status: 400 })
   if (!fullName) return NextResponse.json({ error: '請填寫姓名' }, { status: 400 })
@@ -96,6 +99,9 @@ export async function POST(req: NextRequest) {
     full_name: fullName,
     role,
     is_active: true,
+    branch_id: branchId,
+    title,
+    manager_id: managerId,
   })
   if (pErr) {
     await sb.auth.admin.deleteUser(uid) // 回滾，避免孤兒帳號
