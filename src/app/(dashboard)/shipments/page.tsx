@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import DocActionBar from '@/components/DocActionBar'
 import { usePermissions } from '@/lib/permissions'
 import {
   Truck, Plus, Search, Printer, Trash2, Pencil, X, Link2, Check,
@@ -410,6 +411,10 @@ export default function ShipmentsPage() {
             </div>
 
             <div className="p-5 space-y-5">
+              {/* 列印分享（比照估價單，已存檔的出貨單才可用） */}
+              {editingId && (
+                <DocActionBar docType="shipment" docId={editingId} printHref={`/shipments/${editingId}/print`} emailLabel="Email 給客戶" />
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <F label="單位名稱 *">
                   <select value={form.client_id ?? ''} onChange={e => pickClient(e.target.value)} className={inp}>

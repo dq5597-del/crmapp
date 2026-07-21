@@ -8,6 +8,7 @@ import { ArrowLeft, RotateCcw, FileDown, Plus, Trash2, ShoppingCart } from 'luci
 import Link from 'next/link'
 import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import DocActionBar from '@/components/DocActionBar'
 
 const STATUS_OPTIONS = ['草稿', '已送出', '已確認', '已到貨', '取消']
 
@@ -213,11 +214,7 @@ export default function PurchaseOrderDetailPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-green-200 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50">
           <ShoppingCart size={13} /> {converting ? '轉換中…' : '轉銷貨單'}
         </button>
-        <button
-          onClick={() => window.open(`/purchase-orders/${id}/print`, '_blank')}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
-          <FileDown size={13} /> 列印 / PDF
-        </button>
+        <DocActionBar docType="purchase-order" docId={id as string} printHref={`/purchase-orders/${id}/print`} emailLabel="Email 給廠商" />
         <Link href={`/returns?ref_type=purchase_order&ref_id=${id}`}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50">
           <RotateCcw size={13} /> 建立退貨

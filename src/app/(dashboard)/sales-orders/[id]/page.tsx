@@ -246,6 +246,22 @@ export default function SalesOrderDetailPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <Send size={13} /> 分享銷貨單
         </button>
+        <button
+          onClick={async () => {
+            const to = window.prompt('請輸入客戶 Email：', '')
+            if (!to) return
+            try {
+              const res = await fetch(`/api/docs/sales-order/${id}/send-email`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: to.trim() }),
+              })
+              const data = await res.json()
+              alert(data.success ? `✅ 已寄出銷貨單給 ${to}` : `寄送失敗：${data.error ?? ''}`)
+            } catch (e: any) { alert('寄送失敗：' + e.message) }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50">
+          <Send size={13} /> Email 給客戶
+        </button>
         <button onClick={handleToShipment} disabled={shipping}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50">
           <PackageCheck size={13} /> {shipping ? '處理中…' : '轉出貨單'}

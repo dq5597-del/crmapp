@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import DocActionBar from '@/components/DocActionBar'
 
 const fmt = new Intl.NumberFormat('zh-TW')
 
@@ -553,6 +554,14 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
         </div>
         <Link href="/inquiries" className="text-sm text-gray-500 hover:text-gray-700">← 返回列表</Link>
       </div>
+
+      {/* 列印分享（比照估價單，已存檔的詢價單才可用） */}
+      {inquiryId && (
+        <div className="mb-4">
+          <DocActionBar docType="inquiry" docId={inquiryId} printHref={`/inquiries/${inquiryId}/print`}
+            emailLabel="Email 給廠商" defaultEmail={header.email ?? ''} />
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{error}</div>

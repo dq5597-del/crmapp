@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { ArrowLeft, PackageCheck, Ban, CheckCircle2 } from 'lucide-react'
+import DocActionBar from '@/components/DocActionBar'
 
 const STATUS_COLORS: Record<string, string> = {
   '待審核': 'bg-gray-100 text-gray-600',
@@ -176,6 +177,12 @@ export default function ReturnDetailPage() {
             <CheckCircle2 size={13} /> {processing ? '處理中...' : '確認結算'}
           </button>
         )}
+      </div>
+
+      {/* 列印分享（比照估價單） */}
+      <div className="mb-5">
+        <DocActionBar docType="return" docId={ret.id} printHref={`/returns/${ret.id}/print`}
+          emailLabel={ret.return_type === '客戶退貨' ? 'Email 給客戶' : 'Email 給廠商'} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
