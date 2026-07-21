@@ -9,6 +9,7 @@ import RowDeleteButton from '@/components/RowDeleteButton'
 import ProductPickerModal from '@/components/ProductPickerModal'
 import { ensurePayableForPurchase, ensureStockInForPurchase } from '@/lib/auto-ledger'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -51,6 +52,10 @@ export default function PurchasesPage() {
   const [status, setStatus] = useState('已確認')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<Item[]>([emptyItem()])
+  // 欄寬微調：每個使用者自己存，拖動即時生效
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('purchase-items', {
+    brand: 110, name: 220, model: 150, unit: 56, qty: 60, price: 110, total: 112,
+  })
   const [pickerTarget, setPickerTarget] = useState<number | 'append' | null>(null)
   const [termDefaults, setTermDefaults] = useState({ payment_terms: '', notes: '' })
 
@@ -332,19 +337,20 @@ export default function PurchasesPage() {
                     <button onClick={() => setItems(prev => [...prev, emptyItem()])} className="text-xs text-teal-600 hover:text-teal-800 flex items-center gap-1">
                       <Plus size={12} /> 加一行
                     </button>
+                    <ColWidthTools tableKey="purchase-items" widths={colW} onReset={resetColW} />
                   </div>
                 </div>
                 <div className="overflow-x-auto border border-gray-100 rounded-xl">
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left px-2 py-2 text-gray-500 font-medium w-20">品牌</th>
-                        <th className="text-left px-3 py-2 text-gray-500 font-medium">品名 *</th>
-                        <th className="text-left px-3 py-2 text-gray-500 font-medium w-24">型號</th>
-                        <th className="text-center px-2 py-2 text-gray-500 font-medium w-14">單位</th>
-                        <th className="text-center px-2 py-2 text-gray-500 font-medium w-16">數量</th>
-                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">進價</th>
-                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">金額</th>
+                        <ResizableTH col="brand" widths={colW} startResize={startResize} className="text-left px-2 py-2 text-gray-500 font-medium">品牌</ResizableTH>
+                        <ResizableTH col="name" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">品名 *</ResizableTH>
+                        <ResizableTH col="model" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">型號</ResizableTH>
+                        <ResizableTH col="unit" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">單位</ResizableTH>
+                        <ResizableTH col="qty" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">數量</ResizableTH>
+                        <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">進價</ResizableTH>
+                        <ResizableTH col="total" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">金額</ResizableTH>
                         <th className="w-8"></th>
                       </tr>
                     </thead>
@@ -376,17 +382,17 @@ export default function PurchasesPage() {
                           </td>
                           <td className="px-2 py-1.5">
                             <input value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
-                              className="w-14 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center" />
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center" />
                           </td>
                           <td className="px-2 py-1.5">
                             <input type="number" min={0} value={item.quantity}
                               onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                              className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center" />
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center" />
                           </td>
                           <td className="px-2 py-1.5">
                             <input type="number" min={0} value={item.unit_price}
                               onChange={e => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                              className="w-24 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right" />
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-right" />
                           </td>
                           <td className="px-3 py-1.5 text-right font-semibold text-gray-800">
                             {formatCurrency(item.quantity * item.unit_price)}

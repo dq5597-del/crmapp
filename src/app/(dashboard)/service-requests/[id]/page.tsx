@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Fragment } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import {
   ServiceRequest, ServiceVendorRepair, ServiceRepairQuote,
   ServiceRepairQuoteItem, Vendor, ServiceStatus, Product
@@ -696,6 +697,10 @@ function RepairQuoteTab({ req, repairQuote, repairItems, products, categories, o
   const [items, setItems] = useState<Partial<ServiceRepairQuoteItem>[]>(
     repairItems.length > 0 ? repairItems : [emptyItem()]
   )
+  // 欄寬微調：每個使用者自己存，拖動即時生效
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('repair-quote-items', {
+    name: 220, model: 120, unit: 64, qty: 80, price: 110, total: 112,
+  })
   const [saving, setSaving] = useState(false)
   const [deciding, setDeciding] = useState(false)
   const [productDropdown, setProductDropdown] = useState<number | null>(null)
@@ -848,7 +853,12 @@ function RepairQuoteTab({ req, repairQuote, repairItems, products, categories, o
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-800">維修項目</h3>
-          {!locked && <button onClick={addItem} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"><Plus size={13} /> 新增項目</button>}
+          {!locked && (
+            <div className="flex items-center gap-3">
+              <button onClick={addItem} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"><Plus size={13} /> 新增項目</button>
+              <ColWidthTools tableKey="repair-quote-items" widths={colW} onReset={resetColW} />
+            </div>
+          )}
         </div>
 
         {mainCats.length > 0 && (
@@ -866,12 +876,12 @@ function RepairQuoteTab({ req, repairQuote, repairItems, products, categories, o
           <thead className="bg-gray-50">
             <tr>
               <th className="px-3 py-2.5 text-left text-xs text-gray-500 w-6">#</th>
-              <th className="px-3 py-2.5 text-left text-xs text-gray-500 min-w-[220px]">品名</th>
-              <th className="px-3 py-2.5 text-left text-xs text-gray-500 w-24">型號</th>
-              <th className="px-2 py-2.5 text-center text-xs text-gray-500 w-16">單位</th>
-              <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 w-20">數量</th>
-              <th className="px-3 py-2.5 text-right text-xs text-gray-500 w-28">單價</th>
-              <th className="px-3 py-2.5 text-right text-xs text-gray-500 w-28">小計</th>
+              <ResizableTH col="name" widths={colW} startResize={startResize} className="px-3 py-2.5 text-left text-xs text-gray-500">品名</ResizableTH>
+              <ResizableTH col="model" widths={colW} startResize={startResize} className="px-3 py-2.5 text-left text-xs text-gray-500">型號</ResizableTH>
+              <ResizableTH col="unit" widths={colW} startResize={startResize} className="px-2 py-2.5 text-center text-xs text-gray-500">單位</ResizableTH>
+              <ResizableTH col="qty" widths={colW} startResize={startResize} className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500">數量</ResizableTH>
+              <ResizableTH col="price" widths={colW} startResize={startResize} className="px-3 py-2.5 text-right text-xs text-gray-500">單價</ResizableTH>
+              <ResizableTH col="total" widths={colW} startResize={startResize} className="px-3 py-2.5 text-right text-xs text-gray-500">小計</ResizableTH>
               {!locked && <th className="w-10" />}
             </tr>
           </thead>

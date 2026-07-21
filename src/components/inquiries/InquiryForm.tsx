@@ -10,6 +10,7 @@ import {
   RotateCcw, Lock, AlertTriangle, X, DownloadCloud, FileText,
 } from 'lucide-react'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 
 const fmt = new Intl.NumberFormat('zh-TW')
 
@@ -86,6 +87,11 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     inquiry_date: initialInquiry?.inquiry_date ?? new Date().toISOString().split('T')[0],
     reply_deadline: initialInquiry?.reply_deadline ?? '',
     notes: initialInquiry?.notes ?? '',
+  })
+
+  // 欄寬微調：每個使用者自己存，拖動即時生效
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('inquiry-items', {
+    brand: 90, name: 200, model: 120, unit: 56, qty: 70, cost: 96, price: 110, lead: 76, notes: 140,
   })
 
   const [items, setItems] = useState<ItemForm[]>(
@@ -640,6 +646,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
                 <Plus size={13} /> 新增品項
               </button>
             )}
+            <ColWidthTools tableKey="inquiry-items" widths={colW} onReset={resetColW} />
             {status !== '草稿' && !readonly && (
               <button onClick={() => setAiOpen(true)} className="flex items-center gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg font-medium">
                 <Sparkles size={13} /> AI 回填廠商報價
@@ -716,15 +723,15 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
               <thead>
                 <tr className="text-xs text-gray-500 border-b border-gray-100">
                   <th className="text-left py-2 pr-2 w-8">#</th>
-                  <th className="text-left py-2 pr-2 w-20">品牌</th>
-                  <th className="text-left py-2 pr-2 min-w-[160px]">品名</th>
-                  <th className="text-left py-2 pr-2 w-24">型號</th>
-                  <th className="text-left py-2 pr-2 w-14">單位</th>
-                  <th className="text-right py-2 pr-2 w-20">數量</th>
-                  <th className="text-right py-2 pr-2 w-24">目前成本</th>
-                  <th className="text-right py-2 pr-2 w-28">進價</th>
-                  <th className="text-right py-2 pr-2 w-20">交期(天)</th>
-                  <th className="text-left py-2 pr-2 min-w-[120px]">品項備註</th>
+                  <ResizableTH col="brand" widths={colW} startResize={startResize} className="text-left py-2 pr-2">品牌</ResizableTH>
+                  <ResizableTH col="name" widths={colW} startResize={startResize} className="text-left py-2 pr-2">品名</ResizableTH>
+                  <ResizableTH col="model" widths={colW} startResize={startResize} className="text-left py-2 pr-2">型號</ResizableTH>
+                  <ResizableTH col="unit" widths={colW} startResize={startResize} className="text-left py-2 pr-2">單位</ResizableTH>
+                  <ResizableTH col="qty" widths={colW} startResize={startResize} className="text-right py-2 pr-2">數量</ResizableTH>
+                  <ResizableTH col="cost" widths={colW} startResize={startResize} className="text-right py-2 pr-2">目前成本</ResizableTH>
+                  <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right py-2 pr-2">進價</ResizableTH>
+                  <ResizableTH col="lead" widths={colW} startResize={startResize} className="text-right py-2 pr-2">交期(天)</ResizableTH>
+                  <ResizableTH col="notes" widths={colW} startResize={startResize} className="text-left py-2 pr-2">品項備註</ResizableTH>
                   <th className="py-2 w-20"></th>
                 </tr>
               </thead>

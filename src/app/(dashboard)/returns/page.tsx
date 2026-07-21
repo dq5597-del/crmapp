@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Plus, Search, RotateCcw, Printer, Trash2 } from 'lucide-react'
 
@@ -74,6 +75,10 @@ function ReturnsPageInner() {
     notes: '',
   })
   const [items, setItems] = useState<ItemRow[]>([])
+  // 欄寬微調：每個使用者自己存，拖動即時生效
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('return-items', {
+    name: 240, qty: 70, price: 110, total: 112,
+  })
 
   const fetchReturns = useCallback(async () => {
     const { data } = await supabase
@@ -366,19 +371,22 @@ function ReturnsPageInner() {
           <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div className="text-sm font-semibold text-gray-700">退貨品項</div>
-              <button onClick={addManualItem} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
-                <Plus size={12} /> 加一行
-              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={addManualItem} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                  <Plus size={12} /> 加一行
+                </button>
+                <ColWidthTools tableKey="return-items" widths={colW} onReset={resetColW} />
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-medium">品名</th>
-                    <th className="text-center px-2 py-2 text-gray-500 font-medium w-16">數量</th>
-                    <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">單價</th>
-                    <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">小計</th>
+                    <ResizableTH col="name" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">品名</ResizableTH>
+                    <ResizableTH col="qty" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">數量</ResizableTH>
+                    <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">單價</ResizableTH>
+                    <ResizableTH col="total" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">小計</ResizableTH>
                     <th className="text-center px-2 py-2 text-gray-500 font-medium w-8"></th>
                   </tr>
                 </thead>
@@ -406,12 +414,12 @@ function ReturnsPageInner() {
                       <td className="px-2 py-1.5">
                         <input type="number" min={0} step="0.01" value={item.quantity}
                           onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center" />
+                          className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center" />
                       </td>
                       <td className="px-2 py-1.5">
                         <input type="number" min={0} value={item.unit_price}
                           onChange={e => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                          className="w-24 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right" />
+                          className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-right" />
                       </td>
                       <td className="px-3 py-1.5 text-right font-semibold text-gray-800">
                         {formatCurrency(item.quantity * item.unit_price)}

@@ -85,11 +85,16 @@ export function ColWidthReset({ onReset }: { onReset: () => void }) {
   )
 }
 
-/** 三張單的欄寬儲存鍵與名稱（欄位相同，可互相套用） */
+/** 各作業品項表的欄寬儲存鍵與名稱（可互相套用；欄位不同時取交集） */
 const TABLE_KEYS: Record<string, string> = {
   'quote-items': '報價單',
   'sales-order-items': '銷貨單',
   'purchase-order-items': '訂購單',
+  'purchase-items': '進貨單',
+  'inquiry-items': '廠商詢價單',
+  'shipment-items': '出貨管理',
+  'return-items': '退貨管理',
+  'repair-quote-items': '維修報價單',
 }
 
 /** 欄寬工具列：重設 + 套用到其他作業（可勾選要同步哪幾張單） */

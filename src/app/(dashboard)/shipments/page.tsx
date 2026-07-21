@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import { usePermissions } from '@/lib/permissions'
 import {
   Truck, Plus, Search, Printer, Trash2, Pencil, X, Link2, Check,
@@ -51,6 +52,10 @@ export default function ShipmentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<any>({})
   const [items, setItems] = useState<Item[]>([])
+  // 欄寬微調：每個使用者自己存，拖動即時生效
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('shipment-items', {
+    product: 200, name: 160, qty: 90, stock: 80, notes: 180,
+  })
   const [saving, setSaving] = useState(false)
   const [soPickerOpen, setSoPickerOpen] = useState(false)
 
@@ -449,19 +454,22 @@ export default function ShipmentsPage() {
               <section>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-gray-700">出貨品項</div>
-                  <button type="button" onClick={() => setItems(i => [...i, { product_name: '', quantity: 1 }])}
-                    className="text-sm border border-gray-200 hover:bg-gray-50 px-3 py-1 rounded-lg">＋ 加一列</button>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setItems(i => [...i, { product_name: '', quantity: 1 }])}
+                      className="text-sm border border-gray-200 hover:bg-gray-50 px-3 py-1 rounded-lg">＋ 加一列</button>
+                    <ColWidthTools tableKey="shipment-items" widths={colW} onReset={resetColW} />
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-gray-500 bg-gray-50">
                         <th className="px-2 py-2 w-8">#</th>
-                        <th className="px-2 py-2">產品</th>
-                        <th className="px-2 py-2 w-40">品名（可自填）</th>
-                        <th className="px-2 py-2 w-24">數量</th>
-                        <th className="px-2 py-2 w-20">庫存</th>
-                        <th className="px-2 py-2">備註</th>
+                        <ResizableTH col="product" widths={colW} startResize={startResize} className="px-2 py-2">產品</ResizableTH>
+                        <ResizableTH col="name" widths={colW} startResize={startResize} className="px-2 py-2">品名（可自填）</ResizableTH>
+                        <ResizableTH col="qty" widths={colW} startResize={startResize} className="px-2 py-2">數量</ResizableTH>
+                        <ResizableTH col="stock" widths={colW} startResize={startResize} className="px-2 py-2">庫存</ResizableTH>
+                        <ResizableTH col="notes" widths={colW} startResize={startResize} className="px-2 py-2">備註</ResizableTH>
                         <th className="px-2 py-2 w-8"></th>
                       </tr>
                     </thead>
