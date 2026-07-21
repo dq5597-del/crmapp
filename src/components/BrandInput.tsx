@@ -33,8 +33,13 @@ export default function BrandInput({ value, onChange, className, placeholder = '
   useEffect(() => {
     if (brandCache) { setBrands(brandCache); return }
     supabase.from('products').select('brand').not('brand', 'is', null).then(({ data }) => {
-      const list = [...new Set((data ?? []).map((r: any) => (r.brand ?? '').trim()).filter(Boolean))]
-        .sort((a: string, b: string) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+      // 去重時大小寫視為同一品牌（保留第一個出現的寫法）
+      const seen = new Map<string, string>()
+      for (const r of (data ?? []) as any[]) {
+        const b = (r.brand ?? '').trim()
+        if (b && !seen.has(b.toLowerCase())) seen.set(b.toLowerCase(), b)
+      }
+      const list = [...seen.values()].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
       brandCache = list
       setBrands(list)
     })
@@ -50,7 +55,13 @@ export default function BrandInput({ value, onChange, className, placeholder = '
       <input value={value}
         onChange={e => { onChange(e.target.value.toUpperCase()); setOpen(true) }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => { setOpen(false); addBrandToCache(value) }, 150)}
+        onBlur={() => setTimeout(() => {
+          setOpen(false)
+          // 大小寫視為同一品牌：若與現有品牌只差大小寫，自動改用現有寫法（避免重複）
+          const canonical = brands.find(b => b.toLowerCase() === (value ?? '').trim().toLowerCase())
+          if (canonical && canonical !== value) onChange(canonical)
+          else addBrandToCache(value)
+        }, 150)}
         className={className} placeholder={placeholder} autoComplete="off" />
       {open && (hits.length > 0 || (q && !exact)) && (
         <div className="absolute left-0 top-full mt-1 min-w-[150px] bg-white border border-gray-200 rounded-lg shadow-lg z-40 max-h-44 overflow-y-auto">

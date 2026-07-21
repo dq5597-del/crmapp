@@ -751,9 +751,15 @@ export default function ProductsPage() {
 
   const mainCats = [...new Set(categories.map(c => c.main_category))]
 
-  // 品牌清單：自產品歸納、去重、A-Z 排序
-  const allBrands = [...new Set(products.map(p => (p.brand ?? '').trim()).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+  // 品牌清單：自產品歸納、去重（大小寫視為同一品牌）、A-Z 排序
+  const allBrands = (() => {
+    const seen = new Map<string, string>()
+    for (const p of products) {
+      const b = (p.brand ?? '').trim()
+      if (b && !seen.has(b.toLowerCase())) seen.set(b.toLowerCase(), b)
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+  })()
   const brandLetters = [...new Set(allBrands.map(b => {
     const c = b[0].toUpperCase()
     return /[A-Z]/.test(c) ? c : '#'
@@ -933,7 +939,14 @@ export default function ProductsPage() {
                                     <input value={form.brand}
                                         onChange={e => { setForm(p => ({ ...p, brand: e.target.value.toUpperCase() })); setShowBrandDropdown(true) }}
                                         onFocus={() => setShowBrandDropdown(true)}
-                                        onBlur={() => setTimeout(() => setShowBrandDropdown(false), 150)}
+                                        onBlur={() => setTimeout(() => {
+                                            setShowBrandDropdown(false)
+                                            // 大小寫視為同一品牌：與現有品牌只差大小寫時自動改用現有寫法
+                                            setForm(p => {
+                                                const canonical = allBrands.find(b => b.toLowerCase() === (p.brand ?? '').trim().toLowerCase())
+                                                return canonical && canonical !== p.brand ? { ...p, brand: canonical } : p
+                                            })
+                                        }, 150)}
                                         className={inputClass} placeholder="輸入 A-Z 開頭快速搜尋，例：Y" autoComplete="off" />
                                     {showBrandDropdown && (() => {
                                         const q = (form.brand ?? '').trim().toLowerCase()
