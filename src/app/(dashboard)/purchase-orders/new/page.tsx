@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, Search, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
 import ProductPickerModal from '@/components/ProductPickerModal'
 import BrandInput from '@/components/BrandInput'
+import { useColWidths, ResizableTH, ColWidthReset } from '@/components/ResizableTable'
 
 type Item = {
   seq_no: number
@@ -42,6 +43,10 @@ export default function NewPurchaseOrderPage() {
   const [items, setItems] = useState<Item[]>([
     { seq_no: 1, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' },
   ])
+  // 欄寬微調：每個使用者自己存，拖動即時生效
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('purchase-order-items', {
+    brand: 110, name: 220, model: 150, unit: 56, qty: 60, price: 110, total: 112,
+  })
 
   useEffect(() => {
     supabase.from('user_profiles').select('id, full_name').eq('is_active', true).order('full_name')
@@ -349,6 +354,7 @@ export default function NewPurchaseOrderPage() {
             <button onClick={addItem} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
               <Plus size={12} /> 加一行
             </button>
+            <ColWidthReset onReset={resetColW} />
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -356,13 +362,13 @@ export default function NewPurchaseOrderPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
-                <th className="text-left px-2 py-2 text-gray-500 font-medium col-brand">品牌</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium col-name">品名</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium col-model">型號</th>
-                <th className="text-center px-2 py-2 text-gray-500 font-medium w-14">單位</th>
-                <th className="text-center px-2 py-2 text-gray-500 font-medium w-16">數量</th>
-                <th className="text-right px-3 py-2 text-gray-500 font-medium col-amount">單價</th>
-                <th className="text-right px-3 py-2 text-gray-500 font-medium col-amount">金額</th>
+                <ResizableTH col="brand" widths={colW} startResize={startResize} className="text-left px-2 py-2 text-gray-500 font-medium">品牌</ResizableTH>
+                <ResizableTH col="name" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">品名</ResizableTH>
+                <ResizableTH col="model" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">型號</ResizableTH>
+                <ResizableTH col="unit" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">單位</ResizableTH>
+                <ResizableTH col="qty" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">數量</ResizableTH>
+                <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">單價</ResizableTH>
+                <ResizableTH col="total" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">金額</ResizableTH>
                 <th className="w-20"></th>
               </tr>
             </thead>

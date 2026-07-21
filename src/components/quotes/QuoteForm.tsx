@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
 import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, FolderPlus, Search, GripVertical } from 'lucide-react'
 import BrandInput from '@/components/BrandInput'
+import { useColWidths, ResizableTH, ColWidthReset } from '@/components/ResizableTable'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 
@@ -735,6 +736,11 @@ export default function QuoteForm({
     if (onSuccess) { onSuccess() } else { router.push(`/quotes/${quoteId}`) }
   }
 
+  // 欄寬微調：每個使用者自己存（localStorage），拖動即時生效
+  const { widths: colW, startResize, reset: resetColW } = useColWidths('quote-items', {
+    brand: 110, name: 220, model: 150, unit: 56, qty: 56, price: 110, total: 112,
+  })
+
   const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
   const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
   const tdInput = 'w-full px-2 py-1.5 border border-gray-200 rounded text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500'
@@ -884,6 +890,7 @@ export default function QuoteForm({
             <button onClick={addItem} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
               <Plus size={14} /> 新增品項
             </button>
+            <ColWidthReset onReset={resetColW} />
           </div>
         </div>
 
@@ -902,13 +909,13 @@ export default function QuoteForm({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
-                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium col-brand">品牌</th>
-                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium col-name">品名</th>
-                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium col-model">型號</th>
-                <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-[56px]">單位</th>
-                <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium w-[56px]">數量</th>
-                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium col-amount">含稅單價</th>
-                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium col-amount">含稅總計</th>
+                <ResizableTH col="brand" widths={colW} startResize={startResize} className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium">品牌</ResizableTH>
+                <ResizableTH col="name" widths={colW} startResize={startResize} className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium">品名</ResizableTH>
+                <ResizableTH col="model" widths={colW} startResize={startResize} className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium">型號</ResizableTH>
+                <ResizableTH col="unit" widths={colW} startResize={startResize} className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium">單位</ResizableTH>
+                <ResizableTH col="qty" widths={colW} startResize={startResize} className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium">數量</ResizableTH>
+                <ResizableTH col="price" widths={colW} startResize={startResize} className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium">含稅單價</ResizableTH>
+                <ResizableTH col="total" widths={colW} startResize={startResize} className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium">含稅總計</ResizableTH>
                 <th className="w-8"></th>
               </tr>
             </thead>
