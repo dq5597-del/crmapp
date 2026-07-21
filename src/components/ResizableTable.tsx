@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { RotateCcw, Copy } from 'lucide-react'
+import { RotateCcw, Copy, Save } from 'lucide-react'
 
 export function useColWidths(tableKey: string, defaults: Record<string, number>) {
   const LS = 'gh-colw-' + tableKey
@@ -111,8 +111,17 @@ export function ColWidthTools({ tableKey, widths, onReset }: {
     alert('已套用欄寬到：' + targets.map(([, n]) => n).join('、') + '（開啟該單據即生效）')
   }
 
+  function saveNow() {
+    localStorage.setItem('gh-colw-' + tableKey, JSON.stringify(widths))
+    alert('欄寬已儲存，之後開啟都會用這個設定')
+  }
+
   return (
     <div className="relative flex items-center gap-3">
+      <button type="button" onClick={saveNow} title="儲存目前欄寬"
+        className="flex items-center gap-1 text-[11px] text-emerald-600 hover:text-emerald-700 font-medium">
+        <Save size={11} /> 儲存欄寬
+      </button>
       <ColWidthReset onReset={onReset} />
       <button type="button" onClick={() => setOpen(o => !o)} title="把目前欄寬套用到其他單據"
         className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-blue-600">
