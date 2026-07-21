@@ -16,6 +16,9 @@ import ViewModeSwitch from '@/components/ViewModeSwitch'
 
 const navItemsTop = [
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
+  { href: '/manager', label: '主管戰情室', icon: ShieldCheck },
+  { href: '/finance', label: '會計戰情室', icon: Calculator },
+  { href: '/hr', label: '人資戰情室', icon: UserCog },
   { href: '/', label: '業務戰情室', icon: LayoutDashboard },
   { href: '/workspace', label: '多工工作區', icon: Columns2 },
   { href: '/projects', label: '專案資料夾', icon: FolderKanban },
