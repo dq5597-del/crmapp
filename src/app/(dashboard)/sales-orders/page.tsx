@@ -474,7 +474,7 @@ export default function SalesOrdersPage() {
       {/* ── 新增銷貨單 Modal ── */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl my-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-6xl my-4">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">新增銷貨單</h2>
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-700">
@@ -578,7 +578,7 @@ export default function SalesOrdersPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left px-2 py-2 text-gray-500 font-medium w-20">品牌</th>
+                        <th className="text-left px-2 py-2 text-gray-500 font-medium w-28">品牌</th>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium">品名 *</th>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium w-24">型號</th>
                         <th className="text-center px-2 py-2 text-gray-500 font-medium w-14">單位</th>
