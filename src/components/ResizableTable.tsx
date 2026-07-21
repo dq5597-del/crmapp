@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Copy } from 'lucide-react'
 
 export function useColWidths(tableKey: string, defaults: Record<string, number>) {
   const LS = 'gh-colw-' + tableKey
@@ -79,5 +79,58 @@ export function ColWidthReset({ onReset }: { onReset: () => void }) {
       className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600">
       <RotateCcw size={11} /> 欄寬重設
     </button>
+  )
+}
+
+/** 三張單的欄寬儲存鍵與名稱（欄位相同，可互相套用） */
+const TABLE_KEYS: Record<string, string> = {
+  'quote-items': '報價單',
+  'sales-order-items': '銷貨單',
+  'purchase-order-items': '訂購單',
+}
+
+/** 欄寬工具列：重設 + 套用到其他作業（可勾選要同步哪幾張單） */
+export function ColWidthTools({ tableKey, widths, onReset }: {
+  tableKey: string
+  widths: Record<string, number>
+  onReset: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const others = Object.entries(TABLE_KEYS).filter(([k]) => k !== tableKey)
+  const [checked, setChecked] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(others.map(([k]) => [k, true]))
+  )
+
+  function apply() {
+    const targets = others.filter(([k]) => checked[k])
+    targets.forEach(([k]) => localStorage.setItem('gh-colw-' + k, JSON.stringify(widths)))
+    setOpen(false)
+    alert('已套用欄寬到：' + targets.map(([, n]) => n).join('、') + '（開啟該單據即生效）')
+  }
+
+  return (
+    <div className="relative flex items-center gap-3">
+      <ColWidthReset onReset={onReset} />
+      <button type="button" onClick={() => setOpen(o => !o)} title="把目前欄寬套用到其他單據"
+        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-blue-600">
+        <Copy size={11} /> 套用到其他作業
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-40 w-48">
+          <div className="text-xs font-medium text-gray-700 mb-2">套用目前欄寬到：</div>
+          {others.map(([k, name]) => (
+            <label key={k} className="flex items-center gap-2 text-xs text-gray-600 py-1 cursor-pointer">
+              <input type="checkbox" checked={!!checked[k]} onChange={e => setChecked(p => ({ ...p, [k]: e.target.checked }))} className="accent-blue-600 w-3.5 h-3.5" />
+              {name}
+            </label>
+          ))}
+          <div className="flex justify-end gap-2 mt-2">
+            <button type="button" onClick={() => setOpen(false)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">取消</button>
+            <button type="button" onClick={apply} disabled={!others.some(([k]) => checked[k])}
+              className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg disabled:opacity-40">套用</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

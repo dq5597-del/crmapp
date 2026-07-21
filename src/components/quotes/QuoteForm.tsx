@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
 import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, FolderPlus, Search, GripVertical } from 'lucide-react'
 import BrandInput from '@/components/BrandInput'
-import { useColWidths, ResizableTH, ColWidthReset } from '@/components/ResizableTable'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 
@@ -890,7 +890,7 @@ export default function QuoteForm({
             <button onClick={addItem} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
               <Plus size={14} /> 新增品項
             </button>
-            <ColWidthReset onReset={resetColW} />
+            <ColWidthTools tableKey="quote-items" widths={colW} onReset={resetColW} />
           </div>
         </div>
 

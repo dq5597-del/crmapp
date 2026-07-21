@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, Search, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
 import ProductPickerModal from '@/components/ProductPickerModal'
 import BrandInput from '@/components/BrandInput'
-import { useColWidths, ResizableTH, ColWidthReset } from '@/components/ResizableTable'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 
 type Item = {
   seq_no: number
@@ -354,7 +354,7 @@ export default function NewPurchaseOrderPage() {
             <button onClick={addItem} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
               <Plus size={12} /> 加一行
             </button>
-            <ColWidthReset onReset={resetColW} />
+            <ColWidthTools tableKey="purchase-order-items" widths={colW} onReset={resetColW} />
           </div>
         </div>
         <div className="overflow-x-auto">

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, ShoppingCart, Plus, X, Trash2, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
 import BrandInput from '@/components/BrandInput'
-import { useColWidths, ResizableTH, ColWidthReset } from '@/components/ResizableTable'
+import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
@@ -577,7 +577,7 @@ export default function SalesOrdersPage() {
                     <button onClick={addItem} className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1">
                       <Plus size={12} /> 加一行
                     </button>
-                    <ColWidthReset onReset={resetColW} />
+                    <ColWidthTools tableKey="sales-order-items" widths={colW} onReset={resetColW} />
                   </div>
                 </div>
                 <div className="overflow-x-auto border border-gray-100 rounded-xl">
