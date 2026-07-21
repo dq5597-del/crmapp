@@ -605,6 +605,12 @@ export default function QuoteForm({
     const q = (productSearch[idx] ?? '').toLowerCase()
     let list = products
 
+    // 該列已選品牌 → 只顯示該品牌的產品（2026-07 新增）
+    const rowBrand = (items[idx]?.brand ?? '').trim().toLowerCase()
+    if (rowBrand) {
+      list = list.filter(p => ((p.brand ?? '') as string).trim().toLowerCase() === rowBrand)
+    }
+
     if (catFilter) {
       list = list.filter(p => {
         const pc = (p as any).product_categories
@@ -750,7 +756,14 @@ export default function QuoteForm({
 
       {pickerTarget !== null && (
         <ProductPickerModal
-          products={products}
+          products={(() => {
+            // 從某一列的放大鏡開啟且該列已選品牌 → 只列該品牌
+            if (typeof pickerTarget === 'number') {
+              const b = (items[pickerTarget]?.brand ?? '').trim().toLowerCase()
+              if (b) return products.filter(p => ((p.brand ?? '') as string).trim().toLowerCase() === b)
+            }
+            return products
+          })()}
           onClose={() => setPickerTarget(null)}
           onConfirm={handlePickerConfirm}
           onQuickAdd={handlePickerQuickAdd}

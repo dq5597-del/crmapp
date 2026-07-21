@@ -100,8 +100,13 @@ export default function SalesOrdersPage() {
 
   const filteredProducts = (idx: number) => {
     const q = (productSearch[idx] ?? '').toLowerCase()
-    if (!q) return products.slice(0, 20)
-    return products.filter(p =>
+    // 該列已選品牌 → 只顯示該品牌的產品（2026-07 新增）
+    const rowBrand = (items[idx]?.brand ?? '').trim().toLowerCase()
+    let list = rowBrand
+      ? products.filter(p => ((p.brand ?? '') as string).trim().toLowerCase() === rowBrand)
+      : products
+    if (!q) return list.slice(0, 20)
+    return list.filter(p =>
       p.product_name.toLowerCase().includes(q) ||
       (p.model?.toLowerCase() ?? '').includes(q) ||
       (p.brand?.toLowerCase() ?? '').includes(q)
@@ -748,7 +753,13 @@ export default function SalesOrdersPage() {
       {/* 選產品 Modal */}
       {pickerTarget !== null && (
         <ProductPickerModal
-          products={products}
+          products={(() => {
+            if (typeof pickerTarget === 'number') {
+              const b = (items[pickerTarget]?.brand ?? '').trim().toLowerCase()
+              if (b) return products.filter(p => ((p.brand ?? '') as string).trim().toLowerCase() === b)
+            }
+            return products
+          })()}
           onClose={() => setPickerTarget(null)}
           onConfirm={handlePickerConfirm}
           onQuickAdd={handlePickerQuickAdd}

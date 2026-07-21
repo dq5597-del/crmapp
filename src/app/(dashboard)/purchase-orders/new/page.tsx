@@ -167,29 +167,37 @@ export default function NewPurchaseOrderPage() {
     onDragEnd: clearDrag,
   })
 
-  // 選產品視窗（帶入成本價當進貨單價）
-  const [pickerOpen, setPickerOpen] = useState(false)
+  // 選產品視窗（帶入成本價當進貨單價）；pickerTarget：'append'=整批加入、數字=帶入該列（依該列品牌過濾）
+  const [pickerTarget, setPickerTarget] = useState<number | 'append' | null>(null)
   const [pickerProducts, setPickerProducts] = useState<any[]>([])
   useEffect(() => {
     supabase.from('products').select('id, brand, product_name, model, unit, list_price, cost_price, stock_qty, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name')
       .then(({ data }) => setPickerProducts(data ?? []))
   }, [])
   function handlePickerConfirm(picked: any[]) {
-    setItems(prev => [
-      ...prev,
-      ...picked.map((p, i) => ({
-        seq_no: prev.length + i + 1,
-        product_id: p.id,
-        brand: p.brand ?? '',
-        product_name: p.product_name,
-        model: p.model ?? '',
-        unit: p.unit ?? '台',
-        quantity: 1,
-        unit_price: Number(p.cost_price) || 0,
-        item_notes: '',
-      })),
-    ])
-    setPickerOpen(false)
+    const toItem = (p: any, seq: number) => ({
+      seq_no: seq,
+      product_id: p.id,
+      brand: p.brand ?? '',
+      product_name: p.product_name,
+      model: p.model ?? '',
+      unit: p.unit ?? '台',
+      quantity: 1,
+      unit_price: Number(p.cost_price) || 0,
+      item_notes: '',
+    })
+    setItems(prev => {
+      let next = [...prev]
+      let rest = picked
+      // 從某一列開啟 → 第一個選取帶入該列，其餘往後加
+      if (typeof pickerTarget === 'number' && picked.length > 0) {
+        const t = next[pickerTarget]
+        next[pickerTarget] = { ...toItem(picked[0], t?.seq_no ?? pickerTarget + 1), quantity: t?.quantity || 1, item_notes: t?.item_notes ?? '' }
+        rest = picked.slice(1)
+      }
+      return [...next, ...rest.map((p, i) => toItem(p, next.length + i + 1))]
+    })
+    setPickerTarget(null)
   }
 
   function removeItem(idx: number) {
@@ -332,7 +340,7 @@ export default function NewPurchaseOrderPage() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-700">品項明細</h2>
           <div className="flex items-center gap-3">
-            <button onClick={() => setPickerOpen(true)} className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
+            <button onClick={() => setPickerTarget('append')} className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
               <Search size={12} /> 選產品（多選）
             </button>
             <button onClick={addCategory} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
@@ -389,9 +397,15 @@ export default function NewPurchaseOrderPage() {
                       className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-400" />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input value={item.product_name} onChange={e => updateItem(idx, 'product_name', e.target.value)}
-                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
-                      placeholder="品名" />
+                    <div className="flex items-center gap-1">
+                      <input value={item.product_name} onChange={e => updateItem(idx, 'product_name', e.target.value)}
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
+                        placeholder="品名" />
+                      <button type="button" onClick={() => setPickerTarget(idx)} title={item.brand ? `從產品庫選取（只列 ${item.brand}）` : '從產品庫選取（可多選）'}
+                        className="p-1 text-gray-400 hover:text-purple-600 shrink-0">
+                        <Search size={13} />
+                      </button>
+                    </div>
                   </td>
                   <td className="px-2 py-1.5">
                     <input value={item.model} onChange={e => updateItem(idx, 'model', e.target.value)}
@@ -431,7 +445,7 @@ export default function NewPurchaseOrderPage() {
           </table>
         </div>
         <div className="flex items-center gap-3 px-4 py-2.5 border-t border-gray-100 bg-gray-50/60">
-          <button onClick={() => setPickerOpen(true)} className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
+          <button onClick={() => setPickerTarget('append')} className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium">
             <Search size={12} /> 選產品（多選）
           </button>
           <button onClick={addCategory} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
@@ -460,10 +474,16 @@ export default function NewPurchaseOrderPage() {
         </button>
       </div>
 
-      {pickerOpen && (
+      {pickerTarget !== null && (
         <ProductPickerModal
-          products={pickerProducts}
-          onClose={() => setPickerOpen(false)}
+          products={(() => {
+            if (typeof pickerTarget === 'number') {
+              const b = (items[pickerTarget]?.brand ?? '').trim().toLowerCase()
+              if (b) return pickerProducts.filter(p => ((p.brand ?? '') as string).trim().toLowerCase() === b)
+            }
+            return pickerProducts
+          })()}
+          onClose={() => setPickerTarget(null)}
           onConfirm={handlePickerConfirm}
           confirmLabel="帶入訂購單"
         />
