@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Plus, Search, RotateCcw, Printer, Trash2 } from 'lucide-react'
 
@@ -62,6 +63,9 @@ function ReturnsPageInner() {
   const [typeFilter, setTypeFilter] = useState('全部')
   const [statusFilter, setStatusFilter] = useState('全部')
   const [showForm, setShowForm] = useState(false)
+  // 未存檔提醒
+  const guard = useDirtyGuard()
+  useEffect(() => { if (showForm) guard.markClean() }, [showForm]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [form, setForm] = useState({
     return_type: '客戶退貨',
@@ -300,7 +304,7 @@ function ReturnsPageInner() {
 
       {/* 新增退貨表單 */}
       {showForm && (
-        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5 mb-5 space-y-4">
+        <div {...guard.formProps} className="bg-purple-50 border border-purple-200 rounded-2xl p-5 mb-5 space-y-4">
           <div className="font-semibold text-purple-900">新增退貨單</div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -447,7 +451,7 @@ function ReturnsPageInner() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <button onClick={() => { setShowForm(false); resetForm() }} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+            <button onClick={() => guard.guardClose(() => { setShowForm(false); resetForm() })} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium disabled:opacity-60">
               {saving ? '建立中...' : '建立退貨單'}
             </button>

@@ -7,6 +7,7 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, ShoppingCart, Plus, X, Trash2, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
 import BrandInput from '@/components/BrandInput'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
@@ -57,6 +58,9 @@ export default function SalesOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
+  // 未存檔提醒
+  const guard = useDirtyGuard()
+  useEffect(() => { if (showForm) guard.markClean() }, [showForm]) // eslint-disable-line react-hooks/exhaustive-deps
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
@@ -479,10 +483,10 @@ export default function SalesOrdersPage() {
       {/* ── 新增銷貨單 Modal ── */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-6xl my-4">
+          <div {...guard.formProps} className="bg-white rounded-2xl shadow-xl w-full max-w-6xl my-4">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">新增銷貨單</h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-700">
+              <button onClick={() => guard.guardClose(() => setShowForm(false))} className="text-gray-400 hover:text-gray-700">
                 <X size={20} />
               </button>
             </div>
@@ -749,7 +753,7 @@ export default function SalesOrdersPage() {
             </div>
 
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+              <button onClick={() => guard.guardClose(() => setShowForm(false))} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
                 取消
               </button>
               <button onClick={handleCreate} disabled={saving}

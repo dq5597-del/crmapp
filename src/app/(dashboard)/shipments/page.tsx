@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import DocActionBar from '@/components/DocActionBar'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { usePermissions } from '@/lib/permissions'
 import {
   Truck, Plus, Search, Printer, Trash2, Pencil, X, Link2, Check,
@@ -50,6 +51,9 @@ export default function ShipmentsPage() {
   const [busy, setBusy] = useState<string | null>(null)
 
   const [open, setOpen] = useState(false)
+  // 未存檔提醒
+  const guard = useDirtyGuard()
+  useEffect(() => { if (open) guard.markClean() }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<any>({})
   const [items, setItems] = useState<Item[]>([])
@@ -402,12 +406,12 @@ export default function ShipmentsPage() {
       {/* 編輯 Modal */}
       {open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto">
+          <div {...guard.formProps} className="bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white z-10">
               <h3 className="font-semibold">
                 {editingId ? `編輯出貨單 ${form.shipment_no ?? ''}` : '新增出貨單'}
               </h3>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+              <button onClick={() => guard.guardClose(() => setOpen(false))} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
             </div>
 
             <div className="p-5 space-y-5">
@@ -534,7 +538,7 @@ export default function ShipmentsPage() {
             </div>
 
             <div className="flex justify-end gap-2 px-5 py-4 border-t sticky bottom-0 bg-white">
-              <button onClick={() => setOpen(false)} className="px-4 py-2 text-sm rounded-lg border">取消</button>
+              <button onClick={() => guard.guardClose(() => setOpen(false))} className="px-4 py-2 text-sm rounded-lg border">取消</button>
               <button onClick={save} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white disabled:opacity-60">
                 {saving ? '儲存中…' : '儲存'}
               </button>

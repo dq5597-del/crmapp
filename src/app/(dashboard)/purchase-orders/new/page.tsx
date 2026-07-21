@@ -9,6 +9,7 @@ import { ArrowLeft, Plus, Trash2, Search, Tag, FolderPlus, GripVertical, Chevron
 import ProductPickerModal from '@/components/ProductPickerModal'
 import BrandInput from '@/components/BrandInput'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 
 type Item = {
   seq_no: number
@@ -43,6 +44,8 @@ export default function NewPurchaseOrderPage() {
   const [items, setItems] = useState<Item[]>([
     { seq_no: 1, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' },
   ])
+  // 未存檔提醒
+  const guard = useDirtyGuard()
   // 欄寬微調：每個使用者自己存，拖動即時生效
   const { widths: colW, startResize, reset: resetColW } = useColWidths('purchase-order-items', {
     brand: 110, name: 220, model: 150, unit: 56, qty: 60, price: 110, total: 112,
@@ -254,6 +257,7 @@ export default function NewPurchaseOrderPage() {
       )
       if (itemErr) throw itemErr
 
+      guard.markClean() // 已存檔，解除未存檔提醒
       router.push(`/purchase-orders/${newOrder.id}`)
     } catch (e: any) {
       alert('建立失敗：' + e.message)
@@ -264,7 +268,7 @@ export default function NewPurchaseOrderPage() {
   const inputClass = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div {...guard.formProps} className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <Link href="/purchase-orders" className="text-gray-500 hover:text-gray-900"><ArrowLeft size={20} /></Link>
         <h1 className="text-xl font-bold text-gray-900">新增訂購單</h1>

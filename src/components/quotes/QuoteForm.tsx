@@ -7,6 +7,7 @@ import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
 import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, FolderPlus, Search, GripVertical } from 'lucide-react'
 import BrandInput from '@/components/BrandInput'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 
@@ -733,8 +734,12 @@ export default function QuoteForm({
       if (itemsErr) { setError('品項儲存失敗：' + itemsErr.message); setSaving(false); return }
     }
 
+    guard.markClean() // 已存檔，解除未存檔提醒
     if (onSuccess) { onSuccess() } else { router.push(`/quotes/${quoteId}`) }
   }
+
+  // 未存檔提醒（關閉分頁/重新整理/切換頁面時，瀏覽器會跳提醒）
+  const guard = useDirtyGuard()
 
   // 欄寬微調：每個使用者自己存（localStorage），拖動即時生效
   const { widths: colW, startResize, reset: resetColW } = useColWidths('quote-items', {
@@ -746,7 +751,7 @@ export default function QuoteForm({
   const tdInput = 'w-full px-2 py-1.5 border border-gray-200 rounded text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500'
 
   return (
-    <div className="space-y-5">
+    <div {...guard.formProps} className="space-y-5">
       {showQuickAddClient && (
         <QuickAddClientModal
           initialName={clientSearch}

@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import DocActionBar from '@/components/DocActionBar'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 
 const STATUS_OPTIONS = ['草稿', '已送出', '已確認', '已到貨', '取消']
 
@@ -30,6 +31,8 @@ export default function PurchaseOrderDetailPage() {
   const supabase = createClient()
   const [order, setOrder] = useState<any>(null)
   const [items, setItems] = useState<Item[]>([])
+  // 未存檔提醒
+  const guard = useDirtyGuard()
   // 欄寬微調：與訂購單新增頁共用同一份設定
   const { widths: colW, startResize, reset: resetColW } = useColWidths('purchase-order-items', {
     brand: 110, name: 220, model: 150, unit: 56, qty: 60, price: 110, total: 112,
@@ -180,6 +183,7 @@ export default function PurchaseOrderDetailPage() {
 
       const { data: refreshed } = await supabase.from('purchase_orders').select('*').eq('id', id).single()
       setOrder(refreshed)
+      guard.markClean() // 已存檔，解除未存檔提醒
       alert('已儲存')
     } catch (e: any) {
       alert('儲存失敗：' + e.message)
@@ -202,7 +206,7 @@ export default function PurchaseOrderDetailPage() {
   const inputClass = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div {...guard.formProps} className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-900"><ArrowLeft size={20} /></button>
         <h1 className="text-xl font-bold text-gray-900">{order.order_no}</h1>

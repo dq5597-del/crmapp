@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck, Eye, FileText, Sheet, Send } from 'lucide-react'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
 
@@ -41,6 +42,8 @@ export default function SalesOrderDetailPage() {
   const [contactName, setContactName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [deliveryDate, setDeliveryDate] = useState('')
+  // 未存檔提醒
+  const guard = useDirtyGuard()
   // 欄寬微調：與銷貨單新增視窗共用同一份設定
   const { widths: colW, startResize, reset: resetColW } = useColWidths('sales-order-items', {
     brand: 110, name: 220, model: 150, unit: 56, qty: 60, price: 110, total: 112,
@@ -194,6 +197,7 @@ export default function SalesOrderDetailPage() {
       const msgs: string[] = []
       if (arResult === 'created') msgs.push('已自動產生應收帳款')
       if (stockResult === 'created') msgs.push('已自動扣減庫存')
+      guard.markClean() // 已存檔，解除未存檔提醒
       alert(msgs.length > 0 ? `已儲存，${msgs.join('、')}。` : '已儲存')
     } catch (e: any) {
       alert('儲存失敗: ' + e.message)
@@ -205,7 +209,7 @@ export default function SalesOrderDetailPage() {
   if (!order) return <div className="p-8 text-center text-red-500">找不到銷貨單</div>
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div {...guard.formProps} className="p-4 md:p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-900">

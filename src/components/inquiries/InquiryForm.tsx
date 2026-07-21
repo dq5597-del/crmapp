@@ -12,6 +12,7 @@ import {
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import DocActionBar from '@/components/DocActionBar'
+import { useDirtyGuard } from '@/lib/useDirtyGuard'
 
 const fmt = new Intl.NumberFormat('zh-TW')
 
@@ -90,6 +91,8 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     notes: initialInquiry?.notes ?? '',
   })
 
+  // 未存檔提醒
+  const guard = useDirtyGuard()
   // 欄寬微調：每個使用者自己存，拖動即時生效
   const { widths: colW, startResize, reset: resetColW } = useColWidths('inquiry-items', {
     brand: 90, name: 200, model: 120, unit: 56, qty: 70, cost: 96, price: 110, lead: 76, notes: 140,
@@ -340,6 +343,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     )
     if (e2) { setError(e2.message); setSaving(false); return null }
 
+    guard.markClean() // 已存檔，解除未存檔提醒
     if (nextStatus) setStatus(nextStatus)
     setSaving(false)
     return id
@@ -542,7 +546,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
   const labelClass = "text-xs text-gray-600 mb-1 block"
 
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto pb-28">
+    <div {...guard.formProps} className="p-4 md:p-6 max-w-6xl mx-auto pb-28">
       {/* Header */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
         <div className="flex items-center gap-3">
