@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem, Product, SystemSettings } from '@/types'
 import { Plus, Trash2, Clock, X, Tag, TrendingUp, ExternalLink, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, FolderPlus, Search, GripVertical } from 'lucide-react'
+import BrandInput from '@/components/BrandInput'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 
@@ -947,7 +948,7 @@ export default function QuoteForm({
                           <img src={logo} alt="" className="h-4 w-auto max-w-[72px] object-contain mb-1" />
                         ) : null
                       })()}
-                      <input value={item.brand} onChange={e => setItem(idx, 'brand', e.target.value)} placeholder="品牌" className={tdInput} />
+                      <BrandInput value={item.brand} onChange={v => setItem(idx, 'brand', v)} placeholder="品牌" className={tdInput} />
                     </td>
 
                     {/* 品名（點放大鏡開選產品視窗） */}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, ShoppingCart, Plus, X, Trash2, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
+import BrandInput from '@/components/BrandInput'
 import CopyDocButton from '@/components/CopyDocButton'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
@@ -612,7 +613,7 @@ export default function SalesOrdersPage() {
                               // eslint-disable-next-line @next/next/no-img-element
                               return logo ? <img src={logo} alt="" className="h-3.5 w-auto max-w-[60px] object-contain mb-0.5" /> : null
                             })()}
-                            <input value={item.brand} onChange={e => updateItem(idx, 'brand', e.target.value)} placeholder="品牌"
+                            <BrandInput value={item.brand} onChange={v => updateItem(idx, 'brand', v)} placeholder="品牌"
                               className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
                           <td className="px-2 py-1.5">

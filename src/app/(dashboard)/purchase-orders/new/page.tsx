@@ -7,10 +7,12 @@ import { createClient } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, Search, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
 import ProductPickerModal from '@/components/ProductPickerModal'
+import BrandInput from '@/components/BrandInput'
 
 type Item = {
   seq_no: number
   product_id?: string | null
+  brand?: string
   product_name: string
   model: string
   unit: string
@@ -38,7 +40,7 @@ export default function NewPurchaseOrderPage() {
   const [paymentTerms, setPaymentTerms] = useState('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<Item[]>([
-    { seq_no: 1, product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' },
+    { seq_no: 1, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' },
   ])
 
   useEffect(() => {
@@ -96,7 +98,7 @@ export default function NewPurchaseOrderPage() {
   }
 
   function addItem() {
-    setItems(prev => [...prev, { seq_no: prev.length + 1, product_id: null, product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' }])
+    setItems(prev => [...prev, { seq_no: prev.length + 1, product_id: null, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' }])
   }
   function addCategory() {
     setItems(prev => [...prev, { seq_no: prev.length + 1, product_id: null, product_name: '', model: '', unit: '', quantity: 0, unit_price: 0, item_notes: '', is_category: true }])
@@ -178,6 +180,7 @@ export default function NewPurchaseOrderPage() {
       ...picked.map((p, i) => ({
         seq_no: prev.length + i + 1,
         product_id: p.id,
+        brand: p.brand ?? '',
         product_name: p.product_name,
         model: p.model ?? '',
         unit: p.unit ?? '台',
@@ -226,6 +229,7 @@ export default function NewPurchaseOrderPage() {
           order_id: newOrder.id,
           seq_no: idx + 1,
           product_id: i.product_id ?? null,
+          brand: i.brand || null,
           product_name: i.product_name,
           model: i.model,
           unit: i.unit,
@@ -344,6 +348,7 @@ export default function NewPurchaseOrderPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>
+                <th className="text-left px-2 py-2 text-gray-500 font-medium w-24">品牌</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">品名</th>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium">型號</th>
                 <th className="text-center px-2 py-2 text-gray-500 font-medium w-14">單位</th>
@@ -361,7 +366,7 @@ export default function NewPurchaseOrderPage() {
                     <span {...gripProps(idx)} title="拖拉整組移動（含底下品項）" className="cursor-grab active:cursor-grabbing text-purple-300 hover:text-purple-600 inline-flex align-middle"><GripVertical size={13} /></span>
                     <Tag size={12} className="inline-block align-middle ml-0.5" />
                   </td>
-                  <td colSpan={5} className="px-2 py-1.5">
+                  <td colSpan={6} className="px-2 py-1.5">
                     <input value={item.product_name} onChange={e => updateItem(idx, 'product_name', e.target.value)}
                       placeholder="分類標題（例：音響設備、資訊設備）"
                       className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs font-semibold text-purple-800 focus:outline-none focus:ring-1 focus:ring-purple-400" />
@@ -378,6 +383,10 @@ export default function NewPurchaseOrderPage() {
                   <td className="px-3 py-1.5 text-gray-400 whitespace-nowrap">
                     <span {...gripProps(idx)} title="拖拉移動" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-purple-500 inline-flex align-middle mr-0.5"><GripVertical size={12} /></span>
                     {idx + 1}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <BrandInput value={item.brand ?? ''} onChange={v => updateItem(idx, 'brand', v)} placeholder="品牌"
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-400" />
                   </td>
                   <td className="px-2 py-1.5">
                     <input value={item.product_name} onChange={e => updateItem(idx, 'product_name', e.target.value)}
@@ -416,7 +425,7 @@ export default function NewPurchaseOrderPage() {
                 )
               ))}
               {items.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-6 text-gray-400 text-xs">尚無品項，點「加一行」新增</td></tr>
+                <tr><td colSpan={9} className="text-center py-6 text-gray-400 text-xs">尚無品項，點「加一行」新增</td></tr>
               )}
             </tbody>
           </table>
