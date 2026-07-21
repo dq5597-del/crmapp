@@ -36,6 +36,53 @@ input[type='number'] {
   appearance: textfield;
 }
 
+/* ============================================================
+   RWD 全域規則（2026-07）：手機/平板/桌機自動切換
+   ============================================================ */
+
+/* 表格一律多預留 1% 空間，避免欄位貼邊擠壓 */
+.overflow-x-auto > table {
+  min-width: 101%;
+}
+
+/* 手機版（<768px）：字體用標準大小再大一號，表格保持可讀寬度、橫向捲動 */
+@media (max-width: 767px) {
+  /* 表單輸入：16px（同時避免 iOS 點輸入框自動放大） */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  /* 表格文字：15px（標準 14 + 1） */
+  table, table td, table th {
+    font-size: 15px !important;
+  }
+  table input, table select {
+    font-size: 15px !important;
+    min-height: 38px;
+  }
+  /* 品項/清單表格：維持最小可讀寬度，超出改為橫向捲動而不是擠壓 */
+  .overflow-x-auto > table {
+    min-width: 860px;
+  }
+}
+
+/* 平板（768–1023px）：字體 14~15px，表格同樣預留空間 */
+@media (min-width: 768px) and (max-width: 1023px) {
+  table, table td, table th {
+    font-size: 14px;
+  }
+  .overflow-x-auto > table {
+    min-width: 101%;
+  }
+}
+
+/* 欄寬基準（依現有產品資料長度）：
+   品牌 BEHRINGER/VIEWSONIC ≈ 110px、型號 STAGEPAS-1K-MKII ≈ 150px、
+   品名保底 220px、金額 NT$1,234,567 ≈ 110px */
+.col-brand  { min-width: 110px; }
+.col-model  { min-width: 150px; }
+.col-name   { min-width: 220px; }
+.col-amount { min-width: 110px; }
+
 /* 統一頁面容器寬度：桌機（>=768px）一律加寬到 1536px，手機維持滿版不受影響。
    只針對同時有 mx-auto 與 max-w-* 的頁面容器，彈窗（靠 flex 置中、無 mx-auto）不受影響。 */
 @media (min-width: 768px) {

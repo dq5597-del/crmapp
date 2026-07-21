@@ -578,13 +578,13 @@ export default function SalesOrdersPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left px-2 py-2 text-gray-500 font-medium w-28">品牌</th>
-                        <th className="text-left px-3 py-2 text-gray-500 font-medium">品名 *</th>
-                        <th className="text-left px-3 py-2 text-gray-500 font-medium w-24">型號</th>
+                        <th className="text-left px-2 py-2 text-gray-500 font-medium col-brand">品牌</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium col-name">品名 *</th>
+                        <th className="text-left px-3 py-2 text-gray-500 font-medium col-model">型號</th>
                         <th className="text-center px-2 py-2 text-gray-500 font-medium w-14">單位</th>
                         <th className="text-center px-2 py-2 text-gray-500 font-medium w-16">數量</th>
-                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">含稅單價</th>
-                        <th className="text-right px-3 py-2 text-gray-500 font-medium w-24">含稅總計</th>
+                        <th className="text-right px-3 py-2 text-gray-500 font-medium col-amount">含稅單價</th>
+                        <th className="text-right px-3 py-2 text-gray-500 font-medium col-amount">含稅總計</th>
                         <th className="w-20"></th>
                       </tr>
                     </thead>

@@ -902,13 +902,13 @@ export default function QuoteForm({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
-                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-[84px]">品牌</th>
-                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium min-w-[160px]">品名</th>
-                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-[96px]">型號</th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium col-brand">品牌</th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium col-name">品名</th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium col-model">型號</th>
                 <th className="px-2 py-2.5 text-center text-xs text-gray-500 font-medium w-[56px]">單位</th>
                 <th className="px-1 pr-2 py-2.5 text-center text-xs text-gray-500 font-medium w-[56px]">數量</th>
-                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium w-[92px]">含稅單價</th>
-                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium w-28">含稅總計</th>
+                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium col-amount">含稅單價</th>
+                <th className="px-2 py-2.5 text-right text-xs text-gray-500 font-medium col-amount">含稅總計</th>
                 <th className="w-8"></th>
               </tr>
             </thead>

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
+import ViewModeSwitch from '@/components/ViewModeSwitch'
 
 const navItemsTop = [
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
@@ -284,14 +285,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         {/* Logout */}
-        <div className="px-3 pb-4 border-t border-gray-700 pt-3 shrink-0">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-          >
-            <LogOut size={18} />
-            登出
-          </button>
+        <div className="pb-4 border-t border-gray-700 pt-1 shrink-0">
+          <ViewModeSwitch />
+          <div className="px-3">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+            >
+              <LogOut size={18} />
+              登出
+            </button>
+          </div>
         </div>
       </aside>
     </>
