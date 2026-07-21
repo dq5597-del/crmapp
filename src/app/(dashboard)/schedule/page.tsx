@@ -683,6 +683,23 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, addClien
       : await supabase.from('schedules').insert(payload)
     setSaving(false)
     if (error) { alert('儲存失敗：' + error.message); return }
+
+    // 客戶拜訪 + 有選單位 → 同步寫入該單位的「拜訪紀錄」（僅新增行程時，避免編輯重複寫）
+    if (!schedule && f.type === '客戶拜訪' && f.client_id) {
+      const memo = [f.title.trim(), f.plan_notes?.trim()].filter(Boolean).join('｜')
+      const { error: vErr } = await supabase.from('visit_records').insert({
+        client_id: f.client_id,
+        visit_date: f.schedule_date,
+        progress_memo: memo || '客戶拜訪（來自每日行程）',
+      })
+      if (!vErr) {
+        // 同步更新客戶卡的「下次拜訪日」為此行程日期（原本沒填或較舊時）
+        await supabase.from('clients').update({ next_visit_date: f.schedule_date })
+          .eq('id', f.client_id)
+          .or(`next_visit_date.is.null,next_visit_date.lt.${f.schedule_date}`)
+      }
+    }
+
     onSaved()
   }
 
