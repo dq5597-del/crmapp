@@ -419,17 +419,17 @@ export default function NewPurchaseOrderPage() {
                   </td>
                   <td className="px-2 py-1.5">
                     <input value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
-                      className="w-14 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-400" />
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-400" />
                   </td>
                   <td className="px-2 py-1.5">
                     <input type="number" min={0} value={item.quantity}
                       onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-400" />
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-400" />
                   </td>
                   <td className="px-2 py-1.5">
                     <input type="number" min={0} value={item.unit_price}
                       onChange={e => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                      className="w-28 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-purple-400" />
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-purple-400" />
                   </td>
                   <td className="px-3 py-1.5 text-right font-semibold text-gray-800">
                     {formatCurrency(item.quantity * item.unit_price)}

@@ -618,14 +618,18 @@ export default function SalesOrdersPage() {
                         <Fragment key={idx}>
                         <tr className={'border-t border-gray-100' + dropLine(idx)} onDragOver={rowDragOver(idx)} onDrop={rowDrop}>
                           <td className="px-2 py-1.5">
-                            <span {...gripProps(idx)} title="拖拉移動" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-green-600 inline-flex align-middle mr-0.5 float-left mt-1.5"><GripVertical size={12} /></span>
                             {(() => {
                               const logo = knownBrandLogoUrl(item.brand)
                               // eslint-disable-next-line @next/next/no-img-element
-                              return logo ? <img src={logo} alt="" className="h-3.5 w-auto max-w-[60px] object-contain mb-0.5" /> : null
+                              return logo ? <img src={logo} alt="" className="h-3.5 w-auto max-w-[60px] object-contain mb-0.5 ml-4" /> : null
                             })()}
-                            <BrandInput value={item.brand} onChange={v => updateItem(idx, 'brand', v)} placeholder="品牌"
-                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400" />
+                            <div className="flex items-center gap-1">
+                              <span {...gripProps(idx)} title="拖拉移動" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-green-600 inline-flex shrink-0"><GripVertical size={12} /></span>
+                              <div className="flex-1 min-w-0">
+                                <BrandInput value={item.brand} onChange={v => updateItem(idx, 'brand', v)} placeholder="品牌"
+                                  className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-green-400" />
+                              </div>
+                            </div>
                           </td>
                           <td className="px-2 py-1.5">
                             <div className="flex items-center gap-1">
@@ -646,17 +650,17 @@ export default function SalesOrdersPage() {
                           </td>
                           <td className="px-2 py-1.5">
                             <input value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
-                              className="w-14 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
                           <td className="px-2 py-1.5">
                             <input type="number" min={0} value={item.quantity}
                               onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                              className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
                           <td className="px-2 py-1.5">
                             <input type="number" min={0} value={item.unit_price}
                               onChange={e => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                              className="w-28 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-green-400" />
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
                           <td className="px-2 py-1.5">
                             <input type="number" min={0}
@@ -667,7 +671,7 @@ export default function SalesOrdersPage() {
                               }}
                               onFocus={e => e.target.select()}
                               title="可直接輸入含稅總計，系統會自動回算單價"
-                              className="w-24 px-2 py-1 border border-gray-200 rounded-lg text-xs text-right font-semibold focus:outline-none focus:ring-1 focus:ring-green-400" />
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs text-right font-semibold focus:outline-none focus:ring-1 focus:ring-green-400" />
                           </td>
                           <td className="px-1 py-1.5 text-center whitespace-nowrap">
                             <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} title="上移" className="p-0.5 text-gray-400 hover:text-green-600 disabled:opacity-20"><ChevronUp size={12} /></button>
