@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import {
   Crown, TrendingDown, TrendingUp, Wallet, Filter, Package, Percent,
   ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Settings2, X,
+  CalendarDays, Users,
 } from 'lucide-react'
 
 const num = (v: any) => Number(v ?? 0) || 0
@@ -41,6 +42,9 @@ export default function CeoDashboard() {
   const [services, setServices] = useState<any[]>([])
   const [soItems, setSoItems] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
+  const [todaySchedules, setTodaySchedules] = useState<any[]>([])
+  const [salespeople, setSalespeople] = useState<any[]>([])
+  const [salesOrders, setSalesOrders] = useState<any[]>([])
 
   const [cashOpen, setCashOpen] = useState(false)
   const [cashForm, setCashForm] = useState<any>({})
@@ -49,17 +53,21 @@ export default function CeoDashboard() {
 
   async function fetchAll() {
     setLoading(true)
-    const [s, r, p, q, ag, pr, cw, sv, si, pd] = await Promise.all([
+    const todayStr = new Date().toLocaleDateString('sv') // YYYY-MM-DD（本地時區）
+    const [s, r, p, q, ag, pr, cw, sv, si, pd, sch, sp, so] = await Promise.all([
       supabase.from('system_settings').select('*').limit(1).maybeSingle(),
       supabase.from('receivables').select('*, clients(company_name)').neq('status', '已收款'),
       supabase.from('payables').select('*, vendors(company_name)').neq('status', '已付款'),
-      supabase.from('quotes').select('id, quote_no, project_name, total_amount, status, win_probability, expected_close_date, client_id, clients(company_name)'),
+      supabase.from('quotes').select('id, quote_no, project_name, total_amount, status, win_probability, expected_close_date, client_id, clients(company_name), salesperson_id, created_at'),
       supabase.from('v_inventory_aging').select('*'),
       supabase.from('projects').select('id, project_name, status, budget, revenue, equipment_cost, client_id, clients(company_name)'),
       supabase.from('project_crew').select('project_id, cost'),
       supabase.from('service_requests').select('id, project_id, actual_repair_cost'),
       supabase.from('sales_order_items').select('product_id, product_name, model, quantity, unit_price, amount'),
       supabase.from('products').select('id, brand, product_name, model, cost_price'),
+      supabase.from('schedules').select('*, clients(company_name)').eq('schedule_date', todayStr).order('plan_start'),
+      supabase.from('user_profiles').select('id, full_name'),
+      supabase.from('sales_orders').select('salesperson_id, total_amount, status, created_at'),
     ])
     setSettings(s.data ?? null)
     setReceivables(r.data ?? [])
@@ -71,8 +79,51 @@ export default function CeoDashboard() {
     setServices(sv.data ?? [])
     setSoItems(si.data ?? [])
     setProducts(pd.data ?? [])
+    setTodaySchedules(sch.data ?? [])
+    setSalespeople(sp.data ?? [])
+    setSalesOrders(so.data ?? [])
     setLoading(false)
   }
+
+  /* ─────────── ⓪ 業務行程與業績（2026-07 新增） ─────────── */
+  const team = useMemo(() => {
+    const nameOf = (uid: string | null) =>
+      salespeople.find(u => u.id === uid)?.full_name ?? '未指定'
+
+    // 今日行程依業務分組
+    const schedByUser = new Map<string, any[]>()
+    for (const s of todaySchedules) {
+      const key = nameOf(s.created_by)
+      if (!schedByUser.has(key)) schedByUser.set(key, [])
+      schedByUser.get(key)!.push(s)
+    }
+
+    // 本月業績
+    const ym = new Date().toISOString().slice(0, 7)
+    const inMonth = (d: any) => (d ?? '').slice(0, 7) === ym
+    const WON = ['已確認', '已轉銷貨單', '已轉訂購單']
+    const stats = new Map<string, { quoteCnt: number; quoteAmt: number; wonAmt: number; soAmt: number }>()
+    const get = (k: string) => {
+      if (!stats.has(k)) stats.set(k, { quoteCnt: 0, quoteAmt: 0, wonAmt: 0, soAmt: 0 })
+      return stats.get(k)!
+    }
+    for (const q of quotes) {
+      if (!inMonth(q.created_at)) continue
+      const st = get(nameOf(q.salesperson_id))
+      st.quoteCnt += 1
+      st.quoteAmt += num(q.total_amount)
+      if (WON.includes(q.status)) st.wonAmt += num(q.total_amount)
+    }
+    for (const o of salesOrders) {
+      if (!inMonth(o.created_at) || o.status === '作廢') continue
+      get(nameOf(o.salesperson_id)).soAmt += num(o.total_amount)
+    }
+    const rows = [...stats.entries()]
+      .map(([name, s]) => ({ name, ...s, winRate: s.quoteAmt > 0 ? s.wonAmt / s.quoteAmt : 0 }))
+      .sort((a, b) => b.soAmt - a.soAmt)
+
+    return { schedByUser: [...schedByUser.entries()], rows }
+  }, [todaySchedules, salespeople, quotes, salesOrders])
 
   /* ─────────── ① 現金流量預估（未來 12 週） ─────────── */
   const cash = useMemo(() => {
@@ -521,6 +572,88 @@ export default function CeoDashboard() {
                     <td className="px-3 text-right text-gray-700">
                       {d.days_since_move == null ? '從未異動' : `${d.days_since_move} 天`}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      {/* 業務每日行程 */}
+      <Panel
+        light={todaySchedules.length === 0 ? 'amber' : 'green'}
+        icon={<CalendarDays size={18} />}
+        title="業務每日行程（今天）"
+        summary={todaySchedules.length === 0
+          ? '今天沒有任何已排的行程。'
+          : `今天共 ${todaySchedules.length} 件行程，已完成 ${todaySchedules.filter(s => ['已完成', '延誤完成'].includes(s.status)).length} 件。`}
+      >
+        {team.schedByUser.length === 0 ? (
+          <div className="text-sm text-gray-400 py-6 text-center">今天沒有行程</div>
+        ) : (
+          <div className="space-y-4">
+            {team.schedByUser.map(([name, list]) => (
+              <div key={name}>
+                <div className="text-sm font-semibold text-gray-800 mb-1.5 flex items-center gap-2">
+                  <Users size={14} className="text-gray-400" /> {name}
+                  <span className="text-xs text-gray-400 font-normal">{list.length} 件</span>
+                </div>
+                <div className="space-y-1">
+                  {list.map((s: any) => (
+                    <div key={s.id} className="flex items-center gap-3 text-sm bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">
+                        {s.is_gap_task ? '空檔任務' : `${(s.plan_start ?? '').slice(0, 5)}–${(s.plan_end ?? '').slice(0, 5)}`}
+                      </span>
+                      <span className="text-gray-900 flex-1 truncate">{s.title}</span>
+                      <span className="text-xs text-gray-400 shrink-0">{s.type}{(s as any).clients?.company_name ? `｜${(s as any).clients.company_name}` : ''}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                        ['已完成', '延誤完成'].includes(s.status) ? 'bg-green-100 text-green-700'
+                        : s.status === '進行中' ? 'bg-blue-100 text-blue-700'
+                        : s.status === '取消' ? 'bg-gray-100 text-gray-400'
+                        : 'bg-amber-100 text-amber-700'}`}>{s.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      {/* 業務業績報表（本月） */}
+      <Panel
+        light={team.rows.length === 0 ? 'amber' : 'green'}
+        icon={<Users size={18} />}
+        title="業務業績報表（本月）"
+        summary={team.rows.length === 0
+          ? '本月尚無報價或銷貨資料。'
+          : `本月銷貨合計 ${money(team.rows.reduce((s, r) => s + r.soAmt, 0))}，報價合計 ${money(team.rows.reduce((s, r) => s + r.quoteAmt, 0))}。`}
+      >
+        {team.rows.length === 0 ? (
+          <div className="text-sm text-gray-400 py-6 text-center">本月尚無資料</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b bg-gray-50">
+                  <th className="py-2 px-3">業務</th>
+                  <th className="px-3 text-right">報價筆數</th>
+                  <th className="px-3 text-right">報價金額</th>
+                  <th className="px-3 text-right">成交金額</th>
+                  <th className="px-3 text-right">銷貨金額</th>
+                  <th className="px-3 text-right">成交率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {team.rows.map(r => (
+                  <tr key={r.name} className="border-b last:border-0">
+                    <td className="py-2 px-3 font-medium text-gray-900">{r.name}</td>
+                    <td className="px-3 text-right">{r.quoteCnt}</td>
+                    <td className="px-3 text-right text-gray-600">{money(r.quoteAmt)}</td>
+                    <td className="px-3 text-right font-semibold text-green-700">{money(r.wonAmt)}</td>
+                    <td className="px-3 text-right font-semibold text-blue-700">{money(r.soAmt)}</td>
+                    <td className="px-3 text-right">{(r.winRate * 100).toFixed(0)}%</td>
                   </tr>
                 ))}
               </tbody>
