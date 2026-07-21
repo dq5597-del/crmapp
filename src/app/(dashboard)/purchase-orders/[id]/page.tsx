@@ -113,7 +113,7 @@ export default function PurchaseOrderDetailPage() {
         payment_terms: (order as any)?.payment_terms ?? null,
         subtotal, tax_amount: taxAmount, total_amount: totalAmount,
         status: '已確認',
-        notes: `由訂購單 ${order?.order_no} 轉入`,
+        notes: null,
         salesperson_id: form.salesperson_id || null,
       }).select('id').single()
       if (error || !so) throw error ?? new Error('轉換失敗')

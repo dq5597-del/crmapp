@@ -83,7 +83,11 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
   const fmt = (n: number) => n.toLocaleString('zh-TW')
 
   const noteItems: string[] = []
-  if (order.delivery_date) noteItems.push(`交貨日期：${new Date(order.delivery_date).toLocaleDateString('zh-TW')}`)
+  if (order.delivery_date) {
+    // 交貨日期已改為自由文字：是日期就格式化，不是就原樣顯示
+    const d = new Date(order.delivery_date)
+    noteItems.push(`交貨日期：${isNaN(d.getTime()) ? order.delivery_date : d.toLocaleDateString('zh-TW')}`)
+  }
   if (order.payment_terms) noteItems.push(`付款條件：${order.payment_terms}`)
   if (order.bank_account) noteItems.push(`匯款帳號：${order.bank_account}`)
   if (order.notes) noteItems.push(order.notes)

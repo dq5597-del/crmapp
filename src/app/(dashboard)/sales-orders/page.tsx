@@ -723,7 +723,8 @@ export default function SalesOrdersPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">交貨日期</label>
-                    <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
+                    <input type="text" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
+                      placeholder="例：2026/08/15，或自行輸入說明"
                       className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                   </div>
                   <div>
