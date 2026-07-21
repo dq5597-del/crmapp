@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
-import { UserCog, Users, Activity, Clock } from 'lucide-react'
+import { UserCog, Users, Activity, Clock, MapPin, Plus, Trash2 } from 'lucide-react'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -23,21 +23,25 @@ export default function HrDashboard() {
   const [salesOrders, setSalesOrders] = useState<any[]>([])
   const [workTime, setWorkTime] = useState({ start: '09:00', end: '18:00' })
   const [savingTime, setSavingTime] = useState(false)
+  const [branches, setBranches] = useState<any[]>([])
+  const [newBranch, setNewBranch] = useState('')
 
   useEffect(() => {
     (async () => {
       const ymStart = new Date().toISOString().slice(0, 7) + '-01'
-      const [sp, sch, q, so, st] = await Promise.all([
+      const [sp, sch, q, so, st, br] = await Promise.all([
         supabase.from('user_profiles').select('*'),
         supabase.from('schedules').select('id, created_by, status, schedule_date').gte('schedule_date', ymStart),
         supabase.from('quotes').select('salesperson_id, total_amount, created_at').gte('created_at', ymStart),
         supabase.from('sales_orders').select('salesperson_id, total_amount, status, created_at').gte('created_at', ymStart),
         supabase.from('system_settings').select('work_start_time, work_end_time').limit(1).maybeSingle(),
+        supabase.from('branches').select('*').order('name'),
       ])
       setPeople(sp.data ?? []); setSchedules(sch.data ?? [])
       setQuotes(q.data ?? []); setSalesOrders(so.data ?? [])
       const s = st.data as any
       if (s) setWorkTime({ start: s.work_start_time ?? '09:00', end: s.work_end_time ?? '18:00' })
+      setBranches(br.data ?? [])
       setLoading(false)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,6 +97,37 @@ export default function HrDashboard() {
         ))}
       </div>
 
+      {/* 通訊處管理（人員分區，打卡紀錄依此分組） */}
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+        <div className="flex items-center gap-2 font-semibold text-gray-900 mb-3">
+          <Users size={16} className="text-indigo-500" /> 通訊處管理
+          <span className="text-xs text-gray-400 font-normal">人員指派通訊處後，CEO/主管戰情室的打卡紀錄會依通訊處分組</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {branches.map(b => (
+            <span key={b.id} className="text-xs px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700">
+              {b.name}（{people.filter(p => p.branch_id === b.id).length} 人）
+            </span>
+          ))}
+          {branches.length === 0 && <span className="text-xs text-gray-400">尚無通訊處，於右側新增</span>}
+          <div className="flex gap-1.5 ml-auto">
+            <input value={newBranch} onChange={e => setNewBranch(e.target.value)} placeholder="通訊處名稱，例：花蓮通訊處"
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 w-44" />
+            <button type="button"
+              onClick={async () => {
+                const name = newBranch.trim()
+                if (!name) return
+                if (branches.some(b => b.name === name)) { alert('此通訊處已存在'); return }
+                const { data, error } = await supabase.from('branches').insert({ name }).select().single()
+                if (error) { alert('新增失敗：' + error.message); return }
+                setBranches(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant')))
+                setNewBranch('')
+              }}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium">＋ 新增</button>
+          </div>
+        </div>
+      </div>
+
       {/* 上下班時間設定（打卡遲到判定依此） */}
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
         <div className="flex items-center gap-2 font-semibold text-gray-900 mb-3">
@@ -135,6 +170,7 @@ export default function HrDashboard() {
             <thead>
               <tr className="text-left text-gray-500 border-b bg-gray-50">
                 <th className="py-2 px-3">姓名</th>
+                <th className="px-3">通訊處</th>
                 <th className="px-3">角色</th>
                 <th className="px-3 text-center">狀態</th>
                 <th className="px-3 text-right">行程數</th>
@@ -147,6 +183,19 @@ export default function HrDashboard() {
               {view.rows.map(r => (
                 <tr key={r.id} className="border-b last:border-0">
                   <td className="py-2 px-3 font-medium text-gray-900 flex items-center gap-2"><Users size={13} className="text-gray-300" /> {r.name}</td>
+                  <td className="px-3">
+                    <select value={people.find(p => p.id === r.id)?.branch_id ?? ''}
+                      onChange={async e => {
+                        const branch_id = e.target.value || null
+                        const { error } = await supabase.from('user_profiles').update({ branch_id }).eq('id', r.id)
+                        if (error) { alert('指派失敗：' + error.message); return }
+                        setPeople(prev => prev.map(p => p.id === r.id ? { ...p, branch_id } : p))
+                      }}
+                      className="px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400">
+                      <option value="">— 未分配 —</option>
+                      {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </td>
                   <td className="px-3 text-gray-600">{r.role}</td>
                   <td className="px-3 text-center">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${r.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>{r.active ? '啟用' : '停用'}</span>
