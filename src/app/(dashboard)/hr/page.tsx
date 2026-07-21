@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
-import { UserCog, Users, Activity } from 'lucide-react'
+import { UserCog, Users, Activity, Clock } from 'lucide-react'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -21,18 +21,23 @@ export default function HrDashboard() {
   const [schedules, setSchedules] = useState<any[]>([])
   const [quotes, setQuotes] = useState<any[]>([])
   const [salesOrders, setSalesOrders] = useState<any[]>([])
+  const [workTime, setWorkTime] = useState({ start: '09:00', end: '18:00' })
+  const [savingTime, setSavingTime] = useState(false)
 
   useEffect(() => {
     (async () => {
       const ymStart = new Date().toISOString().slice(0, 7) + '-01'
-      const [sp, sch, q, so] = await Promise.all([
+      const [sp, sch, q, so, st] = await Promise.all([
         supabase.from('user_profiles').select('*'),
         supabase.from('schedules').select('id, created_by, status, schedule_date').gte('schedule_date', ymStart),
         supabase.from('quotes').select('salesperson_id, total_amount, created_at').gte('created_at', ymStart),
         supabase.from('sales_orders').select('salesperson_id, total_amount, status, created_at').gte('created_at', ymStart),
+        supabase.from('system_settings').select('work_start_time, work_end_time').limit(1).maybeSingle(),
       ])
       setPeople(sp.data ?? []); setSchedules(sch.data ?? [])
       setQuotes(q.data ?? []); setSalesOrders(so.data ?? [])
+      const s = st.data as any
+      if (s) setWorkTime({ start: s.work_start_time ?? '09:00', end: s.work_end_time ?? '18:00' })
       setLoading(false)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,6 +91,38 @@ export default function HrDashboard() {
             <div className="text-xl font-bold">{cnt} 人</div>
           </div>
         ))}
+      </div>
+
+      {/* 上下班時間設定（打卡遲到判定依此） */}
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+        <div className="flex items-center gap-2 font-semibold text-gray-900 mb-3">
+          <Clock size={16} className="text-indigo-500" /> 上下班時間設定
+          <span className="text-xs text-gray-400 font-normal">打卡晚於上班時間即標示遲到（紅字）</span>
+        </div>
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="block">
+            <span className="block text-xs text-gray-500 mb-1">上班時間</span>
+            <input type="time" value={workTime.start} onChange={e => setWorkTime(p => ({ ...p, start: e.target.value }))}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-gray-500 mb-1">下班時間</span>
+            <input type="time" value={workTime.end} onChange={e => setWorkTime(p => ({ ...p, end: e.target.value }))}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </label>
+          <button type="button" disabled={savingTime}
+            onClick={async () => {
+              setSavingTime(true)
+              const { error } = await supabase.from('system_settings')
+                .update({ work_start_time: workTime.start, work_end_time: workTime.end })
+                .not('id', 'is', null)
+              alert(error ? '儲存失敗：' + error.message : '✅ 已儲存上下班時間')
+              setSavingTime(false)
+            }}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium disabled:opacity-60">
+            {savingTime ? '儲存中…' : '儲存'}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">

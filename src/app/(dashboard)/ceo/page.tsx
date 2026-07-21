@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Settings2, X,
   CalendarDays, Users,
 } from 'lucide-react'
+import TodayAttendance from '@/components/TodayAttendance'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -589,6 +590,7 @@ export default function CeoDashboard() {
           ? '今天沒有任何已排的行程。'
           : `今天共 ${todaySchedules.length} 件行程，已完成 ${todaySchedules.filter(s => ['已完成', '延誤完成'].includes(s.status)).length} 件。`}
       >
+        <TodayAttendance />
         {team.schedByUser.length === 0 ? (
           <div className="text-sm text-gray-400 py-6 text-center">今天沒有行程</div>
         ) : (

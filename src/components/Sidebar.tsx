@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
 import ViewModeSwitch from '@/components/ViewModeSwitch'
+import PunchClock from '@/components/PunchClock'
 
 const navItemsTop = [
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
@@ -289,6 +290,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Logout */}
         <div className="pb-4 border-t border-gray-700 pt-1 shrink-0">
+          <PunchClock />
           <ViewModeSwitch />
           <div className="px-3">
             <button

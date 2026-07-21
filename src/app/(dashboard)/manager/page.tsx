@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { ShieldCheck, CalendarDays, Users, AlertTriangle, Wrench } from 'lucide-react'
+import TodayAttendance from '@/components/TodayAttendance'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -99,6 +100,7 @@ export default function ManagerDashboard() {
       </div>
 
       <Card icon={<CalendarDays size={16} className="text-blue-500" />} title={`今日團隊行程（${schedules.length} 件）`}>
+        <TodayAttendance />
         {schedByUser.length === 0 ? <div className="text-sm text-gray-400 py-4 text-center">今天沒有行程</div> : (
           <div className="space-y-3">
             {schedByUser.map(([name, list]) => (
