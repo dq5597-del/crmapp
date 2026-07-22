@@ -255,9 +255,6 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     }
     if (ranges.length === 0) ranges.push({ start: rowsStart, end: rowsEnd, last: true })
 
-    // eslint-disable-next-line no-console
-    console.log('[PAGINATE]', JSON.stringify({ scale: Math.round(scale * 1000) / 1000, capacity, headerH, rowsEnd, fillBottom, rowsAreaMax, cuts: rowCutsPx, ranges }))
-
     const total = ranges.length
     const cjkFont = `"Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif`
 
