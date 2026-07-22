@@ -198,11 +198,6 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       for (const it of items) if (it.bottom > start && it.bottom <= end + 4) s += it.amount
       return s
     }
-    function pageLastNo(start: number, end: number): number {
-      let no = 0
-      for (const it of items) if (it.bottom > start && it.bottom <= end + 4) no = it.no
-      return no
-    }
 
     // Pass 1：切每頁品項範圍（切點做像素微調）
     type Range = { start: number; end: number; last: boolean }
@@ -256,17 +251,10 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       if (!r.last && hasGrid) {
         ctx.strokeStyle = '#aaaaaa'
         ctx.lineWidth = Math.max(1, Math.round(scale * 0.6))
-        ctx.fillStyle = '#9ca3af'
-        ctx.font = `${Math.round(11 * scale)}px ${cjkFont}`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        // 空白編號列
+        // 補白列（不編號，避免與下一頁真實品項號碼衝突；僅延伸欄位格線）
         let fy = dy
-        let n = pageLastNo(r.start, r.end)
         while (fy + rowHpx <= fillBottom) {
           ctx.beginPath(); ctx.moveTo(gx0, fy + 0.5); ctx.lineTo(gx1, fy + 0.5); ctx.stroke()
-          n++
-          ctx.fillText(String(n), (colEdges[0] + colEdges[1]) / 2, fy + rowHpx / 2)
           fy += rowHpx
         }
         // 補白區底線 + 直向欄線（品項下緣 dy → fy）
