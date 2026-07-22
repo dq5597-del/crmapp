@@ -1,6 +1,7 @@
-// 智慧分頁 PDF 產生器（2026-07 v2 像素掃描版）：
-// 將 #print-page-content 截成長圖後，切頁點以「畫布像素掃描」尋找空白橫帶，
-// 保證切線不會穿過任何文字/格線內容（不依賴 DOM 座標，避免 html2canvas 高度漂移）。
+// 智慧分頁 PDF 產生器（2026-07 v3 列邊界版）：
+// 將 #print-page-content 截成長圖後，切頁點只允許落在「每一列 tr 的下緣」，
+// 以單一全域比例把 DOM 座標換算成畫布座標 → 數學上不可能穿過任何一列的文字/格線。
+// 另外：分類標題列不當切點（避免孤立在頁尾）、品項與其備註列不拆開。
 
 export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
   const { pdf } = await buildPaginatedPdfWithPages(opts)
@@ -36,6 +37,29 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     setTimeout(fin, 150)
   })
 
+  // ── 關鍵：在 A4 版面下、截圖前，先量出「每一列」允許的切點（DOM 座標，CSS px）──
+  // 只允許切在列的下緣；並排除會造成問題的切點：
+  //  · 分類標題列(.cat-row) 的下緣不當切點（避免標題被留在頁尾與內容分離；改由前一列切，把標題推到下一頁頂）
+  //  · 品項主列若下面緊接著備註列(.notes-row)，該主列下緣不當切點（避免品項與備註被拆開）
+  const containerTop = el.getBoundingClientRect().top
+  const cssHeight = el.getBoundingClientRect().height
+  const cutBoundariesCss: number[] = []
+  const rows = Array.from(el.querySelectorAll('tr')) as HTMLElement[]
+  for (const tr of rows) {
+    if (tr.classList.contains('cat-row')) continue
+    const next = tr.nextElementSibling as HTMLElement | null
+    if (next && next.classList.contains('notes-row')) continue
+    const b = tr.getBoundingClientRect().bottom - containerTop
+    if (b > 2) cutBoundariesCss.push(b)
+  }
+  // 備註/印章區塊也可整塊切在其上緣（避免被上一列黏住切開）
+  const stampRow = el.querySelector('.notes-stamp-row') as HTMLElement | null
+  if (stampRow) {
+    const topB = stampRow.getBoundingClientRect().top - containerTop
+    if (topB > 2) cutBoundariesCss.push(topB)
+  }
+  cutBoundariesCss.sort((a, b) => a - b)
+
   let canvas: HTMLCanvasElement
   try {
     canvas = await html2canvas(el, {
@@ -51,8 +75,6 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     el.style.maxWidth = prevStyle.maxWidth
   }
 
-  const srcCtx = canvas.getContext('2d', { willReadFrequently: true })!
-
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
@@ -62,50 +84,19 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   const pxPerMm = canvas.width / pageW
   const capacity = Math.floor((pageH - marginTop - marginBottom) * pxPerMm)
 
-  /**
-   * 在 [scanTop, scanBottom] 範圍內「由下往上」找安全切點：
-   * 1) 優先：整條橫框線（暗點比例高）之正下方 = 表格列的正式邊界
-   * 2) 其次：連續 ≥12px 的乾淨空白橫帶（段落間距）
-   * 找不到回 -1（呼叫端硬切）。
-   */
-  function findCleanCut(scanTop: number, scanBottom: number): number {
-    const h = scanBottom - scanTop
-    if (h < 6) return -1
-    const w = canvas.width
-    const block = srcCtx.getImageData(0, scanTop, w, h).data
-    const step = 2
-    const samples = Math.ceil(w / step)
-    const cleanLimit = Math.max(6, Math.floor(samples * 0.03))   // 容忍表格直線
-    const borderLimit = Math.floor(samples * 0.5)                 // 過半是暗點 = 橫框線
+  // DOM(CSS px) → canvas 像素 的單一全域比例（無累積漂移）
+  const scale = canvas.height / cssHeight
+  const cutsCanvas = cutBoundariesCss
+    .map(v => Math.round(v * scale) + 1)   // +1：切在框線下方，保留整條下框線
+    .filter(v => v > 0 && v < canvas.height)
 
-    // 預先算每條像素列的暗點數
-    const darkOf: number[] = new Array(h)
-    for (let row = 0; row < h; row++) {
-      let dark = 0
-      const base = row * w * 4
-      for (let x = 0; x < w; x += step) {
-        const i = base + x * 4
-        const lum = 0.299 * block[i] + 0.587 * block[i + 1] + 0.114 * block[i + 2]
-        if (lum < 180) dark++
-      }
-      darkOf[row] = dark
+  /** 在 (y, y+capacity] 內找「最靠下的列邊界」當切點；找不到回 -1（呼叫端硬切） */
+  function rowCut(y: number, limit: number): number {
+    let best = -1
+    for (const c of cutsCanvas) {
+      if (c > y && c <= limit && c > best) best = c
     }
-
-    // 1) 由下往上找「橫框線 + 其下方乾淨」→ 切在框線下緣
-    for (let row = h - 4; row >= 0; row--) {
-      if (darkOf[row] >= borderLimit && darkOf[row + 1] <= cleanLimit && darkOf[row + 2] <= cleanLimit) {
-        return scanTop + row + 2
-      }
-    }
-    // 2) 由下往上找連續 12px 乾淨白帶 → 切在白帶中間
-    let run = 0
-    for (let row = h - 1; row >= 0; row--) {
-      if (darkOf[row] <= cleanLimit) {
-        run++
-        if (run >= 12) return scanTop + row + Math.floor(run / 2)
-      } else run = 0
-    }
-    return -1
+    return best
   }
 
   const pages: string[] = []
@@ -114,9 +105,8 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   while (y < canvas.height - 4) {
     let end = Math.min(y + capacity, canvas.height)
     if (end < canvas.height) {
-      // 從整頁高度往上（最多回退 65%）找空白帶下刀；找不到才硬切
-      const scanTop = y + Math.floor(capacity * 0.35)
-      const cut = findCleanCut(scanTop, end)
+      // 只切在列邊界；若整頁塞不下任何一整列（單列高於一頁，極罕見）才硬切
+      const cut = rowCut(y, end)
       if (cut > 0) end = cut
     }
 
