@@ -14,7 +14,7 @@ const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
 
 const ROLE_LABEL: Record<string, string> = { admin: '管理員', manager: '主管', user: '一般人員' }
 // 組織職稱（決定各戰情室可見範圍）
-const TITLES = ['董事長', 'CEO', '總經理', '經理', '主任', '員工']
+const TITLES = ['董事長', 'CEO', '總經理', '經理', '主任', '會計主管', '會計', '技術主管', '總工程師', '資深工程師', '工程師', '員工']
 
 export default function HrDashboard() {
   const supabase = createClient()

@@ -5,5 +5,5 @@ import TeamDashboard from '@/components/TeamDashboard'
 import { Briefcase } from 'lucide-react'
 
 export default function DeptDashboard() {
-  return <TeamDashboard pageTitle="經理戰情室" scope="subtree" icon={<Briefcase size={22} className="text-indigo-600" />} />
+  return <TeamDashboard pageTitle="經理戰情室" scope="manager" icon={<Briefcase size={22} className="text-indigo-600" />} />
 }

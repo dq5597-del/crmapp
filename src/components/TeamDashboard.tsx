@@ -20,7 +20,11 @@ const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
 const hhmm = (ts: string | null) =>
   ts ? new Date(ts).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }) : null
 
-export type TeamScope = 'all' | 'gm' | 'subtree' | 'direct'
+export type TeamScope = 'all' | 'gm' | 'subtree' | 'direct' | 'manager' | 'acct-line' | 'tech-line' | 'self'
+// manager   = 經理：自己支線 + 同通訊處的會計線/技術線
+// acct-line = 會計主管：全區所有會計線人員（跨通訊處）
+// tech-line = 技術主管：全區所有技術線人員（跨通訊處）
+// self      = 個人：只看自己（會計人員等基層戰情室）
 
 function Card({ icon, title, children, tone = 'gray' }: { icon: React.ReactNode; title: string; children: React.ReactNode; tone?: string }) {
   const border = tone === 'amber' ? 'border-amber-200 bg-amber-50/40' : 'border-gray-100 bg-white'
@@ -77,10 +81,25 @@ export default function TeamDashboard({ pageTitle, scope, icon }: {
   const visible = useMemo(() => {
     const act = people.filter(p => p.is_active !== false)
     if (scope === 'all') return act
-    if (scope === 'gm') return act.filter(p => ['經理', '主任', '員工'].includes(p.title ?? '員工') || p.id === uid)
+    if (scope === 'gm') return act.filter(p => !['董事長', 'CEO', '總經理'].includes(p.title ?? '員工') || p.id === uid)
     if (!uid) return []
+    if (scope === 'self') return act.filter(p => p.id === uid)
     if (scope === 'direct') return act.filter(p => p.manager_id === uid || p.id === uid)
-    // subtree：BFS 找所有下屬
+
+    // 職能線判定：本人或任一上級的職稱 = 指定主管職稱
+    const inLine = (p: any, headTitle: string): boolean => {
+      let cur: any = p
+      const seen = new Set<string>()
+      while (cur && !seen.has(cur.id)) {
+        seen.add(cur.id)
+        if ((cur.title ?? '') === headTitle) return true
+        cur = act.find(x => x.id === cur.manager_id)
+      }
+      return false
+    }
+    if (scope === 'acct-line') return act.filter(p => inLine(p, '會計主管') || p.id === uid)
+    if (scope === 'tech-line') return act.filter(p => inLine(p, '技術主管') || p.id === uid)
+    // subtree / manager：BFS 找所有下屬
     const ids = new Set<string>([uid])
     let grew = true
     while (grew) {
@@ -89,6 +108,29 @@ export default function TeamDashboard({ pageTitle, scope, icon }: {
         if (!ids.has(p.id) && p.manager_id && ids.has(p.manager_id)) { ids.add(p.id); grew = true }
       }
     }
+
+    // 經理：加上「同通訊處」的會計線與技術線
+    if (scope === 'manager') {
+      const me = act.find(p => p.id === uid)
+      const myBranch = me?.branch_id ?? null
+      if (myBranch) {
+        // 判斷某人屬於會計線或技術線：本人或任一上級的職稱是會計主管/技術主管
+        const lineOf = (p: any): boolean => {
+          let cur: any = p
+          const seen = new Set<string>()
+          while (cur && !seen.has(cur.id)) {
+            seen.add(cur.id)
+            if (['會計主管', '技術主管'].includes(cur.title ?? '')) return true
+            cur = act.find(x => x.id === cur.manager_id)
+          }
+          return false
+        }
+        for (const p of act) {
+          if (!ids.has(p.id) && p.branch_id === myBranch && lineOf(p)) ids.add(p.id)
+        }
+      }
+    }
+
     return act.filter(p => ids.has(p.id))
   }, [people, scope, uid])
 
