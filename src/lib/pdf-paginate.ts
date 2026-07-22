@@ -56,12 +56,12 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   // 先截圖（版面已穩定）
   let canvas: HTMLCanvasElement
   try {
+    // 註：不傳 width/windowWidth；元素已固定 794px 寬。傳入會讓 html2canvas 在沙盒
+    // iframe 內以不同版面重排、把內容拉高（scale 失真非均勻）→ 切點偏移切到字。
     canvas = await html2canvas(el, {
       scale: 2,
       useCORS: true,
       backgroundColor: '#ffffff',
-      width: A4_W_PX,
-      windowWidth: A4_W_PX,
     })
   } catch (e) {
     el.style.width = prevStyle.width
