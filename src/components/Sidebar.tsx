@@ -21,6 +21,7 @@ const navItemsTop = [
   { href: '/manager', label: '總經理戰情室', icon: ShieldCheck },
   { href: '/dept', label: '經理戰情室', icon: Briefcase },
   { href: '/team', label: '主任戰情室', icon: Users },
+  { href: '/approvals', label: '簽呈中心', icon: ClipboardList },
   { href: '/finance', label: '會計戰情室', icon: Calculator },
   { href: '/hr', label: '人資戰情室', icon: UserCog },
   { href: '/', label: '業務戰情室', icon: LayoutDashboard },

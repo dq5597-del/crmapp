@@ -15,7 +15,8 @@ export const DOC_CONFIG: Record<string, {
   label: string        // 顯示名稱
 }> = {
   payable: { table: 'payables', noField: 'payable_no', amountField: 'amount', label: '應付帳款' },
-  quote:   { table: 'quotes',   noField: 'quote_no',   amountField: 'total_amount', label: '報價單' },
+  quote:   { table: 'quotes',   noField: 'quote_no',   amountField: 'total_amount', label: '估價單' },
+  purchase_order: { table: 'purchase_orders', noField: 'order_no', amountField: 'total_amount', label: '訂購單' },
   // 之後擴充：price_batch / repair_quote / service_fee ...
 }
 

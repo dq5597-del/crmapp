@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import ApprovalBar from '@/components/approvals/ApprovalBar'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Quote, QuoteItem } from '@/types'
@@ -240,6 +241,9 @@ export default function QuoteDetailPage() {
           <p className="text-gray-500 text-sm mt-0.5">{clientName} · {quote.project_name ?? '無案名'}</p>
         </div>
       </div>
+
+      {/* 簽呈（依簽呈中心設定的金額門檻） */}
+      <div className="mb-4"><ApprovalBar docType="quote" docId={id as string} /></div>
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2 mb-5">
