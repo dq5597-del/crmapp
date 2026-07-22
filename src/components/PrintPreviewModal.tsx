@@ -62,7 +62,7 @@ export default function PrintPreviewModal({ open, onClose, fileName, landscape }
         flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #374151',
       }}>
         <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>
-          列印預覽 v3（{landscape ? '橫向' : '直向'}）
+          列印預覽 v4（{landscape ? '橫向' : '直向'}）
           {pages.length > 0 && `・共 ${pages.length} 頁`}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
