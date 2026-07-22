@@ -139,7 +139,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
    * 把切點對齊到框線正下方 2px → 消除 DOM 與 html2canvas 的幾像素誤差，絕不切到字。
    */
   function snapToBorder(yc: number): number {
-    const win = Math.round(15 * sc)
+    const win = Math.round(8 * sc)
     const top = Math.max(0, yc - win)
     const bot = Math.min(canvas.height, yc + win)
     const h = bot - top
@@ -201,8 +201,14 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       for (const it of items) if (it.bottom > start && it.bottom <= end + 4) s += it.amount
       return s
     }
+    // cursor 之後第一個真實列邊界（供「範圍內無邊界」時使用，寧可頁面略高也不切字）
+    function firstCutAfter(from: number): number {
+      let nxt = Infinity
+      for (const c of rowCutsPx) if (c > from && c < nxt) nxt = c
+      return nxt === Infinity ? -1 : nxt
+    }
 
-    // Pass 1：切每頁品項範圍（切點做像素微調）
+    // Pass 1：切每頁品項範圍（切點永遠落在真實列邊界，絕不切穿文字）
     type Range = { start: number; end: number; last: boolean }
     const ranges: Range[] = []
     let cursor = rowsStart
@@ -216,9 +222,13 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       }
       const limit = Math.min(cursor + Math.max(rowsAreaMax, 1), rowsEnd)
       let cut = lastCutWithin(cursor, limit)
-      if (cut <= cursor) cut = limit
+      if (cut <= cursor) {
+        // 可用範圍內沒有列邊界（例如首列本身較高）→ 取下一個真實邊界，寧可略高也不切字
+        const nxt = firstCutAfter(cursor)
+        cut = nxt > 0 ? nxt : rowsEnd
+      }
       cut = snapToBorder(cut)
-      if (cut <= cursor) cut = limit
+      if (cut <= cursor) { const nxt = firstCutAfter(cursor); cut = nxt > 0 ? nxt : rowsEnd }
       ranges.push({ start: cursor, end: cut, last: false })
       cursor = cut
     }
