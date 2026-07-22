@@ -32,6 +32,7 @@ const navItemsTop = [
 const businessItems = [
   { href: '/messages',         label: '訊息',     icon: MessageSquare },
   { href: '/todos',            label: '事情清單', icon: ListTodo },
+  { href: '/tasks',            label: '交辦任務', icon: ClipboardList },
   { href: '/schedule',         label: '每日行程', icon: CalendarDays },
   { href: '/service-requests', label: '叫修管理', icon: Wrench },
   { href: '/notes',            label: '業務筆記', icon: StickyNote },
