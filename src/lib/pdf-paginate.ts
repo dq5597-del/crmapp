@@ -1,10 +1,10 @@
-// 智慧分頁 PDF 產生器（2026-07 v4 表頭重複版）：
-// 1) 切頁點只允許落在「每一列 tr 的下緣」→ 數學上不可能穿過任一列的文字/格線
-// 2) 每一頁都重複「表頭」（LOGO＋標題＋單位/聯絡人/地址/案名/日期/單號＋欄位標題列）
-// 3) 未完的頁：底部固定留 ≥¼ 空白，並印「～ 續下頁 ～」；第 2 頁起頂端印「（承上頁）」
+// 智慧分頁 PDF 產生器（2026-07 v5）：
+// 1) 切頁點落在「每一列 tr 的下緣」，再用像素微調對齊框線 → 絕不切到文字
+// 2) 每一頁都重複「表頭」（LOGO＋標題＋單位/聯絡人/地址/日期/單號＋欄位標題列）
+// 3) 未完的頁：底部留 ≥¼ 空白，印「本頁小計 NT$ ___」與「～ 續下頁 ～」
 // 4) 總金額 / 備註事項 / 印章 只出現在最後一頁
 // 5) 每頁置底印「第 X 頁 / 共 Y 頁」
-// 若頁面結構缺少 table/thead/tbody/tfoot，會自動退回單純的列邊界切頁（不重複表頭）。
+// 若頁面結構缺少 table/thead/tbody/tfoot，會自動退回單純的列邊界切頁。
 
 export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
   const { pdf } = await buildPaginatedPdfWithPages(opts)
@@ -32,7 +32,6 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   el.style.width = `${A4_W_PX}px`
   el.style.minWidth = `${A4_W_PX}px`
   el.style.maxWidth = 'none'
-  // 等一次 layout（背景分頁 rAF 不會觸發 → 加 timeout 保底，避免卡死）
   await new Promise(r => {
     let done = false
     const fin = () => { if (!done) { done = true; r(null) } }
@@ -40,7 +39,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     setTimeout(fin, 150)
   })
 
-  // ── 在 A4 版面下、截圖前，量出各區塊的 DOM 座標（CSS px，相對於容器頂端）──
+  // ── 量出各區塊 DOM 座標（CSS px，相對容器頂端）──
   const containerTop = el.getBoundingClientRect().top
   const cssHeight = el.getBoundingClientRect().height
 
@@ -49,19 +48,31 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   const tfoot = el.querySelector('tfoot') as HTMLElement | null
   const bodyRows = Array.from(el.querySelectorAll('tbody tr')) as HTMLElement[]
 
-  // 表頭高度 = 第一列品項的上緣（含 LOGO/標題/單位資訊/欄位標題列 thead）
   const headerBottomCss = firstBodyRow
     ? firstBodyRow.getBoundingClientRect().top - containerTop
     : 0
-  // 頁尾區（總金額列 + 備註 + 印章）的上緣
   const footerTopCss = tfoot
     ? tfoot.getBoundingClientRect().top - containerTop
     : cssHeight
 
-  // 品項列的可切點（下緣）：排除分類標題列、排除品項與其備註列之間
+  // 可切點（列下緣）：排除分類標題列、排除品項與其備註列之間
   const rowCutsCss: number[] = []
+  // 每個品項主列的下緣 + 金額（供計算本頁小計）
+  const itemAmountsCss: { bottom: number; amount: number }[] = []
   for (const tr of bodyRows) {
-    if (tr.classList.contains('cat-row')) continue
+    const isCat = tr.classList.contains('cat-row')
+    const isNote = tr.classList.contains('notes-row')
+    if (!isCat && !isNote) {
+      // 主列金額 = 最後一格數字
+      const cells = tr.querySelectorAll('td')
+      const last = cells[cells.length - 1]
+      const amt = last ? Number((last.textContent || '').replace(/[^0-9.-]/g, '')) : 0
+      itemAmountsCss.push({
+        bottom: tr.getBoundingClientRect().bottom - containerTop,
+        amount: isFinite(amt) ? amt : 0,
+      })
+    }
+    if (isCat) continue
     const next = tr.nextElementSibling as HTMLElement | null
     if (next && next.classList.contains('notes-row')) continue
     const b = tr.getBoundingClientRect().bottom - containerTop
@@ -86,6 +97,8 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     el.style.maxWidth = prevStyle.maxWidth
   }
 
+  const srcCtx = canvas.getContext('2d', { willReadFrequently: true })!
+
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
@@ -95,24 +108,54 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   const pxPerMm = canvas.width / pageW
   const capacity = Math.floor((pageH - marginTop - marginBottom) * pxPerMm)
 
-  // DOM(CSS px) → canvas 像素 的單一全域比例（無累積漂移）
   const scale = canvas.height / cssHeight
+  const sc = scale / 2                      // 字級縮放（scale=2 時 sc=1）
   const W = canvas.width
+  const fmtNT = (n: number) => 'NT$ ' + Math.round(n).toLocaleString('en-US')
+
+  /**
+   * 像素微調：在候選切點 yc 附近的小窗內，找「整條橫框線」（暗點最多且過半），
+   * 把切點對齊到框線正下方 2px → 消除 DOM 與 html2canvas 的幾像素誤差，絕不切到字。
+   */
+  function snapToBorder(yc: number): number {
+    const win = Math.round(15 * sc)
+    const top = Math.max(0, yc - win)
+    const bot = Math.min(canvas.height, yc + win)
+    const h = bot - top
+    if (h < 4) return yc
+    const d = srcCtx.getImageData(0, top, W, h).data
+    const step = 3
+    const samples = Math.ceil(W / step)
+    let bestRow = -1, bestDark = -1
+    for (let r = 0; r < h; r++) {
+      let dk = 0
+      const base = r * W * 4
+      for (let x = 0; x < W; x += step) {
+        const i = base + x * 4
+        const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+        if (lum < 180) dk++
+      }
+      if (dk > bestDark) { bestDark = dk; bestRow = r }
+    }
+    // 找到明顯的整條框線 → 切在框線下方
+    if (bestDark >= samples * 0.5) return Math.min(canvas.height, top + bestRow + 2)
+    return yc
+  }
 
   const pages: string[] = []
 
-  // ── 分支 A：結構完整 → 表頭重複 + 續下頁 + 頁碼 ──
+  // ── 分支 A：結構完整 → 表頭重複 + 本頁小計 + 續下頁 + 頁碼 ──
   if (canUseHeaderRepeat) {
-    const headerH = Math.round(headerBottomCss * scale)            // 表頭高度（px）
-    const rowsStart = headerH                                      // 品項區起點（= 表頭下緣）
-    const rowsEnd = Math.round(footerTopCss * scale)               // 品項區終點（= 總金額列上緣）
-    const footerBlockH = canvas.height - rowsEnd                   // 總金額+備註+印章 高度
+    const headerH = Math.round(headerBottomCss * scale)
+    const rowsStart = headerH
+    const rowsEnd = Math.round(footerTopCss * scale)
+    const footerBlockH = canvas.height - rowsEnd
     const rowCutsPx = rowCutsCss
-      .map(v => Math.round(v * scale) + 1)
-      .filter(v => v > rowsStart && v <= rowsEnd)
+      .map(v => Math.round(v * scale))
+      .filter(v => v > rowsStart && v <= rowsEnd + 4)
+    const items = itemAmountsCss.map(it => ({ bottom: Math.round(it.bottom * scale), amount: it.amount }))
 
-    const stripH = Math.round(42 * (scale / 2))                    // 頁尾文字帶（續下頁/頁碼）
-    // 未完頁：內容（表頭+品項+文字帶）最多用 ¾ 頁高，底部留 ≥¼ 空白
+    const stripH = Math.round(70 * sc)   // 頁尾文字帶（本頁小計＋續下頁＋頁碼）
     const rowsAreaMax = Math.floor(capacity * 0.75) - headerH - stripH
 
     function lastCutWithin(from: number, limit: number): number {
@@ -120,25 +163,29 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       for (const c of rowCutsPx) if (c > from && c <= limit && c > best) best = c
       return best
     }
+    function pageSubtotal(start: number, end: number): number {
+      let s = 0
+      for (const it of items) if (it.bottom > start && it.bottom <= end + 4) s += it.amount
+      return s
+    }
 
-    // Pass 1：切出每頁的品項範圍
+    // Pass 1：切每頁品項範圍（切點做像素微調）
     type Range = { start: number; end: number; last: boolean }
     const ranges: Range[] = []
     let cursor = rowsStart
     let guard = 0
     while (cursor < rowsEnd - 2 && guard++ < 500) {
       const remaining = rowsEnd - cursor
-      const contGap = ranges.length > 0 ? Math.round(26 * (scale / 2)) : 0  // 續頁間距預留
-      // 剩餘品項 + 頁尾區(總金額/備註/印章) 能否整個放進本頁（不留¼）→ 這就是最後一頁
-      if (headerH + contGap + remaining + footerBlockH + stripH <= capacity) {
+      if (headerH + remaining + footerBlockH + stripH <= capacity) {
         ranges.push({ start: cursor, end: rowsEnd, last: true })
         cursor = rowsEnd
         break
       }
-      // 未完頁：在 ¾ 高度內找最靠下的列邊界
       const limit = Math.min(cursor + Math.max(rowsAreaMax, 1), rowsEnd)
       let cut = lastCutWithin(cursor, limit)
-      if (cut <= cursor) cut = limit   // 極端：單列高於可用區 → 硬切（罕見）
+      if (cut <= cursor) cut = limit
+      cut = snapToBorder(cut)
+      if (cut <= cursor) cut = limit
       ranges.push({ start: cursor, end: cut, last: false })
       cursor = cut
     }
@@ -159,45 +206,36 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       // 1) 表頭（每頁重複）
       ctx.drawImage(canvas, 0, 0, W, headerH, 0, 0, W, headerH)
 
-      // 第 2 頁起：表頭與品項間留一條間距，放「（承上頁）」不壓到品項
-      const contGapH = idx > 0 ? Math.round(26 * (scale / 2)) : 0
-      const rowsTop = headerH + contGapH
-
       // 2) 品項區
       const rh = r.end - r.start
-      ctx.drawImage(canvas, 0, r.start, W, rh, 0, rowsTop, W, rh)
-      let dy = rowsTop + rh
+      ctx.drawImage(canvas, 0, r.start, W, rh, 0, headerH, W, rh)
+      let dy = headerH + rh
 
-      // 3) 最後一頁 → 接上總金額/備註/印章
+      // 3) 最後一頁 → 接總金額/備註/印章
       if (r.last && footerBlockH > 0) {
         ctx.drawImage(canvas, 0, rowsEnd, W, footerBlockH, 0, dy, W, footerBlockH)
         dy += footerBlockH
       }
 
-      // 4) 頂端「（承上頁）」（第 2 頁起，放在間距內）
-      if (idx > 0) {
-        ctx.fillStyle = '#1d4ed8'
-        ctx.font = `${Math.round(19 * (scale / 2))}px ${cjkFont}`
-        ctx.textAlign = 'left'
-        ctx.textBaseline = 'middle'
-        ctx.fillText('（承上頁）', Math.round(30 * (scale / 2)), headerH + contGapH / 2)
-      }
-
-      // 5) 未完頁 → 底部留白區印「～ 續下頁 ～」
+      // 4) 未完頁 → 本頁小計 + 續下頁
       if (!r.last) {
-        ctx.fillStyle = '#1d4ed8'
-        ctx.font = `bold ${Math.round(24 * (scale / 2))}px ${cjkFont}`
+        const sub = pageSubtotal(r.start, r.end)
         ctx.textAlign = 'right'
         ctx.textBaseline = 'alphabetic'
-        ctx.fillText('～ 續下頁 ～', W - Math.round(40 * (scale / 2)), capacity - stripH - Math.round(6 * (scale / 2)))
+        ctx.fillStyle = '#111827'
+        ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
+        ctx.fillText(`本頁小計　${fmtNT(sub)}`, W - Math.round(40 * sc), capacity - Math.round(46 * sc))
+        ctx.fillStyle = '#1d4ed8'
+        ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
+        ctx.fillText('～ 續下頁 ～', W - Math.round(40 * sc), capacity - Math.round(16 * sc))
       }
 
-      // 6) 置底頁碼
+      // 5) 置底頁碼
       ctx.fillStyle = '#6b7280'
-      ctx.font = `${Math.round(20 * (scale / 2))}px ${cjkFont}`
+      ctx.font = `${Math.round(19 * sc)}px ${cjkFont}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'alphabetic'
-      ctx.fillText(`第 ${idx + 1} 頁 / 共 ${total} 頁`, W / 2, capacity - Math.round(12 * (scale / 2)))
+      ctx.fillText(`第 ${idx + 1} 頁 / 共 ${total} 頁`, W / 2, capacity - Math.round(14 * sc))
 
       const dataUrl = page.toDataURL('image/jpeg', 0.95)
       pages.push(dataUrl)
@@ -208,7 +246,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     return { pdf, pages }
   }
 
-  // ── 分支 B：結構不完整 → 單純列邊界切頁（v3 行為，不重複表頭）──
+  // ── 分支 B：結構不完整 → 單純列邊界切頁（不重複表頭）──
   const cutsCanvas = rowCutsCss
     .map(v => Math.round(v * scale) + 1)
     .filter(v => v > 0 && v < canvas.height)
