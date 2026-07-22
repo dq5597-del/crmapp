@@ -39,14 +39,32 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     setTimeout(fin, 150)
   })
 
-  // ── 量出各區塊 DOM 座標（CSS px，相對容器頂端）──
-  const containerTop = el.getBoundingClientRect().top
-  const cssHeight = el.getBoundingClientRect().height
+  // ── 量出各區塊 DOM 座標（CSS px，相對容器頂端/左緣）──
+  const containerRect = el.getBoundingClientRect()
+  const containerTop = containerRect.top
+  const containerLeft = containerRect.left
+  const cssHeight = containerRect.height
 
   const table = el.querySelector('table') as HTMLElement | null
   const firstBodyRow = el.querySelector('tbody tr') as HTMLElement | null
   const tfoot = el.querySelector('tfoot') as HTMLElement | null
   const bodyRows = Array.from(el.querySelectorAll('tbody tr')) as HTMLElement[]
+
+  // 表格欄位 X 邊界（CSS px，相對容器左緣）→ 供補空白列時對齊直線
+  const theadThs = Array.from(el.querySelectorAll('thead th')) as HTMLElement[]
+  const colEdgesCss: number[] = []
+  if (theadThs.length) {
+    for (const th of theadThs) colEdgesCss.push(th.getBoundingClientRect().left - containerLeft)
+    colEdgesCss.push(theadThs[theadThs.length - 1].getBoundingClientRect().right - containerLeft)
+  }
+  // 代表性列高（取第一個「品項主列」的高度）
+  let rowHcss = 0
+  for (const tr of bodyRows) {
+    if (tr.classList.contains('cat-row') || tr.classList.contains('notes-row')) continue
+    rowHcss = tr.getBoundingClientRect().height
+    break
+  }
+  if (rowHcss < 8) rowHcss = 26
 
   const headerBottomCss = firstBodyRow
     ? firstBodyRow.getBoundingClientRect().top - containerTop
@@ -57,19 +75,22 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
 
   // 可切點（列下緣）：排除分類標題列、排除品項與其備註列之間
   const rowCutsCss: number[] = []
-  // 每個品項主列的下緣 + 金額（供計算本頁小計）
-  const itemAmountsCss: { bottom: number; amount: number }[] = []
+  // 每個品項主列的下緣 + 金額 + 項次（供計算本頁小計、補列編號）
+  const itemAmountsCss: { bottom: number; amount: number; no: number }[] = []
   for (const tr of bodyRows) {
     const isCat = tr.classList.contains('cat-row')
     const isNote = tr.classList.contains('notes-row')
     if (!isCat && !isNote) {
-      // 主列金額 = 最後一格數字
+      // 主列金額 = 最後一格數字；項次 = 第一格數字
       const cells = tr.querySelectorAll('td')
       const last = cells[cells.length - 1]
+      const first = cells[0]
       const amt = last ? Number((last.textContent || '').replace(/[^0-9.-]/g, '')) : 0
+      const no = first ? parseInt((first.textContent || '').replace(/[^0-9]/g, ''), 10) : NaN
       itemAmountsCss.push({
         bottom: tr.getBoundingClientRect().bottom - containerTop,
         amount: isFinite(amt) ? amt : 0,
+        no: isFinite(no) ? no : 0,
       })
     }
     if (isCat) continue
@@ -153,10 +174,19 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     const rowCutsPx = rowCutsCss
       .map(v => Math.round(v * scale))
       .filter(v => v > rowsStart && v <= rowsEnd + 4)
-    const items = itemAmountsCss.map(it => ({ bottom: Math.round(it.bottom * scale), amount: it.amount }))
+    const items = itemAmountsCss.map(it => ({ bottom: Math.round(it.bottom * scale), amount: it.amount, no: it.no }))
 
-    const stripH = Math.round(70 * sc)   // 頁尾文字帶（本頁小計＋續下頁＋頁碼）
-    const rowsAreaMax = Math.floor(capacity * 0.75) - headerH - stripH
+    // 欄位 X 邊界（canvas px）、列高、5/6 補白線
+    const scaleX = canvas.width / containerRect.width
+    const colEdges = colEdgesCss.map(x => Math.round(x * scaleX))
+    const hasGrid = colEdges.length >= 3
+    const gx0 = hasGrid ? colEdges[0] : 0
+    const gx1 = hasGrid ? colEdges[colEdges.length - 1] : W
+    const rowHpx = Math.max(20, Math.round(rowHcss * scale))
+    const fillBottom = Math.floor(capacity * 5 / 6)   // 表格（含補白列）補到 5/6
+
+    const stripH = Math.round(70 * sc)
+    const rowsAreaMax = fillBottom - headerH           // 未完頁品項最多填到 5/6
 
     function lastCutWithin(from: number, limit: number): number {
       let best = -1
@@ -167,6 +197,11 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       let s = 0
       for (const it of items) if (it.bottom > start && it.bottom <= end + 4) s += it.amount
       return s
+    }
+    function pageLastNo(start: number, end: number): number {
+      let no = 0
+      for (const it of items) if (it.bottom > start && it.bottom <= end + 4) no = it.no
+      return no
     }
 
     // Pass 1：切每頁品項範圍（切點做像素微調）
@@ -217,16 +252,55 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         dy += footerBlockH
       }
 
-      // 4) 未完頁 → 本頁小計 + 續下頁
-      if (!r.last) {
-        const sub = pageSubtotal(r.start, r.end)
+      // 4) 未完頁 → 欄線補空白編號列到 5/6，本頁小計接下一行
+      if (!r.last && hasGrid) {
+        ctx.strokeStyle = '#aaaaaa'
+        ctx.lineWidth = Math.max(1, Math.round(scale * 0.6))
+        ctx.fillStyle = '#9ca3af'
+        ctx.font = `${Math.round(11 * scale)}px ${cjkFont}`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        // 空白編號列
+        let fy = dy
+        let n = pageLastNo(r.start, r.end)
+        while (fy + rowHpx <= fillBottom) {
+          ctx.beginPath(); ctx.moveTo(gx0, fy + 0.5); ctx.lineTo(gx1, fy + 0.5); ctx.stroke()
+          n++
+          ctx.fillText(String(n), (colEdges[0] + colEdges[1]) / 2, fy + rowHpx / 2)
+          fy += rowHpx
+        }
+        // 補白區底線 + 直向欄線（品項下緣 dy → fy）
+        ctx.beginPath(); ctx.moveTo(gx0, fy + 0.5); ctx.lineTo(gx1, fy + 0.5); ctx.stroke()
+        for (const xe of colEdges) { ctx.beginPath(); ctx.moveTo(xe + 0.5, dy); ctx.lineTo(xe + 0.5, fy); ctx.stroke() }
+
+        // 本頁小計列（接在補白列下一行）
+        const subTop = fy
+        const subBot = fy + Math.round(rowHpx * 1.15)
+        const amtLeft = colEdges[colEdges.length - 2]
+        const labLeft = colEdges[colEdges.length - 3]
+        ctx.beginPath(); ctx.moveTo(gx0, subBot + 0.5); ctx.lineTo(gx1, subBot + 0.5); ctx.stroke()
+        for (const xe of [gx0, labLeft, amtLeft, gx1]) { ctx.beginPath(); ctx.moveTo(xe + 0.5, subTop); ctx.lineTo(xe + 0.5, subBot); ctx.stroke() }
+        const midY = (subTop + subBot) / 2
+        ctx.fillStyle = '#111827'
+        ctx.font = `bold ${Math.round(13 * scale)}px ${cjkFont}`
+        ctx.textAlign = 'center'
+        ctx.fillText('本頁小計', (labLeft + amtLeft) / 2, midY)
+        ctx.textAlign = 'right'
+        ctx.fillText(fmtNT(pageSubtotal(r.start, r.end)), gx1 - Math.round(6 * scale), midY)
+
+        // 續下頁（頁碼上方）
+        ctx.fillStyle = '#1d4ed8'
+        ctx.font = `bold ${Math.round(13 * scale)}px ${cjkFont}`
         ctx.textAlign = 'right'
         ctx.textBaseline = 'alphabetic'
-        ctx.fillStyle = '#111827'
-        ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
+        ctx.fillText('～ 續下頁 ～', gx1, capacity - Math.round(40 * sc))
+      } else if (!r.last) {
+        // 無欄位資訊時退回純文字
+        const sub = pageSubtotal(r.start, r.end)
+        ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'
+        ctx.fillStyle = '#111827'; ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
         ctx.fillText(`本頁小計　${fmtNT(sub)}`, W - Math.round(40 * sc), capacity - Math.round(46 * sc))
         ctx.fillStyle = '#1d4ed8'
-        ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
         ctx.fillText('～ 續下頁 ～', W - Math.round(40 * sc), capacity - Math.round(16 * sc))
       }
 

@@ -24,8 +24,11 @@ export function brandLogoUrl(brand: string | null | undefined): string | null {
   return `/brands/${key}.png`
 }
 
-/** 只回傳「確定存在」的 logo（列印頁用，避免破圖） */
-export function knownBrandLogoUrl(brand: string | null | undefined): string | null {
-  const key = (brand ?? '').trim().toLowerCase()
-  return MAP[key] ? `/brands/${MAP[key]}` : null
+/**
+ * 品牌欄一律只顯示文字、不顯示圖片 logo（依需求全站移除品牌 logo）。
+ * 保留此函式簽名，讓既有呼叫端 `logo ? <img/> : null` 全部自動只剩文字，
+ * 無需逐一改動各元件。日後要恢復 logo，改回原本查表邏輯即可。
+ */
+export function knownBrandLogoUrl(_brand: string | null | undefined): string | null {
+  return null
 }
