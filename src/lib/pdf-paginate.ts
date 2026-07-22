@@ -32,6 +32,20 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   el.style.width = `${A4_W_PX}px`
   el.style.minWidth = `${A4_W_PX}px`
   el.style.maxWidth = 'none'
+
+  // 等字型與圖片載入完成 + 版面穩定
+  // （關鍵：若在字型/圖片載入前就量測，版面較矮，之後 html2canvas 截到較高的版面，
+  //   兩者不一致會讓 scale 失真、所有列座標偏移 → 切點切到字。故先等穩定再截圖再量測。）
+  try { await (document as any).fonts?.ready } catch { /* ignore */ }
+  await Promise.all(
+    (Array.from(el.querySelectorAll('img')) as HTMLImageElement[]).map(img =>
+      img.complete ? Promise.resolve() : new Promise<void>(res => {
+        img.addEventListener('load', () => res(), { once: true })
+        img.addEventListener('error', () => res(), { once: true })
+        setTimeout(res, 800)
+      })
+    )
+  )
   await new Promise(r => {
     let done = false
     const fin = () => { if (!done) { done = true; r(null) } }
@@ -39,7 +53,24 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     setTimeout(fin, 150)
   })
 
-  // ── 量出各區塊 DOM 座標（CSS px，相對容器頂端/左緣）──
+  // 先截圖（版面已穩定）
+  let canvas: HTMLCanvasElement
+  try {
+    canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      width: A4_W_PX,
+      windowWidth: A4_W_PX,
+    })
+  } catch (e) {
+    el.style.width = prevStyle.width
+    el.style.minWidth = prevStyle.minWidth
+    el.style.maxWidth = prevStyle.maxWidth
+    throw e
+  }
+
+  // ── 截圖「之後」才量 DOM 座標：此時版面與截圖完全一致，scale 精準 ──
   const containerRect = el.getBoundingClientRect()
   const containerTop = containerRect.top
   const containerLeft = containerRect.left
@@ -103,20 +134,10 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
 
   const canUseHeaderRepeat = !!(table && firstBodyRow && tfoot && bodyRows.length > 0)
 
-  let canvas: HTMLCanvasElement
-  try {
-    canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      width: A4_W_PX,
-      windowWidth: A4_W_PX,
-    })
-  } finally {
-    el.style.width = prevStyle.width
-    el.style.minWidth = prevStyle.minWidth
-    el.style.maxWidth = prevStyle.maxWidth
-  }
+  // 量測完成，還原寬度
+  el.style.width = prevStyle.width
+  el.style.minWidth = prevStyle.minWidth
+  el.style.maxWidth = prevStyle.maxWidth
 
   const srcCtx = canvas.getContext('2d', { willReadFrequently: true })!
 
