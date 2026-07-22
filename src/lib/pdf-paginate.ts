@@ -36,7 +36,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
 
   let canvas: HTMLCanvasElement
   let rootRect: DOMRect
-  let candidates: number[]
+  let ranges: { top: number; bottom: number }[]
   try {
     canvas = await html2canvas(el, {
       scale: 2,
@@ -51,18 +51,19 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     const scale = canvas.width / rootRect.width
     const SELECTOR = [
       'tr', 'thead',
-      '.section', '.section-title',
-      '.photo-cell', '.photo-grid',
+      '.section-title',
+      '.photo-cell',
       '.warn-box', '.notes-stamp-row', '.declare',
       '.info-row', 'h1', 'li',
     ].join(', ')
-    const cutSet = new Set<number>([0])
+    // 記錄每個「不可切斷元素」的上下緣（像素，canvas 座標）
+    ranges = []
     el.querySelectorAll(SELECTOR).forEach(node => {
       const r = (node as HTMLElement).getBoundingClientRect()
       const top = Math.round((r.top - rootRect.top) * scale)
-      if (top > 0 && top < canvas.height) cutSet.add(top)
+      const bottom = Math.round((r.bottom - rootRect.top) * scale)
+      if (bottom > 0 && top < canvas.height && bottom > top) ranges.push({ top, bottom })
     })
-    candidates = Array.from(cutSet).sort((a, b) => a - b)
   } finally {
     // 還原畫面樣式
     el.style.width = prevStyle.width
@@ -87,13 +88,20 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     if (end >= canvas.height) {
       end = canvas.height
     } else {
-      // 在 (y + 40% 頁高, y + 頁高] 內找最靠下的安全切點；找不到才硬切
-      let best = -1
-      for (const c of candidates) {
-        if (c > y + capacity * 0.4 && c <= end) best = c
-        if (c > end) break
+      // 切線不得穿過任何不可切斷元素（品項列/備註列/區塊）：
+      // 若切線壓在某元素身上，就把切線往上推到該元素上緣，反覆直到乾淨
+      let guard = 0
+      while (guard++ < 60) {
+        const straddle = ranges
+          .filter(rg =>
+            rg.top < end - 2 && rg.bottom > end + 2 &&           // 真的橫跨切線
+            rg.bottom - rg.top < capacity * 0.9                   // 排除超大容器，避免整頁被推光
+          )
+          .sort((a, b) => a.top - b.top)[0]
+        if (!straddle) break
+        if (straddle.top <= y + capacity * 0.3) break             // 推過頭就放棄，硬切保底
+        end = straddle.top
       }
-      if (best > 0) end = best
     }
 
     const sliceH = end - y
