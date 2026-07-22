@@ -128,8 +128,9 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     let guard = 0
     while (cursor < rowsEnd - 2 && guard++ < 500) {
       const remaining = rowsEnd - cursor
+      const contGap = ranges.length > 0 ? Math.round(26 * (scale / 2)) : 0  // 續頁間距預留
       // 剩餘品項 + 頁尾區(總金額/備註/印章) 能否整個放進本頁（不留¼）→ 這就是最後一頁
-      if (headerH + remaining + footerBlockH + stripH <= capacity) {
+      if (headerH + contGap + remaining + footerBlockH + stripH <= capacity) {
         ranges.push({ start: cursor, end: rowsEnd, last: true })
         cursor = rowsEnd
         break
@@ -158,10 +159,14 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       // 1) 表頭（每頁重複）
       ctx.drawImage(canvas, 0, 0, W, headerH, 0, 0, W, headerH)
 
+      // 第 2 頁起：表頭與品項間留一條間距，放「（承上頁）」不壓到品項
+      const contGapH = idx > 0 ? Math.round(26 * (scale / 2)) : 0
+      const rowsTop = headerH + contGapH
+
       // 2) 品項區
       const rh = r.end - r.start
-      ctx.drawImage(canvas, 0, r.start, W, rh, 0, headerH, W, rh)
-      let dy = headerH + rh
+      ctx.drawImage(canvas, 0, r.start, W, rh, 0, rowsTop, W, rh)
+      let dy = rowsTop + rh
 
       // 3) 最後一頁 → 接上總金額/備註/印章
       if (r.last && footerBlockH > 0) {
@@ -169,13 +174,13 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         dy += footerBlockH
       }
 
-      // 4) 頂端「（承上頁）」（第 2 頁起）
+      // 4) 頂端「（承上頁）」（第 2 頁起，放在間距內）
       if (idx > 0) {
         ctx.fillStyle = '#1d4ed8'
-        ctx.font = `${Math.round(20 * (scale / 2))}px ${cjkFont}`
+        ctx.font = `${Math.round(19 * (scale / 2))}px ${cjkFont}`
         ctx.textAlign = 'left'
-        ctx.textBaseline = 'top'
-        ctx.fillText('（承上頁）', Math.round(30 * (scale / 2)), headerH + Math.round(3 * (scale / 2)))
+        ctx.textBaseline = 'middle'
+        ctx.fillText('（承上頁）', Math.round(30 * (scale / 2)), headerH + contGapH / 2)
       }
 
       // 5) 未完頁 → 底部留白區印「～ 續下頁 ～」
