@@ -183,10 +183,13 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     const gx0 = hasGrid ? colEdges[0] : 0
     const gx1 = hasGrid ? colEdges[colEdges.length - 1] : W
     const rowHpx = Math.max(20, Math.round(rowHcss * scale))
-    const fillBottom = Math.floor(capacity * 5 / 6)   // 表格（含補白列）補到 5/6
+    const subRowH = Math.round(rowHpx * 1.15)          // 本頁小計列高
+    const footerStripH = Math.round(58 * sc)           // 頁尾（續下頁＋頁碼）兩行
+    // 表格（含補白列）填到接近頁尾，只留小計列＋頁尾文字的高度
+    const fillBottom = capacity - footerStripH - subRowH
 
     const stripH = Math.round(70 * sc)
-    const rowsAreaMax = fillBottom - headerH           // 未完頁品項最多填到 5/6
+    const rowsAreaMax = fillBottom - headerH            // 未完頁品項最多填到 fillBottom
 
     function lastCutWithin(from: number, limit: number): number {
       let best = -1
@@ -247,7 +250,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         dy += footerBlockH
       }
 
-      // 4) 未完頁 → 欄線補空白編號列到 5/6，本頁小計接下一行
+      // 4) 未完頁 → 欄線補空白列填滿到頁尾，本頁小計接下一行
       if (!r.last && hasGrid) {
         ctx.strokeStyle = '#aaaaaa'
         ctx.lineWidth = Math.max(1, Math.round(scale * 0.6))
@@ -263,7 +266,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
 
         // 本頁小計列（接在補白列下一行）
         const subTop = fy
-        const subBot = fy + Math.round(rowHpx * 1.15)
+        const subBot = fy + subRowH
         const amtLeft = colEdges[colEdges.length - 2]
         const labLeft = colEdges[colEdges.length - 3]
         ctx.beginPath(); ctx.moveTo(gx0, subBot + 0.5); ctx.lineTo(gx1, subBot + 0.5); ctx.stroke()
@@ -281,7 +284,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         ctx.font = `bold ${Math.round(13 * scale)}px ${cjkFont}`
         ctx.textAlign = 'right'
         ctx.textBaseline = 'alphabetic'
-        ctx.fillText('～ 續下頁 ～', gx1, capacity - Math.round(40 * sc))
+        ctx.fillText('～ 續下頁 ～', gx1, capacity - Math.round(34 * sc))
       } else if (!r.last) {
         // 無欄位資訊時退回純文字
         const sub = pageSubtotal(r.start, r.end)
