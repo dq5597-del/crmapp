@@ -5,8 +5,21 @@ import { createClient } from '@/lib/supabase'
 
 /** 系統所有可控功能（新增功能時在這裡加一列，權限頁會自動出現） */
 export const FEATURES: { key: string; label: string; group: string; href?: string; costLabel?: string }[] = [
-  { key: 'ceo',              label: 'CEO 戰情室',      group: '決策',   href: '/ceo',            costLabel: '看毛利與現金' },
-  { key: 'dashboard',        label: '戰情室',          group: '決策',   href: '/' },
+  // 戰情室（各職位／部門專屬儀表板）— 依權限控管：每個帳號只看自己的，管理員看全部。
+  // 逐一帳號指定用「權限管理 → 個人例外」；或在角色權限勾該角色共用的戰情室。
+  { key: 'dashboard',        label: '業務戰情室',       group: '戰情室', href: '/' },
+  { key: 'chairman',         label: '董事長戰情室',     group: '戰情室', href: '/chairman' },
+  { key: 'ceo',              label: 'CEO 戰情室',       group: '戰情室', href: '/ceo',            costLabel: '看毛利與現金' },
+  { key: 'manager',          label: '總經理戰情室',     group: '戰情室', href: '/manager' },
+  { key: 'dept',             label: '經理戰情室',       group: '戰情室', href: '/dept' },
+  { key: 'team',             label: '主任戰情室',       group: '戰情室', href: '/team' },
+  { key: 'finance',          label: '會計戰情室',       group: '戰情室', href: '/finance' },
+  { key: 'finance-team',     label: '會計主管戰情室',   group: '戰情室', href: '/finance-team' },
+  { key: 'acct-staff',       label: '會計人員戰情室',   group: '戰情室', href: '/acct-staff' },
+  { key: 'tech-team',        label: '技術主管戰情室',   group: '戰情室', href: '/tech-team' },
+  { key: 'chief-engineer',   label: '總工程師戰情室',   group: '戰情室', href: '/chief-engineer' },
+  { key: 'senior-engineer',  label: '資深工程師戰情室', group: '戰情室', href: '/senior-engineer' },
+  { key: 'hr-dashboard',     label: '人資戰情室',       group: '戰情室', href: '/hr' },
   { key: 'projects',         label: '專案資料夾',      group: '業務',   href: '/projects',       costLabel: '看專案成本' },
   { key: 'clients',          label: '單位資料',        group: '業務',   href: '/clients' },
   { key: 'vendors',          label: '廠商建檔',        group: '業務',   href: '/vendors',        costLabel: '看銀行帳戶' },
@@ -42,7 +55,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'permissions',      label: '權限管理',        group: '系統' },
 ]
 
-export const FEATURE_GROUPS = ['決策', '業務', '進銷存', '財務', '服務', '人資', '系統']
+export const FEATURE_GROUPS = ['戰情室', '業務', '進銷存', '財務', '服務', '人資', '系統']
 
 export type Perm = {
   can_view: boolean
