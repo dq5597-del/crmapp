@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { buildPaginatedPdfWithPages, downloadPdf, sharePdf } from '@/lib/pdf-paginate'
+import { printTextPdf } from '@/lib/text-pdf'
 
 const btn = (bg: string): React.CSSProperties => ({
   padding: '8px 16px', background: bg, color: '#fff', border: 'none',
@@ -44,7 +45,17 @@ export default function PrintPreviewModal({ open, onClose, fileName, landscape }
     } finally { setBusy('') }
   }
 
-  const handleDownload = async () => {
+  // 文字版 PDF（可選取/搜尋）：用瀏覽器「另存為 PDF」
+  const handleTextPdf = async () => {
+    if (busy) return
+    setBusy('download')
+    try { await printTextPdf(landscape) }
+    catch (e) { console.error(e); alert('產生文字 PDF 失敗，請稍後再試') }
+    finally { setBusy('') }
+  }
+
+  // 圖片版 PDF（精確版面、直接下載檔案）
+  const handleDownloadImage = async () => {
     if (busy) return
     setBusy('download')
     try { await downloadPdf(fileName, landscape) }
@@ -69,8 +80,11 @@ export default function PrintPreviewModal({ open, onClose, fileName, landscape }
           <button onClick={handleShare} disabled={!!busy || loading} style={{ ...btn('#0ea5e9'), opacity: busy || loading ? 0.6 : 1 }}>
             {busy === 'share' ? '處理中…' : '分享 PDF'}
           </button>
-          <button onClick={handleDownload} disabled={!!busy || loading} style={{ ...btn('#16a34a'), opacity: busy || loading ? 0.6 : 1 }}>
-            {busy === 'download' ? '處理中…' : '下載 PDF'}
+          <button onClick={handleDownloadImage} disabled={!!busy || loading} style={{ ...btn('#6b7280'), opacity: busy || loading ? 0.6 : 1 }}>
+            圖片 PDF
+          </button>
+          <button onClick={handleTextPdf} disabled={!!busy || loading} style={{ ...btn('#16a34a'), opacity: busy || loading ? 0.6 : 1 }}>
+            {busy === 'download' ? '處理中…' : '下載 PDF（文字）'}
           </button>
           <button onClick={onClose} style={btn('#6b7280')}>關閉預覽</button>
         </div>

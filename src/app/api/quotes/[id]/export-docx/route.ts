@@ -119,20 +119,21 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
   })
 
-  const totalRow = new TableRow({
+  const qOrig = Number(quote.subtotal ?? quote.total_amount)
+  const qDisc = qOrig - Number(quote.total_amount)
+  const mkTotalRow = (label: string, value: string, big = false) => new TableRow({
     children: [
-      new TableCell({
-        columnSpan: 5,
-        borders: cellBorder,
-        children: [new Paragraph({ children: [new TextRun({ text: '含稅總金額', bold: true, size: 20 })] })],
-      }),
-      new TableCell({
-        columnSpan: 2,
-        borders: cellBorder,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(quote.total_amount), bold: true, size: 22 })] })],
-      }),
+      new TableCell({ columnSpan: 5, borders: cellBorder,
+        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 20 })] })] }),
+      new TableCell({ columnSpan: 2, borders: cellBorder,
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: value, bold: true, size: big ? 22 : 20 })] })] }),
     ],
   })
+  const discountRows = qDisc > 0 ? [
+    mkTotalRow('原價合計', fmt(qOrig)),
+    mkTotalRow('折扣', `- ${fmt(qDisc)}`),
+  ] : []
+  const totalRow = mkTotalRow(qDisc > 0 ? '折後含稅總金額' : '含稅總金額', fmt(quote.total_amount), true)
 
   const doc = new Document({
     sections: [{
@@ -165,7 +166,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         new Paragraph({ text: '' }),
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [headerRow, ...itemRows, totalRow],
+          rows: [headerRow, ...itemRows, ...discountRows, totalRow],
         }),
         new Paragraph({ text: '' }),
         ...(noteItems.length > 0 ? [

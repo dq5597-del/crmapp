@@ -93,6 +93,9 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
   if (order.notes) noteItems.push(order.notes)
 
   const totalChinese = numToChineseCapital(Number(order.total_amount))
+  const origAmt = Number(order.subtotal ?? order.total_amount)
+  const discAmt = origAmt - Number(order.total_amount)
+  const hasDiscount = discAmt > 0
 
   return (
     <>
@@ -221,6 +224,18 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
             })()}
           </tbody>
           <tfoot>
+            {hasDiscount && (
+              <>
+                <tr className="total-row">
+                  <td colSpan={5}>原價合計</td>
+                  <td colSpan={3} className="num">NT$ {fmt(origAmt)}</td>
+                </tr>
+                <tr className="total-row">
+                  <td colSpan={5}>折扣</td>
+                  <td colSpan={3} className="num">- NT$ {fmt(discAmt)}</td>
+                </tr>
+              </>
+            )}
             <tr className="total-row">
               <td colSpan={5}>總金額　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(order.total_amount))}</td>

@@ -100,20 +100,21 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
   })
 
-  const totalRow = new TableRow({
+  const oOrig = Number(order.subtotal ?? order.total_amount)
+  const oDisc = oOrig - Number(order.total_amount)
+  const mkTotalRow = (label: string, value: string, big = false) => new TableRow({
     children: [
-      new TableCell({
-        columnSpan: 6,
-        borders: cellBorder,
-        children: [new Paragraph({ children: [new TextRun({ text: '含稅總金額', bold: true, size: 20 })] })],
-      }),
-      new TableCell({
-        columnSpan: 2,
-        borders: cellBorder,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(order.total_amount), bold: true, size: 22 })] })],
-      }),
+      new TableCell({ columnSpan: 6, borders: cellBorder,
+        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 20 })] })] }),
+      new TableCell({ columnSpan: 2, borders: cellBorder,
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: value, bold: true, size: big ? 22 : 20 })] })] }),
     ],
   })
+  const discountRows = oDisc > 0 ? [
+    mkTotalRow('原價合計', fmt(oOrig)),
+    mkTotalRow('折扣', `- ${fmt(oDisc)}`),
+  ] : []
+  const totalRow = mkTotalRow(oDisc > 0 ? '折後含稅總金額' : '含稅總金額', fmt(order.total_amount), true)
 
   const doc = new Document({
     sections: [{
@@ -144,7 +145,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         new Paragraph({ text: '' }),
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [headerRow, ...itemRows, totalRow],
+          rows: [headerRow, ...itemRows, ...discountRows, totalRow],
         }),
         new Paragraph({ text: '' }),
         ...(noteItems.length > 0 ? [

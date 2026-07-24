@@ -128,10 +128,22 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   })
   const itemEndRow = r - 1
 
+  // 折扣明細（原價、折扣）
+  const qOrig = Number(quote.subtotal ?? quote.total_amount)
+  const qDisc = qOrig - Number(quote.total_amount)
+  if (qDisc > 0) {
+    for (const [lbl, val] of [['原價合計', qOrig], ['折扣', -qDisc]] as [string, number][]) {
+      sheet.mergeCells(`A${r}:F${r}`)
+      const lc = sheet.getCell(`A${r}`); lc.value = lbl; lc.alignment = { horizontal: 'right' }
+      const vc = sheet.getCell(`G${r}`); vc.value = val; vc.numFmt = '#,##0'; vc.alignment = { horizontal: 'right' }
+      r++
+    }
+  }
+
   // 總計列
   sheet.mergeCells(`A${r}:F${r}`)
   const totalLabelCell = sheet.getCell(`A${r}`)
-  totalLabelCell.value = '含稅總金額'
+  totalLabelCell.value = qDisc > 0 ? '折後含稅總金額' : '含稅總金額'
   totalLabelCell.font = { bold: true }
   totalLabelCell.alignment = { horizontal: 'right' }
   totalLabelCell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }

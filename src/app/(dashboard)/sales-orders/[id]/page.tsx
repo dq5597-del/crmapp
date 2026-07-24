@@ -57,6 +57,7 @@ export default function SalesOrderDetailPage() {
   const [signedDate, setSignedDate] = useState('')
   const [salespersonId, setSalespersonId] = useState('')
   const [salespeople, setSalespeople] = useState<any[]>([])
+  const [discountInput, setDiscountInput] = useState<number | string>(0)
 
   useEffect(() => {
     Promise.all([
@@ -80,6 +81,7 @@ export default function SalesOrderDetailPage() {
       setSignerName(o?.signer_name ?? '')
       setSignedDate(o?.signed_date ?? '')
       setSalespersonId(o?.salesperson_id ?? '')
+      setDiscountInput(o?.discount_amount ?? 0)
       setSalespeople(spRes.data ?? [])
       setItems(
         (iRes.data ?? []).map((i: any) => ({
@@ -101,8 +103,10 @@ export default function SalesOrderDetailPage() {
   }, [id])
 
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
+  // 折扣金額（直接填 NT$）；折後含稅 = 原價 − 折扣金額
+  const discAmt = Math.min(subtotal, Number(discountInput) > 0 ? Number(discountInput) : 0)
+  const totalAmount = Math.max(0, subtotal - discAmt)
   const taxAmount = 0 // 系統價格含稅，不另加稅
-  const totalAmount = subtotal + taxAmount
 
   function updateItem(idx: number, field: keyof Item, val: any) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it))
@@ -162,6 +166,7 @@ export default function SalesOrderDetailPage() {
         subtotal,
         tax_amount: taxAmount,
         total_amount: totalAmount,
+        discount_amount: discAmt,
       }).eq('id', id)
       if (orderErr) throw orderErr
 
@@ -392,9 +397,22 @@ export default function SalesOrderDetailPage() {
           </table>
         </div>
         <div className="border-t border-gray-100 p-4 flex justify-end">
-          <div className="space-y-1 text-sm min-w-[200px]">
+          <div className="space-y-1 text-sm min-w-[240px]">
+            <div className="flex justify-between text-gray-600">
+              <span>原價合計</span><span>{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between items-center text-gray-600">
+              <span className="flex items-center gap-1">
+                折扣金額 NT$
+                <input type="number" step="1" min={0}
+                  value={discountInput}
+                  onChange={e => setDiscountInput(e.target.value)}
+                  className="w-28 px-2 py-1 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </span>
+              <span className="text-red-500">{discAmt > 0 ? `−${formatCurrency(discAmt)}` : '—'}</span>
+            </div>
             <div className="flex justify-between font-bold text-gray-900 border-t pt-1">
-              <span>含稅總計</span><span className="text-green-700">{formatCurrency(totalAmount)}</span>
+              <span>折後含稅總計</span><span className="text-green-700">{formatCurrency(totalAmount)}</span>
             </div>
           </div>
         </div>

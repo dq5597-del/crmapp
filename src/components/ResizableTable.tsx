@@ -11,7 +11,8 @@ import { useState, useEffect } from 'react'
 import { RotateCcw, Copy, Save } from 'lucide-react'
 
 export function useColWidths(tableKey: string, defaults: Record<string, number>) {
-  const LS = 'gh-colw-' + tableKey
+  // v2：先前 min-width:101% 的 bug 讓拖曳存下的欄寬失真，跳版讓舊值作廢、回到正確預設
+  const LS = 'gh-colw2-' + tableKey
   const [widths, setWidths] = useState<Record<string, number>>(defaults)
 
   useEffect(() => {
@@ -111,13 +112,13 @@ export function ColWidthTools({ tableKey, widths, onReset }: {
 
   function apply() {
     const targets = others.filter(([k]) => checked[k])
-    targets.forEach(([k]) => localStorage.setItem('gh-colw-' + k, JSON.stringify(widths)))
+    targets.forEach(([k]) => localStorage.setItem('gh-colw2-' + k, JSON.stringify(widths)))
     setOpen(false)
     alert('已套用欄寬到：' + targets.map(([, n]) => n).join('、') + '（開啟該單據即生效）')
   }
 
   function saveNow() {
-    localStorage.setItem('gh-colw-' + tableKey, JSON.stringify(widths))
+    localStorage.setItem('gh-colw2-' + tableKey, JSON.stringify(widths))
     alert('欄寬已儲存，之後開啟都會用這個設定')
   }
 

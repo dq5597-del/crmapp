@@ -365,6 +365,7 @@ export default function QuoteForm({
     bank_account: initialQuote?.bank_account ?? '',
     notes: initialQuote?.notes ?? '',
     salesperson_id: (initialQuote as any)?.salesperson_id ?? '',
+    discount_amount: (initialQuote as any)?.discount_amount ?? 0,
   })
 
   const [items, setItems] = useState<QuoteItemForm[]>(
@@ -571,8 +572,10 @@ export default function QuoteForm({
   const displayNos = items.map(it => { if (it.is_category) { __no = 0; return 0 } __no += 1; return __no })
 
   const subtotal = items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0)
+  // 折扣金額（直接填 NT$）；折後含稅 = 原價 − 折扣金額
+  const discountAmount = Math.min(subtotal, Number(header.discount_amount) > 0 ? Number(header.discount_amount) : 0)
+  const totalAmount = Math.max(0, subtotal - discountAmount)
   const taxAmount = 0
-  const totalAmount = subtotal
 
   // 毛利計算（內部參考，僅計入有成本資料的品項）
   function costOf(item: QuoteItemForm): number | null {
@@ -697,7 +700,7 @@ export default function QuoteForm({
       bank_account: header.bank_account || null,
       notes: header.notes || null,
       salesperson_id: header.salesperson_id || null,
-      subtotal, tax_amount: taxAmount, total_amount: totalAmount,
+      subtotal, tax_amount: taxAmount, total_amount: totalAmount, discount_amount: discountAmount,
       status: newStatus ?? (initialQuote?.status ?? '草稿'),
     }
 
@@ -910,7 +913,9 @@ export default function QuoteForm({
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+          {/* table-layout:fixed 讓每欄的設定寬度真正生效；width:max-content 讓表格只佔欄位總和、不被撐大；
+              minWidth:0 蓋掉 globals.css 的 .overflow-x-auto>table{min-width:101%}（欄位縮不掉的元凶） */}
+          <table className="text-sm border-collapse" style={{ tableLayout: 'fixed', width: 'max-content', minWidth: 0 }}>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
@@ -1170,7 +1175,26 @@ export default function QuoteForm({
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t border-gray-200">
-                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">含稅總金額</td>
+                <td colSpan={7} className="px-3 py-2 text-right text-sm text-gray-600">原價合計</td>
+                <td className="px-3 py-2 text-right text-sm text-gray-700">NT${subtotal.toLocaleString()}</td>
+                <td colSpan={1} />
+              </tr>
+              <tr className="bg-gray-50">
+                <td colSpan={7} className="px-3 py-2 text-right text-sm text-gray-600">
+                  折扣金額 NT$
+                  <input
+                    type="number" step="1" min={0}
+                    value={header.discount_amount}
+                    onChange={e => setHeader(h => ({ ...h, discount_amount: e.target.value }))}
+                    className="mx-2 w-28 px-2 py-1 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {discountAmount > 0 && <span className="ml-2 text-sm text-red-500">−NT${discountAmount.toLocaleString()}</span>}
+                </td>
+                <td colSpan={1} />
+                <td colSpan={1} />
+              </tr>
+              <tr className="bg-gray-50">
+                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">折後含稅總金額</td>
                 <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
                 <td colSpan={1} />
               </tr>

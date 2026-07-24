@@ -44,6 +44,7 @@ export default function PurchaseOrderDetailPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [form, setForm] = useState({ vendor_name: '', vendor_contact: '', vendor_phone: '', notes: '', status: '草稿', signer_name: '', signed_date: '', salesperson_id: '' })
   const [salespeople, setSalespeople] = useState<any[]>([])
+  const [discountInput, setDiscountInput] = useState<number | string>(0)
 
   useEffect(() => {
     Promise.all([
@@ -54,6 +55,7 @@ export default function PurchaseOrderDetailPage() {
       if (oRes.data) {
         setOrder(oRes.data)
         setForm({ vendor_name: oRes.data.vendor_name ?? '', vendor_contact: oRes.data.vendor_contact ?? '', vendor_phone: oRes.data.vendor_phone ?? '', notes: oRes.data.notes ?? '', status: oRes.data.status ?? '草稿', signer_name: oRes.data.signer_name ?? '', signed_date: oRes.data.signed_date ?? '', salesperson_id: oRes.data.salesperson_id ?? '' })
+        setDiscountInput(oRes.data.discount_amount ?? 0)
       }
       setItems(
         (iRes.data ?? []).map((i: any) => ({
@@ -82,8 +84,10 @@ export default function PurchaseOrderDetailPage() {
   }
 
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
+  // 進貨折扣金額（直接填 NT$）；折後含稅 = 原價 − 折扣金額
+  const discAmt = Math.min(subtotal, Number(discountInput) > 0 ? Number(discountInput) : 0)
+  const totalAmount = Math.max(0, subtotal - discAmt)
   const taxAmount = 0 // 系統價格含稅，不另加稅
-  const totalAmount = subtotal + taxAmount
 
   function updateItem(idx: number, field: keyof Item, val: any) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it))
@@ -121,7 +125,7 @@ export default function PurchaseOrderDetailPage() {
         contact_name: form.vendor_contact || null,
         client_phone: form.vendor_phone || null,
         payment_terms: (order as any)?.payment_terms ?? null,
-        subtotal, tax_amount: taxAmount, total_amount: totalAmount,
+        subtotal, tax_amount: taxAmount, total_amount: totalAmount, discount_amount: discAmt,
         status: '已確認',
         notes: null,
         salesperson_id: form.salesperson_id || null,
@@ -157,7 +161,7 @@ export default function PurchaseOrderDetailPage() {
         ...form,
         signed_date: form.signed_date || null,
         salesperson_id: form.salesperson_id || null,
-        subtotal, tax_amount: taxAmount, total_amount: totalAmount,
+        subtotal, tax_amount: taxAmount, total_amount: totalAmount, discount_amount: discAmt,
       }).eq('id', id)
       if (orderErr) throw orderErr
 
@@ -329,8 +333,18 @@ export default function PurchaseOrderDetailPage() {
           </table>
         </div>
         <div className="border-t border-gray-100 p-4 flex justify-end">
-          <div className="space-y-1 text-sm min-w-[200px]">
-            <div className="flex justify-between font-bold text-gray-900 border-t pt-1"><span>含稅總計</span><span className="text-purple-700">{formatCurrency(totalAmount)}</span></div>
+          <div className="space-y-1 text-sm min-w-[240px]">
+            <div className="flex justify-between text-gray-600"><span>原價合計</span><span>{formatCurrency(subtotal)}</span></div>
+            <div className="flex justify-between items-center text-gray-600">
+              <span className="flex items-center gap-1">
+                進貨折扣金額 NT$
+                <input type="number" step="1" min={0} value={discountInput}
+                  onChange={e => setDiscountInput(e.target.value)}
+                  className="w-28 px-2 py-1 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </span>
+              <span className="text-red-500">{discAmt > 0 ? `−${formatCurrency(discAmt)}` : '—'}</span>
+            </div>
+            <div className="flex justify-between font-bold text-gray-900 border-t pt-1"><span>折後含稅總計</span><span className="text-purple-700">{formatCurrency(totalAmount)}</span></div>
           </div>
         </div>
       </div>

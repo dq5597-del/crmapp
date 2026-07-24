@@ -236,7 +236,8 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     let guard = 0
     while (cursor < rowsEnd - 2 && guard++ < 500) {
       const remaining = rowsEnd - cursor
-      if (headerH + remaining + footerBlockH + stripH <= capacity) {
+      // 最後一頁不需 續下頁/小計 帶，故不加 stripH：剩餘品項＋頁尾區能整個放進本頁就收在同一頁
+      if (headerH + remaining + footerBlockH <= capacity) {
         ranges.push({ start: cursor, end: rowsEnd, last: true })
         cursor = rowsEnd
         break
@@ -254,6 +255,12 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       cursor = cut
     }
     if (ranges.length === 0) ranges.push({ start: rowsStart, end: rowsEnd, last: true })
+
+    // 收尾：所有品項都排完了，但最後一頁是「未含頁尾」（品項剛好塞滿、放不下總金額/備註/印章）
+    // → 另起最後一頁專門放頁尾區（start==end，不畫品項，只畫表頭＋總金額/備註/印章）
+    if (footerBlockH > 0 && ranges.length && !ranges[ranges.length - 1].last) {
+      ranges.push({ start: rowsEnd, end: rowsEnd, last: true })
+    }
 
     const total = ranges.length
     const cjkFont = `"Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif`

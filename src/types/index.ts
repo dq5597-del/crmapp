@@ -134,6 +134,7 @@ export interface Quote {
   subtotal: number
   tax_amount: number
   total_amount: number
+  discount_amount?: number
   notes: string | null
   status: QuoteStatus
   pdf_url: string | null
@@ -184,6 +185,7 @@ export interface SalesOrder {
   subtotal: number
   tax_amount: number
   total_amount: number
+  discount_amount?: number
   notes: string | null
   status: SalesOrderStatus
   pdf_url: string | null
@@ -224,6 +226,7 @@ export interface PurchaseOrder {
   subtotal: number
   tax_amount: number
   total_amount: number
+  discount_amount?: number
   notes: string | null
   status: PurchaseOrderStatus
   pdf_url: string | null

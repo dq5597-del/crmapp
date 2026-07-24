@@ -27,6 +27,7 @@ export type DocData = {
   rows: { cells: string[]; isCategory?: boolean }[]
   totalLabel?: string
   totalValue?: string
+  extraTotals?: { label: string; value: string }[]   // 折扣明細（原價、折扣…顯示在總計上方）
   notes: string[]
   companyName: string
   companyPhone: string
@@ -49,6 +50,8 @@ export async function fetchDocData(supabase: any, type: DocType, id: string): Pr
     const notes: string[] = []
     if (o.payment_terms) notes.push(`付款條件：${o.payment_terms}`)
     if (o.notes) notes.push(o.notes)
+    const poOrig = Number(o.subtotal ?? o.total_amount)
+    const poDisc = poOrig - Number(o.total_amount)
     let no = 0
     return {
       title: '訂購單', docNo: o.order_no, dateStr: dateOf(o.created_at),
@@ -64,7 +67,11 @@ export async function fetchDocData(supabase: any, type: DocType, id: string): Pr
       rows: (items ?? []).map((i: any) => i.is_category
         ? (no = 0, { cells: [i.product_name ?? ''], isCategory: true })
         : (no += 1, { cells: [String(no), i.brand ?? '', i.product_name ?? '', i.model ?? '', i.unit ?? '', String(i.quantity), fmt(i.unit_price), fmt(i.quantity * i.unit_price)] })),
-      totalLabel: '含稅總計', totalValue: `NT$${fmt(o.total_amount)}`,
+      totalLabel: poDisc > 0 ? '折後含稅總計' : '含稅總計', totalValue: `NT$${fmt(o.total_amount)}`,
+      extraTotals: poDisc > 0 ? [
+        { label: '原價合計', value: `NT$${fmt(poOrig)}` },
+        { label: '進貨折扣', value: `- NT$${fmt(poDisc)}` },
+      ] : undefined,
       notes, companyName, companyPhone,
     }
   }
@@ -163,6 +170,8 @@ export async function fetchDocData(supabase: any, type: DocType, id: string): Pr
     if (o.delivery_date) notes.push(`交貨日期：${o.delivery_date}`)
     if (o.payment_terms) notes.push(`付款條件：${o.payment_terms}`)
     if (o.notes) notes.push(o.notes)
+    const soOrig = Number(o.subtotal ?? o.total_amount)
+    const soDisc = soOrig - Number(o.total_amount)
     let no = 0
     return {
       title: '銷貨單', docNo: o.order_no, dateStr: dateOf(o.created_at),
@@ -176,7 +185,11 @@ export async function fetchDocData(supabase: any, type: DocType, id: string): Pr
       rows: (items ?? []).map((i: any) => i.is_category
         ? (no = 0, { cells: [i.product_name ?? ''], isCategory: true })
         : (no += 1, { cells: [String(no), i.brand ?? '', i.product_name ?? '', i.model ?? '', i.unit ?? '', String(i.quantity), fmt(i.unit_price), fmt(i.quantity * i.unit_price)] })),
-      totalLabel: '含稅總計', totalValue: `NT$${fmt(o.total_amount)}`,
+      totalLabel: soDisc > 0 ? '折後含稅總計' : '含稅總計', totalValue: `NT$${fmt(o.total_amount)}`,
+      extraTotals: soDisc > 0 ? [
+        { label: '原價合計', value: `NT$${fmt(soOrig)}` },
+        { label: '折扣', value: `- NT$${fmt(soDisc)}` },
+      ] : undefined,
       notes, companyName, companyPhone,
     }
   }
@@ -214,14 +227,18 @@ export async function buildDocx(d: DocData): Promise<Buffer> {
           children: [new Paragraph({ alignment: alignMap[d.columns[i].align], children: [new TextRun({ text: v, size: 20 })] })],
         })),
       }))
-  const totalRow = d.totalValue ? [new TableRow({
+  const mkTotalRow = (label: string, value: string, big = false) => new TableRow({
     children: [
       new TableCell({ columnSpan: d.columns.length - 1, borders: border,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.totalLabel ?? '總計', bold: true, size: 20 })] })] }),
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: label, bold: true, size: 20 })] })] }),
       new TableCell({ borders: border,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: d.totalValue, bold: true, size: 22 })] })] }),
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: value, bold: true, size: big ? 22 : 20 })] })] }),
     ],
-  })] : []
+  })
+  const totalRow = [
+    ...(d.extraTotals ?? []).map(t => mkTotalRow(t.label, t.value)),
+    ...(d.totalValue ? [mkTotalRow(d.totalLabel ?? '總計', d.totalValue, true)] : []),
+  ]
 
   const doc = new Document({
     sections: [{
@@ -288,6 +305,14 @@ export async function buildXlsx(d: DocData): Promise<Buffer> {
     }
     r++
   }
+  for (const t of d.extraTotals ?? []) {
+    ws.mergeCells(r, 1, r, n - 1)
+    ws.getCell(r, 1).value = t.label
+    ws.getCell(r, 1).alignment = { horizontal: 'right' }
+    ws.getCell(r, n).value = t.value
+    ws.getCell(r, n).alignment = { horizontal: 'right' }
+    r++
+  }
   if (d.totalValue) {
     ws.mergeCells(r, 1, r, n - 1)
     ws.getCell(r, 1).value = d.totalLabel ?? '總計'
@@ -321,6 +346,7 @@ export function buildEmailHtml(d: DocData): string {
       <table style="border-collapse:collapse; width:100%; margin-top:8px;">
         <tr>${d.columns.map(c => `<th style="${th}">${c.label}</th>`).join('')}</tr>
         ${rows}
+        ${(d.extraTotals ?? []).map(t => `<tr><td colspan="${d.columns.length - 1}" style="${td}text-align:right;">${t.label}</td><td style="${td}text-align:right;">${t.value}</td></tr>`).join('')}
         ${d.totalValue ? `<tr><td colspan="${d.columns.length - 1}" style="${td}text-align:right;font-weight:bold;">${d.totalLabel}</td><td style="${td}text-align:right;font-weight:bold;font-size:15px;">${d.totalValue}</td></tr>` : ''}
       </table>
       ${d.notes.length > 0 ? `<h4 style="margin:16px 0 4px;">備註事項</h4><ol style="font-size:13px;color:#374151;margin:0;padding-left:20px;">${d.notes.map(x => `<li>${x}</li>`).join('')}</ol>` : ''}

@@ -104,6 +104,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   if (quote.notes) noteItems.push(quote.notes)
 
   const totalChinese = numToChineseCapital(Number(quote.total_amount))
+  const origAmt = Number(quote.subtotal ?? quote.total_amount)
+  const discAmt = origAmt - Number(quote.total_amount)
+  const hasDiscount = discAmt > 0
 
   // 分類標題列：品項編號在每個分類內重新從 1 起算
   let dispNo = 0
@@ -241,6 +244,18 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             ))}
           </tbody>
           <tfoot>
+            {hasDiscount && (
+              <>
+                <tr className="total-row">
+                  <td colSpan={5}>原價合計</td>
+                  <td colSpan={3} className="num">NT$ {fmt(origAmt)}</td>
+                </tr>
+                <tr className="total-row">
+                  <td colSpan={5}>折扣</td>
+                  <td colSpan={3} className="num">- NT$ {fmt(discAmt)}</td>
+                </tr>
+              </>
+            )}
             <tr className="total-row">
               <td colSpan={5}>總金額　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(quote.total_amount))}</td>
