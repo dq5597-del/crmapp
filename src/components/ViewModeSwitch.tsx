@@ -64,10 +64,31 @@ export default function ViewModeSwitch() {
     }
   }
 
+  // 開一個指定寬度的實際視窗（桌機唯一能真正照該寬度重排 RWD 的方式）
+  // 具名視窗：同一尺寸重複點會重用同一視窗，不會一直開新的
+  function openPreviewWindow(width: number, key: string) {
+    window.open(
+      window.location.href,
+      'gh-view-' + key,
+      `width=${width},height=${Math.min(900, screen.availHeight - 80)},left=80,top=40,resizable=yes,scrollbars=yes`
+    )
+  }
+
   function pick(m: Mode) {
     setMode(m)
     localStorage.setItem(LS_MODE, m)
     applyMode(m)
+    // 桌機（滑鼠 + 寬螢幕）會忽略 viewport meta，改開該寬度的預覽視窗才看得到效果；
+    // 「自動」代表跟隨真實螢幕，不需預覽；真手機/平板則沿用上面的 viewport 行為。
+    const isDesktop =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches
+    if (!isDesktop || m === 'auto') return
+    const widthMap: Record<string, number> = { mobile: 390, tablet: 820, desktop: 1280 }
+    const w = m.startsWith('dev:')
+      ? devices.find(x => 'dev:' + x.id === m)?.width
+      : widthMap[m]
+    if (w) openPreviewWindow(w, m)
   }
 
   function saveDevices(list: Device[]) {
