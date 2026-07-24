@@ -470,7 +470,7 @@ export default function ShipmentsPage() {
                   </div>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="text-sm" style={{ tableLayout: 'fixed', width: 'max-content', minWidth: 0 }}>
                     <thead>
                       <tr className="text-left text-gray-500 bg-gray-50">
                         <th className="px-2 py-2 w-8">#</th>

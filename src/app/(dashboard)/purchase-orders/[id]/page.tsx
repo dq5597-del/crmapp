@@ -276,7 +276,7 @@ export default function PurchaseOrderDetailPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="text-xs" style={{ tableLayout: 'fixed', width: 'max-content', minWidth: 0 }}>
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-3 py-2 text-gray-500 font-medium w-8">#</th>

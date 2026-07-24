@@ -585,7 +585,7 @@ export default function SalesOrdersPage() {
                   </div>
                 </div>
                 <div className="overflow-x-auto border border-gray-100 rounded-xl">
-                  <table className="w-full text-xs">
+                  <table className="text-xs" style={{ tableLayout: 'fixed', width: 'max-content', minWidth: 0 }}>
                     <thead className="bg-gray-50">
                       <tr>
                         <ResizableTH col="brand" widths={colW} startResize={startResize} className="text-left px-2 py-2 text-gray-500 font-medium">品牌</ResizableTH>
