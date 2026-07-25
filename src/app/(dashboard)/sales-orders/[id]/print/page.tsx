@@ -115,8 +115,9 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
         body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', '微軟正黑體', sans-serif; font-size: 12px; color: #000; margin: 0; background: #fff; }
         .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; background: #fff; }
         .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-        .logo { display: flex; align-items: center; width: 210px; flex-shrink: 0; }
+        .logo { display: flex; flex-direction: column; align-items: flex-start; width: 210px; flex-shrink: 0; gap: 2px; }
         .logo-img { width: 100%; height: auto; display: block; }
+        .logo-url { font-size: 9px; color: #666; }
         .header-spacer { width: 210px; flex-shrink: 0; }
         .title-block { flex: 1; text-align: center; }
         h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
@@ -150,6 +151,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
           <div className="logo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.jpg" alt="光輝影音科技" className="logo-img" />
+            <div className="logo-url">購買網址：https://av-shop.com/</div>
           </div>
           <div className="title-block">
             <h1>銷 貨 單</h1>
