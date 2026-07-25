@@ -33,8 +33,19 @@ function setViewport(width: number | 'auto') {
   meta.content = viewportContent(width)
 }
 
+// 內建預設設備（所有瀏覽器/手機 app 常駐出現）。寬度＝直向版面預覽寬(CSS px)，非螢幕解析度。
+const DEFAULT_DEVICES: Device[] = [
+  { id: 'iphone-15',        name: 'iPhone 15',        width: 393 },
+  { id: 'redmi-pad-se-87',  name: 'Redmi Pad SE 8.7', width: 800 },
+  { id: 'galaxy-z-flip7',   name: 'Galaxy Z Flip7',   width: 412 },
+]
+
 function loadDevices(): Device[] {
-  try { return JSON.parse(localStorage.getItem(LS_DEVICES) ?? '[]') } catch { return [] }
+  let saved: Device[] = []
+  try { saved = JSON.parse(localStorage.getItem(LS_DEVICES) ?? '[]') } catch { saved = [] }
+  // 內建預設 + 使用者自訂；同名以使用者自訂為準（可自行改寬度或刪自訂的）
+  const savedNames = new Set(saved.map(d => d.name))
+  return [...DEFAULT_DEVICES.filter(d => !savedNames.has(d.name)), ...saved]
 }
 
 export default function ViewModeSwitch() {

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { TrendingUp, TrendingDown, DollarSign, BarChart2, Settings2, Plus, Trash2, X, Pencil, Check } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, BarChart2, Settings2, Plus, Trash2, X, Pencil, Check, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 type Period = {
@@ -53,6 +53,49 @@ function kindLabel(kind: string, isIncome: boolean) {
   return list.find(k => k.value === kind)?.label ?? kind
 }
 
+// 標準會計科目（一般商業／服務工程業常用，供「一鍵匯入」使用）
+const STANDARD_INCOME_CATEGORIES: { name: string; kind: string }[] = [
+  { name: '銷貨收入', kind: 'revenue' },
+  { name: '服務收入', kind: 'revenue' },
+  { name: '工程收入', kind: 'revenue' },
+  { name: '維修收入', kind: 'revenue' },
+  { name: '佣金收入', kind: 'revenue' },
+  { name: '利息收入', kind: 'nonop_income' },
+  { name: '租金收入', kind: 'nonop_income' },
+  { name: '投資收益', kind: 'nonop_income' },
+  { name: '兌換利益', kind: 'nonop_income' },
+  { name: '其他收入', kind: 'nonop_income' },
+]
+const STANDARD_EXPENSE_CATEGORIES: { name: string; kind: string }[] = [
+  { name: '銷貨成本', kind: 'cogs' },
+  { name: '進貨成本', kind: 'cogs' },
+  { name: '工程成本', kind: 'cogs' },
+  { name: '維修材料成本', kind: 'cogs' },
+  { name: '進貨運費', kind: 'cogs' },
+  { name: '薪資支出', kind: 'opex' },
+  { name: '勞健保費用', kind: 'opex' },
+  { name: '租金支出', kind: 'opex' },
+  { name: '水電瓦斯費', kind: 'opex' },
+  { name: '通訊費', kind: 'opex' },
+  { name: '差旅費', kind: 'opex' },
+  { name: '交際費', kind: 'opex' },
+  { name: '廣告行銷費', kind: 'opex' },
+  { name: '業務推廣費', kind: 'opex' },
+  { name: '銷貨運費', kind: 'opex' },
+  { name: '文具用品', kind: 'opex' },
+  { name: '修繕維護費', kind: 'opex' },
+  { name: '保險費', kind: 'opex' },
+  { name: '折舊費用', kind: 'opex' },
+  { name: '呆帳費用', kind: 'opex' },
+  { name: '佣金支出', kind: 'opex' },
+  { name: '其他費用', kind: 'opex' },
+  { name: '利息支出', kind: 'nonop_expense' },
+  { name: '兌換損失', kind: 'nonop_expense' },
+  { name: '捐贈支出', kind: 'nonop_expense' },
+  { name: '其他損失', kind: 'nonop_expense' },
+  { name: '營利事業所得稅', kind: 'tax' },
+]
+
 function fmt(n: number) {
   const sign = n < 0 ? '-' : ''
   return sign + 'NT$' + Math.round(Math.abs(n)).toLocaleString()
@@ -86,6 +129,7 @@ export default function PnlPage() {
   const [newCatName, setNewCatName] = useState('')
   const [newCatKind, setNewCatKind] = useState('opex')
   const [catSaving, setCatSaving] = useState(false)
+  const [importingStandard, setImportingStandard] = useState(false)
 
   useEffect(() => {
     fetchPnl()
@@ -169,6 +213,35 @@ export default function PnlPage() {
       body: JSON.stringify({ id }),
     })
     await fetchCategories()
+  }
+
+  async function importStandardCategories() {
+    if (!confirm('將匯入一套標準會計科目（收入＋支出），已存在的同名科目會自動略過，不會重複新增。確定要匯入嗎？')) return
+    setImportingStandard(true)
+    try {
+      const existingIncomeNames = new Set(incomeCategories.map(c => c.name))
+      const existingExpenseNames = new Set(expenseCategories.map(c => c.name))
+      for (const c of STANDARD_INCOME_CATEGORIES) {
+        if (existingIncomeNames.has(c.name)) continue
+        await fetch('/api/accounting/income-categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(c),
+        })
+      }
+      for (const c of STANDARD_EXPENSE_CATEGORIES) {
+        if (existingExpenseNames.has(c.name)) continue
+        await fetch('/api/accounting/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(c),
+        })
+      }
+      await fetchCategories()
+      await fetchPnl()
+    } finally {
+      setImportingStandard(false)
+    }
   }
 
   async function saveShares() {
@@ -451,11 +524,21 @@ export default function PnlPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <p className="text-xs text-gray-400">
-                {catTab === 'expense'
-                  ? '每個支出科目請指定屬於「營業成本／營業費用／營業外支出／所得稅費用」，損益表會依此自動歸類計算。'
-                  : '每個收入科目請指定屬於「營業收入」或「營業外收入」，損益表會依此自動歸類計算。'}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs text-gray-400 flex-1">
+                  {catTab === 'expense'
+                    ? '每個支出科目請指定屬於「營業成本／營業費用／營業外支出／所得稅費用」，損益表會依此自動歸類計算。'
+                    : '每個收入科目請指定屬於「營業收入」或「營業外收入」，損益表會依此自動歸類計算。'}
+                </p>
+                <button
+                  onClick={importStandardCategories}
+                  disabled={importingStandard}
+                  title="一次匯入常用的標準收入／支出科目，已存在的同名科目會自動略過"
+                  className="shrink-0 flex items-center gap-1 text-xs text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 disabled:opacity-50 whitespace-nowrap"
+                >
+                  <Download size={12} /> {importingStandard ? '匯入中…' : '一鍵匯入標準科目'}
+                </button>
+              </div>
 
               {/* 新增輸入 */}
               <div className="flex gap-2 flex-wrap">

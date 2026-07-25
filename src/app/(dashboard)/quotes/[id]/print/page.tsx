@@ -149,13 +149,13 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
         .total-row td { font-weight: 700; font-size: 13px; }
         .cat-row td { background: #ececec; font-weight: 700; }
-        .notes-stamp-row { display: flex; align-items: flex-end; gap: 20px; margin-top: 18px; }
+        .notes-stamp-row { display: flex; align-items: flex-start; gap: 20px; margin-top: 8px; }
         .notes-section { flex: 1; min-width: 0; }
         .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
         .notes-section li { font-size: 12px; line-height: 1.9; }
-        .stamp-box { width: 100px; flex-shrink: 0; display: flex; justify-content: center; }
-        .stamp-box img { width: 92px; height: auto; }
+        .stamp-box { width: 132px; flex-shrink: 0; display: flex; justify-content: center; }
+        .stamp-box img { width: 124px; height: auto; }
       `}</style>
 
       <PrintButtons />
