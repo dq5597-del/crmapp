@@ -78,17 +78,25 @@ export default function ViewModeSwitch() {
     setMode(m)
     localStorage.setItem(LS_MODE, m)
     applyMode(m)
-    // 桌機（滑鼠 + 寬螢幕）會忽略 viewport meta，改開該寬度的預覽視窗才看得到效果；
-    // 「自動」代表跟隨真實螢幕，不需預覽；真手機/平板則沿用上面的 viewport 行為。
+
     const isDesktop =
       typeof window !== 'undefined' &&
       window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches
-    if (!isDesktop || m === 'auto') return
-    const widthMap: Record<string, number> = { mobile: 390, tablet: 820, desktop: 1280 }
-    const w = m.startsWith('dev:')
-      ? devices.find(x => 'dev:' + x.id === m)?.width
-      : widthMap[m]
-    if (w) openPreviewWindow(w, m)
+
+    if (isDesktop) {
+      // 桌機忽略 viewport meta → 開該寬度的預覽視窗才看得到效果；「自動」不需預覽。
+      if (m === 'auto') return
+      const widthMap: Record<string, number> = { mobile: 390, tablet: 820, desktop: 1280 }
+      const w = m.startsWith('dev:')
+        ? devices.find(x => 'dev:' + x.id === m)?.width
+        : widthMap[m]
+      if (w) openPreviewWindow(w, m)
+      return
+    }
+
+    // 手機／平板（含安裝成 app 的 PWA）：載入後才動態改 viewport 不會重排，
+    // 重載一次，讓 layout.tsx 的啟動腳本在「載入當下」就套用寬度（這時裝置才會照做）。
+    window.location.reload()
   }
 
   function saveDevices(list: Device[]) {
