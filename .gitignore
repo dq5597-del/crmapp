@@ -43,3 +43,8 @@ quick-status.txt
 status.txt
 *.vbs
 deploy-setup.bat
+
+# Google Drive 雲端捷徑檔（stream 模式下讀取會噴 Invalid argument，導致 git add 整包失敗）
+*.gdoc
+*.gsheet
+*.gslides
