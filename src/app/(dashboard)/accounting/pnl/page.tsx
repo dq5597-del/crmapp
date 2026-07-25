@@ -276,7 +276,7 @@ export default function PnlPage() {
     { label: '營業外損益',       total: data.nonopNet,        sub: true,    percent: pctNum(data.nonopNet, data.totalRevenue) },
     { label: '稅前淨利',         total: data.pretaxIncome,   sub: true,    percent: pctNum(data.pretaxIncome, data.totalRevenue) },
     { label: '所得稅費用',       total: data.totalTax,       deduct: true, percent: pctNum(data.totalTax, data.totalRevenue) },
-    { label: '本期（年度）淨利', total: data.netIncome,      sub: true,    percent: pctNum(data.netIncome, data.totalRevenue) },
+    { label: '本期淨利',         total: data.netIncome,      sub: true,    percent: pctNum(data.netIncome, data.totalRevenue) },
   ]
 
   function pctNum(part: number, whole: number) {
@@ -295,7 +295,7 @@ export default function PnlPage() {
       case '營業外損益': return p.nonopNet
       case '稅前淨利': return p.pretaxIncome
       case '所得稅費用': return p.tax
-      case '本期（年度）淨利': return p.netIncome
+      case '本期淨利': return p.netIncome
       default: return 0
     }
   }
