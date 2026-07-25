@@ -120,8 +120,8 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
         .logo-url { width: 100%; font-size: 11px; font-weight: 700; color: #000; }
         .header-spacer { width: 210px; flex-shrink: 0; }
         .title-block { flex: 1; text-align: center; }
-        h1 { font-size: 18px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
-        .sub-header { text-align: center; font-size: 12px; color: #333; margin-bottom: 16px; }
+        h1 { font-size: 22px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
+        .sub-header { text-align: center; font-size: 16px; color: #333; margin-bottom: 16px; }
         .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; }
         th { background: #d9d9d9; font-weight: 700; font-size: 12px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
