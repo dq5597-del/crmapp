@@ -48,7 +48,7 @@ const INCOME_KINDS = [
 const EXPENSE_KINDS = [
   { value: 'cogs',           label: '營業成本' },
   { value: 'opex',           label: '營業費用' },
-  { value: 'nonop_expense',  label: '營業外支出' },
+  { value: 'nonop_expense',  label: '營業外費用' },
   { value: 'tax',            label: '所得稅費用' },
 ]
 
@@ -272,7 +272,7 @@ export default function PnlPage() {
     { label: '營業費用',         total: data.totalOpex,      deduct: true, percent: pctNum(data.totalOpex, data.totalRevenue) },
     { label: '營業利益',         total: data.operatingIncome, sub: true,   percent: pctNum(data.operatingIncome, data.totalRevenue) },
     { label: '營業外收入',       total: data.totalNonopIncome, percent: pctNum(data.totalNonopIncome, data.totalRevenue) },
-    { label: '營業外支出',       total: data.totalNonopExpense, deduct: true, percent: pctNum(data.totalNonopExpense, data.totalRevenue) },
+    { label: '營業外費用',       total: data.totalNonopExpense, deduct: true, percent: pctNum(data.totalNonopExpense, data.totalRevenue) },
     { label: '稅前淨利',         total: data.pretaxIncome,   sub: true,    percent: pctNum(data.pretaxIncome, data.totalRevenue) },
     { label: '所得稅費用',       total: data.totalTax,       deduct: true, percent: pctNum(data.totalTax, data.totalRevenue) },
     { label: '本期（年度）淨利', total: data.netIncome,      sub: true,    percent: pctNum(data.netIncome, data.totalRevenue) },
@@ -290,7 +290,7 @@ export default function PnlPage() {
       case '營業費用': return p.opex
       case '營業利益': return p.operatingIncome
       case '營業外收入': return p.nonopIncome
-      case '營業外支出': return p.nonopExpense
+      case '營業外費用': return p.nonopExpense
       case '稅前淨利': return p.pretaxIncome
       case '所得稅費用': return p.tax
       case '本期（年度）淨利': return p.netIncome
@@ -533,7 +533,7 @@ export default function PnlPage() {
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs text-gray-400 flex-1">
                   {catTab === 'expense'
-                    ? '每個支出科目請指定屬於「營業成本／營業費用／營業外支出／所得稅費用」，損益表會依此自動歸類計算。'
+                    ? '每個支出科目請指定屬於「營業成本／營業費用／營業外費用／所得稅費用」，損益表會依此自動歸類計算。'
                     : '每個收入科目請指定屬於「營業收入」或「營業外收入」，損益表會依此自動歸類計算。'}
                 </p>
                 <button

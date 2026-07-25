@@ -1,7 +1,7 @@
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 
-// kind: 'cogs'（營業成本）| 'opex'（營業費用，預設）| 'nonop_expense'（營業外支出）| 'tax'（所得稅費用）
+// kind: 'cogs'（營業成本）| 'opex'（營業費用，預設）| 'nonop_expense'（營業外費用）| 'tax'（所得稅費用）
 
 export async function GET() {
   const supabase = createClient()
