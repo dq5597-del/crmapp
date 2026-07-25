@@ -10,6 +10,8 @@ type Period = {
   grossProfit: number
   opex: number
   operatingIncome: number
+  nonopIncome: number
+  nonopExpense: number
   nonopNet: number
   pretaxIncome: number
   tax: number
@@ -23,6 +25,8 @@ type PnlData = {
   grossProfit: number
   totalOpex: number
   operatingIncome: number
+  totalNonopIncome: number
+  totalNonopExpense: number
   nonopNet: number
   pretaxIncome: number
   totalTax: number
@@ -266,8 +270,9 @@ export default function PnlPage() {
     { label: '營業成本',         total: data.totalCogs,      deduct: true, percent: pctNum(data.totalCogs, data.totalRevenue) },
     { label: '營業毛利',         total: data.grossProfit,    sub: true,    percent: pctNum(data.grossProfit, data.totalRevenue) },
     { label: '營業費用',         total: data.totalOpex,      deduct: true, percent: pctNum(data.totalOpex, data.totalRevenue) },
-    { label: '營業淨利',         total: data.operatingIncome, sub: true,   percent: pctNum(data.operatingIncome, data.totalRevenue) },
-    { label: '營業外收入及支出', total: data.nonopNet,       percent: pctNum(data.nonopNet, data.totalRevenue) },
+    { label: '營業利益',         total: data.operatingIncome, sub: true,   percent: pctNum(data.operatingIncome, data.totalRevenue) },
+    { label: '營業外收入',       total: data.totalNonopIncome, percent: pctNum(data.totalNonopIncome, data.totalRevenue) },
+    { label: '營業外支出',       total: data.totalNonopExpense, deduct: true, percent: pctNum(data.totalNonopExpense, data.totalRevenue) },
     { label: '稅前淨利',         total: data.pretaxIncome,   sub: true,    percent: pctNum(data.pretaxIncome, data.totalRevenue) },
     { label: '所得稅費用',       total: data.totalTax,       deduct: true, percent: pctNum(data.totalTax, data.totalRevenue) },
     { label: '本期（年度）淨利', total: data.netIncome,      sub: true,    percent: pctNum(data.netIncome, data.totalRevenue) },
@@ -283,8 +288,9 @@ export default function PnlPage() {
       case '營業成本': return p.cogs
       case '營業毛利': return p.grossProfit
       case '營業費用': return p.opex
-      case '營業淨利': return p.operatingIncome
-      case '營業外收入及支出': return p.nonopNet
+      case '營業利益': return p.operatingIncome
+      case '營業外收入': return p.nonopIncome
+      case '營業外支出': return p.nonopExpense
       case '稅前淨利': return p.pretaxIncome
       case '所得稅費用': return p.tax
       case '本期（年度）淨利': return p.netIncome

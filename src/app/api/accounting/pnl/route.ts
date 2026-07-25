@@ -9,8 +9,8 @@ import { NextRequest, NextResponse } from 'next/server'
 //
 // 報表結構：
 //   營業收入 - 營業成本 = 營業毛利
-//   營業毛利 - 營業費用 = 營業淨利
-//   營業淨利 + 營業外收入及支出（淨額） = 稅前淨利
+//   營業毛利 - 營業費用 = 營業利益
+//   營業利益 + 營業外收入 - 營業外支出 = 稅前淨利
 //   稅前淨利 - 所得稅費用 = 本期（年度）淨利
 //   本期（年度）淨利 / 流通股數 = 每股盈餘
 
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
     const pretaxIncome = operatingIncome + nonopNet
     const tax = sumMonths('tax', months)
     const netIncome = pretaxIncome - tax
-    return { label, revenue, cogs, grossProfit, opex, operatingIncome, nonopNet, pretaxIncome, tax, netIncome }
+    return { label, revenue, cogs, grossProfit, opex, operatingIncome, nonopIncome, nonopExpense, nonopNet, pretaxIncome, tax, netIncome }
   }
 
   const bimonthly = [
@@ -161,6 +161,8 @@ export async function GET(req: NextRequest) {
     grossProfit: totals.grossProfit,
     totalOpex: totals.opex,
     operatingIncome: totals.operatingIncome,
+    totalNonopIncome: totals.nonopIncome,
+    totalNonopExpense: totals.nonopExpense,
     nonopNet: totals.nonopNet,
     pretaxIncome: totals.pretaxIncome,
     totalTax: totals.tax,
