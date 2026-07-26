@@ -11,6 +11,8 @@ export default function SettingsPage() {
   const supabase = createClient()
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [users, setUsers] = useState<UserProfile[]>([])
+  // 已建立人事檔案的帳號（hr_employees.user_id）—— 用來標示「尚未建人事檔案」
+  const [hrLinked, setHrLinked] = useState<Set<string>>(new Set())
   // 角色清單（與權限管理同一份 app_roles，帳號管理下拉動態載入）
   const [roles, setRoles] = useState<{ key: string; name: string }[]>([])
   // 重設密碼 UI
@@ -121,6 +123,12 @@ export default function SettingsPage() {
     if (data) setRoles(data)
   }
 
+  // 讀取已綁定人事檔案的帳號（讀不到就當作全部未綁定，不影響原有功能）
+  async function loadHrLinked() {
+    const { data } = await supabase.from('hr_employees').select('user_id')
+    if (data) setHrLinked(new Set(data.map((r: any) => r.user_id).filter(Boolean)))
+  }
+
   // 讀取帳號清單（含登入信箱，需管理員 API）
   async function loadUsersWithEmail() {
     const { data: sess } = await supabase.auth.getSession()
@@ -131,6 +139,7 @@ export default function SettingsPage() {
       const json = await res.json()
       if (json.users) setUsers(json.users)
     }
+    loadHrLinked()
   }
 
   // 管理員重設某帳號密碼
@@ -688,7 +697,14 @@ export default function SettingsPage() {
                     <div className="text-xs text-gray-500 mt-1">
                       登入信箱：<span className="text-gray-700">{(u as any).email || '—'}</span>
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5">ID: {u.id.slice(0, 8)}...</div>
+                    <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap items-center gap-2">
+                      <span>ID: {u.id.slice(0, 8)}...</span>
+                      {hrLinked.has(u.id) ? (
+                        <span className="text-green-600">已建人事檔案</span>
+                      ) : (
+                        <a href="/hr/employees" className="text-amber-600 hover:underline">尚未建人事檔案 →</a>
+                      )}
+                    </div>
                     {pwUserId === u.id && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <input

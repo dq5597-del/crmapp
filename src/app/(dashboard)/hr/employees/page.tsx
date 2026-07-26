@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
-import { Users, Plus, Search, Edit2, Trash2, X, Eye, EyeOff, Printer} from 'lucide-react'
+import { Users, Plus, Search, Edit2, Trash2, X, Eye, EyeOff, Printer, Link2, AlertTriangle } from 'lucide-react'
 
 const STATUS = ['在職', '留停', '離職'] as const
 const STATUS_COLORS: Record<string, string> = {
@@ -12,6 +13,13 @@ const STATUS_COLORS: Record<string, string> = {
   '離職': 'bg-gray-100 text-gray-500',
 }
 const EMP_TYPES = ['正職', '兼職', '工讀', '約聘'] as const
+
+/**
+ * 職稱清單必須與人資戰情室（/hr）的 TITLES 一致 —— 這個字串決定戰情室層級、
+ * 職能線（會計線／技術線）判定與可見範圍，所以改成固定選單，不開放自由輸入。
+ * 儲存時會同步寫回 user_profiles.title，人事資料是唯一真相。
+ */
+const TITLES = ['董事長', 'CEO', '總經理', '經理', '主任', '會計主管', '會計', '技術主管', '總工程師', '資深工程師', '工程師', '員工'] as const
 const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 const EMPTY: any = {
@@ -21,11 +29,13 @@ const EMPTY: any = {
   bank_name: '', bank_account: '', base_salary: '',
   labor_insurance_no: '', health_insurance_no: '',
   emergency_contact: '', emergency_phone: '', emergency_relation: '', notes: '',
+  user_id: '',
 }
 
 export default function HrEmployeesPage() {
   const supabase = createClient()
   const [rows, setRows] = useState<any[]>([])
+  const [profiles, setProfiles] = useState<any[]>([])   // 系統登入帳號（user_profiles）
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
   const [statusFilter, setStatusFilter] = useState('全部')
@@ -40,9 +50,13 @@ export default function HrEmployeesPage() {
 
   async function fetchData() {
     setLoading(true)
-    const { data, error } = await supabase.from('hr_employees').select('*').order('created_at', { ascending: false })
+    const [{ data, error }, up] = await Promise.all([
+      supabase.from('hr_employees').select('*').order('created_at', { ascending: false }),
+      supabase.from('user_profiles').select('*'),
+    ])
     if (error) { console.error(error); setDenied(true) }
     setRows(data ?? [])
+    setProfiles(up.data ?? [])
     setLoading(false)
   }
 
@@ -62,13 +76,19 @@ export default function HrEmployeesPage() {
     })
   }, [rows, statusFilter, search])
 
-  function openNew() { setEditingId(null); setForm(EMPTY); setModalOpen(true) }
+  function openNew(preset?: any) { setEditingId(null); setForm({ ...EMPTY, ...(preset ?? {}) }); setModalOpen(true) }
+
+  // 由系統帳號快速建立人事檔案（自動綁定並帶入姓名／職稱）
+  function openNewFromProfile(u: any) {
+    openNew({ full_name: u.full_name ?? '', title: u.title ?? '員工', user_id: u.id })
+  }
   function openEdit(r: any) {
     setEditingId(r.id)
     setForm({
       ...EMPTY, ...r,
       birth_date: r.birth_date ?? '', hire_date: r.hire_date ?? '', resign_date: r.resign_date ?? '',
       base_salary: r.base_salary != null ? String(r.base_salary) : '',
+      user_id: r.user_id ?? '',
     })
     setModalOpen(true)
   }
@@ -76,8 +96,12 @@ export default function HrEmployeesPage() {
   async function save() {
     if (!form.full_name?.trim()) { alert('請填姓名'); return }
     setSaving(true)
+    // 一個系統帳號只能綁一筆人事檔案
+    if (form.user_id && rows.some(r => r.user_id === form.user_id && r.id !== editingId)) {
+      alert('這個系統帳號已經綁定其他員工了，請先解除原本的綁定'); setSaving(false); return
+    }
     const payload: any = { ...form }
-    delete payload.id; delete payload.created_at; delete payload.updated_at; delete payload.user_id
+    delete payload.id; delete payload.created_at; delete payload.updated_at
     payload.full_name = payload.full_name.trim()
     payload.base_salary = payload.base_salary ? Number(payload.base_salary) : null
     for (const k of ['birth_date', 'hire_date', 'resign_date']) payload[k] = payload[k] || null
@@ -86,8 +110,23 @@ export default function HrEmployeesPage() {
     const { error } = editingId
       ? await supabase.from('hr_employees').update(payload).eq('id', editingId)
       : await supabase.from('hr_employees').insert(payload)
+    if (error) { setSaving(false); alert('儲存失敗：' + error.message); return }
+
+    /* ---- 連動：人事資料 → 系統帳號（單向，人事為主）----
+       1. 姓名：報價單／銷貨單的「業務員」選單顯示用
+       2. 職稱：決定戰情室層級與職能線判定，只同步合法職稱
+       3. 狀態：離職 → 自動停用登入；在職 → 啟用；留停不動（保留人工判斷）
+       上級主管與通訊處屬於組織樹，仍由人資戰情室維護，這裡不覆蓋。         */
+    if (payload.user_id) {
+      const sync: any = { full_name: payload.full_name }
+      if (payload.title && (TITLES as readonly string[]).includes(payload.title)) sync.title = payload.title
+      if (form.status === '離職') sync.is_active = false
+      else if (form.status === '在職') sync.is_active = true
+      const { error: e2 } = await supabase.from('user_profiles').update(sync).eq('id', payload.user_id)
+      if (e2) alert('人事資料已儲存，但同步到系統帳號失敗：' + e2.message)
+    }
+
     setSaving(false)
-    if (error) { alert('儲存失敗：' + error.message); return }
     setModalOpen(false); fetchData()
   }
 
@@ -97,6 +136,14 @@ export default function HrEmployeesPage() {
     if (error) { alert('刪除失敗：' + error.message); return }
     fetchData()
   }
+
+  // 帳號 → 顯示名稱
+  const profileOf = (id?: string | null) => (id ? profiles.find(p => p.id === id) : null)
+  // 有系統帳號但還沒建人事檔案的（只看啟用中的帳號）
+  const unlinkedProfiles = useMemo(() => {
+    const bound = new Set(rows.map(r => r.user_id).filter(Boolean))
+    return profiles.filter(p => p.is_active !== false && !bound.has(p.id))
+  }, [profiles, rows])
 
   const mask = (v?: string | null) => {
     if (!v) return '—'
@@ -135,6 +182,27 @@ export default function HrEmployeesPage() {
         </div>
       </div>
 
+      {/* 有帳號但尚未建人事檔案 —— 一鍵補齊，避免帳號與員工兩套資料對不起來 */}
+      {!loading && unlinkedProfiles.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-2">
+            <AlertTriangle size={15} /> 有系統帳號但尚未建立人事檔案：{unlinkedProfiles.length} 人
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {unlinkedProfiles.map(u => (
+              <button key={u.id} type="button" onClick={() => openNewFromProfile(u)}
+                title="點擊建立人事檔案（自動綁定此帳號）"
+                className="flex items-center gap-1 text-xs bg-white border border-amber-200 hover:border-amber-400 text-amber-800 px-2.5 py-1 rounded-full">
+                <Plus size={11} /> {u.full_name ?? '（未命名）'}{u.title ? `（${u.title}）` : ''}
+              </button>
+            ))}
+          </div>
+          <div className="text-[11px] text-amber-700/80 mt-2">
+            點姓名即可建檔並自動綁定；工讀生、臨時工等不需登入的人員可直接用右上「新增員工」建檔，系統帳號選「無」。
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {(['全部', ...STATUS] as string[]).map(s => (
           <button key={s} onClick={() => setStatusFilter(s)}
@@ -163,6 +231,7 @@ export default function HrEmployeesPage() {
                   <th className="py-2.5 px-4">工號</th>
                   <th className="px-4">姓名</th>
                   <th className="px-4">部門 / 職稱</th>
+                  <th className="px-4">系統帳號</th>
                   <th className="px-4">身分</th>
                   <th className="px-4">到職日</th>
                   <th className="px-4">電話</th>
@@ -177,6 +246,15 @@ export default function HrEmployeesPage() {
                     <td className="py-2.5 px-4 text-gray-600">{r.employee_no ?? '—'}</td>
                     <td className="px-4 font-medium text-gray-900">{r.full_name}</td>
                     <td className="px-4 text-gray-600">{[r.department, r.title].filter(Boolean).join(' / ') || '—'}</td>
+                    <td className="px-4 whitespace-nowrap">
+                      {r.user_id && profileOf(r.user_id) ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                          <Link2 size={12} className="text-green-600" />{profileOf(r.user_id)?.full_name ?? '已綁定'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-red-500">未綁定</span>
+                      )}
+                    </td>
                     <td className="px-4 text-gray-600">{r.employment_type ?? '—'}</td>
                     <td className="px-4 text-gray-600 whitespace-nowrap">{r.hire_date ? formatDate(r.hire_date) : '—'}</td>
                     <td className="px-4 text-gray-600">{r.phone ?? '—'}</td>
@@ -234,7 +312,16 @@ export default function HrEmployeesPage() {
                 <div className="text-xs font-semibold text-gray-500 mb-2">任職資料</div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <F label="部門"><input value={form.department ?? ''} onChange={e => setForm({ ...form, department: e.target.value })} className={inp} /></F>
-                  <F label="職稱"><input value={form.title ?? ''} onChange={e => setForm({ ...form, title: e.target.value })} className={inp} /></F>
+                  <F label="職稱（決定戰情室層級）">
+                    <select value={form.title ?? ''} onChange={e => setForm({ ...form, title: e.target.value })} className={inp}>
+                      <option value="">—</option>
+                      {TITLES.map(t => <option key={t} value={t}>{t}</option>)}
+                      {/* 舊資料若有清單外的職稱，保留原值不被吃掉 */}
+                      {form.title && !(TITLES as readonly string[]).includes(form.title) && (
+                        <option value={form.title}>{form.title}（舊資料）</option>
+                      )}
+                    </select>
+                  </F>
                   <F label="身分">
                     <select value={form.employment_type ?? '正職'} onChange={e => setForm({ ...form, employment_type: e.target.value })} className={inp}>
                       {EMP_TYPES.map(t => <option key={t}>{t}</option>)}
@@ -247,6 +334,27 @@ export default function HrEmployeesPage() {
                       {STATUS.map(s => <option key={s}>{s}</option>)}
                     </select>
                   </F>
+                  <div className="sm:col-span-2">
+                    <F label="系統帳號（登入用；工讀生、臨時工可選「無」）">
+                      <select value={form.user_id ?? ''} onChange={e => setForm({ ...form, user_id: e.target.value })} className={inp}>
+                        <option value="">— 無（不需登入） —</option>
+                        {profiles
+                          .filter(u => u.id === form.user_id || !rows.some(r => r.user_id === u.id && r.id !== editingId))
+                          .map(u => (
+                            <option key={u.id} value={u.id}>
+                              {u.full_name ?? '（未命名）'}{u.title ? `（${u.title}）` : ''}{u.is_active === false ? '［已停用］' : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </F>
+                  </div>
+                </div>
+                <div className="text-[11px] text-gray-500 mt-2 leading-relaxed bg-gray-50 rounded-lg px-3 py-2">
+                  綁定後儲存時會自動同步到系統帳號：<b>姓名</b>、<b>職稱</b>；狀態設為<b>離職</b>會自動停用登入、設為<b>在職</b>會啟用（留停不動）。
+                  <br />
+                  <b>上級主管</b>與<b>通訊處</b>屬於組織樹，請至{' '}
+                  <Link href="/hr" className="text-blue-600 hover:underline">人資戰情室</Link>{' '}
+                  設定 —— 戰情室可見範圍與「指派任務給下屬」都是依這棵樹計算。
                 </div>
               </section>
 
