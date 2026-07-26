@@ -1,203 +1,135 @@
 'use client'
 
 /**
- * 版型切換 + 自訂設備管理（2026-07）
- * - 自動（預設）：依螢幕寬度自動切手機/平板/電腦版
- * - 快速鈕：手機 390 / 平板 820 / 電腦 1280
- * - 自訂設備：輸入「型號名稱 + 螢幕寬度(px)」可無限新增，每人各自儲存
- * - 電腦預覽：點「預覽」開一個該寬度的視窗，實際看版面並可直接調欄寬，
- *   調完的設定與主視窗共用（同一瀏覽器），關掉預覽即完成設定
- * - 在實際手機/平板上點「套用」則直接以該寬度顯示
+ * 介面縮放（2026-07 改版）
+ * ------------------------------------------------------------------
+ * 舊版做法：改 viewport meta 的寬度 + 在電腦另開預覽視窗。
+ *   → 手機／平板／PWA app 上瀏覽器多半忽略動態改寫的 viewport，實際沒作用；
+ *     電腦又要另開視窗，操作很卡。整組移除。
+ *
+ * 新版做法：直接對 documentElement 套用 CSS zoom。
+ *   - 手機、平板、電腦、PWA app 全部一致生效，即時、不重新整理、不開新視窗
+ *   - 縮小＝同一畫面看到更多內容（表格、報價單品項列）
+ *   - 設定存 localStorage('gh-ui-scale')，每台裝置各自記憶，重開 app 仍保留
+ *   - layout.tsx 的啟動腳本會在「首次繪製前」就套用，不會閃一下
+ *   - 列印時強制還原 100%（globals.css 的 @media print）
  */
 
 import { useState, useEffect } from 'react'
-import { MonitorSmartphone, Smartphone, Tablet, Monitor, Settings2, Eye, Trash2, Plus, X } from 'lucide-react'
+import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 
-type Mode = 'auto' | 'mobile' | 'tablet' | 'desktop' | `dev:${string}`
-type Device = { id: string; name: string; width: number }
+const LS_SCALE = 'gh-ui-scale'
+const MIN = 0.6
+const MAX = 1.4
+const STEP = 0.05
+const PRESETS = [0.75, 0.85, 1, 1.15, 1.3]
 
-const LS_MODE = 'gh-view-mode'
-const LS_DEVICES = 'gh-devices'
-
-function viewportContent(width: number | 'auto') {
-  return width === 'auto' ? 'width=device-width, initial-scale=1' : `width=${width}`
+function clamp(v: number) {
+  return Math.min(MAX, Math.max(MIN, Math.round(v * 100) / 100))
 }
 
-function setViewport(width: number | 'auto') {
-  let meta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null
-  if (!meta) {
-    meta = document.createElement('meta')
-    meta.name = 'viewport'
-    document.head.appendChild(meta)
-  }
-  meta.content = viewportContent(width)
-}
-
-// 內建預設設備（所有瀏覽器/手機 app 常駐出現）。寬度＝直向版面預覽寬(CSS px)，非螢幕解析度。
-const DEFAULT_DEVICES: Device[] = [
-  { id: 'iphone-15',        name: 'iPhone 15',        width: 393 },
-  { id: 'redmi-pad-se-87',  name: 'Redmi Pad SE 8.7', width: 800 },
-  { id: 'galaxy-z-flip7',   name: 'Galaxy Z Flip7',   width: 412 },
-]
-
-function loadDevices(): Device[] {
-  let saved: Device[] = []
-  try { saved = JSON.parse(localStorage.getItem(LS_DEVICES) ?? '[]') } catch { saved = [] }
-  // 內建預設 + 使用者自訂；同名以使用者自訂為準（可自行改寬度或刪自訂的）
-  const savedNames = new Set(saved.map(d => d.name))
-  return [...DEFAULT_DEVICES.filter(d => !savedNames.has(d.name)), ...saved]
+/** 對整份文件套用縮放（唯一真正跨裝置有效的方式） */
+export function applyUiScale(scale: number) {
+  const s = clamp(scale)
+  const el = document.documentElement
+  // 用 setProperty 而非 style.zoom，避免 TS lib.dom 版本差異
+  if (s === 1) el.style.removeProperty('zoom')
+  else el.style.setProperty('zoom', String(s))
+  el.style.setProperty('--gh-ui-scale', String(s))
 }
 
 export default function ViewModeSwitch() {
-  const [mode, setMode] = useState<Mode>('auto')
-  const [devices, setDevices] = useState<Device[]>([])
-  const [manage, setManage] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newWidth, setNewWidth] = useState('')
+  const [scale, setScale] = useState(1)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const devs = loadDevices()
-    setDevices(devs)
-    const saved = (localStorage.getItem(LS_MODE) as Mode) || 'auto'
-    setMode(saved)
-    applyMode(saved, devs)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let s = parseFloat(localStorage.getItem(LS_SCALE) || '1')
+    if (!s || Number.isNaN(s)) s = 1
+    s = clamp(s)
+    setScale(s)
+    applyUiScale(s)
+    setReady(true)
   }, [])
 
-  function applyMode(m: Mode, devs: Device[] = devices) {
-    if (m === 'auto') setViewport('auto')
-    else if (m === 'mobile') setViewport(390)
-    else if (m === 'tablet') setViewport(820)
-    else if (m === 'desktop') setViewport(1280)
-    else {
-      const d = devs.find(x => 'dev:' + x.id === m)
-      setViewport(d ? d.width : 'auto')
-    }
+  function change(next: number) {
+    const s = clamp(next)
+    setScale(s)
+    localStorage.setItem(LS_SCALE, String(s))
+    applyUiScale(s)
   }
 
-  // 開一個指定寬度的實際視窗（桌機唯一能真正照該寬度重排 RWD 的方式）
-  // 具名視窗：同一尺寸重複點會重用同一視窗，不會一直開新的
-  function openPreviewWindow(width: number, key: string) {
-    window.open(
-      window.location.href,
-      'gh-view-' + key,
-      `width=${width},height=${Math.min(900, screen.availHeight - 80)},left=80,top=40,resizable=yes,scrollbars=yes`
-    )
-  }
-
-  function pick(m: Mode) {
-    setMode(m)
-    localStorage.setItem(LS_MODE, m)
-    applyMode(m)
-
-    const isDesktop =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches
-
-    if (isDesktop) {
-      // 桌機忽略 viewport meta → 開該寬度的預覽視窗才看得到效果；「自動」不需預覽。
-      if (m === 'auto') return
-      const widthMap: Record<string, number> = { mobile: 390, tablet: 820, desktop: 1280 }
-      const w = m.startsWith('dev:')
-        ? devices.find(x => 'dev:' + x.id === m)?.width
-        : widthMap[m]
-      if (w) openPreviewWindow(w, m)
-      return
-    }
-
-    // 手機／平板（含安裝成 app 的 PWA）：載入後才動態改 viewport 不會重排，
-    // 重載一次，讓 layout.tsx 的啟動腳本在「載入當下」就套用寬度（這時裝置才會照做）。
-    window.location.reload()
-  }
-
-  function saveDevices(list: Device[]) {
-    setDevices(list)
-    localStorage.setItem(LS_DEVICES, JSON.stringify(list))
-  }
-
-  function addDevice() {
-    const w = parseInt(newWidth)
-    if (!newName.trim() || !w || w < 240 || w > 4000) { alert('請輸入型號名稱與 240–4000 之間的寬度(px)'); return }
-    saveDevices([...devices, { id: Date.now().toString(36), name: newName.trim(), width: w }])
-    setNewName(''); setNewWidth('')
-  }
-
-  function preview(d: Device) {
-    // 電腦上開一個該寬度的視窗實際預覽；在裡面調的欄寬等設定與主視窗共用
-    window.open(window.location.href, 'gh-preview-' + d.id,
-      `width=${d.width},height=${Math.min(900, screen.availHeight - 80)},left=80,top=40,resizable=yes,scrollbars=yes`)
-  }
-
-  const quick: { m: Mode; label: string; Icon: any }[] = [
-    { m: 'auto', label: '自動', Icon: MonitorSmartphone },
-    { m: 'mobile', label: '手機', Icon: Smartphone },
-    { m: 'tablet', label: '平板', Icon: Tablet },
-    { m: 'desktop', label: '電腦', Icon: Monitor },
-  ]
+  const pct = Math.round(scale * 100)
 
   return (
-    <div className="px-3 py-2 relative">
+    <div className="px-3 py-2">
       <div className="flex items-center justify-between mb-1 px-1">
-        <span className="text-[10px] text-gray-500">版型顯示</span>
-        <button type="button" onClick={() => setManage(m => !m)} title="設備管理（自訂型號與尺寸）"
-          className="text-gray-500 hover:text-white"><Settings2 size={12} /></button>
+        <span className="text-[10px] text-gray-500">介面縮放</span>
+        {ready && scale !== 1 && (
+          <button
+            type="button"
+            onClick={() => change(1)}
+            title="還原 100%"
+            className="flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-white"
+          >
+            <RotateCcw size={10} /> 還原
+          </button>
+        )}
       </div>
-      <div className="grid grid-cols-4 gap-1">
-        {quick.map(({ m, label, Icon }) => (
-          <button key={m} type="button" onClick={() => pick(m)} title={label}
-            className={`flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] transition-colors ${
-              mode === m ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-white/10 hover:text-gray-200'}`}>
-            <Icon size={14} /> {label}
+
+      {/* 減 / 目前比例 / 加 */}
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => change(scale - STEP)}
+          disabled={scale <= MIN}
+          title="縮小（看到更多內容）"
+          className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ZoomOut size={14} />
+        </button>
+        <div className="w-12 text-center text-[11px] tabular-nums text-gray-200 select-none">
+          {pct}%
+        </div>
+        <button
+          type="button"
+          onClick={() => change(scale + STEP)}
+          disabled={scale >= MAX}
+          title="放大（字更大）"
+          className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ZoomIn size={14} />
+        </button>
+      </div>
+
+      {/* 常用比例快速鈕 */}
+      <div className="grid grid-cols-5 gap-1 mt-1">
+        {PRESETS.map(p => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => change(p)}
+            className={`py-1 rounded text-[10px] tabular-nums transition-colors ${
+              Math.abs(scale - p) < 0.001
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-400 hover:bg-white/10 hover:text-gray-200'
+            }`}
+          >
+            {Math.round(p * 100)}
           </button>
         ))}
       </div>
 
-      {devices.length > 0 && (
-        <div className="mt-1 space-y-0.5 max-h-28 overflow-y-auto">
-          {devices.map(d => (
-            <button key={d.id} type="button" onClick={() => pick(('dev:' + d.id) as Mode)}
-              className={`w-full text-left px-2 py-1 rounded text-[10px] truncate ${
-                mode === 'dev:' + d.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-white/10'}`}>
-              {d.name}（{d.width}px）
-            </button>
-          ))}
-        </div>
-      )}
-
-      {manage && (
-        <div className="absolute bottom-full left-2 right-2 mb-2 bg-white rounded-xl shadow-2xl border border-gray-200 p-3 z-50 text-gray-800">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-semibold">設備管理</div>
-            <button type="button" onClick={() => setManage(false)} className="text-gray-400 hover:text-gray-700"><X size={14} /></button>
-          </div>
-          <div className="space-y-1.5 max-h-44 overflow-y-auto mb-2">
-            {devices.length === 0 && <div className="text-[11px] text-gray-400">尚無設備，於下方新增（可無限多筆）</div>}
-            {devices.map(d => (
-              <div key={d.id} className="flex items-center gap-1.5 text-[11px] bg-gray-50 rounded-lg px-2 py-1.5">
-                <span className="flex-1 truncate">{d.name}<span className="text-gray-400 ml-1">{d.width}px</span></span>
-                <button type="button" onClick={() => preview(d)} title="在電腦開此尺寸的預覽視窗（可直接調欄寬，設定共用）"
-                  className="flex items-center gap-0.5 text-blue-600 hover:underline"><Eye size={11} /> 預覽</button>
-                <button type="button" onClick={() => pick(('dev:' + d.id) as Mode)} title="在此裝置直接套用此尺寸"
-                  className="text-emerald-600 hover:underline">套用</button>
-                <button type="button" onClick={() => saveDevices(devices.filter(x => x.id !== d.id))}
-                  className="text-gray-300 hover:text-red-500"><Trash2 size={11} /></button>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-1.5">
-            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="型號，例：iPhone 15"
-              className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-400" />
-            <input value={newWidth} onChange={e => setNewWidth(e.target.value.replace(/\D/g, ''))} placeholder="寬px"
-              className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-400" />
-            <button type="button" onClick={addDevice}
-              className="flex items-center gap-0.5 bg-blue-600 text-white px-2.5 py-1.5 rounded-lg text-[11px]"><Plus size={11} /> 新增</button>
-          </div>
-          <div className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-            常見寬度：iPhone 15/16＝393、iPhone Pro Max＝430、iPad＝820、iPad Pro＝1024。
-            「預覽」在電腦開該尺寸視窗，裡面調的欄寬會直接存檔生效。
-          </div>
-        </div>
-      )}
+      {/* 滑桿：手機上用拖的最直覺 */}
+      <input
+        type="range"
+        min={MIN}
+        max={MAX}
+        step={STEP}
+        value={scale}
+        onChange={e => change(parseFloat(e.target.value))}
+        aria-label="介面縮放比例"
+        className="w-full mt-2 h-1 accent-blue-600 cursor-pointer"
+      />
     </div>
   )
 }

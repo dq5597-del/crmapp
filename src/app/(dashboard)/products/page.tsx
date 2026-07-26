@@ -621,10 +621,20 @@ export default function ProductsPage() {
             web_promo_price_to: promoEnabled && form.web_promo_price_to ? form.web_promo_price_to : null,
         }
         if (editingId === 'new') {
-            const { data } = await supabase.from('products').insert(payload).select('id').single()
+            const { data, error } = await supabase.from('products').insert(payload).select('id').single()
+            if (error) {
+                console.error('新增產品失敗：', error)
+                alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
+                return
+            }
             if (data?.id) await syncWebSubData(data.id)
         } else {
-            await supabase.from('products').update(payload).eq('id', editingId)
+            const { error } = await supabase.from('products').update(payload).eq('id', editingId)
+            if (error) {
+                console.error('更新產品失敗：', error)
+                alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
+                return
+            }
             await syncWebSubData(editingId as string)
         }
         setEditingId(null)

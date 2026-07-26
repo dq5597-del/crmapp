@@ -30,17 +30,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW">
-      <body>
-        {/* 版型顯示：在「載入當下」就套用使用者選的固定寬度（手機/平板/PWA app 唯一可靠的時機）。
-            gh-view-mode 由 ViewModeSwitch 寫入；'auto' 或未設 → 沿用 device-width，不覆蓋。 */}
+      <head>
+        {/* 介面縮放：在「首次繪製前」就套用使用者存的比例，避免畫面先跳 100% 再縮。
+            gh-ui-scale 由 ViewModeSwitch（介面縮放）寫入；未設或 1 → 不動。
+            同時清掉舊版 gh-view-mode / gh-devices（改寫 viewport 寬度的做法已移除）。 */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var m=localStorage.getItem('gh-view-mode');if(!m||m==='auto')return;var w=null;if(m==='mobile')w=390;else if(m==='tablet')w=820;else if(m==='desktop')w=1280;else if(m.indexOf('dev:')===0){var ds=JSON.parse(localStorage.getItem('gh-devices')||'[]');var d=ds.find(function(x){return 'dev:'+x.id===m});if(d)w=d.width}if(w){var v=document.querySelector('meta[name=viewport]');if(!v){v=document.createElement('meta');v.setAttribute('name','viewport');document.head.appendChild(v)}v.setAttribute('content','width='+w)}}catch(e){}})();",
+              "(function(){try{localStorage.removeItem('gh-view-mode');localStorage.removeItem('gh-devices');var s=parseFloat(localStorage.getItem('gh-ui-scale'));if(!s||isNaN(s))return;if(s<0.6)s=0.6;if(s>1.4)s=1.4;var e=document.documentElement;e.style.setProperty('--gh-ui-scale',String(s));if(s!==1)e.style.zoom=String(s)}catch(e){}})();",
           }}
         />
-        {children}
-      </body>
+      </head>
+      <body>{children}</body>
     </html>
   )
 }
