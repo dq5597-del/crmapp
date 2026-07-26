@@ -8,6 +8,7 @@ import {
   CalendarDays, Users,
 } from 'lucide-react'
 import TodayAttendance from '@/components/TodayAttendance'
+import AssignTaskCard from '@/components/AssignTaskCard'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -290,6 +291,11 @@ export default function CeoDashboard() {
         <h1 className="text-xl font-bold text-gray-900">CEO 戰情室</h1>
       </div>
       <p className="text-sm text-gray-500 mb-5">例外管理：只有亮燈的地方才需要往下追。</p>
+
+      {/* 指派任務給下屬（與各主管戰情室共用同一份 assigned_tasks） */}
+      <div className="mb-5">
+        <AssignTaskCard />
+      </div>
 
       {/* ① 現金 */}
       <Panel

@@ -12,7 +12,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'ceo',              label: 'CEO 戰情室',       group: '戰情室', href: '/ceo',            costLabel: '看毛利與現金' },
   { key: 'manager',          label: '總經理戰情室',     group: '戰情室', href: '/manager' },
   { key: 'dept',             label: '經理戰情室',       group: '戰情室', href: '/dept' },
-  { key: 'team',             label: '主任戰情室',       group: '戰情室', href: '/team' },
+  { key: 'team',             label: '業務主任戰情室',       group: '戰情室', href: '/team' },
   { key: 'finance',          label: '會計戰情室',       group: '戰情室', href: '/finance' },
   { key: 'finance-team',     label: '會計主管戰情室',   group: '戰情室', href: '/finance-team' },
   { key: 'acct-staff',       label: '會計人員戰情室',   group: '戰情室', href: '/acct-staff' },

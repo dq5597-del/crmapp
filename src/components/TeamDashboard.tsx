@@ -14,6 +14,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { CalendarDays, Users, AlertTriangle, Wrench, Clock } from 'lucide-react'
+import AssignTaskCard from '@/components/AssignTaskCard'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -223,6 +224,9 @@ export default function TeamDashboard({ pageTitle, scope, icon }: {
           </div>
         )}
       </Card>
+
+      {/* 指派任務給下屬：所有主管戰情室共用；沒有下屬的人不會顯示 */}
+      <AssignTaskCard />
 
       <Card icon={<CalendarDays size={16} className="text-blue-500" />} title={`今日團隊行程（${mySchedules.length} 件）`}>
         {schedByUser.length === 0 ? <div className="text-sm text-gray-400 py-4 text-center">今天沒有行程</div> : (

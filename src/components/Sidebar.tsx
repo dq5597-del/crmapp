@@ -20,7 +20,7 @@ const navItemsTop = [
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
   { href: '/manager', label: '總經理戰情室', icon: ShieldCheck },
   { href: '/dept', label: '經理戰情室', icon: Briefcase },
-  { href: '/team', label: '主任戰情室', icon: Users },
+  { href: '/team', label: '業務主任戰情室', icon: Users },
   { href: '/finance-team', label: '會計主管戰情室', icon: Calculator },
   { href: '/acct-staff', label: '會計人員戰情室', icon: Calculator },
   { href: '/tech-team', label: '技術主管戰情室', icon: Wrench },
