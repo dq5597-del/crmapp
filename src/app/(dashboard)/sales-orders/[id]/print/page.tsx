@@ -151,7 +151,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
           <div className="logo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.jpg" alt="光輝影音科技" className="logo-img" />
-            <div className="logo-url">購物車網站：https://av-shop.com/</div>
+            <div className="logo-url">購物車網站：https://av-shop.com</div>
           </div>
           <div className="title-block">
             <h1>銷 貨 單</h1>
