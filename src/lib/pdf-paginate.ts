@@ -6,14 +6,10 @@
 // 5) 每頁置底印「第 X 頁 / 共 Y 頁」
 // 若頁面結構缺少 table/thead/tbody/tfoot，會自動退回單純的列邊界切頁。
 
-// ⚠ 靜態 import（不可改成動態 import）：sharePdf 必須在任何 await 之前開啟
-//   佔位視窗，否則桌機 popup blocker 會攔截 LINE 視窗。
 import {
   supportsNativeFileShare,
   uploadAndCreateSignedUrl,
-  buildLineMessage,
-  openPlaceholderWindow,
-  redirectToLineShare,
+  showShareLinkPanel,
 } from './share-line'
 
 export async function buildPaginatedPdf(opts?: { landscape?: boolean }) {
@@ -407,8 +403,8 @@ export async function downloadPdf(fileName: string, landscape = false) {
  * 手機／平板：navigator.share({ files }) 直接送 PDF（原本行為，未更動）
  * 桌　　　機：LINE for Windows 不吃檔案分享 → 上傳 Storage 取簽章連結後送 LINE
  *
- * ⚠ 必須直接從 onClick 呼叫。內部會在第一個 await 之前開啟佔位視窗，
- *   否則桌機的 popup blocker 會把 LINE 視窗擋掉（症狀：按了完全沒反應）。
+ * 桌機不使用 window.open —— 實測會被 popup blocker 擋掉（症狀：按了沒反應）。
+ * 改為顯示面板，由使用者親自點面板上的連結，永遠不會被擋。
  */
 export async function sharePdf(
   fileName: string,
@@ -416,31 +412,23 @@ export async function sharePdf(
 ): Promise<'shared' | 'downloaded' | 'line-link'> {
   const useNativeShare = supportsNativeFileShare()
 
-  // 桌機：popup 必須在 user gesture 的同步階段開啟，所以放在所有 await 之前
-  const popup = useNativeShare ? null : openPlaceholderWindow()
+  const pdf = await buildPaginatedPdf({ landscape })
+  const blob = pdf.output('blob')
 
-  try {
-    const pdf = await buildPaginatedPdf({ landscape })
-    const blob = pdf.output('blob')
-
-    // ── 桌機：改送簽章連結 ──────────────────────────────
-    if (!useNativeShare) {
-      const url = await uploadAndCreateSignedUrl(blob, fileName)
-      await redirectToLineShare(popup, buildLineMessage(fileName, url))
-      return 'line-link'
-    }
-
-    // ── 手機／平板：原生分享，直接帶 PDF ────────────────
-    const file = new File([blob], `${fileName}.pdf`, { type: 'application/pdf' })
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: fileName })
-      return 'shared'
-    }
-
-    pdf.save(`${fileName}.pdf`)
-    return 'downloaded'
-  } catch (e) {
-    if (popup && !popup.closed) popup.close()
-    throw e
+  // ── 桌機：上傳後顯示分享面板 ────────────────────────
+  if (!useNativeShare) {
+    const url = await uploadAndCreateSignedUrl(blob, fileName)
+    showShareLinkPanel(fileName, url)
+    return 'line-link'
   }
+
+  // ── 手機／平板：原生分享，直接帶 PDF ────────────────
+  const file = new File([blob], `${fileName}.pdf`, { type: 'application/pdf' })
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file], title: fileName })
+    return 'shared'
+  }
+
+  pdf.save(`${fileName}.pdf`)
+  return 'downloaded'
 }

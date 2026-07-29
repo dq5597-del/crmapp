@@ -7,13 +7,18 @@
  *      所以 navigator.share({ files }) 在桌機會跳出 Windows 分享匣、LINE 圖示也在，
  *      但點下去不會帶入 PDF —— 這不是本站的 bug，是 LINE 桌機版的限制。
  *
- * 解法：桌機不送檔案，改把 PDF 上傳到 Supabase Storage，取簽章連結後送給 LINE。
+ * 解法：桌機不送檔案，改把 PDF 上傳到 Supabase Storage，取簽章連結後給使用者。
  *      手機／平板維持原本的 navigator.share({ files })，行為完全不變。
+ *
+ * ⚠ 為什麼不用 window.open 直接跳 LINE？
+ *   實測（2026-07-29）在 Chrome 桌機會被 popup blocker 擋掉，症狀是「按了沒反應」。
+ *   即使先開佔位視窗也不保險。因此改為顯示一個面板，讓使用者按面板上的
+ *   真實連結 —— 使用者親自點 <a> 永遠不會被擋。
  */
 
 import { createClient } from './supabase'
 
-/** 私有 bucket，需先在 Supabase 建立（見 supabase/migrations 內的 SQL） */
+/** 私有 bucket，需先執行 supabase/schema_shared_docs.sql 建立 */
 const BUCKET = 'shared-docs'
 
 /** 連結有效期：7 天 */
@@ -56,7 +61,7 @@ export async function uploadAndCreateSignedUrl(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) throw new Error('請先登入後再分享')
+  if (!user) throw new Error('登入狀態已失效，請重新登入後再分享')
 
   const id = crypto.randomUUID()
   const now = new Date()
@@ -66,7 +71,6 @@ export async function uploadAndCreateSignedUrl(
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: 'application/pdf',
     upsert: false,
-    // 讓客戶點連結時是「線上預覽」而不是直接下載
     cacheControl: '3600',
   })
   if (uploadError) {
@@ -86,49 +90,106 @@ export async function uploadAndCreateSignedUrl(
 
 /** 組 LINE 訊息內容 */
 export function buildLineMessage(fileName: string, url: string): string {
-  return [`${fileName}`, '', '請點擊連結查看：', url, '', '光輝影音科技'].join('\n')
+  return [fileName, '', '請點擊連結查看：', url, '', '光輝影音科技'].join('\n')
+}
+
+/** LINE 分享網址 */
+export function buildLineShareUrl(message: string): string {
+  return `https://line.me/R/share?text=${encodeURIComponent(message)}`
 }
 
 /**
- * ⚠ 必須在使用者點擊事件的**同步階段**呼叫。
+ * 顯示分享面板。
  *
- * 若等 await 完才 window.open，Chrome / Edge 的 popup blocker 會攔截 ——
- * 表現就是「按了完全沒反應」。所以先開空白視窗佔位，拿到網址後再導向。
- */
-export function openPlaceholderWindow(): Window | null {
-  return window.open('', '_blank', 'width=600,height=700')
-}
-
-/**
- * 把佔位視窗導向 LINE 分享頁。
+ * 刻意用原生 DOM 而非 React —— 這樣六支 PrintButtons.tsx 都不必改，
+ * 報價單／銷貨單／訂購單／送修單／維修報價單一次到位。
  *
- * 若視窗被 popup blocker 擋掉，**不**改用同分頁導向 —— 那會把列印預覽頁整個換掉，
- * 使用者辛苦調好的預覽就沒了。改為把訊息複製到剪貼簿並告知，讓他自己貼到 LINE。
+ * 不使用 alert()：alert 會凍結整個分頁，使用者以為當掉。
  */
-export async function redirectToLineShare(
-  popup: Window | null,
-  message: string,
-): Promise<'opened' | 'copied'> {
-  const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(message)}`
+export function showShareLinkPanel(fileName: string, url: string): void {
+  document.getElementById('gh-share-panel')?.remove()
 
-  if (popup && !popup.closed) {
-    popup.location.href = lineUrl
-    return 'opened'
-  }
+  const message = buildLineMessage(fileName, url)
+  const expiry = new Date(Date.now() + SHARE_EXPIRY_SECONDS * 1000)
+  const expiryText = new Intl.DateTimeFormat('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(expiry)
 
-  try {
-    await navigator.clipboard.writeText(message)
-  } catch {
-    const ta = document.createElement('textarea')
-    ta.value = message
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    document.execCommand('copy')
-    ta.remove()
-  }
+  const overlay = document.createElement('div')
+  overlay.id = 'gh-share-panel'
+  overlay.className = 'no-print'
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:99999',
+    'background:rgba(15,23,42,.45)',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif',
+  ].join(';')
 
-  alert('瀏覽器擋下了 LINE 視窗。\n分享內容已複製到剪貼簿，請直接貼到 LINE 對話框。')
-  return 'copied'
+  const card = document.createElement('div')
+  card.style.cssText = [
+    'width:min(460px,92vw)', 'background:#fff', 'border-radius:16px',
+    'padding:24px', 'box-shadow:0 20px 50px rgba(0,0,0,.25)',
+  ].join(';')
+
+  card.innerHTML = `
+    <div style="font-size:16px;font-weight:600;color:#0f172a;margin-bottom:6px">分享單據</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:16px;line-height:1.6">
+      LINE 電腦版無法直接接收 PDF 附件，因此改用連結分享。<br>
+      連結 ${expiryText} 到期。
+    </div>
+    <input id="gh-share-url" readonly value="${url.replace(/"/g, '&quot;')}"
+      style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #e2e8f0;
+             border-radius:8px;font-size:12px;color:#475569;background:#f8fafc;margin-bottom:14px">
+    <div style="display:flex;gap:8px">
+      <a id="gh-share-line" href="${buildLineShareUrl(message).replace(/"/g, '&quot;')}"
+         target="_blank" rel="noopener noreferrer"
+         style="flex:1;text-align:center;padding:10px;background:#06C755;color:#fff;
+                border-radius:8px;font-size:14px;font-weight:600;text-decoration:none">
+        開啟 LINE 傳送
+      </a>
+      <button id="gh-share-copy"
+        style="flex:1;padding:10px;background:#fff;color:#334155;border:1px solid #cbd5e1;
+               border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+        複製連結
+      </button>
+    </div>
+    <button id="gh-share-close"
+      style="width:100%;margin-top:8px;padding:9px;background:none;color:#94a3b8;
+             border:none;font-size:13px;cursor:pointer">關閉</button>
+  `
+
+  overlay.appendChild(card)
+  document.body.appendChild(overlay)
+
+  const close = () => overlay.remove()
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close()
+  })
+  card.querySelector<HTMLButtonElement>('#gh-share-close')?.addEventListener('click', close)
+  card.querySelector<HTMLAnchorElement>('#gh-share-line')?.addEventListener('click', () => {
+    setTimeout(close, 300)
+  })
+
+  const copyBtn = card.querySelector<HTMLButtonElement>('#gh-share-copy')
+  copyBtn?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(message)
+    } catch {
+      const input = card.querySelector<HTMLInputElement>('#gh-share-url')
+      input?.select()
+      document.execCommand('copy')
+    }
+    copyBtn.textContent = '已複製 ✓'
+    setTimeout(() => (copyBtn.textContent = '複製連結'), 2000)
+  })
+
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') {
+      close()
+      document.removeEventListener('keydown', esc)
+    }
+  })
 }
