@@ -398,6 +398,57 @@ export async function downloadPdf(fileName: string, landscape = false) {
 }
 
 /**
+ * 直接列印（與「分享 PDF」完全相同的分頁結果）
+ *
+ * 為什麼不用 window.print()：
+ *   瀏覽器會自己決定切頁點，會切到文字、也不會重複表頭、不會印本頁小計，
+ *   且列印頁掛在 dashboard 外殼內，各家瀏覽器對高度／裁切的處理都不一致。
+ * 作法：
+ *   先產生和分享／下載一模一樣的分頁 PDF，塞進隱藏 iframe 再送印，
+ *   紙上結果 100% 等同 PDF 檔案，使用者不需要在對話框調直向／橫向。
+ */
+export async function printPaginatedPdf(landscape = false): Promise<void> {
+  const pdf = await buildPaginatedPdf({ landscape })
+  const url = URL.createObjectURL(pdf.output('blob'))
+
+  document.getElementById('gh-print-frame')?.remove()
+
+  const frame = document.createElement('iframe')
+  frame.id = 'gh-print-frame'
+  frame.className = 'no-print'
+  // ⚠ 不可用 display:none／visibility:hidden —— Chrome 會不載入 PDF 檢視器導致印出空白。
+  //   改用 0×0 定位到畫面角落。
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+  document.body.appendChild(frame)
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('列印內容載入逾時')), 20000)
+      frame.onload = () => { clearTimeout(timer); resolve() }
+      frame.src = url
+    })
+
+    // 給 Chrome 內建 PDF 檢視器一點時間掛載，否則 print() 會送出空白頁
+    await new Promise(r => setTimeout(r, 500))
+
+    const win = frame.contentWindow
+    if (!win) throw new Error('無法存取列印內容')
+    win.focus()
+    win.print()
+  } catch (e) {
+    // 退路：直接開新分頁讓使用者自行按列印（例如 iOS Safari 不支援 iframe 列印）
+    window.open(url, '_blank', 'noopener')
+    console.error(e)
+  } finally {
+    // 對話框關閉前不能回收，這裡延遲清掉
+    setTimeout(() => {
+      URL.revokeObjectURL(url)
+      document.getElementById('gh-print-frame')?.remove()
+    }, 60000)
+  }
+}
+
+/**
  * 分享 PDF
  *
  * 手機／平板：navigator.share({ files }) 直接送 PDF（原本行為，未更動）
