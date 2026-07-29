@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { toStorageSafeName } from '@/lib/storage-key'
 import { MessageSquare, Plus, Send, Paperclip, X, Navigation, Users, Video, Trash2 } from 'lucide-react'
 
 type RosterUser = { id: string; full_name: string | null; role: string }
@@ -96,7 +97,9 @@ export default function MessagesPage() {
   async function handleFile(file: File) {
     setUploading(true)
     try {
-      const path = `${activeId ?? 'tmp'}/${Date.now()}_${file.name}`
+      // ⚠ Storage key 只接受 ASCII 安全字元，中文檔名會被拒（400 InvalidKey）。
+      //   路徑一律做安全化，原始中文檔名存在 att.name 供介面顯示。
+      const path = `${activeId ?? 'tmp'}/${Date.now()}_${toStorageSafeName(file.name)}`
       const { error } = await supabase.storage.from('chat-files').upload(path, file, { upsert: false })
       if (error) { alert('上傳失敗：' + error.message); return }
       const { data } = supabase.storage.from('chat-files').getPublicUrl(path)

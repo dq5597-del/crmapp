@@ -1,0 +1,6 @@
+warning: in the working copy of 'src/app/(dashboard)/hr/employees/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/(dashboard)/settings/page.tsx', LF will be replaced by CRLF the next time Git touches it
+[main d14cbd9] fix: print layout spacing, stamp size, pnl categories import, nonop income/expense split
+ 2 files changed, 1018 insertions(+), 894 deletions(-)
+To https://github.com/dq5597-del/crmapp.git
+   791639a..d14cbd9  main -> main

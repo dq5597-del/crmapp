@@ -1,0 +1,28 @@
+=== git add ===
+warning: in the working copy of 'src/app/api/train/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/dashboard/TrainWidget.tsx', LF will be replaced by CRLF the next time Git touches it
+=== git status ===
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	modified:   src/app/api/train/route.ts
+	modified:   src/components/dashboard/TrainWidget.tsx
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	copy-logos-log.txt
+	copy-logos.bat
+	push-brand-log.txt
+	push-brand.bat
+	sql/dedupe_products.sql
+	"\345\273\240\347\211\214logo/"
+
+=== git commit ===
+[main 9c93dda] feat: train timetable falls back to next day when no trains left today
+ 2 files changed, 55 insertions(+), 22 deletions(-)
+=== git push ===
+To https://github.com/dq5597-del/crmapp.git
+   7b68bba..9c93dda  main -> main
+=== done ===

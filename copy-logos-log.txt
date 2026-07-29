@@ -1,0 +1,58 @@
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\panasonic.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\棵辊耝礶 2025-08-09 170106.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\2024031918225764.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\更 (2).png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\棵辊耝礶 2025-08-09 165217.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\bose.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\更.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\vivitek.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\viewsonic.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\benq.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\更.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\optoma.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\crestron.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\images.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\amx-converted.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\vivitek.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\optoma.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\更 (1).png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\viewsonic.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\更 (3).png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\更 (4).png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\更 (1).jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\images.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\bosch.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\crestron.jpg
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\brand.gif
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\bosch.png
+D:\Guanghui_AI_System\CRMAPP\紅礟logo\sampo.png
+狡籹 28 郎
+=== files ===
+panasonic.jpg
+棵辊耝礶 2025-08-09 170106.jpg
+2024031918225764.png
+更 (2).png
+棵辊耝礶 2025-08-09 165217.jpg
+bose.png
+更.png
+vivitek.png
+viewsonic.jpg
+benq.png
+更.jpg
+optoma.png
+crestron.png
+images.png
+amx-converted.png
+vivitek.jpg
+optoma.jpg
+更 (1).png
+viewsonic.png
+更 (3).png
+更 (4).png
+更 (1).jpg
+images.jpg
+bosch.jpg
+crestron.jpg
+brand.gif
+bosch.png
+sampo.png

@@ -1,8 +1,17 @@
 @echo off
-cd /d "C:\Users\10319\Claude\Projects\CRMAPP"
-git add next.config.js vercel.json
-git commit -m "chore: skip TS/ESLint during build, add vercel.json"
-git push origin main
+cd /d "%~dp0"
+echo ==========================================
+echo  Push latest fixes to GitHub (Vercel deploy)
+echo ==========================================
 echo.
-echo === Push 完成！Vercel 會自動重新部署 ===
+del /f /q ".git\index.lock" 2>nul
+del /f /q "crm-ui-spec_SKILL.md.gdoc" 2>nul
+git rm --cached -f -r --ignore-unmatch *.gdoc *.gsheet *.gslides > push-log.txt 2>&1
+git add .gitignore >> push-log.txt 2>&1
+git add src package.json >> push-log.txt 2>&1
+git commit -m "fix: print layout spacing, stamp size, pnl categories import, nonop income/expense split" >> push-log.txt 2>&1
+git push origin main >> push-log.txt 2>&1
+echo Done. Result saved to push-log.txt
+type push-log.txt
+echo.
 pause
