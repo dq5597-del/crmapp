@@ -12,7 +12,7 @@ function getFileName() {
 }
 
 export default function PrintButtons() {
-  const [loading, setLoading] = useState<'' | 'download' | 'share' | 'print'>('')
+  const [loading, setLoading] = useState<'' | 'download' | 'share' | 'print' | 'printL'>('')
   const [showPreview, setShowPreview] = useState(false)
 
   // 由詳情頁帶 ?preview=1 進來時自動開啟列印預覽
@@ -24,17 +24,18 @@ export default function PrintButtons() {
   /**
    * 列印（2026-07 改版）
    *
-   * 不提供直向／橫向、也不需要使用者調整任何列印設定 —— 單據一律 A4 直向。
-   *
    * 走 printPdf()：先產生固定版面的 PDF（與「分享／下載 PDF」同一套分頁邏輯），
    * 再交給瀏覽器列印該 PDF。這樣列印對話框的「邊界／縮放」不會重排內容，
    * 印出的張數永遠等於排版頁數。
+   *
+   * 方向也一樣烤進 PDF：橫向不再依賴 `@page { size }`（會被 Chrome 記住的
+   * 對話框設定蓋掉），而是直接產生橫向紙張的 PDF，列印必定是橫向。
    */
-  const handlePrint = async () => {
+  const handlePrint = async (landscape = false) => {
     if (loading) return
-    setLoading('print')
+    setLoading(landscape ? 'printL' : 'print')
     try {
-      const r = await printPdf(getFileName(), false)
+      const r = await printPdf(getFileName(), landscape)
       if (r === 'downloaded') alert('無法直接開啟列印，已改為下載 PDF，請開啟檔案後列印')
     } catch (e) {
       console.error(e)
@@ -84,11 +85,18 @@ export default function PrintButtons() {
         預覽列印
       </button>
       <button
-        onClick={handlePrint}
+        onClick={() => handlePrint(false)}
         disabled={!!loading}
         style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
-        {loading === 'print' ? '排版中…' : '列印'}
+        {loading === 'print' ? '排版中…' : '直向列印'}
+      </button>
+      <button
+        onClick={() => handlePrint(true)}
+        disabled={!!loading}
+        style={{ padding: '8px 20px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
+      >
+        {loading === 'printL' ? '排版中…' : '橫向列印'}
       </button>
       <button
         onClick={handleSharePdf}
