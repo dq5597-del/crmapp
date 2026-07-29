@@ -36,10 +36,10 @@ export function generateOrderNo(prefix: string, date: Date, seq: number): string
 }
 
 /**
- * 產生估價單存檔／匯出檔名（不含副檔名）
- * 格式：(光輝)估價單_案名_日期_編號
+ * 產生報價單存檔／匯出檔名（不含副檔名）
+ * 格式：(光輝)報價單_案名_日期_編號
  * 日期／編號取自報價單單號（quote_no = YYMMDD + 3碼流水號），流水號改以2碼顯示
- * 例：quote_no = 260704003, project_name = 展演廳工程 → (光輝)估價單_展演廳工程_260704_03
+ * 例：quote_no = 260704003, project_name = 展演廳工程 → (光輝)報價單_展演廳工程_260704_03
  */
 export function buildQuoteFileName(
   quote: { quote_no?: string | null; project_name?: string | null },
@@ -54,7 +54,7 @@ export function buildQuoteFileName(
     .replace(/[\\/:*?"<>|]/g, '')
     .trim()
 
-  return ['(光輝)估價單', namePart, datePart, seqPart].filter(Boolean).join('_')
+  return ['(光輝)報價單', namePart, datePart, seqPart].filter(Boolean).join('_')
 }
 
 export const CLIENT_STATUS_COLORS: Record<string, string> = {

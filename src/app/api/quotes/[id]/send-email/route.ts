@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const html = `
     <div style="font-family:'Microsoft JhengHei',sans-serif; max-width:680px;">
-      <h2 style="margin:0 0 2px;">估價單</h2>
+      <h2 style="margin:0 0 2px;">報價單</h2>
       ${quote.project_name ? `<p style="margin:0 0 8px; color:#374151;">${quote.project_name}</p>` : ''}
       <p style="font-size:13px; color:#374151; margin:4px 0;">
         單位名稱：<strong>${clientName}</strong>
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     body: JSON.stringify({
       from: FROM_EMAIL,
       to: [to],
-      subject: `[估價單] ${quote.quote_no}${quote.project_name ? ` — ${quote.project_name}` : ''}（${settings?.company_name ?? '光輝影音科技'}）`,
+      subject: `[報價單] ${quote.quote_no}${quote.project_name ? ` — ${quote.project_name}` : ''}（${settings?.company_name ?? '光輝影音科技'}）`,
       html,
     }),
   })

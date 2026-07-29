@@ -170,7 +170,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             <div className="logo-url">購物車網站：https://av-shop.com</div>
           </div>
           <div className="title-block">
-            <h1>估 價 單</h1>
+            <h1>報 價 單</h1>
             {quote.project_name && <div className="sub-header">{quote.project_name}</div>}
           </div>
           <div className="header-spacer" style={{ textAlign: 'right', fontSize: 11, color: '#333', lineHeight: 1.9, alignSelf: 'flex-end' }}>

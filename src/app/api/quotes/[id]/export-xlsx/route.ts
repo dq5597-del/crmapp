@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   workbook.creator = '光輝影音科技 CRM'
   workbook.created = new Date()
 
-  const sheet = workbook.addWorksheet('估價單', {
+  const sheet = workbook.addWorksheet('報價單', {
     pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true },
   })
 

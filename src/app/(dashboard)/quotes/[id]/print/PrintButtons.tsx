@@ -9,7 +9,7 @@ function getFileName() {
   const t = (document.title || '').trim()
   if (t) return t.replace(/[\\/:*?"<>|]/g, '')
   const titleEl = document.querySelector('h1')
-  return (titleEl?.textContent || '估價單').replace(/\s+/g, '')
+  return (titleEl?.textContent || '報價單').replace(/\s+/g, '')
 }
 
 export default function PrintButtons() {

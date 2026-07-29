@@ -287,7 +287,7 @@ export default function QuoteDetailPage() {
             })
             const data = await res.json()
             setActionLoading('')
-            alert(data.success ? `✅ 已寄出估價單給 ${to}` : `寄送失敗：${data.error ?? ''}`)
+            alert(data.success ? `✅ 已寄出報價單給 ${to}` : `寄送失敗：${data.error ?? ''}`)
           }}
           disabled={actionLoading === 'email-client'}
           className="flex items-center gap-1.5 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-60"

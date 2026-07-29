@@ -18,7 +18,7 @@ const DOC_LINK: Record<string, (id: string) => string> = {
   quote: id => `/quotes/${id}`,
   purchase_order: id => `/purchase-orders/${id}`,
 }
-const DOC_LABEL: Record<string, string> = { payable: '應付帳款', quote: '估價單', purchase_order: '訂購單' }
+const DOC_LABEL: Record<string, string> = { payable: '應付帳款', quote: '報價單', purchase_order: '訂購單' }
 
 export default function ApprovalsCenter() {
   const supabase = createClient()

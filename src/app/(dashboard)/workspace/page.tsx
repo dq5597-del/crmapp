@@ -151,7 +151,7 @@ export default function WorkspacePage() {
         <div className="flex flex-col items-center justify-center flex-1 text-gray-400 gap-3 py-24">
           <LayoutGrid size={40} className="text-gray-200" />
           <div className="text-sm">點「+ 新增作業」開啟第一個作業</div>
-          <div className="text-xs text-gray-300">可同時開多個作業並排工作，例如左打估價單、右看庫存</div>
+          <div className="text-xs text-gray-300">可同時開多個作業並排工作，例如左打報價單、右看庫存</div>
         </div>
       ) : (
         <div className={`grid flex-1 min-h-0 ${split ? 'grid-cols-1 lg:grid-cols-2 gap-0' : 'grid-cols-1'}`}>
