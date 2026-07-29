@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { downloadPdf, sharePdf, printPdf } from '@/lib/pdf-paginate'
 import PrintPreviewModal from '@/components/PrintPreviewModal'
 
@@ -14,6 +15,22 @@ function getFileName() {
 export default function PrintButtons() {
   const [loading, setLoading] = useState<'' | 'download' | 'share' | 'print' | 'printL'>('')
   const [showPreview, setShowPreview] = useState(false)
+  const router = useRouter()
+
+  /**
+   * 關閉
+   *
+   * window.close() 只有「由程式開啟」的分頁（window.open）才有效；
+   * 從列表直接點連結或自行輸入網址進來的分頁，Chrome 會直接忽略 —— 按了沒反應。
+   * 因此先嘗試關閉，200ms 後若分頁還在，就退回上一頁／單據列表。
+   */
+  const handleClose = () => {
+    window.close()
+    setTimeout(() => {
+      if (window.history.length > 1) router.back()
+      else router.push('/sales-orders')
+    }, 200)
+  }
 
   // 由詳情頁帶 ?preview=1 進來時自動開啟列印預覽
   useEffect(() => {
@@ -113,7 +130,7 @@ export default function PrintButtons() {
         {loading === 'download' ? '產生中…' : '下載 PDF'}
       </button>
       <button
-        onClick={() => window.close()}
+        onClick={handleClose}
         style={{ padding: '8px 16px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
       >
         關閉
