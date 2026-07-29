@@ -22,7 +22,12 @@ export async function printTextPdf(landscape = false): Promise<void> {
   }
 
   // A4 尺寸（96dpi）；內距
-  const A4 = landscape ? { w: 1123, h: 794 } : { w: 794, h: 1123 }
+  //
+  // ⚠ 刻意比實際紙張小一點（A4 = 793.7 × 1122.5 px @96dpi）：
+  //   列印時每頁只要超出紙張 1~2px（body 位移、捨入誤差、印表機可列印區差異），
+  //   那 1~2px 就會被推到下一張紙 → 3 頁變成 5、6 張紙，且頁尾小計被切到次頁。
+  //   保留約 16px（≈4mm）安全邊界，contentH 與補白列數會跟著自動縮小。
+  const A4 = landscape ? { w: 1118, h: 786 } : { w: 790, h: 1106 }
   const PAD_T = 30, PAD_B = 42, PAD_X = 30
   const contentH = A4.h - PAD_T - PAD_B
 
@@ -210,7 +215,7 @@ export async function printTextPdf(landscape = false): Promise<void> {
   style.textContent = `
     #${ROOT_ID} { position: absolute; left: -10000px; top: 0; }
     #${ROOT_ID} .tp-page {
-      position: relative; width: ${A4.w}px; min-height: ${A4.h - 1}px;
+      position: relative; width: ${A4.w}px; height: ${A4.h}px;
       box-sizing: border-box; padding: ${PAD_T}px ${PAD_X}px ${PAD_B}px;
       background: #fff; overflow: hidden;
     }
@@ -224,10 +229,18 @@ export async function printTextPdf(landscape = false): Promise<void> {
     #${ROOT_ID} .tp-pageno { position: absolute; left: 50%; transform: translateX(-50%); }
     @media print {
       @page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 0; }
-      html, body { background: #fff !important; }
+      html, body {
+        background: #fff !important;
+        margin: 0 !important; padding: 0 !important;
+        height: auto !important; overflow: visible !important;
+      }
       body > *:not(#${ROOT_ID}) { display: none !important; }
-      #${ROOT_ID} { position: static !important; left: 0 !important; }
-      #${ROOT_ID} .tp-page { page-break-after: always; break-after: page; }
+      #${ROOT_ID} { position: static !important; left: 0 !important; top: 0 !important; margin: 0 !important; }
+      #${ROOT_ID} .tp-page {
+        page-break-after: always; break-after: page;
+        page-break-inside: avoid; break-inside: avoid;
+        margin: 0 !important;
+      }
       #${ROOT_ID} .tp-page:last-child { page-break-after: auto; break-after: auto; }
       tr { break-inside: avoid; page-break-inside: avoid; }
     }
