@@ -1,7 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { X, Search, Plus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { X, Search, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+
+const PAGE_SIZE = 10
 
 /**
  * 選擇產品彈出視窗（多選）。
@@ -46,6 +48,23 @@ export default function ProductPickerModal({
     return list
   }, [products, mainCat, subCat, search])
 
+  // 分頁：一頁 10 筆。勾選狀態存在 selected(Set<id>) 且 handleConfirm 從 products
+  // 全集取回，因此翻頁不會掉勾選。
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+
+  // 搜尋／分類一變動就回第 1 頁，否則會停在已不存在的頁碼變成空白
+  useEffect(() => { setPage(1) }, [mainCat, subCat, search])
+  // 防呆：篩選後總頁數變少時把 page 拉回範圍內
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+
+  const paged = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  )
+
+  const pageBtn = 'h-8 px-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent'
+
   function toggle(id: string) {
     setSelected(prev => {
       const next = new Set(prev)
@@ -83,7 +102,12 @@ export default function ProductPickerModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-2 sm:p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[92vh]">
+      {/* max-h 必須除以 --gh-ui-scale：<html> 套了 CSS zoom，
+          vh 會先以未縮放視窗計算再被放大，直接寫 92vh 會超出畫面把頭尾切掉。 */}
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col"
+        style={{ maxHeight: 'calc(92svh / var(--gh-ui-scale, 1))' }}
+      >
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 shrink-0">
           <h3 className="font-semibold text-gray-900 whitespace-nowrap text-sm sm:text-base">選擇產品<span className="hidden sm:inline">（可多選）</span></h3>
@@ -149,10 +173,24 @@ export default function ProductPickerModal({
                 )}
               </div>
             ) : (
-              filtered.map(p => <ProductRow key={p.id} p={p} />)
+              paged.map(p => <ProductRow key={p.id} p={p} />)
             )}
           </div>
         </div>
+
+        {/* 分頁列 */}
+        {filtered.length > 0 && (
+          <div className="flex items-center gap-1 px-4 py-2 border-t border-gray-100 shrink-0">
+            <span className="text-[11px] text-gray-400 whitespace-nowrap">共 {filtered.length} 項</span>
+            <div className="ml-auto flex items-center gap-1">
+              <button onClick={() => setPage(1)} disabled={page === 1} className={pageBtn} aria-label="第一頁"><ChevronsLeft size={15} /></button>
+              <button onClick={() => setPage(p => p - 1)} disabled={page === 1} className={pageBtn} aria-label="上一頁"><ChevronLeft size={15} /></button>
+              <span className="px-2 text-xs text-gray-600 tabular-nums whitespace-nowrap">{page} / {totalPages}</span>
+              <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages} className={pageBtn} aria-label="下一頁"><ChevronRight size={15} /></button>
+              <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className={pageBtn} aria-label="最後一頁"><ChevronsRight size={15} /></button>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-200 shrink-0">
