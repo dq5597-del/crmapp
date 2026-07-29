@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { downloadPdf, sharePdf } from '@/lib/pdf-paginate'
-import { printTextPdf } from '@/lib/text-pdf'
+import { downloadPdf, sharePdf, printPdf } from '@/lib/pdf-paginate'
 import PrintPreviewModal from '@/components/PrintPreviewModal'
 
 function getFileName() {
@@ -25,23 +24,21 @@ export default function PrintButtons() {
   /**
    * 列印（2026-07 改版）
    *
-   * 不再提供直向／橫向切換 —— 單據一律 A4 直向。
-   * 原本靠 `@page { size }` + 瀏覽器原生列印，會有兩個問題：
-   *   1. 頁面掛在 dashboard 外殼下，列印時被視窗高度裁掉
-   *   2. Chrome 會記住列印對話框上次的方向設定，@page 常常不生效
+   * 不提供直向／橫向、也不需要使用者調整任何列印設定 —— 單據一律 A4 直向。
    *
-   * 改為直接用 printTextPdf()：與「預覽列印／分享 PDF」同一套分頁排版器，
-   * 每頁重複表頭、補白列、本頁小計、～續下頁～、頁碼，最後一頁收總金額與印章，
-   * 且輸出為真實 HTML 文字（可選取、可搜尋、中文不失真）。
+   * 走 printPdf()：先產生固定版面的 PDF（與「分享／下載 PDF」同一套分頁邏輯），
+   * 再交給瀏覽器列印該 PDF。這樣列印對話框的「邊界／縮放」不會重排內容，
+   * 印出的張數永遠等於排版頁數。
    */
   const handlePrint = async () => {
     if (loading) return
     setLoading('print')
     try {
-      await printTextPdf(false)
+      const r = await printPdf(getFileName(), false)
+      if (r === 'downloaded') alert('無法直接開啟列印，已改為下載 PDF，請開啟檔案後列印')
     } catch (e) {
       console.error(e)
-      alert('列印排版失敗：' + ((e as Error)?.message ?? '未知錯誤'))
+      alert('列印失敗：' + ((e as Error)?.message ?? '未知錯誤'))
     } finally {
       setLoading('')
     }

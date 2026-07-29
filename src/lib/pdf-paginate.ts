@@ -398,6 +398,69 @@ export async function downloadPdf(fileName: string, landscape = false) {
 }
 
 /**
+ * 列印 PDF（2026-07）
+ *
+ * 為什麼不直接用 HTML + window.print()？
+ *   Chrome 列印對話框的「邊界」「縮放」是使用者偏好且會被記住，且優先於
+ *   `@page { margin: 0 }`。只要使用者曾經把邊界改成「自訂」，可列印區就變小，
+ *   HTML 每頁就會溢出到下一張紙 —— 3 頁排版印成 5、6 張紙，且要使用者自己回去
+ *   調設定才會正常。
+ *
+ * 改為先產生固定版面的 PDF，再交給瀏覽器列印該 PDF：
+ * PDF 每頁尺寸已固定，對話框的邊界設定不會重排內容，頁數永遠等於排版頁數。
+ *
+ * 用隱藏 iframe 而非 window.open —— 桌機 Chrome 的彈出視窗封鎖會擋掉 window.open。
+ */
+export async function printPdf(fileName: string, landscape = false): Promise<'printed' | 'downloaded'> {
+  const pdf = await buildPaginatedPdf({ landscape })
+  const url = URL.createObjectURL(pdf.output('blob'))
+
+  document.getElementById('gh-print-frame')?.remove()
+  const frame = document.createElement('iframe')
+  frame.id = 'gh-print-frame'
+  frame.style.cssText =
+    'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;z-index:-1'
+
+  const cleanup = () => {
+    frame.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return new Promise<'printed' | 'downloaded'>(resolve => {
+    let settled = false
+
+    // 保險：PDF 檢視器沒載入或列印被擋，就退回下載，不讓使用者卡在「排版中…」
+    const fallback = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      pdf.save(`${fileName}.pdf`)
+      resolve('downloaded')
+    }
+    const timer = setTimeout(fallback, 12000)
+
+    frame.onload = () => {
+      if (settled) return
+      try {
+        frame.contentWindow?.focus()
+        frame.contentWindow?.print()
+        settled = true
+        clearTimeout(timer)
+        resolve('printed')
+        // 列印對話框可能還開著，延後回收
+        setTimeout(cleanup, 60000)
+      } catch {
+        clearTimeout(timer)
+        fallback()
+      }
+    }
+
+    frame.src = url
+    document.body.appendChild(frame)
+  })
+}
+
+/**
  * 直接列印（與「分享 PDF」完全相同的分頁結果）
  *
  * 為什麼不用 window.print()：
