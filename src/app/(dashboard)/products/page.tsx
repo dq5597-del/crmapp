@@ -412,6 +412,9 @@ export default function ProductsPage() {
   const [brandFilter, setBrandFilter] = useState('')
   const [brandLetter, setBrandLetter] = useState('')
   const [showBrandDropdown, setShowBrandDropdown] = useState(false)
+  // 分頁（2026-07）：產品數已破七百筆，一次全渲染會拖慢整頁操作
+  const PER_PAGE = 10
+  const [page, setPage] = useState(1)
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const editFormRef = useRef<HTMLDivElement>(null)
   // 未存檔提醒
@@ -792,6 +795,12 @@ export default function ProductsPage() {
     const cat = categories.find(c => c.id === p.category_id)
     return cat?.main_category === catFilter
   })
+
+  // 分頁切片；篩選條件一變就回到第 1 頁，避免停在不存在的頁碼
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const safePage = Math.min(page, totalPages)
+  const paged = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE)
+  useEffect(() => { setPage(1) }, [search, catFilter, brandFilter, brandLetter])
 
   const categoryGrouped = categories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
     if (!acc[c.main_category]) acc[c.main_category] = []
@@ -1404,7 +1413,7 @@ export default function ProductsPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={12} className="text-center py-12 text-gray-400">沒有產品，請先新增</td></tr>
               ) : (
-                filtered.map(p => {
+                paged.map(p => {
                   const catLabel = getCategoryLabel(p.category_id)
                   return (
                     <tr key={p.id} className={`border-b border-gray-50 hover:bg-blue-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
@@ -1509,6 +1518,52 @@ export default function ProductsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* 分頁列：一頁 10 筆 */}
+        {!loading && filtered.length > 0 && (
+          <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-t border-gray-100">
+            <div className="text-xs text-gray-500">
+              顯示第 {(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, filtered.length)} 筆，共 {filtered.length} 筆
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)} disabled={safePage === 1}
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 hover:bg-gray-50"
+              >««</button>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 hover:bg-gray-50"
+              >上一頁</button>
+
+              {(() => {
+                // 目前頁前後各兩頁，最多顯示 5 個頁碼
+                const start = Math.max(1, Math.min(safePage - 2, totalPages - 4))
+                const end = Math.min(totalPages, start + 4)
+                const nums = []
+                for (let i = start; i <= end; i++) nums.push(i)
+                return nums.map(n => (
+                  <button
+                    key={n} onClick={() => setPage(n)}
+                    className={`px-3 py-1.5 text-xs rounded-lg border ${
+                      n === safePage
+                        ? 'bg-blue-600 border-blue-600 text-white font-semibold'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >{n}</button>
+                ))
+              })()}
+
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 hover:bg-gray-50"
+              >下一頁</button>
+              <button
+                onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 hover:bg-gray-50"
+              >»»</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 官網推送結果 */}
