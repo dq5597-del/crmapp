@@ -42,8 +42,11 @@ export function supportsNativeFileShare(): boolean {
   return (isMobileUA || isIPadOS) && typeof navigator.share === 'function'
 }
 
-/** 移除檔名不合法字元 */
-function safeName(name: string): string {
+/**
+ * 供 Content-Disposition 使用的檔名（可含中文）。
+ * 只需擋掉會破壞 header 的字元。
+ */
+function safeDownloadName(name: string): string {
   return name.replace(/[\\/:*?"<>|\r\n\t]/g, '').trim().slice(0, 80) || '單據'
 }
 
@@ -63,10 +66,12 @@ export async function uploadAndCreateSignedUrl(
   } = await supabase.auth.getUser()
   if (!user) throw new Error('登入狀態已失效，請重新登入後再分享')
 
-  const id = crypto.randomUUID()
+  // ⚠ Supabase Storage 的 object key 只接受 ASCII 安全字元。
+  //   中文、全形括號都會被拒（400 InvalidKey），所以路徑一律用 UUID，
+  //   真正的中文檔名改由簽章連結的 download 參數帶出。
   const now = new Date()
   const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  const path = `${yyyymm}/${id}/${safeName(fileName)}.pdf`
+  const path = `${yyyymm}/${crypto.randomUUID()}.pdf`
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: 'application/pdf',
@@ -79,7 +84,10 @@ export async function uploadAndCreateSignedUrl(
 
   const { data, error: signError } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(path, SHARE_EXPIRY_SECONDS)
+    .createSignedUrl(path, SHARE_EXPIRY_SECONDS, {
+      // 讓客戶存檔時拿到正確的中文檔名，而不是一串 UUID
+      download: `${safeDownloadName(fileName)}.pdf`,
+    })
 
   if (signError || !data?.signedUrl) {
     throw new Error(`產生分享連結失敗：${signError?.message ?? '未知錯誤'}`)
