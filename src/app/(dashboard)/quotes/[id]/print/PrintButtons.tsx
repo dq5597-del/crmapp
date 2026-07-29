@@ -50,13 +50,21 @@ export default function PrintButtons() {
       return
     }
 
-    let s = document.getElementById('print-orientation-style') as HTMLStyleElement | null
-    if (!s) {
-      s = document.createElement('style')
-      s.id = 'print-orientation-style'
-      document.body.appendChild(s)
-    }
-    s.textContent = '@media print { @page { size: A4 ' + orientation + '; margin: 15mm 14mm; } }'
+    // 重建方向樣式並掛在 body 尾端 → 排在頁面內建 @page 規則之後，確保生效
+    document.getElementById('print-orientation-style')?.remove()
+    const s = document.createElement('style')
+    s.id = 'print-orientation-style'
+    // ⚠ 用明確 mm 尺寸而非 `A4 landscape`：
+    //   1. Chrome 列印對話框會記住上次手動選的方向，明確尺寸較不易被蓋掉
+    //   2. 橫向時同步放寬 .page，否則內容仍是 210mm 寬，看起來像「方向沒生效」
+    s.textContent =
+      orientation === 'landscape'
+        ? '@media print{@page{size:297mm 210mm;margin:12mm}.page{max-width:none!important;width:auto!important}}'
+        : '@media print{@page{size:210mm 297mm;margin:15mm 14mm}.page{max-width:none!important;width:auto!important}}'
+    document.body.appendChild(s)
+
+    // 等樣式套用完成再叫列印，避免 Chrome 用舊版面產生預覽
+    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
     window.print()
   }
 

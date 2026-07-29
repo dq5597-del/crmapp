@@ -35,6 +35,40 @@
   html {
     zoom: 1 !important;
   }
+
+  /* ------------------------------------------------------------
+     列印時解除 dashboard 外殼的視窗高度與裁切。
+
+     單據列印頁掛在 (dashboard) layout 底下，結構是
+       .app-shell (h-screen + overflow-hidden)
+         └ div (overflow-hidden)
+             └ main (flex-1 overflow-y-auto)
+     這三層在列印時仍維持「一個視窗高度 + 裁切」，Chrome 只會輸出第一頁
+     可視範圍，症狀就是版面被切掉、或整份被縮到很小。
+     列印時一律攤平為 block + 自動高度 + 不裁切。
+     ------------------------------------------------------------ */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-shell,
+  .app-shell > div,
+  .app-shell main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
+
+  /* 側邊欄與行動版頂列不列印（含未加 no-print 的情況） */
+  .app-shell aside,
+  .app-shell header {
+    display: none !important;
+  }
 }
 
 @layer utilities {
