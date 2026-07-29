@@ -41,7 +41,15 @@ export async function printTextPdf(landscape = false): Promise<void> {
       })
     )
   )
-  await new Promise(r => requestAnimationFrame(() => r(null)))
+  // ⚠ 分頁不能只等 requestAnimationFrame：分頁在背景（visibilityState === 'hidden'）
+  //   時 rAF 會被瀏覽器凍結，整個列印流程會卡在這裡、按鈕永遠停在「排版中…」。
+  //   例如使用者按下列印後立刻切到別的分頁。故一律加上逾時保險。
+  await new Promise(r => {
+    let done = false
+    const fin = () => { if (!done) { done = true; r(null) } }
+    requestAnimationFrame(fin)
+    setTimeout(fin, 150)
+  })
 
   const elTop = el.getBoundingClientRect().top
   const kids = Array.from(el.children) as HTMLElement[]
