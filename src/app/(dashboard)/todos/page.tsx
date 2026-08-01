@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { formatDate } from '@/lib/utils'
 import {
-  Plus, X, Check, Trash2, Pencil, CalendarPlus, CalendarCheck, ListTodo, Tag, Target, Flag,
+  Plus, X, Check, Trash2, Pencil, CalendarPlus, CalendarCheck, ListTodo, Tag, Target, Flag, Paperclip,
 } from 'lucide-react'
+import AttachmentBox, { type Attachment } from '@/components/AttachmentBox'
 
 const DEFAULT_CATEGORIES = ['工作', '家庭', '興趣']
 
@@ -40,6 +41,7 @@ interface Todo {
   due_date: string | null
   schedule_id: string | null
   goal_id: string | null
+  attachments: Attachment[] | null
   created_at: string
 }
 
@@ -58,7 +60,7 @@ interface Goal {
   created_at: string
 }
 
-const emptyForm = () => ({ title: '', category: '工作', notes: '', due_date: '', goal_id: '' })
+const emptyForm = () => ({ title: '', category: '工作', notes: '', due_date: '', goal_id: '', attachments: [] as Attachment[] })
 const emptyGoalForm = () => ({ title: '', category: '工作', due_date: '', metric_type: 'task' as 'task' | 'number', target_value: '', current_value: '', auto_sales: false, start_date: '' })
 
 function daysLeft(due: string | null): number | null {
@@ -206,7 +208,11 @@ export default function TodosPage() {
   const openAdd = () => { setEditingId(null); setForm({ ...emptyForm(), goal_id: goalFilter ?? '' }); setAddingCat(false); setNewCat(''); setShowForm(true) }
   const openEdit = (t: Todo) => {
     setEditingId(t.id)
-    setForm({ title: t.title, category: t.category, notes: t.notes ?? '', due_date: t.due_date ?? '', goal_id: t.goal_id ?? '' })
+    setForm({
+      title: t.title, category: t.category, notes: t.notes ?? '',
+      due_date: t.due_date ?? '', goal_id: t.goal_id ?? '',
+      attachments: Array.isArray(t.attachments) ? t.attachments : [],
+    })
     setAddingCat(false); setNewCat(''); setShowForm(true)
   }
 
@@ -221,6 +227,7 @@ export default function TodosPage() {
       notes: form.notes.trim() || null,
       due_date: form.due_date || null,
       goal_id: form.goal_id || null,
+      attachments: form.attachments,
     }
     const res = editingId
       ? await supabase.from('todos').update(payload).eq('id', editingId)
@@ -454,6 +461,24 @@ export default function TodosPage() {
                   })()}
                 </div>
                 {t.notes && <div className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">{t.notes}</div>}
+                {Array.isArray(t.attachments) && t.attachments.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                    <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                      <Paperclip size={11} /> {t.attachments.length}
+                    </span>
+                    {t.attachments.slice(0, 6).map((a, i) => a.type?.startsWith('image/') ? (
+                      <a key={a.path || i} href={a.url} target="_blank" rel="noreferrer" title={a.name}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={a.url} alt={a.name} className="w-10 h-10 object-cover rounded-md border border-gray-200" />
+                      </a>
+                    ) : (
+                      <a key={a.path || i} href={a.url} target="_blank" rel="noreferrer" title={a.name}
+                        className="text-[11px] px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 max-w-[160px] truncate">
+                        {a.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
@@ -488,12 +513,12 @@ export default function TodosPage() {
       {/* 新增 / 編輯 Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
               <h2 className="font-semibold text-gray-900">{editingId ? '編輯事項' : '新增事項'}</h2>
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className={labelClass}>事項標題 *</label>
                 <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
@@ -536,29 +561,42 @@ export default function TodosPage() {
                 )}
               </div>
 
-              {goals.length > 0 && (
-                <div>
-                  <label className={labelClass}>所屬目標（選填）</label>
-                  <select value={form.goal_id} onChange={e => setForm(p => ({ ...p, goal_id: e.target.value }))} className={inputClass}>
-                    <option value="">— 不歸屬目標 —</option>
-                    {goals.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
-                  </select>
-                </div>
-              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {goals.length > 0 && (
+                  <div>
+                    <label className={labelClass}>所屬目標（選填）</label>
+                    <select value={form.goal_id} onChange={e => setForm(p => ({ ...p, goal_id: e.target.value }))} className={inputClass}>
+                      <option value="">— 不歸屬目標 —</option>
+                      {goals.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+                    </select>
+                  </div>
+                )}
 
-              <div>
-                <label className={labelClass}>日期（選填，設定後可放入行事曆）</label>
-                <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
-                  className={inputClass} />
+                <div>
+                  <label className={labelClass}>日期（選填，設定後可放入行事曆）</label>
+                  <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
+                    className={inputClass} />
+                </div>
               </div>
 
               <div>
                 <label className={labelClass}>備註</label>
                 <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                  rows={2} className={inputClass + ' resize-none'} placeholder="補充說明（選填）" />
+                  rows={10} className={inputClass + ' resize-y min-h-[160px] leading-relaxed'}
+                  placeholder="補充說明（選填）。可條列多行，欄位右下角可拖曳調整高度。" />
+              </div>
+
+              <div>
+                <label className={labelClass}>附件（圖片 / 檔案）</label>
+                <AttachmentBox
+                  value={form.attachments}
+                  onChange={next => setForm(p => ({ ...p, attachments: next }))}
+                  folder="todos"
+                  capturePaste
+                />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2 shrink-0">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
               <button onClick={handleSave} disabled={saving || !form.title.trim()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">

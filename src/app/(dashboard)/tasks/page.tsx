@@ -9,7 +9,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
-import { ClipboardList, Plus, Trash2, CheckCircle2, PlayCircle } from 'lucide-react'
+import { ClipboardList, Plus, Trash2, CheckCircle2, PlayCircle, Paperclip } from 'lucide-react'
+import AttachmentBox, { type Attachment } from '@/components/AttachmentBox'
 
 const STATUS_STYLE: Record<string, string> = {
   '待處理': 'bg-amber-100 text-amber-700',
@@ -23,7 +24,7 @@ export default function AssignedTasksPage() {
   const [people, setPeople] = useState<any[]>([])
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ title: '', assigned_to: '', due_date: '', notes: '' })
+  const [form, setForm] = useState({ title: '', assigned_to: '', due_date: '', notes: '', attachments: [] as Attachment[] })
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -74,9 +75,10 @@ export default function AssignedTasksPage() {
       title: form.title.trim(), notes: form.notes || null,
       assigned_by: uid, assigned_to: form.assigned_to,
       due_date: form.due_date || null,
+      attachments: form.attachments,
     })
     if (error) alert('交辦失敗：' + error.message)
-    else { setForm({ title: '', assigned_to: '', due_date: '', notes: '' }); await load() }
+    else { setForm({ title: '', assigned_to: '', due_date: '', notes: '', attachments: [] }); await load() }
     setSaving(false)
   }
 
@@ -96,15 +98,36 @@ export default function AssignedTasksPage() {
   }
 
   const TaskRow = ({ t, mine }: { t: any; mine: boolean }) => (
-    <div className={`flex items-center gap-3 text-sm rounded-xl px-4 py-2.5 border ${
+    <div className={`flex items-start gap-3 text-sm rounded-xl px-4 py-2.5 border ${
       t.status === '已完成' ? 'bg-gray-50 border-gray-100 text-gray-400' : 'bg-white border-gray-200'}`}>
-      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_STYLE[t.status]}`}>{t.status}</span>
+      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5 ${STATUS_STYLE[t.status]}`}>{t.status}</span>
       <div className="flex-1 min-w-0">
         <div className={`truncate ${t.status === '已完成' ? 'line-through' : 'font-medium text-gray-900'}`}>{t.title}</div>
         <div className="text-xs text-gray-400 truncate">
           {nameOf(t.assigned_by)} → {nameOf(t.assigned_to)}
-          {t.due_date ? `｜期限 ${t.due_date}` : ''}{t.notes ? `｜${t.notes}` : ''}
+          {t.due_date ? `｜期限 ${t.due_date}` : ''}
         </div>
+        {t.notes && (
+          <div className="text-xs text-gray-500 mt-1 whitespace-pre-wrap leading-relaxed">{t.notes}</div>
+        )}
+        {Array.isArray(t.attachments) && t.attachments.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+            <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+              <Paperclip size={11} /> {t.attachments.length}
+            </span>
+            {t.attachments.slice(0, 6).map((a: Attachment, i: number) => a.type?.startsWith('image/') ? (
+              <a key={a.path || i} href={a.url} target="_blank" rel="noreferrer" title={a.name}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={a.url} alt={a.name} className="w-10 h-10 object-cover rounded-md border border-gray-200" />
+              </a>
+            ) : (
+              <a key={a.path || i} href={a.url} target="_blank" rel="noreferrer" title={a.name}
+                className="text-[11px] px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 max-w-[160px] truncate">
+                {a.name}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
       {mine && t.status === '待處理' && (
         <button onClick={() => setStatus(t, '進行中')} title="開始處理" className="flex items-center gap-1 text-xs text-blue-600 hover:underline shrink-0"><PlayCircle size={13} /> 開始</button>
@@ -154,13 +177,29 @@ export default function AssignedTasksPage() {
               <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
             </label>
-            <label className="block col-span-2 sm:col-span-3">
-              <span className="block text-xs text-gray-500 mb-1">說明（選填）</span>
-              <input value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
-            </label>
+          </div>
+
+          <label className="block mt-3">
+            <span className="block text-xs text-gray-500 mb-1">說明（選填）</span>
+            <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+              rows={5} placeholder="工作內容、注意事項、驗收標準…可條列多行"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm leading-relaxed resize-y min-h-[110px] focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          </label>
+
+          <div className="mt-3">
+            <span className="block text-xs text-gray-500 mb-1">附件（圖片 / 檔案）</span>
+            <AttachmentBox
+              value={form.attachments}
+              onChange={next => setForm(p => ({ ...p, attachments: next }))}
+              folder="assigned-tasks"
+              accent="orange"
+              capturePaste
+            />
+          </div>
+
+          <div className="mt-3 flex justify-end">
             <button type="button" disabled={saving} onClick={assign}
-              className="flex items-center justify-center gap-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium disabled:opacity-60">
+              className="flex items-center justify-center gap-1 px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium disabled:opacity-60">
               <Plus size={14} /> {saving ? '交辦中…' : '交辦'}
             </button>
           </div>
