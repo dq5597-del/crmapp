@@ -264,7 +264,7 @@ export default function TodosPage() {
         schedule_date: t.due_date,
         title: t.title,
         type: '內部作業',
-        plan_notes: `[事情清單/${t.category}]${t.notes ? ' ' + t.notes : ''}`,
+        plan_notes: `[任務清單/${t.category}]${t.notes ? ' ' + t.notes : ''}`,
         is_gap_task: false,
         is_adhoc: false,
         remind_email: false,
@@ -289,7 +289,7 @@ export default function TodosPage() {
         <div className="flex items-center gap-3">
           <ListTodo size={20} className="text-blue-600" />
           <div>
-            <h1 className="text-xl font-bold text-gray-900">事情清單</h1>
+            <h1 className="text-xl font-bold text-gray-900">任務清單</h1>
             <p className="text-sm text-gray-500 mt-0.5">待辦 {undoneCount} 件</p>
           </div>
         </div>

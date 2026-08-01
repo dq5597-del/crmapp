@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2, ShoppingBag
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
@@ -36,7 +36,7 @@ const navItemsTop = [
 
 const businessItems = [
   { href: '/messages',         label: '訊息',     icon: MessageSquare },
-  { href: '/todos',            label: '事情清單', icon: ListTodo },
+  { href: '/todos',            label: '任務清單', icon: ListTodo },
   { href: '/tasks',            label: '交辦任務', icon: ClipboardList },
   { href: '/schedule',         label: '每日行程', icon: CalendarDays },
   { href: '/service-requests', label: '叫修管理', icon: Wrench },
@@ -48,6 +48,7 @@ const companyItems: { href: string; label: string; icon: any }[] = []
 const psiItems = [
   { href: '/quotes',          label: '報價單',   icon: FileText },
   { href: '/sales-orders',    label: '銷貨單',   icon: ShoppingCart },
+  { href: '/web-orders',      label: '網路訂單', icon: ShoppingBag },
   { href: '/inquiries',       label: '廠商詢價單', icon: MessageSquareQuote },
   { href: '/purchases',       label: '進貨單',   icon: PackageCheck },
   { href: '/purchase-orders', label: '訂購單',   icon: Truck },

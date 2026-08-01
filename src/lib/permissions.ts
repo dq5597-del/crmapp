@@ -25,7 +25,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'vendors',          label: '廠商建檔',        group: '業務',   href: '/vendors',        costLabel: '看銀行帳戶' },
   { key: 'quotes',           label: '報價單',          group: '業務',   href: '/quotes',         costLabel: '看進貨成本' },
   { key: 'notes',            label: '業務筆記',        group: '業務',   href: '/notes' },
-  { key: 'todos',            label: '事情清單',        group: '業務',   href: '/todos' },
+  { key: 'todos',            label: '任務清單',        group: '業務',   href: '/todos' },
   { key: 'schedule',         label: '每日行程',        group: '業務',   href: '/schedule' },
 
   { key: 'sales-orders',     label: '銷貨單',          group: '進銷存', href: '/sales-orders',   costLabel: '看成本' },
