@@ -5,5 +5,5 @@ import TeamDashboard from '@/components/TeamDashboard'
 import { ShieldCheck } from 'lucide-react'
 
 export default function GmDashboard() {
-  return <TeamDashboard pageTitle="總經理戰情室" scope="gm" icon={<ShieldCheck size={22} className="text-blue-600" />} />
+  return <TeamDashboard pageTitle="總經理戰情室" scope="gm" room="manager" icon={<ShieldCheck size={22} className="text-blue-600" />} />
 }

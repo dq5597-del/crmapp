@@ -5,5 +5,5 @@ import TeamDashboard from '@/components/TeamDashboard'
 import { Calculator } from 'lucide-react'
 
 export default function AcctHeadDashboard() {
-  return <TeamDashboard pageTitle="會計主管戰情室" scope="acct-line" icon={<Calculator size={22} className="text-emerald-600" />} />
+  return <TeamDashboard pageTitle="會計主管戰情室" scope="acct-line" room="finance-team" icon={<Calculator size={22} className="text-emerald-600" />} />
 }

@@ -5,5 +5,5 @@ import TeamDashboard from '@/components/TeamDashboard'
 import { Wrench } from 'lucide-react'
 
 export default function TechHeadDashboard() {
-  return <TeamDashboard pageTitle="技術主管戰情室" scope="tech-line" icon={<Wrench size={22} className="text-purple-600" />} />
+  return <TeamDashboard pageTitle="技術主管戰情室" scope="tech-line" room="tech-team" icon={<Wrench size={22} className="text-purple-600" />} />
 }

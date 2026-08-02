@@ -16,7 +16,7 @@ interface Note {
 
 const RECENT_LIMIT = 5
 
-export default function QuickNotes() {
+export default function QuickNotes({ room = 'sales' }: { room?: string }) {
   const supabase = createClient()
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,13 +27,14 @@ export default function QuickNotes() {
   const [editDraft, setEditDraft] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
-  useEffect(() => { fetchNotes() }, [])
+  useEffect(() => { fetchNotes() }, [room]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchNotes() {
     setLoading(true)
     const { data, error } = await supabase
       .from('notes')
       .select('id, title, content, pinned, created_by_name, updated_at')
+      .eq('room', room)
       .order('pinned', { ascending: false })
       .order('updated_at', { ascending: false })
       .limit(RECENT_LIMIT)
@@ -66,6 +67,7 @@ export default function QuickNotes() {
       content: draft.trim(),
       created_by: userRes?.user?.id ?? null,
       created_by_name: createdByName,
+      room,
     })
     setDraft('')
     setAdding(false)

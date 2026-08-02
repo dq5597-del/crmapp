@@ -46,7 +46,7 @@ function fmtLocal(d: Date): string {
 }
 function hm(t: string | null): string { return t ? t.slice(0, 5) : '' }
 
-export default function TodaySchedule() {
+export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
   const supabase = createClient()
   const [items, setItems] = useState<Sched[]>([])
   const [gaps, setGaps] = useState<Sched[]>([])
@@ -54,6 +54,9 @@ export default function TodaySchedule() {
   const [editing, setEditing] = useState<Sched | null>(null)
   const [f, setF] = useState({ actual_start: '', status: '已完成', actual_result: '' })
   const [loading, setLoading] = useState(true)
+  const [newTitle, setNewTitle] = useState('')
+  const [newGap, setNewGap] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const todayStr = fmtLocal(new Date())
   const md = todayStr.slice(5)
@@ -62,11 +65,11 @@ export default function TodaySchedule() {
     const [schedRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
       supabase.from('schedules')
         .select('*, clients(company_name, address), vendors(company_name)')
-        .eq('is_gap_task', false).eq('schedule_date', todayStr)
+        .eq('is_gap_task', false).eq('schedule_date', todayStr).eq('room', room)
         .order('plan_start', { ascending: true }),
       supabase.from('schedules')
         .select('*')
-        .eq('is_gap_task', true).neq('status', '取消').neq('status', '已完成')
+        .eq('is_gap_task', true).eq('room', room).neq('status', '取消').neq('status', '已完成')
         .order('gap_due_date', { ascending: true }).limit(6),
       supabase.from('important_dates').select('*, clients(company_name)').eq('is_active', true),
       supabase.from('contacts').select('id, name, birthday, clients(company_name)').not('birthday', 'is', null),
@@ -86,7 +89,33 @@ export default function TodaySchedule() {
       if (c.birthday.slice(5) === md) out.push({ key: `clb-${c.id}`, title: `${c.contact_name ?? c.company_name} 生日`, date_type: '生日', company: c.company_name })
     setOcc(out)
     setLoading(false)
-  }, [todayStr])
+  }, [todayStr, room]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function addToday() {
+    const title = newTitle.trim()
+    if (!title) return
+    setSaving(true)
+    const { error } = await supabase.from('schedules').insert({
+      schedule_date: todayStr, title, type: '內部作業', room,
+      is_gap_task: false, is_adhoc: true, remind_email: false, remind_days_before: 0,
+    })
+    setSaving(false)
+    if (error) { alert('新增失敗：' + error.message); return }
+    setNewTitle(''); fetchAll()
+  }
+
+  async function addGap() {
+    const title = newGap.trim()
+    if (!title) return
+    setSaving(true)
+    const { error } = await supabase.from('schedules').insert({
+      schedule_date: todayStr, title, type: '內部作業', room,
+      is_gap_task: true, is_adhoc: false, remind_email: false, remind_days_before: 0,
+    })
+    setSaving(false)
+    if (error) { alert('新增失敗：' + error.message); return }
+    setNewGap(''); fetchAll()
+  }
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -158,9 +187,7 @@ export default function TodaySchedule() {
         </div>
 
         {items.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-3">
-            今日尚無預定行程・<Link href="/schedule" className="text-blue-600 hover:underline">去規劃</Link>
-          </p>
+          <p className="text-gray-400 text-sm text-center py-3">今日尚無預定行程，可直接在下方新增</p>
         ) : (
           <div className="space-y-1">
             {items.map(s => (
@@ -219,9 +246,23 @@ export default function TodaySchedule() {
           </div>
         )}
 
+        {/* 行內新增今日行程 */}
+        <div className="flex items-center gap-1.5 mt-3">
+          <input
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addToday() }}
+            placeholder="新增今日行程…（Enter 送出）"
+            className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button onClick={addToday} disabled={saving || !newTitle.trim()}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40 shrink-0">
+            新增
+          </button>
+        </div>
+
         {/* 空檔任務 */}
-        {gaps.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-gray-100">
+        <div className="mt-4 pt-3 border-t border-gray-100">
             <div className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
               <Clock size={14} className="text-gray-400" /> 空檔任務
             </div>
@@ -237,9 +278,24 @@ export default function TodaySchedule() {
                   )}
                 </label>
               ))}
+              {gaps.length === 0 && <p className="text-xs text-gray-400">目前沒有空檔任務</p>}
+            </div>
+
+            {/* 行內新增空檔任務 */}
+            <div className="flex items-center gap-1.5 mt-2.5">
+              <input
+                value={newGap}
+                onChange={e => setNewGap(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addGap() }}
+                placeholder="新增空檔任務…（Enter 送出）"
+                className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button onClick={addGap} disabled={saving || !newGap.trim()}
+                className="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40 shrink-0">
+                新增
+              </button>
             </div>
           </div>
-        )}
       </div>
     </div>
   )

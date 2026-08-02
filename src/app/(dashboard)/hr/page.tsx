@@ -8,6 +8,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { UserCog, Users, Activity, Clock, MapPin, Plus, Trash2 } from 'lucide-react'
+import RoomBoard from '@/components/dashboard/RoomBoard'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -84,6 +85,9 @@ export default function HrDashboard() {
         <h1 className="text-xl font-bold text-gray-900">人資戰情室</h1>
         <span className="text-sm text-gray-400">人員・活動量・角色</span>
       </div>
+
+      {/* 共用區塊：訊息／今日行程／目標進度／行事曆／快捷筆記（可拖曳排序） */}
+      <RoomBoard room="hr" />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">

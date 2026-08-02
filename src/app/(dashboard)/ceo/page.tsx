@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import TodayAttendance from '@/components/TodayAttendance'
 import AssignTaskCard from '@/components/AssignTaskCard'
+import RoomBoard from '@/components/dashboard/RoomBoard'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -295,6 +296,11 @@ export default function CeoDashboard() {
       {/* 指派任務給下屬（與各主管戰情室共用同一份 assigned_tasks） */}
       <div className="mb-5">
         <AssignTaskCard />
+      </div>
+
+      {/* 共用區塊：訊息／今日行程／目標進度／行事曆／快捷筆記（可拖曳排序） */}
+      <div className="mb-5">
+        <RoomBoard room="ceo" />
       </div>
 
       {/* ① 現金 */}

@@ -5,5 +5,5 @@ import TeamDashboard from '@/components/TeamDashboard'
 import { HardHat } from 'lucide-react'
 
 export default function ChiefEngineerDashboard() {
-  return <TeamDashboard pageTitle="總工程師戰情室" scope="subtree" icon={<HardHat size={22} className="text-orange-600" />} />
+  return <TeamDashboard pageTitle="總工程師戰情室" scope="subtree" room="chief-engineer" icon={<HardHat size={22} className="text-orange-600" />} />
 }

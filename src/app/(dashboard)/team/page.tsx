@@ -5,5 +5,5 @@ import TeamDashboard from '@/components/TeamDashboard'
 import { Users } from 'lucide-react'
 
 export default function TeamLeadDashboard() {
-  return <TeamDashboard pageTitle="業務主任戰情室" scope="direct" icon={<Users size={22} className="text-teal-600" />} />
+  return <TeamDashboard pageTitle="業務主任戰情室" scope="direct" room="team" icon={<Users size={22} className="text-teal-600" />} />
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, Plus, Check } from 'lucide-react'
 
 interface Sched {
   id: string
@@ -39,7 +39,7 @@ function ymd(d: Date): string {
 }
 function hm(t: string | null): string { return t ? t.slice(0, 5) : '' }
 
-export default function CalendarWidget() {
+export default function CalendarWidget({ room = 'sales' }: { room?: string }) {
   const supabase = createClient()
   const today = useMemo(() => new Date(), [])
   const todayStr = ymd(today)
@@ -48,6 +48,14 @@ export default function CalendarWidget() {
   const [selected, setSelected] = useState(todayStr)
   const [items, setItems] = useState<Sched[]>([])
   const [loading, setLoading] = useState(true)
+
+  // 行內新增
+  const [newTitle, setNewTitle] = useState('')
+  const [newStart, setNewStart] = useState('')
+  const [saving, setSaving] = useState(false)
+  // 行內編輯標題
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
 
   const monthStart = ymd(new Date(cursor.getFullYear(), cursor.getMonth(), 1))
   const monthEnd = ymd(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0))
@@ -58,12 +66,43 @@ export default function CalendarWidget() {
       .from('schedules')
       .select('id, schedule_date, plan_start, title, type, status, clients(company_name), vendors(company_name)')
       .eq('is_gap_task', false)
+      .eq('room', room)
       .gte('schedule_date', monthStart)
       .lte('schedule_date', monthEnd)
       .order('plan_start', { ascending: true })
     setItems((data ?? []) as Sched[])
     setLoading(false)
-  }, [monthStart, monthEnd])
+  }, [monthStart, monthEnd, room]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function addSchedule() {
+    const title = newTitle.trim()
+    if (!title) return
+    setSaving(true)
+    const { error } = await supabase.from('schedules').insert({
+      schedule_date: selected,
+      plan_start: newStart || null,
+      title,
+      type: '內部作業',
+      room,
+      is_gap_task: false,
+      is_adhoc: false,
+      remind_email: false,
+      remind_days_before: 0,
+    })
+    setSaving(false)
+    if (error) { alert('新增失敗：' + error.message); return }
+    setNewTitle(''); setNewStart('')
+    fetchMonth()
+  }
+
+  async function saveTitle(id: string) {
+    const t = editTitle.trim()
+    if (!t) { setEditingId(null); return }
+    const { error } = await supabase.from('schedules').update({ title: t }).eq('id', id)
+    setEditingId(null)
+    if (error) { alert('更新失敗：' + error.message); return }
+    fetchMonth()
+  }
 
   useEffect(() => { fetchMonth() }, [fetchMonth])
 
@@ -148,24 +187,61 @@ export default function CalendarWidget() {
           {selected.replace(/-/g, '/')} 的行程{loading ? '（載入中…）' : `（${selItems.length}）`}
         </div>
         {selItems.length === 0 ? (
-          <p className="text-xs text-gray-400 py-2">
-            當日無行程・<Link href="/schedule" className="text-blue-600 hover:underline">去規劃</Link>
-          </p>
+          <p className="text-xs text-gray-400 py-2">當日無行程，可直接在下方新增</p>
         ) : (
           <div className="space-y-1.5 max-h-44 overflow-y-auto">
             {selItems.map(s => (
               <div key={s.id} className="flex items-center gap-2 text-sm">
                 <span className="text-gray-400 w-10 shrink-0 text-xs">{hm(s.plan_start) || '—'}</span>
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${TYPE_DOT[s.type] ?? 'bg-gray-400'}`} />
-                <span className={`flex-1 min-w-0 truncate ${s.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                  {s.title}
-                  <span className="text-xs text-gray-400 ml-1">{s.clients?.company_name ?? s.vendors?.company_name ?? ''}</span>
-                </span>
+                {editingId === s.id ? (
+                  <input
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    onBlur={() => saveTitle(s.id)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveTitle(s.id); if (e.key === 'Escape') setEditingId(null) }}
+                    autoFocus
+                    className="flex-1 min-w-0 px-2 py-1 border border-blue-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setEditingId(s.id); setEditTitle(s.title) }}
+                    title="點一下可改標題"
+                    className={`flex-1 min-w-0 truncate text-left ${s.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-800 hover:text-blue-600'}`}
+                  >
+                    {s.title}
+                    <span className="text-xs text-gray-400 ml-1">{s.clients?.company_name ?? s.vendors?.company_name ?? ''}</span>
+                  </button>
+                )}
                 <span className={`text-[11px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${STATUS_PILL[s.status] ?? ''}`}>{s.status}</span>
               </div>
             ))}
           </div>
         )}
+
+        {/* 行內新增行程 */}
+        <div className="flex items-center gap-1.5 mt-2.5">
+          <input
+            type="time"
+            value={newStart}
+            onChange={e => setNewStart(e.target.value)}
+            className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addSchedule() }}
+            placeholder={`在 ${selected.slice(5).replace('-', '/')} 新增行程…`}
+            className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={addSchedule}
+            disabled={saving || !newTitle.trim()}
+            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40 shrink-0"
+          >
+            {saving ? <Check size={13} /> : <Plus size={13} />}
+          </button>
+        </div>
       </div>
     </div>
   )

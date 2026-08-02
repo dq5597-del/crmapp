@@ -5,9 +5,10 @@ import TrainWidget from '@/components/dashboard/TrainWidget'
 import TodaySchedule from '@/components/dashboard/TodaySchedule'
 import CalendarWidget from '@/components/dashboard/CalendarWidget'
 import QuickNotes from '@/components/dashboard/QuickNotes'
+import GoalsWidget from '@/components/dashboard/GoalsWidget'
 import MessagesWidget from '@/components/dashboard/MessagesWidget'
 import DraggableDashboard, { type DashboardBlock } from '@/components/dashboard/DraggableDashboard'
-import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle, CalendarClock, Timer, Target } from 'lucide-react'
+import { Users, AlertCircle, Clock, CheckCircle, TrendingUp, FileText, DollarSign, Percent, AlertTriangle, CalendarClock, Timer } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -215,6 +216,9 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   const data = await getDashboardData()
 
+  /** 業務戰情室的 room 代號（見 sql/room_scope.sql） */
+  const ROOM = 'sales'
+
   const blocks: DashboardBlock[] = []
 
   blocks.push({
@@ -226,54 +230,25 @@ export default async function DashboardPage() {
   blocks.push({
     id: 'today-schedule',
     title: '今日行程與重要日子',
-    node: <TodaySchedule />,
+    node: <TodaySchedule room={ROOM} />,
   })
 
-  if (data.goalsProgress.length > 0) {
-    blocks.push({
-      id: 'goals-progress',
-      title: '目標進度',
-      node: (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-2 mb-4">
-            <Target size={18} className="text-blue-600" />
-            <h2 className="font-semibold text-gray-900">目標進度</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-            {data.goalsProgress.map((g: any) => (
-              <div key={g.id}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium text-gray-900 truncate">{g.title}</span>
-                    {g.category && <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 shrink-0">{g.category}</span>}
-                  </div>
-                  <span className="text-sm font-semibold text-blue-700 shrink-0">{g.pct}%</span>
-                </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-blue-600" style={{ width: `${g.pct}%` }} />
-                </div>
-                <div className="flex items-center justify-between mt-1 text-[11px] text-gray-500">
-                  <span>{g.detail}</span>
-                  {g.daysLeft != null && <span className={g.daysLeft < 0 ? 'text-red-500' : ''}>{g.daysLeft < 0 ? `逾期 ${-g.daysLeft} 天` : `剩 ${g.daysLeft} 天`}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ),
-    })
-  }
+  blocks.push({
+    id: 'goals-progress',
+    title: '目標進度',
+    node: <GoalsWidget room={ROOM} />,
+  })
 
   blocks.push({
     id: 'calendar',
     title: '行事曆',
-    node: <CalendarWidget />,
+    node: <CalendarWidget room={ROOM} />,
   })
 
   blocks.push({
     id: 'quick-notes',
     title: '快速筆記',
-    node: <QuickNotes />,
+    node: <QuickNotes room={ROOM} />,
   })
 
   if (data.lowStock.length > 0) {

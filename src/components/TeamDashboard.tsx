@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { CalendarDays, Users, AlertTriangle, Wrench, Clock } from 'lucide-react'
 import AssignTaskCard from '@/components/AssignTaskCard'
+import RoomBoard from '@/components/dashboard/RoomBoard'
 
 const num = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$${Math.round(num(v)).toLocaleString()}`
@@ -37,10 +38,12 @@ function Card({ icon, title, children, tone = 'gray' }: { icon: React.ReactNode;
   )
 }
 
-export default function TeamDashboard({ pageTitle, scope, icon }: {
+export default function TeamDashboard({ pageTitle, scope, icon, room }: {
   pageTitle: string
   scope: TeamScope
   icon: React.ReactNode
+  /** 戰情室代號，用來隔離該室的行程／目標／筆記（見 sql/room_scope.sql） */
+  room: string
 }) {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
@@ -227,6 +230,9 @@ export default function TeamDashboard({ pageTitle, scope, icon }: {
 
       {/* 指派任務給下屬：所有主管戰情室共用；沒有下屬的人不會顯示 */}
       <AssignTaskCard />
+
+      {/* 各戰情室共用區塊：訊息／今日行程／目標進度／行事曆／快捷筆記（可拖曳排序） */}
+      <RoomBoard room={room} />
 
       <Card icon={<CalendarDays size={16} className="text-blue-500" />} title={`今日團隊行程（${mySchedules.length} 件）`}>
         {schedByUser.length === 0 ? <div className="text-sm text-gray-400 py-4 text-center">今天沒有行程</div> : (

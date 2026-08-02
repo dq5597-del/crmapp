@@ -5,5 +5,5 @@ import TeamDashboard from '@/components/TeamDashboard'
 import { Crown } from 'lucide-react'
 
 export default function ChairmanDashboard() {
-  return <TeamDashboard pageTitle="董事長戰情室" scope="all" icon={<Crown size={22} className="text-amber-500" />} />
+  return <TeamDashboard pageTitle="董事長戰情室" scope="all" room="chairman" icon={<Crown size={22} className="text-amber-500" />} />
 }
