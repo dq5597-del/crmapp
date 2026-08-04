@@ -165,7 +165,7 @@ async function runReminders() {
   const html = `
     <div style="font-family: sans-serif; max-width:640px;">
       <h2 style="margin:0 0 4px;">📅 每日行程提醒 — ${today.replace(/-/g, '/')}</h2>
-      <p style="color:#6b7280; font-size:13px; margin:0 0 8px;">光輝影音科技 CRM 自動發送（每日 08:00）</p>
+      <p style="color:#6b7280; font-size:13px; margin:0 0 8px;">光輝影音科技行政系統自動發送（每日 08:00）</p>
       ${section('今日預定行程', scheduleRows, '今日無預定行程')}
       ${futureRows ? section('未來行程提醒（你設定要提前通知的）', futureRows, '') : ''}
       ${occRows ? section('生日／重要日子', occRows, '') : ''}
@@ -186,7 +186,7 @@ async function runReminders() {
       'Authorization': `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: 'CRM系統 <onboarding@resend.dev>',
+      from: '光輝行政系統 <onboarding@resend.dev>',
       to: [BOSS_EMAIL],
       subject: `[每日提醒] ${today.replace(/-/g, '/')} 行程 ${todaySchedules.length} 筆${occs.length > 0 ? `・重要日子 ${occs.length} 筆` : ''}`,
       html,

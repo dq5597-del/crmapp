@@ -1,12 +1,12 @@
-// 光輝 CRM 推播 Service Worker
+// 光輝行政系統 推播 Service Worker
 
 // 最小 fetch 處理器：Chrome 認定為「可安裝 PWA」的必要條件（交給瀏覽器預設處理）
 self.addEventListener('fetch', function () {})
 
 self.addEventListener('push', function (event) {
   let data = {}
-  try { data = event.data ? event.data.json() : {} } catch (e) { data = { title: '光輝 CRM', body: event.data ? event.data.text() : '' } }
-  const title = data.title || '光輝 CRM'
+  try { data = event.data ? event.data.json() : {} } catch (e) { data = { title: '光輝行政系統', body: event.data ? event.data.text() : '' } }
+  const title = data.title || '光輝行政系統'
   const options = {
     body: data.body || '',
     icon: '/icons/icon-192.png',

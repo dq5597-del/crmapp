@@ -68,7 +68,7 @@ export default function LoginPage() {
             <span className="text-white text-2xl font-bold">光</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">光輝影音科技</h1>
-          <p className="text-gray-500 mt-1">CRM 管理系統</p>
+          <p className="text-gray-500 mt-1">行政管理系統</p>
         </div>
 
         {/* 登入 / 員工註冊 切換 */}

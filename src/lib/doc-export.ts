@@ -264,7 +264,7 @@ export async function buildDocx(d: DocData): Promise<Buffer> {
 /* ── Excel ────────────────────────────────────────── */
 export async function buildXlsx(d: DocData): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = `${d.companyName} CRM`
+  wb.creator = `${d.companyName} 行政系統`
   const ws = wb.addWorksheet(d.title, { pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true } })
   ws.columns = d.columns.map(c => ({ width: Math.max(8, c.width) }))
   const n = d.columns.length
@@ -351,7 +351,7 @@ export function buildEmailHtml(d: DocData): string {
       </table>
       ${d.notes.length > 0 ? `<h4 style="margin:16px 0 4px;">備註事項</h4><ol style="font-size:13px;color:#374151;margin:0;padding-left:20px;">${d.notes.map(x => `<li>${x}</li>`).join('')}</ol>` : ''}
       <hr style="margin:20px 0; border:none; border-top:1px solid #e5e7eb;" />
-      <p style="color:#6b7280; font-size:12px;">${d.companyName}　服務電話：${d.companyPhone}<br/>此單據由 CRM 系統寄出，如有疑問請直接回覆此信。</p>
+      <p style="color:#6b7280; font-size:12px;">${d.companyName}　服務電話：${d.companyPhone}<br/>此單據由行政系統寄出，如有疑問請直接回覆此信。</p>
     </div>
   `
 }

@@ -41,7 +41,7 @@ export default async function SharedNotePage({ params }: { params: { token: stri
         </div>
 
         <div className="text-center text-xs text-gray-400 pt-6">
-          <p>此頁面由光輝影音科技 CRM 系統分享</p>
+          <p>此頁面由光輝影音科技行政系統分享</p>
         </div>
       </div>
     </div>

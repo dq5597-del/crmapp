@@ -80,7 +80,7 @@ export default function WebOrderDetailPage() {
     if (!res.ok) { alert(json?.error ?? '儲存失敗'); return }
 
     if (json.pushError) {
-      alert(`發票資料已存入 CRM，但回寫官網失敗：${json.pushError}`)
+      alert(`發票資料已存入系統，但回寫官網失敗：${json.pushError}`)
     } else {
       alert('已儲存並同步至官網')
     }

@@ -72,7 +72,7 @@ export default async function RfqPublicPage({ params }: { params: { token: strin
         )}
 
         <div className="text-center text-xs text-gray-400 mt-8 pb-8">
-          光輝影音科技 · 本頁面由 CRM 系統自動產生
+          光輝影音科技 · 本頁面由行政系統自動產生
         </div>
       </div>
     </div>

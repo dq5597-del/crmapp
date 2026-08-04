@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             <Menu size={22} />
           </button>
-          <span className="font-semibold text-gray-900">光輝影音科技 CRM</span>
+          <span className="font-semibold text-gray-900">光輝影音科技 行政系統</span>
         </header>
 
         {/* Main content */}

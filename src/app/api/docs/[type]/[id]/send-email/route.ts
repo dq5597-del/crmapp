@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: { type: strin
   }
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) return NextResponse.json({ error: 'RESEND_API_KEY not set' }, { status: 500 })
-  const FROM_EMAIL = process.env.FROM_EMAIL ?? 'CRM系統 <onboarding@resend.dev>'
+  const FROM_EMAIL = process.env.FROM_EMAIL ?? '光輝行政系統 <onboarding@resend.dev>'
 
   const supabase = createServerSupabaseClient()
   const data = await fetchDocData(supabase, params.type as DocType, params.id)

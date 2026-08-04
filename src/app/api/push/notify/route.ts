@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   webpush.setVapidDetails('mailto:admin@av-shop.com', VAPID_PUBLIC, priv)
   const payload = JSON.stringify({
-    title: title || '光輝 CRM',
+    title: title || '光輝行政系統',
     body: body || '你有一則新訊息',
     url: url || '/messages',
     tag: 'thread-' + threadId,

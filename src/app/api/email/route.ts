@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     </table>
     ${pdf_url ? `<p style="margin-top:16px;"><a href="${pdf_url}" style="background:#2563eb;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;">查看報價單 PDF</a></p>` : ''}
     <hr style="margin:24px 0; border:none; border-top:1px solid #e5e7eb;" />
-    <p style="color:#9ca3af; font-size:12px;">光輝影音科技 CRM 系統自動發送 — 請確認後再轉寄給單位名稱</p>
+    <p style="color:#9ca3af; font-size:12px;">光輝影音科技行政系統自動發送 — 請確認後再轉寄給單位名稱</p>
   `
 
   const res = await fetch('https://api.resend.com/emails', {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       'Authorization': `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: 'CRM系統 <onboarding@resend.dev>',
+      from: '光輝行政系統 <onboarding@resend.dev>',
       to: [BOSS_EMAIL],
       subject,
       html,

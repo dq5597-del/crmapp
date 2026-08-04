@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: '光輝影音科技 CRM',
-  description: '光輝影音科技業務管理系統',
+  title: '光輝影音科技 行政系統',
+  description: '光輝影音科技行政管理系統',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '光輝CRM',
+    title: '光輝行政系統',
   },
   icons: {
     apple: '/icons/icon-192.png',

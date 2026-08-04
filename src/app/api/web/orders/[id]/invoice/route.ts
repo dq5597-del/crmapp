@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       pushError = e?.message ?? '回寫官網失敗'
     }
   } else {
-    pushError = 'WooCommerce 尚未設定，發票資料只存在 CRM'
+    pushError = 'WooCommerce 尚未設定，發票資料只存在本系統'
   }
 
   return NextResponse.json({ ok: true, pushed, pushError })

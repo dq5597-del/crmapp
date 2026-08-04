@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) return NextResponse.json({ error: 'RESEND_API_KEY not set' }, { status: 500 })
-  const FROM_EMAIL = process.env.FROM_EMAIL ?? 'CRM系統 <onboarding@resend.dev>'
+  const FROM_EMAIL = process.env.FROM_EMAIL ?? '光輝行政系統 <onboarding@resend.dev>'
 
   const supabase = createServerSupabaseClient()
   const [{ data: quote }, { data: items }, { data: settings }] = await Promise.all([
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       <hr style="margin:20px 0; border:none; border-top:1px solid #e5e7eb;" />
       <p style="color:#6b7280; font-size:12px;">
         ${settings?.company_name ?? '光輝影音科技'}　服務電話：${settings?.company_phone ?? '03-8321087'}<br/>
-        此報價單由 CRM 系統寄出，如有疑問請直接回覆此信。
+        此報價單由行政系統寄出，如有疑問請直接回覆此信。
       </p>
     </div>
   `

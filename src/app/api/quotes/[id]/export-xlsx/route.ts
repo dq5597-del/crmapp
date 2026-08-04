@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     : ''
 
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = '光輝影音科技 CRM'
+  workbook.creator = '光輝影音科技 行政系統'
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet('報價單', {

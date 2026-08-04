@@ -217,7 +217,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="flex items-center justify-between px-5 h-16 border-b border-gray-700 shrink-0">
           <div className="flex items-center gap-3">
             <img src="/icons/icon-192.png" alt="GH" className="w-8 h-8 rounded-lg shrink-0 object-cover" />
-            <span className="font-semibold text-sm leading-tight">光輝影音科技<br/>CRM系統</span>
+            <span className="font-semibold text-sm leading-tight">光輝影音科技<br/>行政系統</span>
           </div>
           <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-white">
             <X size={18} />

@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 /** GET /api/products/import/template → 下載匯入範本 .xlsx */
 export async function GET() {
   const wb = new ExcelJS.Workbook()
-  wb.creator = '光輝影音 CRM'
+  wb.creator = '光輝影音 行政系統'
   const ws = wb.addWorksheet('產品匯入')
 
   // 第 1 列：表頭
