@@ -16,7 +16,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'finance',          label: '會計戰情室',       group: '戰情室', href: '/finance' },
   { key: 'finance-team',     label: '會計主管戰情室',   group: '戰情室', href: '/finance-team' },
   { key: 'acct-staff',       label: '會計人員戰情室',   group: '戰情室', href: '/acct-staff' },
-  { key: 'tech-team',        label: '技術主管戰情室',   group: '戰情室', href: '/tech-team' },
+  { key: 'tech-team',        label: '工程師戰情室',     group: '戰情室', href: '/tech-team' },
   { key: 'chief-engineer',   label: '總工程師戰情室',   group: '戰情室', href: '/chief-engineer' },
   { key: 'senior-engineer',  label: '資深工程師戰情室', group: '戰情室', href: '/senior-engineer' },
   { key: 'hr-dashboard',     label: '人資戰情室',       group: '戰情室', href: '/hr' },

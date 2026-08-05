@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { Plus, Search, Receipt, Printer, RefreshCw } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
-import { PAYMENT_METHODS, ensurePayableForPurchase } from '@/lib/auto-ledger'
+import { PAYMENT_METHODS, ensurePayableForPurchase, PURCHASE_AP_STATUSES } from '@/lib/auto-ledger'
 
 const STATUS_COLORS: Record<string, string> = {
   '未付':     'bg-red-100 text-red-700',
@@ -94,16 +94,26 @@ export default function PayablesPage() {
   async function handleSyncFromPurchase() {
     setSyncing(true)
     try {
-      const { data: orders } = await supabase
+      const { data: orders, error } = await supabase
         .from('purchases')
-        .select('id, status')
-        .in('status', ['已確認', '已到貨'])
+        .select('id, purchase_no, status')
+        .in('status', PURCHASE_AP_STATUSES)
+      if (error) { alert('讀取進貨單失敗：' + error.message); return }
+
       let created = 0
+      const problems: string[] = []
       for (const o of orders ?? []) {
         const result = await ensurePayableForPurchase(supabase, o.id, o.status)
-        if (result === 'created') created++
+        if (result.status === 'created') created++
+        else if (result.status === 'error') problems.push(`${o.purchase_no}：${result.message}`)
+        else if (result.status === 'skipped' && result.reason?.includes('金額為 0')) problems.push(`${o.purchase_no}：金額為 0，請先補品項進價`)
       }
-      alert(created > 0 ? `已從進貨單補建 ${created} 筆應付帳款` : '沒有需要補建的進貨單（限已確認／已到貨）')
+
+      const lines = [
+        created > 0 ? `已從進貨單補建 ${created} 筆應付帳款` : '沒有需要補建的進貨單（限狀態「已到貨」）',
+        ...problems.map(p => `⚠️ ${p}`),
+      ]
+      alert(lines.join('\n'))
       fetchPayables()
     } finally {
       setSyncing(false)

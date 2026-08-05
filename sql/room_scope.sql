@@ -31,7 +31,7 @@ create index if not exists idx_goals_room     on public.goals(room);
 --   finance          會計戰情室    /finance
 --   finance-team     會計主管戰情室 /finance-team
 --   acct-staff       會計人員戰情室 /acct-staff
---   tech-team        技術主管戰情室 /tech-team
+--   tech-team        工程師戰情室   /tech-team
 --   chief-engineer   總工程師戰情室 /chief-engineer
 --   senior-engineer  資深工程師戰情室 /senior-engineer
 --   hr               人資戰情室    /hr

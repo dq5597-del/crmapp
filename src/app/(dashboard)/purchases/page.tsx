@@ -7,7 +7,10 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import { Search, PackagePlus, Plus, X, Trash2 } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import ProductPickerModal from '@/components/ProductPickerModal'
-import { ensurePayableForPurchase, ensureStockInForPurchase } from '@/lib/auto-ledger'
+import {
+  ensurePayableForPurchase, ensureStockInForPurchase, voidPayableForPurchase,
+  syncPayableForPurchase, reconcileStockForPurchase,
+} from '@/lib/auto-ledger'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 
@@ -41,6 +44,11 @@ export default function PurchasesPage() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // 編輯中的進貨單（null = 新增模式）
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingNo, setEditingNo] = useState('')
+  const [loadingEdit, setLoadingEdit] = useState(false)
+  const [apLocked, setApLocked] = useState<string | null>(null)
 
   // form
   const [vendorId, setVendorId] = useState('')
@@ -86,10 +94,46 @@ export default function PurchasesPage() {
   )
 
   function resetForm() {
+    setEditingId(null); setEditingNo(''); setApLocked(null)
     setVendorId(''); setVendorSearch(''); setShowVendorDD(false)
     setPurchaseDate(new Date().toISOString().slice(0, 10))
     setPaymentTerms(termDefaults.payment_terms)
     setStatus('已確認'); setNotes(termDefaults.notes); setItems([emptyItem()])
+  }
+
+  // 點單號 → 開啟同一張表單做編輯
+  async function openEdit(r: any) {
+    setLoadingEdit(true)
+    setEditingId(r.id); setEditingNo(r.purchase_no)
+    setVendorId(r.vendor_id ?? ''); setVendorSearch(''); setShowVendorDD(false)
+    setPurchaseDate(r.purchase_date ?? new Date().toISOString().slice(0, 10))
+    setPaymentTerms(r.payment_terms ?? '')
+    setStatus(r.status ?? '已確認')
+    setNotes(r.notes ?? '')
+    setItems([])
+    setShowForm(true)
+
+    const [{ data: itemRows }, { data: aps }] = await Promise.all([
+      supabase.from('purchase_items').select('*').eq('purchase_id', r.id).order('seq_no'),
+      supabase.from('payables').select('payable_no, paid_amount, status').eq('purchase_id', r.id),
+    ])
+    setItems(
+      (itemRows ?? []).length > 0
+        ? (itemRows ?? []).map(i => ({
+            product_id: i.product_id ?? null,
+            brand: i.brand ?? '',
+            product_name: i.product_name ?? '',
+            model: i.model ?? '',
+            unit: i.unit ?? '台',
+            quantity: Number(i.quantity) || 0,
+            unit_price: Number(i.unit_price) || 0,
+            item_notes: i.item_notes ?? '',
+          }))
+        : [emptyItem()]
+    )
+    const paid = (aps ?? []).find(p => p.status !== '作廢' && Number(p.paid_amount) > 0)
+    setApLocked(paid ? paid.payable_no : null)
+    setLoadingEdit(false)
   }
 
   const selectedVendorName = vendors.find(v => v.id === vendorId)?.company_name ?? ''
@@ -141,6 +185,81 @@ export default function PurchasesPage() {
     return `${prefix}${String(seq).padStart(3, '0')}`
   }
 
+  function itemRowsFor(purchaseId: string, validItems: Item[]) {
+    return validItems.map((i, idx) => ({
+      purchase_id: purchaseId, seq_no: idx + 1,
+      product_id: i.product_id, brand: i.brand || null,
+      product_name: i.product_name, model: i.model || null,
+      unit: i.unit, quantity: i.quantity, unit_price: i.unit_price,
+      item_notes: i.item_notes || null,
+    }))
+  }
+
+  // 編輯既有進貨單
+  async function handleUpdate() {
+    if (!editingId) return
+    if (!vendorId) return alert('請選擇廠商')
+    const validItems = items.filter(i => i.product_name.trim())
+    if (validItems.length === 0) return alert('請至少填一筆品項')
+
+    const newTotal = validItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)
+    if (apLocked) {
+      const ok = confirm(`應付 ${apLocked} 已有付款紀錄，金額不會自動同步。\n仍要儲存進貨單的修改嗎？（應付金額請自行至應付帳款調整）`)
+      if (!ok) return
+    }
+
+    setSaving(true)
+    try {
+      const { error: upErr } = await supabase.from('purchases').update({
+        vendor_id: vendorId,
+        vendor_name: selectedVendorName,
+        purchase_date: purchaseDate || null,
+        payment_terms: paymentTerms || null,
+        subtotal: newTotal, tax_amount: 0, total_amount: newTotal,
+        notes: notes || null,
+        status,
+      }).eq('id', editingId)
+      if (upErr) throw upErr
+
+      // 品項：先寫入新的，成功後才刪舊的（避免中途失敗造成資料遺失）
+      const { data: oldItems } = await supabase
+        .from('purchase_items').select('id').eq('purchase_id', editingId)
+      const { error: insErr } = await supabase.from('purchase_items').insert(itemRowsFor(editingId, validItems))
+      if (insErr) throw insErr
+      if (oldItems && oldItems.length > 0) {
+        await supabase.from('purchase_items').delete().in('id', oldItems.map(o => o.id))
+      }
+
+      // 帳務與庫存連動
+      const msgs: string[] = []
+      const apCreate = await ensurePayableForPurchase(supabase, editingId, status)
+      if (apCreate.status === 'created') msgs.push(apCreate.message)
+      if (apCreate.status === 'error') msgs.push(`⚠️ ${apCreate.message}`)
+
+      const apSync = await syncPayableForPurchase(supabase, editingId)
+      if (apSync.status === 'created') msgs.push(apSync.message)
+      if (apSync.status === 'error') msgs.push(`⚠️ ${apSync.message}`)
+      if (apSync.status === 'skipped' && apSync.reason) msgs.push(`⚠️ ${apSync.reason}`)
+
+      const voidRes = await voidPayableForPurchase(supabase, editingId, status)
+      if (voidRes.status === 'created') msgs.push(voidRes.message)
+
+      const stockIn = await ensureStockInForPurchase(supabase, editingId, status)
+      if (stockIn === 'created') msgs.push('已自動入庫')
+      const stockFix = await reconcileStockForPurchase(supabase, editingId)
+      if (stockFix.status === 'created') msgs.push(stockFix.message)
+      if (stockFix.status === 'error') msgs.push(`⚠️ ${stockFix.message}`)
+
+      alert(msgs.length > 0 ? `進貨單已更新。\n${msgs.join('\n')}` : '進貨單已更新。')
+      await fetchRows()
+      setShowForm(false)
+      resetForm()
+    } catch (e: any) {
+      alert('更新失敗: ' + e.message)
+    }
+    setSaving(false)
+  }
+
   async function handleCreate() {
     if (!vendorId) return alert('請選擇廠商')
     const validItems = items.filter(i => i.product_name.trim())
@@ -162,22 +281,16 @@ export default function PurchasesPage() {
       }).select().single()
       if (error) throw error
 
-      await supabase.from('purchase_items').insert(
-        validItems.map((i, idx) => ({
-          purchase_id: order.id, seq_no: idx + 1,
-          product_id: i.product_id, brand: i.brand || null,
-          product_name: i.product_name, model: i.model || null,
-          unit: i.unit, quantity: i.quantity, unit_price: i.unit_price,
-          item_notes: i.item_notes || null,
-        }))
-      )
+      await supabase.from('purchase_items').insert(itemRowsFor(order.id, validItems))
 
       const apResult = await ensurePayableForPurchase(supabase, order.id, status)
       const stockResult = await ensureStockInForPurchase(supabase, order.id, status)
       const msgs: string[] = []
-      if (apResult === 'created') msgs.push('已自動產生應付帳款')
+      if (apResult.status === 'created') msgs.push(apResult.message)
+      if (apResult.status === 'error') msgs.push(`⚠️ ${apResult.message}`)
+      if (apResult.status === 'skipped' && apResult.reason?.includes('金額為 0')) msgs.push(`⚠️ ${apResult.reason}`)
       if (stockResult === 'created') msgs.push('已自動入庫')
-      alert(msgs.length > 0 ? `進貨單已建立，${msgs.join('、')}。` : '進貨單已建立。')
+      alert(msgs.length > 0 ? `進貨單已建立。\n${msgs.join('\n')}` : '進貨單已建立。')
 
       await fetchRows()
       setShowForm(false)
@@ -194,11 +307,16 @@ export default function PurchasesPage() {
     const { error } = await supabase.from('purchases').update({ status: next }).eq('id', r.id)
     if (error) { alert('狀態更新失敗：' + error.message); setBusyId(null); return }
     const apResult = await ensurePayableForPurchase(supabase, r.id, next)
+    const voidResult = await voidPayableForPurchase(supabase, r.id, next)
     const stockResult = await ensureStockInForPurchase(supabase, r.id, next)
     const msgs: string[] = []
-    if (apResult === 'created') msgs.push('已自動產生應付帳款')
+    if (apResult.status === 'created') msgs.push(apResult.message)
+    if (apResult.status === 'error') msgs.push(`⚠️ ${apResult.message}`)
+    if (apResult.status === 'skipped' && apResult.reason?.includes('金額為 0')) msgs.push(`⚠️ ${apResult.reason}`)
+    if (voidResult.status === 'created') msgs.push(voidResult.message)
+    if (voidResult.status === 'error') msgs.push(`⚠️ ${voidResult.message}`)
     if (stockResult === 'created') msgs.push('已自動入庫')
-    if (msgs.length > 0) alert(msgs.join('、') + '。')
+    if (msgs.length > 0) alert(msgs.join('\n'))
     await fetchRows()
     setBusyId(null)
   }
@@ -213,7 +331,7 @@ export default function PurchasesPage() {
           <PackagePlus size={20} className="text-teal-600" />
           <div>
             <h1 className="text-xl font-bold text-gray-900">進貨單</h1>
-            <p className="text-sm text-gray-500 mt-0.5">向廠商進貨：已確認自動產生應付、已到貨自動入庫</p>
+            <p className="text-sm text-gray-500 mt-0.5">向廠商進貨：狀態改「已到貨」自動產生應付帳款並入庫</p>
           </div>
         </div>
         <button onClick={() => { resetForm(); setShowForm(true) }}
@@ -248,7 +366,12 @@ export default function PurchasesPage() {
                 <tr><td colSpan={6} className="text-center py-12 text-gray-400">沒有進貨單</td></tr>
               ) : filtered.map(r => (
                 <tr key={r.id} className="border-b border-gray-50 hover:bg-teal-50/40">
-                  <td className="px-4 py-3 font-semibold text-teal-700">{r.purchase_no}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => openEdit(r)} title="點擊編輯進貨單"
+                      className="font-semibold text-teal-700 hover:text-teal-900 hover:underline">
+                      {r.purchase_no}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-gray-700">{r.vendors?.company_name ?? r.vendor_name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{r.purchase_date ? formatDate(r.purchase_date) : formatDate(r.created_at)}</td>
                   <td className="px-4 py-3 text-right font-semibold">{formatCurrency(r.total_amount)}</td>
@@ -278,11 +401,19 @@ export default function PurchasesPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl my-4">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">新增進貨單</h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
+              <h2 className="text-lg font-bold text-gray-900">
+                {editingId ? `編輯進貨單 ${editingNo}` : '新增進貨單'}
+                {loadingEdit && <span className="ml-2 text-xs font-normal text-gray-400">載入中…</span>}
+              </h2>
+              <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
             </div>
 
             <div className="p-5 space-y-5">
+              {apLocked && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-800">
+                  應付 <span className="font-semibold">{apLocked}</span> 已有付款紀錄：修改金額<span className="font-semibold">不會</span>自動同步應付，請自行至應付帳款調整。
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="relative">
                   <label className="text-xs text-gray-500 mb-1 block">廠商 *</label>
@@ -415,15 +546,15 @@ export default function PurchasesPage() {
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className={inputClass + ' resize-none'} />
               </div>
               <p className="text-[11px] text-gray-400">
-                提示：只有「從產品庫選取」的品項會自動入庫與計成本；狀態「已確認」自動產生應付、「已到貨」自動入庫。
+                提示：只有「從產品庫選取」的品項會自動入庫與計成本；狀態改為「已到貨」時自動產生應付帳款並入庫，到期日依付款條件計算。
               </p>
             </div>
 
             <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">取消</button>
-              <button onClick={handleCreate} disabled={saving}
+              <button onClick={() => { setShowForm(false); resetForm() }} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">取消</button>
+              <button onClick={editingId ? handleUpdate : handleCreate} disabled={saving || loadingEdit}
                 className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-medium disabled:opacity-60">
-                {saving ? '儲存中...' : '建立進貨單'}
+                {saving ? '儲存中...' : editingId ? '儲存修改' : '建立進貨單'}
               </button>
             </div>
           </div>

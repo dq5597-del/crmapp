@@ -298,7 +298,8 @@ export default function HrDashboard() {
                       onChange={async e => {
                         const manager_id = e.target.value || null
                         if (manager_id === r.id) { alert('不能指定自己為上級'); return }
-                        const { error } = await supabase.from('user_profiles').update({ manager_id }).eq('id', r.id)
+                        // 走 RPC：由資料庫檢查權限與組織樹迴圈，並寫入 org_change_log
+                        const { error } = await supabase.rpc('hr_set_manager', { p_person: r.id, p_manager: manager_id })
                         if (error) { alert('更新失敗：' + error.message); return }
                         setPeople(prev => prev.map(p => p.id === r.id ? { ...p, manager_id } : p))
                       }}

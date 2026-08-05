@@ -9,30 +9,37 @@ import {
 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 
-const STATUS_OPTIONS = ['規劃中', '進行中', '施工中', '完工', '暫停', '取消'] as const
+// 四段流程：草稿/報價中 → 施工中 → 完工驗收 → 結案（取消可從任一階段進入）
+const STATUS_OPTIONS = ['草稿/報價中', '施工中', '完工驗收', '結案', '取消'] as const
 const STATUS_COLORS: Record<string, string> = {
-  '規劃中': 'bg-purple-100 text-purple-700',
-  '進行中': 'bg-blue-100 text-blue-700',
-  '施工中': 'bg-orange-100 text-orange-700',
-  '完工':   'bg-green-100 text-green-700',
-  '暫停':   'bg-yellow-100 text-yellow-700',
-  '取消':   'bg-gray-100 text-gray-600',
+  '草稿/報價中': 'bg-purple-100 text-purple-700',
+  '施工中':      'bg-orange-100 text-orange-700',
+  '完工驗收':    'bg-blue-100 text-blue-700',
+  '結案':        'bg-green-100 text-green-700',
+  '取消':        'bg-gray-100 text-gray-600',
 }
 const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 type ProjForm = {
   client_id: string; project_name: string; scene_name: string; user_type: string
   status: string; start_date: string; end_date: string; budget: string
+  contract_amount: string; budget_material: string; budget_labor: string; budget_outsource: string
+  is_paused: boolean
   description: string; notes: string
   main_function: string; equipment_needs: string; audio_needs: string; video_needs: string
   interaction_needs: string; control_needs: string; other_needs: string; venue_specs: string
 }
 const EMPTY: ProjForm = {
   client_id: '', project_name: '', scene_name: '', user_type: '',
-  status: '規劃中', start_date: '', end_date: '', budget: '', description: '', notes: '',
+  status: '草稿/報價中', start_date: '', end_date: '', budget: '',
+  contract_amount: '', budget_material: '', budget_labor: '', budget_outsource: '',
+  is_paused: false,
+  description: '', notes: '',
   main_function: '', equipment_needs: '', audio_needs: '', video_needs: '',
   interaction_needs: '', control_needs: '', other_needs: '', venue_specs: '',
 }
+
+const num = (v: string) => (v === '' || v == null ? null : Number(v))
 
 export default function ProjectsFolderPage() {
   const supabase = createClient()
@@ -137,7 +144,8 @@ export default function ProjectsFolderPage() {
       if (!kw) return true
       const name = (p.project_name ?? '').toLowerCase()
       const client = (p.clients?.company_name ?? '').toLowerCase()
-      return name.includes(kw) || client.includes(kw)
+      const code = (p.project_code ?? '').toLowerCase()
+      return name.includes(kw) || client.includes(kw) || code.includes(kw)
     })
   }, [projects, statusFilter, search])
 
@@ -146,6 +154,13 @@ export default function ProjectsFolderPage() {
     if (!kw) return clients.slice(0, 30)
     return clients.filter(c => (c.company_name ?? '').toLowerCase().includes(kw)).slice(0, 30)
   }, [clients, clientSearch])
+
+  // 分項預算合計與預估毛利（即時顯示，協助開案時就控住成本）
+  const contractNum = Number(form.contract_amount) || 0
+  const budgetTotal =
+    (Number(form.budget_material) || 0) +
+    (Number(form.budget_labor) || 0) +
+    (Number(form.budget_outsource) || 0)
 
   function openNew() {
     setEditingId(null); setForm(EMPTY); setClientSearch(''); setModalOpen(true)
@@ -165,6 +180,11 @@ export default function ProjectsFolderPage() {
       start_date: form.start_date || null,
       end_date: form.end_date || null,
       budget: form.budget ? Number(form.budget) : null,
+      contract_amount: num(form.contract_amount),
+      budget_material: num(form.budget_material),
+      budget_labor: num(form.budget_labor),
+      budget_outsource: num(form.budget_outsource),
+      is_paused: form.is_paused,
       description: form.description || null,
       notes: form.notes || null,
       main_function: form.main_function || null,
@@ -246,25 +266,29 @@ export default function ProjectsFolderPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b bg-gray-50">
+                  <th className="py-2.5 px-4">專案代碼</th>
                   <th className="py-2.5 px-4">案名</th>
                   <th className="px-4">單位名稱</th>
                   <th className="px-4">狀態</th>
                   <th className="px-4">施工團隊</th>
                   <th className="px-4">施工／完工</th>
-                  <th className="px-4 text-right">預算</th>
+                  <th className="px-4 text-right">合約金額</th>
+                  <th className="px-4 text-right">預算合計</th>
                   <th className="px-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(p => (
                   <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50/60">
+                    <td className="py-2.5 px-4 whitespace-nowrap font-mono text-xs text-gray-500">{p.project_code ?? '—'}</td>
                     <td className="py-2.5 px-4 font-medium text-gray-900">
                       {p.project_name}
                       {p.scene_name && <span className="text-gray-400 font-normal"> · {p.scene_name}</span>}
                     </td>
                     <td className="px-4 text-gray-600">{p.clients?.company_name ?? '—'}</td>
-                    <td className="px-4">
+                    <td className="px-4 whitespace-nowrap">
                       <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-600'}`}>{p.status}</span>
+                      {p.is_paused && <span className="ml-1 text-xs px-2 py-0.5 rounded-lg font-medium bg-yellow-100 text-yellow-700">暫停</span>}
                     </td>
                     <td className="px-4 text-gray-600 whitespace-nowrap">
                       {(() => {
@@ -282,7 +306,19 @@ export default function ProjectsFolderPage() {
                     <td className="px-4 text-gray-600 whitespace-nowrap">
                       {p.start_date ? formatDate(p.start_date) : '—'}{p.end_date ? ` ~ ${formatDate(p.end_date)}` : ''}
                     </td>
-                    <td className="px-4 text-right text-gray-700">{p.budget != null ? `NT$${Number(p.budget).toLocaleString()}` : '—'}</td>
+                    <td className="px-4 text-right text-gray-700 whitespace-nowrap">
+                      {p.contract_amount != null ? `NT$${Number(p.contract_amount).toLocaleString()}` : '—'}
+                    </td>
+                    {(() => {
+                      const bt = (Number(p.budget_material) || 0) + (Number(p.budget_labor) || 0) + (Number(p.budget_outsource) || 0)
+                      const over = p.contract_amount != null && bt > Number(p.contract_amount)
+                      return (
+                        <td className={`px-4 text-right whitespace-nowrap ${over ? 'text-red-600 font-medium' : 'text-gray-700'}`}
+                          title={over ? '分項預算合計已超過合約金額' : undefined}>
+                          {bt > 0 ? `NT$${bt.toLocaleString()}` : '—'}
+                        </td>
+                      )
+                    })()}
                     <td className="px-4">
                       <div className="flex items-center justify-end gap-1">
                         {isAdmin && (
@@ -411,13 +447,46 @@ export default function ProjectsFolderPage() {
                     {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
-                <div><label className="block text-xs text-gray-500 mb-1">預算</label><input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} className={inp} /></div>
-                <div />
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">預估合約金額（含稅）</label>
+                  <input type="number" min={0} value={form.contract_amount}
+                    onChange={e => setForm(f => ({ ...f, contract_amount: e.target.value }))} className={inp} />
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={form.is_paused}
+                      onChange={e => setForm(f => ({ ...f, is_paused: e.target.checked }))}
+                      className="w-4 h-4 rounded border-gray-300" />
+                    暫停中
+                  </label>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block text-xs text-gray-500 mb-1">施工日期</label><input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className={inp} /></div>
                 <div><label className="block text-xs text-gray-500 mb-1">完工日期</label><input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} className={inp} /></div>
               </div>
+
+              {/* 分項預算：專案損益分析的比較基準 */}
+              <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-600">分項預算</span>
+                  <span className="text-xs text-gray-500">
+                    合計 NT${budgetTotal.toLocaleString()}
+                    {contractNum > 0 && (
+                      <span className={budgetTotal > contractNum ? 'text-red-600 ml-2 font-medium' : 'text-green-700 ml-2'}>
+                        預估毛利 NT${(contractNum - budgetTotal).toLocaleString()}
+                        （{Math.round(((contractNum - budgetTotal) / contractNum) * 100)}%）
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div><label className="block text-xs text-gray-500 mb-1">材料預算</label><input type="number" min={0} value={form.budget_material} onChange={e => setForm(f => ({ ...f, budget_material: e.target.value }))} className={inp} /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">人工預算</label><input type="number" min={0} value={form.budget_labor} onChange={e => setForm(f => ({ ...f, budget_labor: e.target.value }))} className={inp} /></div>
+                  <div><label className="block text-xs text-gray-500 mb-1">外包預算</label><input type="number" min={0} value={form.budget_outsource} onChange={e => setForm(f => ({ ...f, budget_outsource: e.target.value }))} className={inp} /></div>
+                </div>
+              </div>
+
               <div><label className="block text-xs text-gray-500 mb-1">專案描述</label><textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className={inp} /></div>
 
               <div className="pt-1 border-t border-gray-100" />

@@ -7,7 +7,9 @@
  *   gm      總經理：所有經理＋主任＋員工（＋自己）
  *   subtree 經理：自己底下的主任與其群組人員（組織樹子樹）
  *   direct  主任：自己群組（直屬人員）
- * 組織樹 = user_profiles.manager_id（上級主管），於人資戰情室設定
+ * 組織樹 = user_profiles.manager_id（上級主管）
+ *   ・人資戰情室：可任意調整任何人的上級（管理員限定）
+ *   ・各主管戰情室「我的團隊成員」卡片：主管可自行加入「目前無上級」的人員
  */
 
 import { useState, useEffect, useMemo } from 'react'
@@ -15,6 +17,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { CalendarDays, Users, AlertTriangle, Wrench, Clock } from 'lucide-react'
 import AssignTaskCard from '@/components/AssignTaskCard'
+import MyTeamCard from '@/components/MyTeamCard'
 import RoomBoard from '@/components/dashboard/RoomBoard'
 
 const num = (v: any) => Number(v ?? 0) || 0
@@ -227,6 +230,9 @@ export default function TeamDashboard({ pageTitle, scope, icon, room }: {
           </div>
         )}
       </Card>
+
+      {/* 我的團隊成員：主管自行綁定下屬（基層個人戰情室不顯示） */}
+      {scope !== 'self' && <MyTeamCard />}
 
       {/* 指派任務給下屬：所有主管戰情室共用；沒有下屬的人不會顯示 */}
       <AssignTaskCard />

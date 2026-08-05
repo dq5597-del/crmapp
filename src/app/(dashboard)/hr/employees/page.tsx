@@ -355,6 +355,8 @@ export default function HrEmployeesPage() {
                   <b>上級主管</b>與<b>通訊處</b>屬於組織樹，請至{' '}
                   <Link href="/hr" className="text-blue-600 hover:underline">人資戰情室</Link>{' '}
                   設定 —— 戰情室可見範圍與「指派任務給下屬」都是依這棵樹計算。
+                  <br />
+                  主管也可在自己的戰情室用「我的團隊成員」自行加入<b>目前無上級</b>的人員；跨主管調動仍須由人資在這裡處理。
                 </div>
               </section>
 

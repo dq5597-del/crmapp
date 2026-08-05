@@ -15,6 +15,15 @@ import { usePermissions, FEATURES } from '@/lib/permissions'
 import ViewModeSwitch from '@/components/ViewModeSwitch'
 import PunchClock from '@/components/PunchClock'
 
+// ============================================================
+// 側邊欄結構
+//   1. 戰情室（維持原樣，置頂）
+//   2. 業務日常（維持原樣）
+//   3~9. 七大分類：專案/施工 → 銷售 → 進貨與採購 → 庫存 → 財務與會計
+//                 → 人資管理 → 報表與決策分析 → 設置與系統管理
+//   ※ 只改選單分組，所有頁面路由與資料完全不動
+// ============================================================
+
 const navItemsTop = [
   { href: '/chairman', label: '董事長戰情室', icon: Award },
   { href: '/ceo', label: 'CEO 戰情室', icon: Crown },
@@ -23,7 +32,7 @@ const navItemsTop = [
   { href: '/team', label: '業務主任戰情室', icon: Users },
   { href: '/finance-team', label: '會計主管戰情室', icon: Calculator },
   { href: '/acct-staff', label: '會計人員戰情室', icon: Calculator },
-  { href: '/tech-team', label: '技術主管戰情室', icon: Wrench },
+  { href: '/tech-team', label: '工程師戰情室', icon: Wrench },
   { href: '/chief-engineer', label: '總工程師戰情室', icon: HardHat },
   { href: '/senior-engineer', label: '資深工程師戰情室', icon: HardHat },
   { href: '/approvals', label: '簽呈中心', icon: ClipboardList },
@@ -31,45 +40,62 @@ const navItemsTop = [
   { href: '/hr', label: '人資戰情室', icon: UserCog },
   { href: '/', label: '業務戰情室', icon: LayoutDashboard },
   { href: '/workspace', label: '多工工作區', icon: Columns2 },
-  { href: '/projects', label: '專案資料夾', icon: FolderKanban },
 ] // top nav
 
+// 業務日常（訊息／任務／行程／筆記）
 const businessItems = [
-  { href: '/messages',         label: '訊息',     icon: MessageSquare },
-  { href: '/todos',            label: '任務清單', icon: ListTodo },
-  { href: '/tasks',            label: '交辦任務', icon: ClipboardList },
-  { href: '/schedule',         label: '每日行程', icon: CalendarDays },
-  { href: '/service-requests', label: '叫修管理', icon: Wrench },
-  { href: '/notes',            label: '業務筆記', icon: StickyNote },
+  { href: '/messages', label: '訊息',     icon: MessageSquare },
+  { href: '/todos',    label: '任務清單', icon: ListTodo },
+  { href: '/tasks',    label: '交辦任務', icon: ClipboardList },
+  { href: '/schedule', label: '每日行程', icon: CalendarDays },
+  { href: '/notes',    label: '業務筆記', icon: StickyNote },
 ]
 
-const companyItems: { href: string; label: string; icon: any }[] = []
+// ── 七大分類 ──────────────────────────────────────────────
 
-const psiItems = [
-  { href: '/quotes',          label: '報價單',   icon: FileText },
-  { href: '/sales-orders',    label: '銷貨單',   icon: ShoppingCart },
-  { href: '/web-orders',      label: '網路訂單', icon: ShoppingBag },
+/** 1. 專案／施工項目（工程專案） */
+const projectItems = [
+  { href: '/projects',         label: '專案資料夾', icon: FolderKanban },
+  { href: '/service-requests', label: '叫修管理',   icon: Wrench },
+]
+
+/** 2. 銷售項目（業務接單） */
+const salesItems = [
+  { href: '/clients',      label: '單位資料', icon: Building2 },
+  { href: '/quotes',       label: '報價單',   icon: FileText },
+  { href: '/sales-orders', label: '銷貨單',   icon: ShoppingCart },
+  { href: '/web-orders',   label: '網路訂單', icon: ShoppingBag },
+  { href: '/shipments',    label: '出貨管理', icon: PackageCheck },
+]
+
+/** 3. 進貨與採購（依需求採購進貨） */
+const purchasingItems = [
+  { href: '/vendors',         label: '廠商建檔',   icon: Building2 },
   { href: '/inquiries',       label: '廠商詢價單', icon: MessageSquareQuote },
-  { href: '/purchases',       label: '進貨單',   icon: PackageCheck },
-  { href: '/purchase-orders', label: '訂購單',   icon: Truck },
-  { href: '/shipments',       label: '出貨管理', icon: PackageCheck },
-  { href: '/inventory',       label: '庫存管理', icon: Warehouse },
-  { href: '/returns',         label: '退貨管理', icon: RotateCcw },
+  { href: '/purchase-orders', label: '訂購單',     icon: Truck },
+  { href: '/purchases',       label: '進貨單',     icon: PackageCheck },
 ]
 
-const navItemsMid: { href: string; label: string; icon: any }[] = []
+/** 4. 庫存（物料管理／領料） */
+const inventoryItems = [
+  { href: '/products',  label: '產品管理', icon: Package },
+  { href: '/inventory', label: '庫存管理', icon: Warehouse },
+  { href: '/returns',   label: '退貨管理', icon: RotateCcw },
+]
 
+/** 5. 財務與會計（結帳開票／應收應付） */
 const accountingItems = [
-  { href: '/receivables',               label: '應收帳款',     icon: CreditCard },
-  { href: '/payables',                  label: '應付帳款',     icon: Receipt },
-  { href: '/accounting/income',         label: '收入記錄',     icon: BookOpen },
-  { href: '/accounting/expenses',       label: '支出記錄',     icon: BookOpen },
-  { href: '/accounting/pnl',            label: '損益表',       icon: BookOpen },
-  { href: '/accounting/balance-sheet',  label: '資產負債表',   icon: Scale },
-  { href: '/accounting/cash-flow',      label: '現金流量表',   icon: Wallet },
-  { href: '/accounting/equity-changes', label: '權益變動表',   icon: PiggyBank },
+  { href: '/receivables',               label: '應收帳款',   icon: CreditCard },
+  { href: '/payables',                  label: '應付帳款',   icon: Receipt },
+  { href: '/accounting/income',         label: '收入記錄',   icon: BookOpen },
+  { href: '/accounting/expenses',       label: '支出記錄',   icon: BookOpen },
+  { href: '/accounting/pnl',            label: '損益表',     icon: BookOpen },
+  { href: '/accounting/balance-sheet',  label: '資產負債表', icon: Scale },
+  { href: '/accounting/cash-flow',      label: '現金流量表', icon: Wallet },
+  { href: '/accounting/equity-changes', label: '權益變動表', icon: PiggyBank },
 ]
 
+/** 人資管理（維持原樣） */
 const hrItems = [
   { href: '/hr/employees',   label: '員工資料',        icon: Contact },
   { href: '/hr/attendance',  label: '出勤紀錄',        icon: CalendarCheck },
@@ -80,8 +106,13 @@ const hrItems = [
   { href: '/hr/contractors', label: '協力廠商／臨時工', icon: HardHat },
 ]
 
-const navItemsAfter = [
-  { href: '/reports',        label: '各式報表',   icon: ClipboardList },
+/** 6. 報表與決策分析 */
+const reportItems = [
+  { href: '/reports', label: '各式報表', icon: ClipboardList },
+]
+
+/** 7. 設置與系統管理 */
+const systemItems = [
   { href: '/knowledge-base', label: 'SOP／教材庫', icon: Library },
   { href: '/settings',       label: '系統設定',   icon: Settings },
 ]
@@ -173,23 +204,29 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
-  const isBusinessActive = businessItems.some(({ href }) => isActive(href))
-  const isCompanyActive  = companyItems.some(({ href }) => isActive(href))
-  const isPsiActive      = psiItems.some(({ href }) => isActive(href))
-  const isAcctActive     = pathname.startsWith('/accounting') || pathname.startsWith('/receivables') || pathname.startsWith('/payables')
-  const isHrActive       = pathname.startsWith('/hr')
+  // 選單分組定義（順序即畫面順序）
+  const groups = [
+    { key: 'business',    label: '業務日常',       icon: Briefcase,   items: businessItems },
+    { key: 'projects',    label: '專案／施工',     icon: HardHat,     items: projectItems },
+    { key: 'sales',       label: '銷售',           icon: ShoppingCart, items: salesItems },
+    { key: 'purchasing',  label: '進貨與採購',     icon: Truck,       items: purchasingItems },
+    { key: 'inventory',   label: '庫存',           icon: Warehouse,   items: inventoryItems },
+    { key: 'accounting',  label: '財務與會計',     icon: Calculator,  items: accountingItems },
+    { key: 'hr',          label: '人資管理',       icon: UserCog,     items: hrItems },
+    { key: 'reports',     label: '報表與決策分析', icon: ClipboardList, items: reportItems },
+    { key: 'system',      label: '設置與系統管理', icon: Settings,    items: systemItems },
+  ]
 
-  const [businessOpen, setBusinessOpen] = useState(isBusinessActive)
-  const [companyOpen,  setCompanyOpen]  = useState(isCompanyActive)
-  const [psiOpen,      setPsiOpen]      = useState(isPsiActive)
-  const [acctOpen,     setAcctOpen]     = useState(isAcctActive)
-  const [hrOpen,       setHrOpen]       = useState(isHrActive)
+  const activeKeys = groups.filter(g => g.items.some(({ href }) => isActive(href))).map(g => g.key)
+  const activeKey = activeKeys[0]
 
-  useEffect(() => { if (isBusinessActive) setBusinessOpen(true) }, [isBusinessActive])
-  useEffect(() => { if (isCompanyActive)  setCompanyOpen(true) },  [isCompanyActive])
-  useEffect(() => { if (isPsiActive)      setPsiOpen(true) },      [isPsiActive])
-  useEffect(() => { if (isAcctActive)     setAcctOpen(true) },     [isAcctActive])
-  useEffect(() => { if (isHrActive)       setHrOpen(true) },       [isHrActive])
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(activeKeys.map(k => [k, true]))
+  )
+  // 進到某頁時自動展開所屬分類
+  useEffect(() => {
+    if (activeKey) setOpenGroups(prev => (prev[activeKey] ? prev : { ...prev, [activeKey]: true }))
+  }, [activeKey])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -230,72 +267,19 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <NavLink key={href} href={href} label={label} icon={icon} active={isActive(href)} onClick={onClose} />
           ))}
 
-          {/* 業務 分類（可收合） */}
-          <NavGroup
-            label="業務"
-            icon={Briefcase}
-            items={flt(businessItems)}
-            active={isBusinessActive}
-            open={businessOpen}
-            onToggle={() => setBusinessOpen(o => !o)}
-            isActive={isActive}
-            onClose={onClose}
-          />
-
-          {/* 公司資料 分類（可收合） */}
-          <NavGroup
-            label="公司資料"
-            icon={Building2}
-            items={flt(companyItems)}
-            active={isCompanyActive}
-            open={companyOpen}
-            onToggle={() => setCompanyOpen(o => !o)}
-            isActive={isActive}
-            onClose={onClose}
-          />
-
-          {/* 進銷存 分類（可收合） */}
-          <NavGroup
-            label="進銷存"
-            icon={Warehouse}
-            items={flt(psiItems)}
-            active={isPsiActive}
-            open={psiOpen}
-            onToggle={() => setPsiOpen(o => !o)}
-            isActive={isActive}
-            onClose={onClose}
-          />
-
-          {flt(navItemsMid).map(({ href, label, icon }) => (
-            <NavLink key={href} href={href} label={label} icon={icon} active={isActive(href)} onClick={onClose} />
-          ))}
-
-          {/* 會計 分類（可收合） */}
-          <NavGroup
-            label="會計"
-            icon={Calculator}
-            items={flt(accountingItems)}
-            active={isAcctActive}
-            open={acctOpen}
-            onToggle={() => setAcctOpen(o => !o)}
-            isActive={isActive}
-            onClose={onClose}
-          />
-
-          {/* 人資管理 分類（可收合） */}
-          <NavGroup
-            label="人資管理"
-            icon={UserCog}
-            items={flt(hrItems)}
-            active={isHrActive}
-            open={hrOpen}
-            onToggle={() => setHrOpen(o => !o)}
-            isActive={isActive}
-            onClose={onClose}
-          />
-
-          {flt(navItemsAfter).map(({ href, label, icon }) => (
-            <NavLink key={href} href={href} label={label} icon={icon} active={isActive(href)} onClick={onClose} />
+          {/* 七大分類（可收合）：專案/施工 → 銷售 → 進貨採購 → 庫存 → 財務會計 → 人資 → 報表 → 設置 */}
+          {groups.map(g => (
+            <NavGroup
+              key={g.key}
+              label={g.label}
+              icon={g.icon}
+              items={flt(g.items)}
+              active={g.items.some(({ href }) => isActive(href))}
+              open={!!openGroups[g.key]}
+              onToggle={() => setOpenGroups(prev => ({ ...prev, [g.key]: !prev[g.key] }))}
+              isActive={isActive}
+              onClose={onClose}
+            />
           ))}
         </nav>
 
