@@ -8,15 +8,17 @@ import Link from 'next/link'
 import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
 import { formatDate } from '@/lib/utils'
+import { usePermissions } from '@/lib/permissions'
 
-const STATUS_OPTIONS: ProjectStatus[] = ['規劃中', '進行中', '施工中', '完工', '暫停', '取消']
+// 須與 sql/projects_phase1b_status6.sql 的 check 約束一致
+const STATUS_OPTIONS: ProjectStatus[] = ['草稿/報價中', '施工中', '完工驗收', '結案', '暫停', '取消']
 const STATUS_COLORS: Record<string, string> = {
-  '規劃中': 'bg-purple-100 text-purple-700',
-  '進行中': 'bg-blue-100 text-blue-700',
-  '施工中': 'bg-orange-100 text-orange-700',
-  '完工':   'bg-green-100 text-green-700',
-  '暫停':   'bg-yellow-100 text-yellow-700',
-  '取消':   'bg-gray-100 text-gray-600',
+  '草稿/報價中': 'bg-purple-100 text-purple-700',
+  '施工中':      'bg-orange-100 text-orange-700',
+  '完工驗收':    'bg-blue-100 text-blue-700',
+  '結案':        'bg-green-100 text-green-700',
+  '暫停':        'bg-yellow-100 text-yellow-700',
+  '取消':        'bg-gray-100 text-gray-600',
 }
 
 const BLUE   = { header: 'bg-blue-600',    light: 'bg-blue-50',    border: 'border-blue-200',    text: 'text-blue-700'    }
@@ -512,6 +514,24 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * 報價單區塊的權限外殼。
+ * 沒有 quotes 檢視權限（例如工程人員）連標題都不顯示，
+ * 避免出現「有這個區塊但打不開」而引發詢問。
+ */
+function ProjectQuotesAccordion(props: {
+  projectId: string; clientId: string; projectName: string
+  supabase: any; onBeforeCreate?: () => Promise<boolean>
+}) {
+  const { can, ready } = usePermissions()
+  if (!ready || !can('quotes', 'can_view')) return null
+  return (
+    <Accordion title="📄 報價單作業" color={TEAL}>
+      <ProjectQuotesSection {...props} />
+    </Accordion>
   )
 }
 
@@ -1730,15 +1750,14 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               />
             </Accordion>
 
-            <Accordion title="📄 報價單作業" color={TEAL}>
-              <ProjectQuotesSection
-                projectId={editingId as string}
-                clientId={clientId}
-                projectName={form.project_name}
-                supabase={supabase}
-                onBeforeCreate={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
+            {/* 報價單含售價與進貨成本，依 quotes 權限決定是否顯示（工程人員預設看不到） */}
+            <ProjectQuotesAccordion
+              projectId={editingId as string}
+              clientId={clientId}
+              projectName={form.project_name}
+              supabase={supabase}
+              onBeforeCreate={isNewProject ? ensureSaved : undefined}
+            />
 
             <Accordion title="👷 施工團隊（工頭／工班人員）" color={PURPLE}>
               <ProjectCrewSection

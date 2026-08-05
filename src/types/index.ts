@@ -1,6 +1,6 @@
 export type ClientStatus = '有需求' | '規劃中' | '服務未完成' | '已完成' | '暫緩'
 export type QuoteStatus = '草稿' | '已確認' | '已轉銷貨單' | '已轉訂購單' | '作廢'
-export type ProjectStatus = '規劃中' | '進行中' | '施工中' | '完工' | '暫停' | '取消'
+export type ProjectStatus = '草稿/報價中' | '施工中' | '完工驗收' | '結案' | '暫停' | '取消'
 export type SalesOrderStatus = '草稿' | '已確認' | '出貨中' | '已完成' | '取消'
 export type PurchaseOrderStatus = '草稿' | '已送出' | '已確認' | '已到貨' | '取消'
 export type UserRole = 'admin' | 'manager' | 'user'
@@ -72,11 +72,17 @@ export interface VisitRecord {
 export interface Project {
   id: string
   client_id: string
+  project_code: string | null
   project_name: string
   status: ProjectStatus
   start_date: string | null
   end_date: string | null
+  closed_at: string | null
   budget: number | null
+  contract_amount: number | null
+  budget_material: number | null
+  budget_labor: number | null
+  budget_outsource: number | null
   description: string | null
   notes: string | null
   created_by: string | null

@@ -9,13 +9,14 @@ import {
 } from 'lucide-react'
 import CopyDocButton from '@/components/CopyDocButton'
 
-// 四段流程：草稿/報價中 → 施工中 → 完工驗收 → 結案（取消可從任一階段進入）
-const STATUS_OPTIONS = ['草稿/報價中', '施工中', '完工驗收', '結案', '取消'] as const
+// 主流程：草稿/報價中 → 施工中 → 完工驗收 → 結案　　暫停／取消可從任一階段進入
+const STATUS_OPTIONS = ['草稿/報價中', '施工中', '完工驗收', '結案', '暫停', '取消'] as const
 const STATUS_COLORS: Record<string, string> = {
   '草稿/報價中': 'bg-purple-100 text-purple-700',
   '施工中':      'bg-orange-100 text-orange-700',
   '完工驗收':    'bg-blue-100 text-blue-700',
   '結案':        'bg-green-100 text-green-700',
+  '暫停':        'bg-yellow-100 text-yellow-700',
   '取消':        'bg-gray-100 text-gray-600',
 }
 const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -24,7 +25,6 @@ type ProjForm = {
   client_id: string; project_name: string; scene_name: string; user_type: string
   status: string; start_date: string; end_date: string; budget: string
   contract_amount: string; budget_material: string; budget_labor: string; budget_outsource: string
-  is_paused: boolean
   description: string; notes: string
   main_function: string; equipment_needs: string; audio_needs: string; video_needs: string
   interaction_needs: string; control_needs: string; other_needs: string; venue_specs: string
@@ -33,7 +33,6 @@ const EMPTY: ProjForm = {
   client_id: '', project_name: '', scene_name: '', user_type: '',
   status: '草稿/報價中', start_date: '', end_date: '', budget: '',
   contract_amount: '', budget_material: '', budget_labor: '', budget_outsource: '',
-  is_paused: false,
   description: '', notes: '',
   main_function: '', equipment_needs: '', audio_needs: '', video_needs: '',
   interaction_needs: '', control_needs: '', other_needs: '', venue_specs: '',
@@ -184,7 +183,6 @@ export default function ProjectsFolderPage() {
       budget_material: num(form.budget_material),
       budget_labor: num(form.budget_labor),
       budget_outsource: num(form.budget_outsource),
-      is_paused: form.is_paused,
       description: form.description || null,
       notes: form.notes || null,
       main_function: form.main_function || null,
@@ -288,7 +286,6 @@ export default function ProjectsFolderPage() {
                     <td className="px-4 text-gray-600">{p.clients?.company_name ?? '—'}</td>
                     <td className="px-4 whitespace-nowrap">
                       <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-600'}`}>{p.status}</span>
-                      {p.is_paused && <span className="ml-1 text-xs px-2 py-0.5 rounded-lg font-medium bg-yellow-100 text-yellow-700">暫停</span>}
                     </td>
                     <td className="px-4 text-gray-600 whitespace-nowrap">
                       {(() => {
@@ -452,14 +449,7 @@ export default function ProjectsFolderPage() {
                   <input type="number" min={0} value={form.contract_amount}
                     onChange={e => setForm(f => ({ ...f, contract_amount: e.target.value }))} className={inp} />
                 </div>
-                <div className="flex items-end pb-2">
-                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input type="checkbox" checked={form.is_paused}
-                      onChange={e => setForm(f => ({ ...f, is_paused: e.target.checked }))}
-                      className="w-4 h-4 rounded border-gray-300" />
-                    暫停中
-                  </label>
-                </div>
+                <div />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block text-xs text-gray-500 mb-1">施工日期</label><input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className={inp} /></div>

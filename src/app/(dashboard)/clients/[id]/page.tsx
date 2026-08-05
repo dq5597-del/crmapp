@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { usePermissions } from '@/lib/permissions'
 import { Client, Contact, VisitRecord, Project, Quote, CompetitorInfo } from '@/types'
 import ClientForm from '@/components/clients/ClientForm'
 import ContactsTab from '@/components/clients/ContactsTab'
@@ -24,13 +25,19 @@ const TABS = [
   { key: 'visits',      label: '拜訪紀錄', icon: Calendar },
   { key: 'projects',    label: '專案',     icon: Briefcase },
   { key: 'competitors', label: '同業資訊', icon: Building2 },
-  { key: 'quotes',      label: '報價單',   icon: FileText },
+  // 報價單頁籤需 quotes 檢視權限，見下方 visibleTabs
+  { key: 'quotes',      label: '報價單',   icon: FileText, feature: 'quotes' },
 ]
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const supabase = createClient()
+  const { can, ready: permReady } = usePermissions()
+
+  // 沒有報價單檢視權限（例如工程人員）→ 頁籤與「開報價單」按鈕都不顯示
+  const canQuotes = !permReady || can('quotes', 'can_view')
+  const visibleTabs = TABS.filter(t => !(t as any).feature || can((t as any).feature, 'can_view'))
 
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
@@ -120,13 +127,15 @@ export default function ClientDetailPage() {
           <p className="text-gray-500 text-sm mt-0.5">{client.contact_name ?? '—'}</p>
         </div>
         <div className="flex gap-2 shrink-0">
-          <Link
-            href={`/quotes/new?client_id=${id}&client_name=${encodeURIComponent(client.company_name)}&phone=${encodeURIComponent(client.phone ?? '')}&contact=${encodeURIComponent(client.contact_name ?? '')}`}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-sm font-medium"
-          >
-            <FileText size={14} />
-            開報價單
-          </Link>
+          {canQuotes && (
+            <Link
+              href={`/quotes/new?client_id=${id}&client_name=${encodeURIComponent(client.company_name)}&phone=${encodeURIComponent(client.phone ?? '')}&contact=${encodeURIComponent(client.contact_name ?? '')}`}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-sm font-medium"
+            >
+              <FileText size={14} />
+              開報價單
+            </Link>
+          )}
           <button
             onClick={() => window.open(`/clients/${id}/print`, '_blank')}
             className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700"
@@ -176,7 +185,7 @@ export default function ClientDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 overflow-x-auto">
-        {TABS.map(({ key, label, icon: Icon }) => (
+        {visibleTabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -236,7 +245,7 @@ export default function ClientDetailPage() {
       {activeTab === 'visits' && <VisitsTab clientId={id} />}
       {activeTab === 'projects' && <ProjectsTab clientId={id} autoEditProjectId={autoEditId} />}
       {activeTab === 'competitors' && <CompetitorsTab clientId={id} />}
-      {activeTab === 'quotes' && (
+      {activeTab === 'quotes' && canQuotes && (
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500">共 {quoteCount} 張報價單</span>
