@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { Clock, Users, FolderKanban, Download, TrendingUp } from 'lucide-react'
+import { Clock, Users, FolderKanban, Download, TrendingUp, FileSignature } from 'lucide-react'
 
 // ============================================================
 // 工時統計（跨專案彙總）
@@ -253,10 +253,16 @@ export default function WorkHoursPage() {
             {from} ~ {to}　共 {rows.length} 筆登錄
           </p>
         </div>
-        <button onClick={exportCsv} disabled={rows.length === 0}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40">
-          <Download size={14} /> 匯出 CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/work-hours/confirmations"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700">
+            <FileSignature size={14} /> 工時確認單
+          </Link>
+          <button onClick={exportCsv} disabled={rows.length === 0}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40">
+            <Download size={14} /> 匯出 CSV
+          </button>
+        </div>
       </div>
 
       {/* 篩選 */}
