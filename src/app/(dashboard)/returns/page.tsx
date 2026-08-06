@@ -187,7 +187,7 @@ function ReturnsPageInner() {
   async function handleSave() {
     const validItems = items.filter(i => i.product_name.trim() && i.quantity > 0)
     if (validItems.length === 0) { alert('請至少填寫一筆退貨品項'); return }
-    if (form.return_type === '客戶退貨' && !form.client_id) { alert('請選擇單位名稱'); return }
+    if (form.return_type === '客戶退貨' && !form.client_id) { alert('請選擇客戶'); return }
     if (form.return_type === '供應商退貨' && !form.vendor_id) { alert('請選擇廠商'); return }
 
     setSaving(true)
@@ -327,7 +327,7 @@ function ReturnsPageInner() {
 
             {form.return_type === '客戶退貨' ? (
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">單位名稱 *</label>
+                <label className="text-xs text-gray-600 mb-1 block">客戶名稱 *</label>
                 <select value={form.client_id} onChange={e => setForm(p => ({ ...p, client_id: e.target.value }))} className={inputClass}>
                   <option value="">請選擇</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
@@ -463,7 +463,7 @@ function ReturnsPageInner() {
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋單號、單位名稱、廠商、關聯單據..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋單號、客戶名稱、廠商、關聯單據..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
         </div>
         <div className="flex gap-2 flex-wrap">
           {TYPE_OPTIONS.map(t => (

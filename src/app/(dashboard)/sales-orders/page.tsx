@@ -231,7 +231,7 @@ export default function SalesOrdersPage() {
   }
 
   async function handleCreate() {
-    if (!clientId) return alert('請選擇單位名稱')
+    if (!clientId) return alert('請選擇客戶')
     const validItems = items.filter(i => i.product_name.trim())
     if (validItems.filter(i => !i.is_category).length === 0) return alert('請至少填一筆品項')
     setSaving(true)
@@ -417,7 +417,7 @@ export default function SalesOrdersPage() {
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="搜尋單號、單位名稱..."
+          placeholder="搜尋單號、客戶名稱..."
           className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
         />
       </div>
@@ -431,7 +431,7 @@ export default function SalesOrdersPage() {
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-green-600 w-4 h-4 align-middle" title="全選" />
                 </th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">銷貨單號</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">單位名稱</th>
+                <th className="text-left px-4 py-3 text-gray-600 font-medium">客戶名稱</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">案名</th>
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
                 <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>
@@ -495,7 +495,7 @@ export default function SalesOrdersPage() {
               {/* 基本資料 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="relative">
-                  <label className="text-xs text-gray-500 mb-1 block">單位名稱 *</label>
+                  <label className="text-xs text-gray-500 mb-1 block">客戶名稱 *</label>
                   <input
                     value={clientSearch || selectedClientName}
                     onChange={e => {
@@ -505,7 +505,7 @@ export default function SalesOrdersPage() {
                     }}
                     onFocus={() => setShowClientDropdown(true)}
                     onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
-                    placeholder="輸入搜尋或新增單位名稱"
+                    placeholder="輸入搜尋或新增客戶"
                     autoComplete="off"
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
@@ -528,11 +528,11 @@ export default function SalesOrdersPage() {
                           className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-1.5 border-t border-gray-100"
                         >
                           <Plus size={14} />
-                          {creatingClient ? '新增中…' : `新增單位名稱「${clientSearch.trim()}」`}
+                          {creatingClient ? '新增中…' : `新增客戶「${clientSearch.trim()}」`}
                         </button>
                       )}
                       {filteredClients.length === 0 && !clientSearch.trim() && (
-                        <div className="px-3 py-2 text-sm text-gray-400">無單位名稱資料</div>
+                        <div className="px-3 py-2 text-sm text-gray-400">無客戶資料</div>
                       )}
                     </div>
                   )}

@@ -67,7 +67,7 @@ const categoryItem = (): QuoteItemForm => ({
 })
 
 // ============================================================
-// 快速新增單位名稱 Modal
+// 快速新增客戶 Modal
 // ============================================================
 interface QuickAddClientModalProps {
   initialName: string
@@ -99,13 +99,13 @@ function QuickAddClientModal({ initialName, onClose, onCreated }: QuickAddClient
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="font-semibold text-gray-900">快速新增單位名稱</h2>
+          <h2 className="font-semibold text-gray-900">快速新增客戶</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-3">
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">單位名稱 *</label>
-            <input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} className={inputClass} placeholder="公司或單位名稱" autoFocus />
+            <label className="text-xs text-gray-600 mb-1 block">客戶名稱 *</label>
+            <input value={form.company_name} onChange={e => setForm(p => ({ ...p, company_name: e.target.value }))} className={inputClass} placeholder="公司或客戶名稱" autoFocus />
           </div>
           <div>
             <label className="text-xs text-gray-600 mb-1 block">聯絡人</label>
@@ -670,7 +670,7 @@ export default function QuoteForm({
 
   async function handleSave(newStatus?: string) {
     if (!header.quote_no) { setError('請等待報價單號產生'); return }
-    if (!header.client_id && !header.client_name_display) { setError('請選擇單位名稱'); return }
+    if (!header.client_id && !header.client_name_display) { setError('請選擇客戶'); return }
 
     // 草稿可以沒有品項（空白列自動略過）；確認報價才要求至少一筆完整品項
     const finalStatus = newStatus ?? (initialQuote?.status ?? '草稿')
@@ -808,7 +808,7 @@ export default function QuoteForm({
             <input value={header.quote_no} readOnly className={inputClass + ' bg-gray-50 text-gray-500 cursor-default'} />
           </div>
           <div className="relative">
-            <label className={labelClass}>單位名稱 *</label>
+            <label className={labelClass}>客戶名稱 *</label>
             <input
               value={clientSearch || header.client_name_display}
               onChange={e => {
@@ -820,7 +820,7 @@ export default function QuoteForm({
               onFocus={() => setShowClientDropdown(true)}
               onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
               className={inputClass}
-              placeholder="輸入搜尋或新增單位名稱"
+              placeholder="輸入搜尋或新增客戶"
               autoComplete="off"
             />
             {showClientDropdown && (
@@ -849,11 +849,11 @@ export default function QuoteForm({
                     }}
                     className="w-full px-3 py-2.5 text-sm text-left text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 border-t border-gray-100"
                   >
-                    <span className="text-base leading-none">＋</span> 新增單位名稱「{clientSearch}」
+                    <span className="text-base leading-none">＋</span> 新增客戶「{clientSearch}」
                   </button>
                 )}
                 {!clientSearch && filteredClients.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-gray-400">無單位名稱資料</div>
+                  <div className="px-3 py-2 text-xs text-gray-400">無客戶資料</div>
                 )}
               </div>
             )}
@@ -863,7 +863,7 @@ export default function QuoteForm({
             <input value={header.contact_name} onChange={e => setHeader(p => ({ ...p, contact_name: e.target.value }))} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>單位電話</label>
+            <label className={labelClass}>客戶電話</label>
             <input value={header.client_phone} onChange={e => setHeader(p => ({ ...p, client_phone: e.target.value }))} className={inputClass} />
           </div>
           <div>
@@ -874,8 +874,8 @@ export default function QuoteForm({
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className={labelClass}>單位地址</label>
-            <input value={header.client_address} onChange={e => setHeader(p => ({ ...p, client_address: e.target.value }))} className={inputClass} placeholder="從單位資料帶入，可修改" />
+            <label className={labelClass}>客戶地址</label>
+            <input value={header.client_address} onChange={e => setHeader(p => ({ ...p, client_address: e.target.value }))} className={inputClass} placeholder="從客戶資料帶入，可修改" />
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>案名</label>

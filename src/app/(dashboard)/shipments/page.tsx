@@ -158,7 +158,7 @@ export default function ShipmentsPage() {
   }
 
   async function save() {
-    if (!form.client_id) { alert('請選擇單位名稱'); return }
+    if (!form.client_id) { alert('請選擇客戶'); return }
     const valid = items.filter(i => i.product_name?.trim() && num(i.quantity) > 0)
     if (!valid.length) { alert('請至少填一筆品項'); return }
     setSaving(true)
@@ -324,7 +324,7 @@ export default function ShipmentsPage() {
         ))}
         <div className="relative ml-auto">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋單號／單位名稱／託運單號"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="搜尋單號／客戶名稱／託運單號"
             className="pl-9 pr-3 py-1.5 border border-gray-200 rounded-xl text-sm w-64" />
         </div>
       </div>
@@ -420,7 +420,7 @@ export default function ShipmentsPage() {
                 <DocActionBar docType="shipment" docId={editingId} printHref={`/shipments/${editingId}/print`} emailLabel="Email 給客戶" />
               )}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <F label="單位名稱 *">
+                <F label="客戶名稱 *">
                   <select value={form.client_id ?? ''} onChange={e => pickClient(e.target.value)} className={inp}>
                     <option value="">— 選擇 —</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}

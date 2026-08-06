@@ -452,11 +452,11 @@ function VendorRepairTab({ req, vendorRepair, vendors, locked, onSave }: {
       </div>
 
       <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-blue-800">送修單位資料（供廠商參考）</h3>
+        <h3 className="text-sm font-semibold text-blue-800">送修客戶資料（供廠商參考）</h3>
         <div className="grid grid-cols-2 gap-4">
-          <div><label className={labelClass}>單位公司</label><input disabled={locked} className={inputClass} value={form.client_name} onChange={e => set('client_name', e.target.value)} /></div>
+          <div><label className={labelClass}>客戶公司</label><input disabled={locked} className={inputClass} value={form.client_name} onChange={e => set('client_name', e.target.value)} /></div>
           <div><label className={labelClass}>單位聯絡人</label><input disabled={locked} className={inputClass} value={form.client_contact} onChange={e => set('client_contact', e.target.value)} /></div>
-          <div><label className={labelClass}>單位電話</label><input disabled={locked} className={inputClass} value={form.client_phone} onChange={e => set('client_phone', e.target.value)} /></div>
+          <div><label className={labelClass}>客戶電話</label><input disabled={locked} className={inputClass} value={form.client_phone} onChange={e => set('client_phone', e.target.value)} /></div>
           <div><label className={labelClass}>單位 Email（選填）</label><input disabled={locked} className={inputClass} value={form.client_email} onChange={e => set('client_email', e.target.value)} /></div>
           <div><label className={labelClass}>設備序號</label><input disabled={locked} className={inputClass} value={form.equipment_serial_no} onChange={e => set('equipment_serial_no', e.target.value)} /></div>
           <div><label className={labelClass}>送修外觀說明</label><input disabled={locked} className={inputClass} value={form.condition_note} onChange={e => set('condition_note', e.target.value)} placeholder="如：外殼有刮痕" /></div>

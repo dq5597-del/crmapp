@@ -424,7 +424,7 @@ export default function SettingsPage() {
         ))}
         <a href="/clients"
           className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">
-          <Users size={14} />單位資料
+          <Users size={14} />客戶資料
         </a>
         <a href="/vendors"
           className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">
@@ -797,7 +797,7 @@ export default function SettingsPage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 mb-1">匯出備份</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  將所有單位名稱、報價單、產品、廠商等資料匯出為 JSON 檔案，建議定期備份保存。
+                  將所有客戶、報價單、產品、廠商等資料匯出為 JSON 檔案，建議定期備份保存。
                 </p>
                 <button onClick={handleBackup} disabled={backingUp}
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-2.5 rounded-xl text-sm font-medium">
@@ -870,7 +870,7 @@ export default function SettingsPage() {
             <Lock size={14} className="text-gray-400" />
             <h2 className="font-semibold text-gray-900">操作稽核紀錄</h2>
           </div>
-          <p className="text-xs text-gray-400 mb-4">記錄單位名稱、報價單、銷貨單、應收／應付帳款、叫修單的新增、修改、刪除操作，僅管理員可查閱。</p>
+          <p className="text-xs text-gray-400 mb-4">記錄客戶、報價單、銷貨單、應收／應付帳款、叫修單的新增、修改、刪除操作，僅管理員可查閱。</p>
           {auditLoading ? (
             <p className="text-center text-gray-400 text-sm py-8">載入中...</p>
           ) : auditError ? (

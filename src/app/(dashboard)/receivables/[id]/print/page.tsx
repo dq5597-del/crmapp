@@ -53,7 +53,7 @@ export default function ReceivablePrintPage() {
           <tbody>
             <tr>
               <Th>對帳單號</Th><Td>{row.receivable_no ?? '—'}</Td>
-              <Th>單位名稱</Th><Td>{c.company_name ?? '—'}</Td>
+              <Th>客戶名稱</Th><Td>{c.company_name ?? '—'}</Td>
             </tr>
             <tr>
               <Th>統一編號</Th><Td>{c.tax_id ?? '—'}</Td>

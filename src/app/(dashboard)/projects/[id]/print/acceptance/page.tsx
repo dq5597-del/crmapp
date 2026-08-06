@@ -89,7 +89,7 @@ export default async function AcceptancePrintPage({ params }: { params: { id: st
         </div>
 
         <div className="info-row">
-          <span>單位名稱：<strong>{(project as any).clients?.company_name ?? ''}</strong></span>
+          <span>客戶名稱：<strong>{(project as any).clients?.company_name ?? ''}</strong></span>
           <span>驗收日期：{new Date().toLocaleDateString('zh-TW')}</span>
         </div>
         <div className="info-row">

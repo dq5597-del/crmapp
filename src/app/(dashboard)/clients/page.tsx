@@ -83,7 +83,7 @@ export default function ClientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">單位資料</h1>
+          <h1 className="text-xl font-bold text-gray-900">客戶資料</h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {filtered.length} 筆</p>
         </div>
 {perm.can_create && (
@@ -92,7 +92,7 @@ export default function ClientsPage() {
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition"
         >
           <Plus size={16} />
-          新增單位名稱
+          新增客戶
         </Link>
         )}
       </div>
@@ -148,9 +148,9 @@ export default function ClientsPage() {
         <div className="text-center py-16 text-gray-400">載入中...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p>沒有符合的單位名稱</p>
+          <p>沒有符合的客戶</p>
           <Link href="/clients/new" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
-            新增第一筆單位名稱
+            新增第一筆客戶
           </Link>
         </div>
       ) : (

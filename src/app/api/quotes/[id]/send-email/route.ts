@@ -59,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       <h2 style="margin:0 0 2px;">報價單</h2>
       ${quote.project_name ? `<p style="margin:0 0 8px; color:#374151;">${quote.project_name}</p>` : ''}
       <p style="font-size:13px; color:#374151; margin:4px 0;">
-        單位名稱：<strong>${clientName}</strong>
+        客戶名稱：<strong>${clientName}</strong>
         ${quote.contact_name ? `　聯絡人：${quote.contact_name}` : ''}<br/>
         單號：${quote.quote_no}　日期：${quote.created_at ? new Date(quote.created_at).toLocaleDateString('zh-TW') : ''}
       </p>

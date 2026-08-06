@@ -52,7 +52,7 @@ export default function ShipmentPrintPage() {
               <Th>出貨日期</Th><Td>{row.ship_date ?? '—'}</Td>
             </tr>
             <tr>
-              <Th>單位名稱</Th><Td>{c.company_name ?? '—'}</Td>
+              <Th>客戶名稱</Th><Td>{c.company_name ?? '—'}</Td>
               <Th>來源銷貨單</Th><Td>{row.sales_orders?.order_no ?? '—'}</Td>
             </tr>
             <tr>

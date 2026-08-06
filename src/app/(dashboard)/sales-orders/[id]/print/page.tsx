@@ -165,7 +165,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
 
         <div className="info-row">
           <span>
-            單位名稱：<strong>{clientName}</strong>
+            客戶名稱：<strong>{clientName}</strong>
             {order.contact_name && `　聯絡人：${order.contact_name}`}
             {order.client_phone && `　電話：${order.client_phone}`}
           </span>

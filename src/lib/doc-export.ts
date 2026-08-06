@@ -90,7 +90,7 @@ export async function fetchDocData(supabase: any, type: DocType, id: string): Pr
     if (o.notes) notes.push(o.notes)
     return {
       title: '退貨單', docNo: o.return_no, dateStr: dateOf(o.return_date),
-      partyLines: [`${o.return_type === '客戶退貨' ? '單位名稱' : '廠商'}：${party ?? ''}　類型：${o.return_type}`],
+      partyLines: [`${o.return_type === '客戶退貨' ? '客戶名稱' : '廠商'}：${party ?? ''}　類型：${o.return_type}`],
       columns: [
         { label: '編號', width: 6, align: 'center' }, { label: '品名', width: 34, align: 'left' },
         { label: '型號', width: 16, align: 'left' }, { label: '單位', width: 8, align: 'center' },
@@ -120,7 +120,7 @@ export async function fetchDocData(supabase: any, type: DocType, id: string): Pr
     return {
       title: '出貨單', docNo: o.shipment_no, dateStr: dateOf(o.ship_date),
       partyLines: [
-        `單位名稱：${(o as any).clients?.company_name ?? ''}${o.project_name ? `　案名：${o.project_name}` : ''}`,
+        `客戶名稱：${(o as any).clients?.company_name ?? ''}${o.project_name ? `　案名：${o.project_name}` : ''}`,
         `${o.receiver_name ? `收件人：${o.receiver_name}` : ''}${o.receiver_phone ? `　電話：${o.receiver_phone}` : ''}`,
       ].filter(Boolean),
       columns: [
@@ -175,7 +175,7 @@ export async function fetchDocData(supabase: any, type: DocType, id: string): Pr
     let no = 0
     return {
       title: '銷貨單', docNo: o.order_no, dateStr: dateOf(o.created_at),
-      partyLines: [`單位名稱：${(o as any).clients?.company_name ?? ''}${o.contact_name ? `　聯絡人：${o.contact_name}` : ''}${o.client_phone ? `　電話：${o.client_phone}` : ''}`],
+      partyLines: [`客戶名稱：${(o as any).clients?.company_name ?? ''}${o.contact_name ? `　聯絡人：${o.contact_name}` : ''}${o.client_phone ? `　電話：${o.client_phone}` : ''}`],
       columns: [
         { label: '編號', width: 6, align: 'center' }, { label: '品牌', width: 12, align: 'left' },
         { label: '品名', width: 30, align: 'left' }, { label: '型號', width: 14, align: 'left' },

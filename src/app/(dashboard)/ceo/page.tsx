@@ -184,7 +184,7 @@ export default function CeoDashboard() {
     const byClient: Record<string, { name: string; amt: number }> = {}
     rows.forEach(r => {
       const k = r.client_id ?? 'unknown'
-      const name = (r as any).clients?.company_name ?? '未指定單位名稱'
+      const name = (r as any).clients?.company_name ?? '未指定客戶'
       byClient[k] = { name, amt: (byClient[k]?.amt ?? 0) + r.weighted }
     })
     const clientRank = Object.values(byClient).sort((a, b) => b.amt - a.amt)

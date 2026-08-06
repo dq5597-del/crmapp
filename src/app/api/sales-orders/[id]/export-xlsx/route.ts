@@ -65,7 +65,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
     r++
   }
-  infoLine('單位名稱', clientName, '單號', order.order_no)
+  infoLine('客戶名稱', clientName, '單號', order.order_no)
   infoLine('聯絡人', order.contact_name ?? '—', '日期', order.created_at ? new Date(order.created_at).toLocaleDateString('zh-TW') : '')
   infoLine('電話', order.client_phone ?? '—', '交貨日期', order.delivery_date ?? '—')
   infoLine('交貨地址', order.delivery_address || '—', '付款條件', order.payment_terms ?? '—')

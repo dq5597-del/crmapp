@@ -128,7 +128,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         new Paragraph({ text: '' }),
         new Paragraph({
           children: [
-            new TextRun({ text: `單位名稱：${clientName}　　`, size: 20 }),
+            new TextRun({ text: `客戶名稱：${clientName}　　`, size: 20 }),
             new TextRun({ text: `聯絡人：${order.contact_name ?? '—'}　　`, size: 20 }),
             new TextRun({ text: `電話：${order.client_phone ?? '—'}`, size: 20 }),
           ],

@@ -155,7 +155,7 @@ export default function ServiceRequestsPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="搜尋單號、單位名稱、設備名稱..."
+            placeholder="搜尋單號、客戶名稱、設備名稱..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -203,7 +203,7 @@ export default function ServiceRequestsPage() {
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-blue-600 w-4 h-4 align-middle" title="全選" />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">單號</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">單位名稱</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">客戶名稱</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">設備</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">保固</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">維修方式</th>

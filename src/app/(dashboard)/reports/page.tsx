@@ -257,7 +257,7 @@ export default function ReportsPage() {
             </div>
             <div className="relative mb-2">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="搜尋單位名稱..."
+              <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="搜尋客戶名稱..."
                 className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div className="border border-gray-100 rounded-xl max-h-44 overflow-y-auto divide-y divide-gray-50">
@@ -367,7 +367,7 @@ export default function ReportsPage() {
                 <table className="w-full text-xs mt-4 border-collapse">
                   <thead><tr className="bg-gray-50 border-y border-gray-200">
                     <th className="text-left px-2 py-1.5 text-gray-500">銷貨單號</th>
-                    <th className="text-left px-2 py-1.5 text-gray-500">單位名稱</th>
+                    <th className="text-left px-2 py-1.5 text-gray-500">客戶名稱</th>
                     <th className="text-left px-2 py-1.5 text-gray-500">案名</th>
                     <th className="text-left px-2 py-1.5 text-gray-500">日期</th>
                     <th className="text-center px-2 py-1.5 text-gray-500">狀態</th>
@@ -448,7 +448,7 @@ export default function ReportsPage() {
             cpRows.length === 0 ? <p className="text-center text-gray-400 py-8 text-sm">此區間無資料</p> : (
               <table className="w-full text-xs mt-4 border-collapse">
                 <thead><tr className="bg-gray-50 border-y border-gray-200">
-                  <th className="text-left px-2 py-1.5 text-gray-500">單位名稱</th>
+                  <th className="text-left px-2 py-1.5 text-gray-500">客戶名稱</th>
                   <th className="text-right px-2 py-1.5 text-gray-500">銷貨單數</th>
                   <th className="text-right px-2 py-1.5 text-gray-500">銷貨金額</th>
                   <th className="text-right px-2 py-1.5 text-gray-500">估計成本*</th>
@@ -492,7 +492,7 @@ export default function ReportsPage() {
               <table className="w-full text-xs mt-4 border-collapse">
                 <thead><tr className="bg-gray-50 border-y border-gray-200">
                   <th className="text-left px-2 py-1.5 text-gray-500">應收單號</th>
-                  <th className="text-left px-2 py-1.5 text-gray-500">單位名稱</th>
+                  <th className="text-left px-2 py-1.5 text-gray-500">客戶名稱</th>
                   <th className="text-left px-2 py-1.5 text-gray-500">發票</th>
                   <th className="text-left px-2 py-1.5 text-gray-500">到期日</th>
                   <th className="text-right px-2 py-1.5 text-gray-500">應收</th>

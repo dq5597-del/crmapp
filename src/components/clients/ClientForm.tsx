@@ -103,7 +103,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.company_name.trim()) { setError('請填寫公司/單位名稱'); return }
+    if (!form.company_name.trim()) { setError('請填寫公司/客戶名稱'); return }
     setSaving(true)
     setError('')
 
@@ -162,7 +162,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
-          <label className={labelClass}>公司 / 單位名稱 <span className="text-red-500">*</span></label>
+          <label className={labelClass}>公司 / 客戶名稱 <span className="text-red-500">*</span></label>
           <input
             value={form.company_name}
             onChange={e => set('company_name', e.target.value)}
@@ -176,7 +176,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
         {!initialData?.id && dupes.length > 0 && (
           <div className="sm:col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-sm">
             <div className="font-medium text-amber-800 mb-2">
-              已有相似單位名稱（{dupes.length}）—— 可能是同一家。建議改在既有單位名稱底下「新增聯絡人」，避免重複建檔。
+              已有相似客戶（{dupes.length}）—— 可能是同一家。建議改在既有客戶底下「新增聯絡人」，避免重複建檔。
             </div>
             <ul className="space-y-1.5">
               {dupes.map(d => (

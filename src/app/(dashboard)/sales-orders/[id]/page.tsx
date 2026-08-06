@@ -286,10 +286,10 @@ export default function SalesOrderDetailPage() {
         <h2 className="text-sm font-semibold text-gray-700 mb-4">基本資料</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">單位名稱</label>
+            <label className="text-xs text-gray-500 mb-1 block">客戶名稱</label>
             <select value={clientId} onChange={e => setClientId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="">選擇單位名稱</option>
+              <option value="">選擇客戶</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
             </select>
           </div>
