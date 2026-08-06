@@ -463,7 +463,7 @@ export default function ProductsPage() {
   const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
     const [form, setForm] = useState({
         category_id: null as string | null,
-        brand: '', product_name: '', model: '', unit: '台', barcode: '', safe_stock: 0,
+        brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
         list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
         web_sku: '', web_category: '', web_description: '',
@@ -477,6 +477,17 @@ export default function ProductsPage() {
     const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
     const [showScanner, setShowScanner] = useState(false)
     const [showLabelPrint, setShowLabelPrint] = useState(false)
+    const [showCodeLabel, setShowCodeLabel] = useState(false)
+    const [codeLoading, setCodeLoading] = useState(false)
+
+    /** 依目前選定分類向 DB 取下一個料號（GH-大類碼-流水） */
+    async function genProductCode() {
+        setCodeLoading(true)
+        const { data, error } = await supabase.rpc('next_product_code', { p_category_id: form.category_id })
+        setCodeLoading(false)
+        if (error) { alert('產生料號失敗：' + error.message + '\n\n請先執行 sql/product_code.sql'); return }
+        if (data) setForm(p => ({ ...p, product_code: data as string }))
+    }
     const [promoEnabled, setPromoEnabled] = useState(false)
     const [activeTab, setActiveTab] = useState<'intro' | 'spec' | 'shop' | 'review'>('intro')
     const [webExpanded, setWebExpanded] = useState(false)
@@ -543,7 +554,7 @@ export default function ProductsPage() {
         if (p) {
             const pAny = p as any
             setForm({
-                category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '', safe_stock: pAny.safe_stock ?? 0,
+                category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '', product_code: pAny.product_code ?? '', safe_stock: pAny.safe_stock ?? 0,
                 list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
                 width_cm: pAny.width_cm ?? 0, depth_cm: pAny.depth_cm ?? 0, height_cm: pAny.height_cm ?? 0,
                 web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
@@ -563,7 +574,7 @@ export default function ProductsPage() {
             loadWebSubData(p.id)
         } else {
             setForm({
-                category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '', safe_stock: 0,
+                category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
                 list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
                 web_sku: '', web_category: '', web_description: '',
@@ -619,6 +630,8 @@ export default function ProductsPage() {
         }
         const payload = {
             ...form,
+            // 空字串會撞到料號的唯一索引（'' 不算 null），一律轉 null
+            product_code: form.product_code.trim() || null,
             web_promo_price: promoEnabled ? form.web_promo_price : null,
             web_promo_price_from: promoEnabled && form.web_promo_price_from ? form.web_promo_price_from : null,
             web_promo_price_to: promoEnabled && form.web_promo_price_to ? form.web_promo_price_to : null,
@@ -710,6 +723,9 @@ export default function ProductsPage() {
     clone.product_name = `${clone.product_name ?? ''}（複製）`
     if (clone.model) clone.model = `${clone.model}-COPY`
     clone.stock_qty = 0
+    // 料號與原廠條碼是一物一碼，不可複製 —— 留空由使用者重新產生
+    clone.product_code = null
+    clone.barcode = null
     const { data, error } = await supabase.from('products').insert(clone).select('*').single()
     if (error) {
       alert(/duplicate|unique/i.test(error.message)
@@ -788,7 +804,9 @@ export default function ProductsPage() {
     const matchSearch = !search ||
       p.product_name.toLowerCase().includes(search.toLowerCase()) ||
       (p.brand?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
-      (p.model?.toLowerCase() ?? '').includes(search.toLowerCase())
+      (p.model?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
+      ((p as any).product_code?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
+      ((p as any).barcode?.toLowerCase() ?? '').includes(search.toLowerCase())
     if (!matchSearch) return false
     if (brandFilter && (p.brand ?? '').trim().toLowerCase() !== brandFilter.toLowerCase()) return false
     if (!catFilter) return true
@@ -1012,7 +1030,37 @@ export default function ProductsPage() {
                                     <input type="number" min={0} value={form.safe_stock} onChange={e => setForm(p => ({ ...p, safe_stock: Number(e.target.value) }))} className={inputClass} />
                                 </div>
                                 <div className="col-span-2 sm:col-span-3">
-                                    <label className="text-xs text-gray-600 mb-1 block">條碼（EAN-13 / UPC，可掃描）</label>
+                                    <label className="text-xs text-gray-600 mb-1 block">公司料號</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            value={form.product_code}
+                                            onChange={e => setForm(p => ({ ...p, product_code: e.target.value.trim().toUpperCase() }))}
+                                            className={inputClass + ' flex-1 font-mono'}
+                                            placeholder="選好分類後按「自動產生」，或手動輸入"
+                                        />
+                                        <button type="button" onClick={genProductCode} disabled={codeLoading}
+                                            className="flex items-center gap-1.5 px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 disabled:opacity-40 whitespace-nowrap">
+                                            <RefreshCw size={15} className={codeLoading ? 'animate-spin' : ''} /> 自動產生
+                                        </button>
+                                        <button type="button" onClick={() => setShowCodeLabel(true)} disabled={!form.product_code.trim()}
+                                            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-40 whitespace-nowrap">
+                                            <Printer size={15} /> 列印料號標籤
+                                        </button>
+                                    </div>
+                                    <div className="text-[11px] text-gray-400 mt-1">
+                                        格式 GH-大類碼-流水號（例：GH-ENV-0001）。盤點掃這組碼；一經建立不建議更動。
+                                    </div>
+                                    {showCodeLabel && (
+                                        <BarcodeLabelModal
+                                            value={form.product_code}
+                                            name={(form.brand ? `【${form.brand}】` : '') + form.product_name}
+                                            model={form.model}
+                                            onClose={() => setShowCodeLabel(false)}
+                                        />
+                                    )}
+                                </div>
+                                <div className="col-span-2 sm:col-span-3">
+                                    <label className="text-xs text-gray-600 mb-1 block">原廠條碼（EAN-13 / UPC，選填，可掃描）</label>
                                     <div className="flex gap-2">
                                         <input
                                             value={form.barcode}
@@ -1432,7 +1480,12 @@ export default function ProductsPage() {
                           {p.brand ?? '—'}
                         </span>
                       </td>}
-                      <td className="px-4 py-3 font-medium text-gray-900">{p.product_name}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {p.product_name}
+                        {(p as any).product_code && (
+                          <div className="text-[11px] font-mono text-gray-400 mt-0.5">{(p as any).product_code}</div>
+                        )}
+                      </td>
                       {cols.model && <td className="px-4 py-3 text-gray-500">{p.model ?? '—'}</td>}
                       {cols.price && <td className="px-4 py-3 text-right text-gray-900">{formatCurrency(p.list_price)}</td>}
                       {cols.cost && <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(p.cost_price)}</td>}
