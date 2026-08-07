@@ -1182,16 +1182,19 @@ export default function QuoteForm({
               </tr>
               <tr className="bg-gray-50">
                 <td colSpan={7} className="px-3 py-2 text-right text-sm text-gray-600">
-                  折扣金額 NT$
-                  <input
-                    type="number" step="1" min={0}
-                    value={header.discount_amount}
-                    onChange={e => setHeader(h => ({ ...h, discount_amount: e.target.value }))}
-                    className="mx-2 w-28 px-2 py-1 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {discountAmount > 0 && <span className="ml-2 text-sm text-red-500">−NT${discountAmount.toLocaleString()}</span>}
+                  折扣金額
                 </td>
-                <td colSpan={1} />
+                <td className="px-3 py-2 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-sm text-gray-500">NT$</span>
+                    <input
+                      type="number" step="1" min={0}
+                      value={header.discount_amount}
+                      onChange={e => setHeader(h => ({ ...h, discount_amount: e.target.value }))}
+                      className="w-28 px-2 py-1 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </td>
                 <td colSpan={1} />
               </tr>
               <tr className="bg-gray-50">
