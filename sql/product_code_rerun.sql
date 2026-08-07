@@ -1,23 +1,28 @@
 -- ============================================================
--- 公司料號（product_code）2026-08
---   格式：GH-<大類碼>-<4碼流水>   例：GH-AUD-0001
---   只綁「大類」不綁小類 —— 小類會調整，料號必須一輩子不變。
---   流水號各大類獨立起算，4 碼可編到 9999。
---   原廠條碼 barcode 維持獨立欄位（選填），兩者互不影響。
+-- 料號重編（一次性修正）2026-08
 --
---   本腳本分兩段：
---     A. 先清理分類（合併重複大類、移除測試資料）
---     B. 再編料號
---   順序不可顛倒 —— 料號一旦編定就不該再變動。
--- 可重複執行（idempotent）
+--   狀況：先前跑到舊版 product_code.sql，
+--         分類未合併、編碼表只有 7 個大類，導致 241 筆誤歸 GEN。
+--
+--   本腳本會「清空所有料號後重編」。
+--   只在料號剛產生、尚未印標籤／尚未對外使用時執行。
+--   若已有人工指定的料號，先停下來，不要跑這支。
 -- ============================================================
 
+-- ── 0. 執行前確認：目前料號分布 ─────────────────────────────
+select '重編前' as 階段, split_part(product_code,'-',2) as 大類碼, count(*)
+from public.products where product_code is not null
+group by 2 order by 3 desc;
+
+-- ── 1. 清空料號 ─────────────────────────────────────────────
+update public.products set product_code = null where product_code is not null;
+
 
 -- ════════════════════════════════════════════════════════════
--- A. 分類清理
+-- 2. 分類清理（舊版沒做這段）
 -- ════════════════════════════════════════════════════════════
 
--- ── A-1. WiiM 串流播放器歸個人影音（唯一的家用品項）─────────
+-- 2-1. WiiM 串流播放器歸個人影音（唯一的家用品項）
 update public.products p
    set category_id = t.id
   from public.product_categories s, public.product_categories t
@@ -27,9 +32,7 @@ update public.products p
    and t.main_category = '個人影音/配件'
    and t.sub_category  = '媒體播放器';
 
--- ── A-2. 合併重複大類 ───────────────────────────────────────
---   作法：改 product_categories.main_category，不動 products。
---   若目標大類已有同名小分類，先把產品移過去再刪來源列，避免撞名。
+-- 2-2. 合併重複大類：改 product_categories.main_category，不動 products
 do $$
 declare
   m record;
@@ -41,7 +44,6 @@ begin
       ('控制',  '智慧環控')
     ) as v(src, dst)
   loop
-    -- 目標已有同名小分類 → 產品搬過去
     update public.products p
        set category_id = t.id
       from public.product_categories s, public.product_categories t
@@ -50,7 +52,6 @@ begin
        and t.main_category = m.dst
        and t.sub_category  = s.sub_category;
 
-    -- 撞名的來源列刪掉
     delete from public.product_categories s
      where s.main_category = m.src
        and exists (
@@ -58,16 +59,13 @@ begin
           where t.main_category = m.dst and t.sub_category = s.sub_category
        );
 
-    -- 其餘直接改掛到目標大類，小分類原樣保留
     update public.product_categories
        set main_category = m.dst
      where main_category = m.src;
   end loop;
 end $$;
 
--- ── A-3. 移除測試資料 ───────────────────────────────────────
---   產品若已被單據引用則刪不掉，這種情況改為脫離分類並停用，
---   不讓整支腳本中斷。
+-- 2-3. 移除測試資料
 do $$
 begin
   begin
@@ -83,22 +81,13 @@ begin
      );
     raise notice '測試產品已被單據引用，改為停用並脫離分類';
   end;
-
   delete from public.product_categories where main_category = '測試大分類';
 end $$;
 
 
 -- ════════════════════════════════════════════════════════════
--- B. 料號
+-- 3. 重建編碼表（完整 12 個大類）
 -- ════════════════════════════════════════════════════════════
-
-alter table public.products add column if not exists product_code text;
-
-create unique index if not exists uq_products_code
-  on public.products(product_code) where product_code is not null;
-create index if not exists idx_products_code on public.products(product_code);
-
--- ── B-1. 大類 → 料號碼 ──────────────────────────────────────
 create or replace function public.gh_category_code(p_main text)
 returns text language sql immutable as $$
   select case p_main
@@ -114,11 +103,10 @@ returns text language sql immutable as $$
     when '燈具相關'             then 'LGT'
     when '其他服務項目'         then 'SVC'
     when '軟體'                 then 'SFT'
-    else 'GEN'                              -- 未分類／日後新增的大類
+    else 'GEN'
   end
 $$;
 
--- ── B-2. 取得下一個料號 ─────────────────────────────────────
 create or replace function public.next_product_code(p_category_id uuid default null)
 returns text language plpgsql as $$
 declare
@@ -131,7 +119,6 @@ begin
 
   v_prefix := 'GH-' || public.gh_category_code(v_main) || '-';
 
-  -- 只認符合格式的流水號，人工亂填的略過
   select coalesce(max(substring(product_code from '(\d+)$')::int), 0)
     into v_max
   from public.products
@@ -144,8 +131,10 @@ end $$;
 grant execute on function public.gh_category_code(text)  to authenticated;
 grant execute on function public.next_product_code(uuid) to authenticated;
 
--- ── B-3. 補編既有產品 ───────────────────────────────────────
---   依大類分組、照建檔時間排序給號；已有料號的不動。
+
+-- ════════════════════════════════════════════════════════════
+-- 4. 重新編號
+-- ════════════════════════════════════════════════════════════
 with numbered as (
   select
     p.id,
@@ -161,16 +150,13 @@ with numbered as (
 update public.products p
    set product_code = n.new_code
   from numbered n
- where p.id = n.id
-   and not exists (
-     select 1 from public.products x where x.product_code = n.new_code
-   );
+ where p.id = n.id;
 
 notify pgrst, 'reload schema';
 
 
 -- ════════════════════════════════════════════════════════════
--- 驗收
+-- 5. 驗收
 -- ════════════════════════════════════════════════════════════
 select
   split_part(product_code, '-', 2) as 大類碼,
