@@ -453,6 +453,14 @@ export default function QuoteForm({
   }
 
   function addItem() { setItems(prev => [...prev, emptyItem()]) }
+  function insertAfter(idx: number, type: 'item' | 'category') {
+    setItems(prev => {
+      const next = [...prev]
+      next.splice(idx + 1, 0, type === 'category' ? categoryItem() : emptyItem())
+      return next
+    })
+    setProductDropdown(null)
+  }
 
   function productToItem(p: any): QuoteItemForm {
     return {
@@ -956,6 +964,8 @@ export default function QuoteForm({
                         <button onClick={() => moveCategoryBlock(idx, 1)} title="整組下移（含底下所有品項）" className="p-0.5 text-purple-400 hover:text-purple-700"><ChevronsDown size={13} /></button>
                         <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} title="僅移動標題列" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={13} /></button>
                         <button onClick={() => moveItem(idx, 1)} disabled={idx === items.length - 1} title="僅移動標題列" className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={13} /></button>
+                        <button onClick={() => insertAfter(idx, 'item')} title="在此標題下方新增品項" className="p-0.5 text-blue-500 hover:text-blue-700"><Plus size={13} /></button>
+                        <button onClick={() => insertAfter(idx, 'category')} title="在此標題下方新增分類標題" className="p-0.5 text-purple-500 hover:text-purple-700"><FolderPlus size={13} /></button>
                         <button onClick={() => removeItem(idx)} className="p-0.5 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
                       </td>
                     </tr>
@@ -1160,6 +1170,18 @@ export default function QuoteForm({
                           <input type="checkbox" checked={item.provide_manual} onChange={e => setItem(idx, 'provide_manual', e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
                           說明書
                         </label>
+                        <div className="flex items-center gap-1 shrink-0 border-l border-gray-200 pl-2">
+                          <button type="button" onClick={() => insertAfter(idx, 'item')}
+                            title="在此項次下方新增品項"
+                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50">
+                            <Plus size={13} /> 品項
+                          </button>
+                          <button type="button" onClick={() => insertAfter(idx, 'category')}
+                            title="在此項次下方新增分類標題"
+                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50">
+                            <FolderPlus size={13} /> 標題
+                          </button>
+                        </div>
                         {/* 刪除品項 */}
                         <button onClick={() => removeItem(idx)} disabled={items.length === 1}
                           title="刪除此品項"
