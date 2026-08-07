@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer, ListChecks } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer, ListChecks, ImagePlus, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import ProductImportModal from '@/components/products/ProductImportModal'
 import BarcodePreview from '@/components/products/BarcodePreview'
@@ -381,16 +381,68 @@ function BatchPriceModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 // ============================================================
 // Products Page
 // ============================================================
-function HtmlCodeEditor({ value, onChange, rows = 8, placeholder }: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string }) {
+function escapeHtmlAttribute(value: string) {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPressImages = false }: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string; allowWordPressImages?: boolean }) {
   const [mode, setMode] = useState<'code' | 'preview'>('code')
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
+  async function insertWordPressImages(files: File[]) {
+    if (!files.length) return
+    const selectionStart = textareaRef.current?.selectionStart ?? value.length
+    const selectionEnd = textareaRef.current?.selectionEnd ?? selectionStart
+    setUploadingImages(true)
+    try {
+      const snippets: string[] = []
+      for (const file of files) {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('alt_text', file.name.replace(/\.[^.]+$/, ''))
+        const res = await fetch('/api/wordpress/media', { method: 'POST', body: fd })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? `${file.name} 上傳失敗`)
+        const alt = escapeHtmlAttribute(data.alt_text || file.name.replace(/\.[^.]+$/, ''))
+        const imageUrl = escapeHtmlAttribute(data.url)
+        snippets.push(`<figure class="wp-block-image size-large"><img src="${imageUrl}" alt="${alt}" loading="lazy"></figure>`)
+      }
+
+      const inserted = `${snippets.join('\n')}\n`
+      onChange(value.slice(0, selectionStart) + inserted + value.slice(selectionEnd))
+      setMode('code')
+      requestAnimationFrame(() => {
+        const nextPosition = selectionStart + inserted.length
+        textareaRef.current?.focus()
+        textareaRef.current?.setSelectionRange(nextPosition, nextPosition)
+      })
+    } catch (error: any) {
+      alert('介紹圖片上傳失敗：' + (error?.message ?? '未知錯誤'))
+    } finally {
+      setUploadingImages(false)
+      if (imageInputRef.current) imageInputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-center gap-1 bg-gray-50 border-b border-gray-200 px-2 py-1.5">
         <button type="button" onClick={() => setMode('code')} className={`px-2.5 py-1 rounded text-xs font-medium ${mode === 'code' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>程式碼</button>
         <button type="button" onClick={() => setMode('preview')} className={`px-2.5 py-1 rounded text-xs font-medium ${mode === 'preview' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>預覽</button>
+        {allowWordPressImages && (
+          <>
+            <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImages} className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 disabled:opacity-50">
+              {uploadingImages ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
+              {uploadingImages ? '上傳至官網中…' : '插入圖片'}
+            </button>
+            <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="hidden" onChange={e => insertWordPressImages(Array.from(e.target.files ?? []))} />
+          </>
+        )}
       </div>
       {mode === 'code' ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder} className="w-full px-3 py-2 text-xs font-mono outline-none resize-y" />
+        <textarea ref={textareaRef} value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder} className="w-full px-3 py-2 text-xs font-mono outline-none resize-y" />
       ) : (
         <div className="p-3 text-sm min-h-[100px] [&_table]:border [&_table]:border-collapse [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-gray-200 [&_td]:px-2 [&_td]:py-1 [&_p]:mb-2 [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: value || '<span class="text-gray-300">尚無內容</span>' }} />
       )}
@@ -1325,7 +1377,8 @@ export default function ProductsPage() {
                                         {activeTab === 'intro' && (
                                             <div>
                                                 <label className="text-xs text-gray-500 mb-1 block">完整商品介紹</label>
-                                                <HtmlCodeEditor value={form.web_description} onChange={v => setForm(p => ({ ...p, web_description: v }))} rows={8} placeholder="可直接貼上 HTML，例如 <p>...</p>" />
+                                                <HtmlCodeEditor value={form.web_description} onChange={v => setForm(p => ({ ...p, web_description: v }))} rows={8} placeholder="可直接貼上 HTML，例如 <p>...</p>" allowWordPressImages />
+                                                <div className="mt-1.5 text-[11px] text-gray-400">可一次選擇多張 JPG、PNG、WebP 或 GIF（單張 4MB 內）；圖片會上傳到 WordPress 媒體庫並插入目前游標位置。</div>
                                             </div>
                                         )}
                                         {activeTab === 'spec' && (
