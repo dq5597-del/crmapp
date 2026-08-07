@@ -509,6 +509,28 @@ export default function QuoteForm({
       return next
     })
   }
+  function moveItemToNo(idx: number, targetNo: number) {
+    setItems(prev => {
+      if (!prev[idx] || prev[idx].is_category) return prev
+
+      // 只在同一分類區段內移動；遇到分類標題即停止，避免跨分類誤移。
+      let start = idx
+      while (start > 0 && !prev[start - 1].is_category) start--
+      let end = idx + 1
+      while (end < prev.length && !prev[end].is_category) end++
+
+      const groupSize = end - start
+      const target = Math.min(groupSize, Math.max(1, targetNo))
+      const current = idx - start + 1
+      if (target === current) return prev
+
+      const next = [...prev]
+      const [moved] = next.splice(idx, 1)
+      next.splice(start + target - 1, 0, moved)
+      return next
+    })
+    setProductDropdown(null)
+  }
   function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
   /** 整組移動：分類標題 + 底下所有品項一起，與上/下一個分類區塊交換位置（2026-07 新增） */
   function moveCategoryBlock(idx: number, dir: -1 | 1) {
@@ -927,7 +949,7 @@ export default function QuoteForm({
           <table className="text-sm border-collapse" style={{ tableLayout: 'fixed', width: 'max-content', minWidth: 0 }}>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-6">#</th>
+                <th className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium w-16">項次</th>
                 <ResizableTH col="brand" widths={colW} startResize={startResize} className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium">品牌</ResizableTH>
                 <ResizableTH col="name" widths={colW} startResize={startResize} className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium">品名</ResizableTH>
                 <ResizableTH col="model" widths={colW} startResize={startResize} className="px-2 py-2.5 text-left text-xs text-gray-500 font-medium">型號</ResizableTH>
@@ -972,12 +994,28 @@ export default function QuoteForm({
                   )
                 }
 
+                let groupStart = idx
+                while (groupStart > 0 && !items[groupStart - 1].is_category) groupStart--
+                let groupEnd = idx + 1
+                while (groupEnd < items.length && !items[groupEnd].is_category) groupEnd++
+                const groupSize = groupEnd - groupStart
+
                 return (
                   <Fragment key={idx}>
                   <tr className={'hover:bg-blue-50/30 group' + dropLine(idx)} onDragOver={rowDragOver(idx)} onDrop={rowDrop}>
-                    <td className="px-3 py-2 text-xs text-gray-400 text-center whitespace-nowrap">
+                    <td className="px-1 py-2 text-xs text-gray-400 text-center whitespace-nowrap">
                       <span {...gripProps(idx)} title="拖拉移動" className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-blue-500 inline-flex align-middle mr-0.5"><GripVertical size={12} /></span>
-                      {displayNos[idx]}
+                      <select
+                        value={displayNos[idx]}
+                        onChange={e => moveItemToNo(idx, Number(e.target.value))}
+                        title="選擇要移到的項次"
+                        aria-label={`將第 ${displayNos[idx]} 項移至指定項次`}
+                        className="w-9 rounded border border-gray-200 bg-white px-0.5 py-0.5 text-center text-xs text-gray-600 focus:border-blue-400 focus:outline-none"
+                      >
+                        {Array.from({ length: groupSize }, (_, no) => (
+                          <option key={no + 1} value={no + 1}>{no + 1}</option>
+                        ))}
+                      </select>
                     </td>
 
                     {/* 品牌 */}
