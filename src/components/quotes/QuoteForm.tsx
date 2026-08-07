@@ -631,6 +631,7 @@ export default function QuoteForm({
           p.product_name.toLowerCase().includes(q) ||
           (p.model?.toLowerCase() ?? '').includes(q) ||
           (p.brand?.toLowerCase() ?? '').includes(q) ||
+          ((p as any).product_code?.toLowerCase() ?? '').includes(q) ||
           catStr.includes(q)
         )
       })
@@ -1194,8 +1195,25 @@ export default function QuoteForm({
                 <td colSpan={1} />
               </tr>
               <tr className="bg-gray-50">
-                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">折後含稅總金額</td>
-                <td className="px-3 py-3 text-right text-base font-bold text-blue-700">NT${totalAmount.toLocaleString()}</td>
+                <td colSpan={7} className="px-3 py-3 text-right text-sm font-semibold text-gray-800">
+                  折後含稅總金額
+                  <span className="ml-2 font-normal text-xs text-gray-400">可直接輸入談定總價，自動回算折扣</span>
+                </td>
+                <td className="px-3 py-3 text-right">
+                  <input
+                    type="number" min={0} step="1"
+                    value={totalAmount === 0 ? '' : Math.round(totalAmount)}
+                    onChange={e => {
+                      // 反填：輸入談定總價 → 折扣 = 原價合計 − 談定總價（不可為負）
+                      const target = e.target.value === '' ? subtotal : (Number(e.target.value) || 0)
+                      const disc = Math.max(0, Math.round(subtotal - target))
+                      setHeader(h => ({ ...h, discount_amount: String(disc) }))
+                    }}
+                    onFocus={e => e.target.select()}
+                    title="輸入與客戶談定的含稅總價，系統會自動算出折扣金額"
+                    className="w-36 px-2 py-1 border border-gray-200 rounded-lg text-right text-base font-bold text-blue-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </td>
                 <td colSpan={1} />
               </tr>
               {grossMarginPct != null && (

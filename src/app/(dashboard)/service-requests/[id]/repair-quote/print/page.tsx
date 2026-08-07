@@ -183,7 +183,18 @@ export default async function RepairQuotePrintPage({ params }: { params: { id: s
               ))}
             </tbody>
             <tfoot>
-              <tr className="total-row"><td colSpan={5} className="num">含稅總金額</td><td colSpan={2} className="num">NT$ {fmt(rq.total_amount)}</td></tr>
+              {(() => {
+                // 單價含稅，未稅由含稅反算，確保未稅＋稅額必定等於含稅合計
+                const net = Math.round(Number(rq.total_amount ?? 0) / 1.05)
+                const tax = Number(rq.total_amount ?? 0) - net
+                return (
+                  <>
+                    <tr className="total-row"><td colSpan={5} className="num">未稅金額</td><td colSpan={2} className="num">NT$ {fmt(net)}</td></tr>
+                    <tr className="total-row"><td colSpan={5} className="num">營業稅 5%</td><td colSpan={2} className="num">NT$ {fmt(tax)}</td></tr>
+                    <tr className="total-row"><td colSpan={5} className="num">含稅合計</td><td colSpan={2} className="num">NT$ {fmt(rq.total_amount)}</td></tr>
+                  </>
+                )
+              })()}
             </tfoot>
           </table>
         </div>

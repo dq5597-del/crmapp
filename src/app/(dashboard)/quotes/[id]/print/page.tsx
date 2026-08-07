@@ -106,6 +106,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   const totalChinese = numToChineseCapital(Number(quote.total_amount))
   const origAmt = Number(quote.subtotal ?? quote.total_amount)
   const discAmt = origAmt - Number(quote.total_amount)
+  // 單價本身含稅，未稅由含稅反算，確保未稅＋稅額必定等於含稅合計（不會差一元）
+  const netAmt = Math.round(Number(quote.total_amount) / 1.05)
+  const taxAmt = Number(quote.total_amount) - netAmt
   const hasDiscount = discAmt > 0
 
   // 分類標題列：品項編號在每個分類內重新從 1 起算
@@ -259,7 +262,15 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               </>
             )}
             <tr className="total-row">
-              <td colSpan={5}>總金額　{totalChinese}</td>
+              <td colSpan={5}>未稅金額</td>
+              <td colSpan={3} className="num">NT$ {fmt(netAmt)}</td>
+            </tr>
+            <tr className="total-row">
+              <td colSpan={5}>營業稅 5%</td>
+              <td colSpan={3} className="num">NT$ {fmt(taxAmt)}</td>
+            </tr>
+            <tr className="total-row">
+              <td colSpan={5}>含稅合計　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(quote.total_amount))}</td>
             </tr>
           </tfoot>

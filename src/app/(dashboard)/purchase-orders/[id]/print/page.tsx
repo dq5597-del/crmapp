@@ -86,6 +86,9 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
   const totalChinese = numToChineseCapital(Number(order.total_amount))
   const origAmt = Number(order.subtotal ?? order.total_amount)
   const discAmt = origAmt - Number(order.total_amount)
+  // 單價含稅，未稅由含稅反算，確保未稅＋稅額必定等於含稅合計
+  const netAmt = Math.round(Number(order.total_amount) / 1.05)
+  const taxAmt = Number(order.total_amount) - netAmt
   const hasDiscount = discAmt > 0
 
   return (
@@ -212,21 +215,18 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
               })
             })()}
           </tbody>
+          {/* 訂單已成立，不再列原價與折扣；金額需與發票對得起來 */}
           <tfoot>
-            {hasDiscount && (
-              <>
-                <tr className="total-row">
-                  <td colSpan={5}>原價合計</td>
-                  <td colSpan={3} className="num">NT$ {fmt(origAmt)}</td>
-                </tr>
-                <tr className="total-row">
-                  <td colSpan={5}>進貨折扣</td>
-                  <td colSpan={3} className="num">- NT$ {fmt(discAmt)}</td>
-                </tr>
-              </>
-            )}
             <tr className="total-row">
-              <td colSpan={5}>總金額　{totalChinese}</td>
+              <td colSpan={5}>未稅金額</td>
+              <td colSpan={3} className="num">NT$ {fmt(netAmt)}</td>
+            </tr>
+            <tr className="total-row">
+              <td colSpan={5}>營業稅 5%</td>
+              <td colSpan={3} className="num">NT$ {fmt(taxAmt)}</td>
+            </tr>
+            <tr className="total-row">
+              <td colSpan={5}>含稅合計　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(order.total_amount))}</td>
             </tr>
           </tfoot>

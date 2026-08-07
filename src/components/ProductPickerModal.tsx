@@ -43,7 +43,8 @@ export default function ProductPickerModal({
       list = list.filter(p =>
         p.product_name.toLowerCase().includes(q) ||
         (p.model?.toLowerCase() ?? '').includes(q) ||
-        (p.brand?.toLowerCase() ?? '').includes(q))
+        (p.brand?.toLowerCase() ?? '').includes(q) ||
+        (p.product_code?.toLowerCase() ?? '').includes(q))
     }
     return list
   }, [products, mainCat, subCat, search])
@@ -91,7 +92,10 @@ export default function ProductPickerModal({
       <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} className="accent-blue-600 w-4 h-4 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="text-[13px] font-medium text-gray-900 truncate">{p.product_name}</div>
-        <div className="text-[11px] text-gray-400 truncate">{[p.brand, p.model].filter(Boolean).join('　') || '—'}</div>
+        <div className="text-[11px] text-gray-400 truncate">
+          {p.product_code && <span className="font-mono text-gray-500 mr-2">{p.product_code}</span>}
+          {[p.brand, p.model].filter(Boolean).join('　') || '—'}
+        </div>
       </div>
       <div className="text-right shrink-0">
         <div className="text-[13px] font-medium text-gray-900">{fmt(p.list_price)}</div>
@@ -113,7 +117,7 @@ export default function ProductPickerModal({
           <h3 className="font-semibold text-gray-900 whitespace-nowrap text-sm sm:text-base">選擇產品<span className="hidden sm:inline">（可多選）</span></h3>
           <div className="relative flex-1 min-w-0">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋品名／型號／品牌…"
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋料號／品名／型號／品牌…"
               className="w-full pl-8 pr-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
           </div>
           {onQuickAdd && (
