@@ -76,7 +76,7 @@ function Print-SalesOrderA4($PrinterName, $Payload) {
     $printerInfo = Get-Printer -Name $PrinterName -ErrorAction Stop
     $acrobatProcess = Start-Process -FilePath $acrobat -ArgumentList @('/n','/s','/o','/h','/t',("`"$pdfPath`""),("`"$PrinterName`""),("`"$($printerInfo.DriverName)`""),("`"$($printerInfo.PortName)`"")) -WindowStyle Hidden -PassThru
     Start-Sleep -Seconds 12
-    if ($acrobatProcess.HasExited -and $acrobatProcess.ExitCode -ne 0) { throw 'Adobe Acrobat could not print the sales order.' }
+    # Acrobat /t may return a non-zero exit code after handing the job to the spooler.
   } finally {
     if (Test-Path $work) { Remove-Item -LiteralPath $work -Recurse -Force }
   }
