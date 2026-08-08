@@ -28,7 +28,7 @@ export async function printTextPdf(landscape = false): Promise<void> {
   //   那 1~2px 就會被推到下一張紙 → 3 頁變成 5、6 張紙，且頁尾小計被切到次頁。
   //   保留約 16px（≈4mm）安全邊界，contentH 與補白列數會跟著自動縮小。
   const A4 = landscape ? { w: 1118, h: 786 } : { w: 790, h: 1106 }
-  const PAD_T = 30, PAD_B = 42, PAD_X = 30
+  const PAD_T = 10, PAD_B = 42, PAD_X = 30
   const contentH = A4.h - PAD_T - PAD_B
 
   // ── 暫時把來源固定成 A4 寬度並等圖片/字型載入，量測各高度 ──
