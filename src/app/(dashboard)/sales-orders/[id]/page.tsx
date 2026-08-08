@@ -5,10 +5,11 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
-import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck, Eye, FileText, Sheet, Send } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, RotateCcw, FileDown, PackageCheck, Eye, FileText, Sheet, Send, ShieldCheck } from 'lucide-react'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
+import WarrantyLabelModal from '@/components/sales-orders/WarrantyLabelModal'
 
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
 
@@ -58,6 +59,7 @@ export default function SalesOrderDetailPage() {
   const [salespersonId, setSalespersonId] = useState('')
   const [salespeople, setSalespeople] = useState<any[]>([])
   const [discountInput, setDiscountInput] = useState<number | string>(0)
+  const [warrantyLabelsOpen, setWarrantyLabelsOpen] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -230,6 +232,11 @@ export default function SalesOrderDetailPage() {
           onClick={() => window.open(`/sales-orders/${id}/print?preview=1`, '_blank')}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-amber-200 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100">
           <Eye size={13} /> 預覽列印
+        </button>
+        <button
+          onClick={() => setWarrantyLabelsOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-teal-200 bg-teal-50 text-teal-700 rounded-lg hover:bg-teal-100">
+          <ShieldCheck size={13} /> 保固貼紙
         </button>
         <button
           onClick={() => window.open(`/sales-orders/${id}/print`, '_blank')}
@@ -477,6 +484,15 @@ export default function SalesOrderDetailPage() {
           {saving ? '儲存中...' : '儲存'}
         </button>
       </div>
+
+      <WarrantyLabelModal
+        open={warrantyLabelsOpen}
+        onClose={() => setWarrantyLabelsOpen(false)}
+        orderNo={order.order_no ?? ''}
+        purchaseDate={order.created_at ? new Date(order.created_at).toLocaleDateString('zh-TW') : ''}
+        clientName={order.clients?.company_name ?? ''}
+        items={items}
+      />
     </div>
   )
 }
