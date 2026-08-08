@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Printer, ShieldCheck, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Cloud, Printer, ShieldCheck, X } from 'lucide-react'
 
 type WarrantyItem = {
   id?: string
@@ -16,6 +16,7 @@ type Props = {
   orderNo: string
   purchaseDate: string
   clientName?: string
+  sourceId?: string
   items: WarrantyItem[]
 }
 
@@ -23,10 +24,22 @@ const esc = (value: unknown) => String(value ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#039;')
 
-export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDate, clientName, items }: Props) {
+export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDate, clientName, sourceId, items }: Props) {
   const printable = useMemo(() => items.filter(i => i.product_name.trim()), [items])
   const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [copies, setCopies] = useState<Record<number, number>>({})
+  const [printers, setPrinters] = useState<{ id: string; name: string; last_seen_at?: string | null }[]>([])
+  const [printerId, setPrinterId] = useState('')
+  const [cloudBusy, setCloudBusy] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    fetch('/api/print/printers').then(r => r.ok ? r.json() : { printers: [] }).then(json => {
+      const list = json.printers ?? []
+      setPrinters(list)
+      setPrinterId((current: string) => current || list[0]?.id || '')
+    }).catch(() => setPrinters([]))
+  }, [open])
 
   if (!open) return null
 
@@ -66,6 +79,24 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
     win.document.close()
   }
 
+  async function queueCloudPrint(onlyIdx?: number) {
+    const labels = printable.flatMap((item, idx) => {
+      if (onlyIdx !== undefined ? idx !== onlyIdx : !isSelected(idx)) return []
+      return [{ product_name: item.product_name, model: item.model ?? '', copies: copyCount(idx) }]
+    })
+    if (!labels.length) return alert('請至少選擇一個品項')
+    setCloudBusy(true)
+    try {
+      const res = await fetch('/api/print/jobs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printer_id: printerId || undefined, source_id: sourceId, order_no: orderNo, purchase_date: purchaseDate, client_name: clientName, labels }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || '建立列印工作失敗')
+      alert(`已送到「${json.printer.name}」列印佇列，可關閉此視窗繼續操作。`)
+    } catch (e) { alert((e as Error).message) } finally { setCloudBusy(false) }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-xl">
@@ -101,11 +132,20 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
             {printable.length === 0 && <div className="p-6 text-center text-sm text-gray-400">這張銷貨單尚無可列印品項</div>}
           </div>
           <p className="mt-3 text-xs text-gray-400">貼紙尺寸：80 × 40 mm。預設張數等於購買數量，可依實際設備調整。</p>
+          <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-900"><Cloud size={15} />平板／遠端列印</div>
+            <select value={printerId} onChange={e => setPrinterId(e.target.value)} className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm">
+              {printers.length === 0 && <option value="">尚未設定雲端印表機</option>}
+              {printers.map(p => <option key={p.id} value={p.id}>{p.name}{p.last_seen_at ? '' : '（尚未連線）'}</option>)}
+            </select>
+            <p className="mt-1.5 text-xs text-blue-600">由連接印表機的 Windows 電腦接收工作；平板不需要安裝驅動程式。</p>
+          </div>
         </div>
         <div className="flex items-center justify-between border-t bg-gray-50 px-5 py-4">
           <span className="text-sm text-gray-500">共 {total} 張</span>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm">取消</button>
+            <button type="button" onClick={() => queueCloudPrint()} disabled={total === 0 || cloudBusy || printers.length === 0} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"><Cloud size={15} />{cloudBusy ? '傳送中' : '遠端列印'}</button>
             <button type="button" onClick={() => printLabels()} disabled={total === 0} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"><Printer size={15} />列印</button>
           </div>
         </div>

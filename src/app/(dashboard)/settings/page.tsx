@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { SystemSettings, UserProfile } from '@/types'
-import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database, Tag, History, Lock } from 'lucide-react'
+import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database, Tag, History, Lock, Printer } from 'lucide-react'
 
 type TabKey = 'company' | 'users' | 'backup' | 'categories' | 'audit'
 
@@ -434,6 +434,12 @@ export default function SettingsPage() {
           className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">
           <Tag size={14} />產品資料
         </a>
+        {isAdmin && (
+          <a href="/settings/printers"
+            className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">
+            <Printer size={14} />印表機管理
+          </a>
+        )}
         {isAdmin && (
           <a href="/permissions"
             className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">

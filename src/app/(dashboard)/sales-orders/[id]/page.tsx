@@ -491,6 +491,7 @@ export default function SalesOrderDetailPage() {
         orderNo={order.order_no ?? ''}
         purchaseDate={order.created_at ? new Date(order.created_at).toLocaleDateString('zh-TW') : ''}
         clientName={order.clients?.company_name ?? ''}
+        sourceId={id as string}
         items={items}
       />
     </div>

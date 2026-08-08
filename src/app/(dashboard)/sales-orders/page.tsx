@@ -831,6 +831,7 @@ export default function SalesOrdersPage() {
           orderNo={reprintOrder.order_no ?? ''}
           purchaseDate={reprintOrder.created_at ? new Date(reprintOrder.created_at).toLocaleDateString('zh-TW') : ''}
           clientName={reprintOrder.clients?.company_name ?? ''}
+          sourceId={reprintOrder.id}
           items={reprintItems}
         />
       )}
