@@ -11,7 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { can, ready, dashboardFeature, dashboardHref } = usePermissions()
+  const { can, ready, isAdmin, dashboardFeature, dashboardHref } = usePermissions()
 
   // 依網址找出對應功能（最長前綴優先），沒對應到的頁面不擋
   const feature = FEATURES
@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     .sort((a, b) => (b.href!.length - a.href!.length))[0]?.key
     ?? (pathname === '/' ? 'dashboard' : undefined)
   const blocked = ready && feature ? !can(feature, 'can_view') : false
-  const wrongDashboard = ready && feature && DASHBOARD_FEATURES.has(feature) && feature !== dashboardFeature
+  const wrongDashboard = ready && !isAdmin && feature && DASHBOARD_FEATURES.has(feature) && feature !== dashboardFeature
 
   // 書籤或手動網址進到別人的戰情室時，立即送回自己的戰情室。
   useEffect(() => {

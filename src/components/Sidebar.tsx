@@ -194,7 +194,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const featureOf = (href: string) =>
     FEATURES.filter(f => f.href && f.href !== '/' && href.startsWith(f.href))
       .sort((a, b) => b.href!.length - a.href!.length)[0]?.key ?? (href === '/' ? 'dashboard' : undefined)
-  const flt = (items: any[]) => items.filter(i => {
+  const flt = (items: any[]) => isAdmin ? items : items.filter(i => {
     const f = featureOf(i.href)
     return f ? can(f, 'can_view') : true
   })

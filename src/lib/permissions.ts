@@ -162,11 +162,12 @@ export function usePermissions() {
   const dashboardHref = dashboardFeature ? DASHBOARD_HREFS[dashboardFeature] : null
 
   function can(feature: string, action: keyof Perm = 'can_view'): boolean {
+    // 管理員是系統最高權限，必須在「戰情室只能看自己的」規則之前放行。
+    if (bypass || isAdmin) return true
     // 戰情室是互斥的：每個帳號永遠只能看到自己職稱對應的一間。
     if (DASHBOARD_FEATURES.has(feature)) {
       return action === 'can_view' && feature === dashboardFeature
     }
-    if (bypass || isAdmin) return true
     return !!perms[feature]?.[action]
   }
 
