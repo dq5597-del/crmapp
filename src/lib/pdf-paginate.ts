@@ -292,7 +292,6 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       if (r.last && footerBlockH > 0) {
         ctx.drawImage(canvas, 0, rowsEnd, W, footerBlockH, 0, dy, W, footerBlockH)
         dy += footerBlockH
-        frameBottom = dy
       }
 
       // 4) 未完頁 → 欄線補空白列填滿到頁尾，本頁小計接下一行
