@@ -141,11 +141,11 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .logo-img { width: 100%; height: auto; display: block; }
         .logo-url { width: 100%; font-size: 11px; font-weight: 700; color: #000; }
         .header-spacer { width: 210px; flex-shrink: 0; }
-        .title-block { flex: 1; text-align: center; }
+        .title-block { flex: 1; text-align: center; align-self: flex-start; margin-top: -10px; }
         h1 { font-size: 32px; font-weight: 700; text-align: center; margin: 2px 0 2px; letter-spacing: 6px; }
         .sub-header { text-align: center; font-size: 16px; color: #333; margin-bottom: 8px; }
         .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 3px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 16px; }
         th { background: #d9d9d9; font-weight: 700; font-size: 14px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
         td { border: 1px solid #aaa; padding: 4px 6px; font-size: 14px; vertical-align: top; }
         .num { text-align: right; }
