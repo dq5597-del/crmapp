@@ -142,19 +142,17 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .logo-url { width: 100%; font-size: 11px; font-weight: 700; color: #000; }
         .header-spacer { width: 210px; flex-shrink: 0; }
         .title-block { flex: 1; text-align: center; }
-        h1 { font-size: 22px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
+        h1 { font-size: 32px; font-weight: 700; text-align: center; margin: 6px 0 6px; letter-spacing: 6px; }
         .sub-header { text-align: center; font-size: 16px; color: #333; margin-bottom: 16px; }
-        .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
+        .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 3px; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-        th { background: #d9d9d9; font-weight: 700; font-size: 12px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
-        td { border: 1px solid #aaa; padding: 5px 6px; font-size: 12px; vertical-align: top; }
+        th { background: #d9d9d9; font-weight: 700; font-size: 14px; border: 1px solid #888; padding: 6px 6px; text-align: center; }
+        td { border: 1px solid #aaa; padding: 6px 6px; font-size: 14px; vertical-align: top; }
         .num { text-align: right; }
         .center { text-align: center; }
-        .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
-        .total-row td { font-weight: 700; font-size: 13px; }
-        /* 整張單外框加粗 */
-        .page { border: 2.5px solid #333; }
-        /* 未稅／稅額／含稅合計framed 成一個粗框區塊 */
+        .notes-row td { border-top: none; color: #555; font-size: 12.5px; padding: 3px 8px 6px; }
+        .total-row td { font-weight: 700; font-size: 15px; }
+        /* 未稅／稅額／含稅合計框成一個粗框區塊 */
         .tax-row td { border-left: none; border-right: none; }
         .tax-row td:first-child { border-left: 2.5px solid #333; }
         .tax-row td:last-child  { border-right: 2.5px solid #333; }
@@ -163,9 +161,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .cat-row td { background: #ececec; font-weight: 700; }
         .notes-stamp-row { display: flex; align-items: flex-start; gap: 20px; margin-top: 8px; }
         .notes-section { flex: 1; min-width: 0; }
-        .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
+        .notes-title { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
-        .notes-section li { font-size: 12px; line-height: 1.9; }
+        .notes-section li { font-size: 13.5px; line-height: 1.85; }
         .stamp-box { width: 132px; flex-shrink: 0; display: flex; justify-content: center; }
         .stamp-box img { width: 124px; height: auto; }
       `}</style>

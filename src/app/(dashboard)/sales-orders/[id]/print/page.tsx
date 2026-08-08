@@ -123,7 +123,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
         .logo-url { width: 100%; font-size: 11px; font-weight: 700; color: #000; }
         .header-spacer { width: 210px; flex-shrink: 0; }
         .title-block { flex: 1; text-align: center; }
-        h1 { font-size: 22px; font-weight: 700; text-align: center; margin: 4px 0 4px; }
+        h1 { font-size: 32px; font-weight: 700; text-align: center; margin: 6px 0 6px; letter-spacing: 6px; }
         .sub-header { text-align: center; font-size: 16px; color: #333; margin-bottom: 16px; }
         .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; }
@@ -133,7 +133,6 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
         .total-row td { font-weight: 700; font-size: 13px; }
-        .page { border: 2.5px solid #333; }
         .tax-row td { border-left: none; border-right: none; }
         .tax-row td:first-child { border-left: 2.5px solid #333; }
         .tax-row td:last-child  { border-right: 2.5px solid #333; }
