@@ -323,6 +323,21 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         ctx.textAlign = 'right'
         ctx.fillText(fmtNT(pageSubtotal(r.start, r.end)), gx1 - Math.round(6 * scale), midY)
 
+        // 頁框收邊：外框是整份文件畫一次，切片後中間頁會缺左右下三邊，
+        // 這裡補回去，讓每一頁的粗框都是閉合的。
+        {
+          const frameW = Math.max(2, Math.round(2.5 * scale))
+          const half = frameW / 2
+          ctx.strokeStyle = '#333333'
+          ctx.lineWidth = frameW
+          ctx.beginPath()
+          ctx.moveTo(half, dy)                 // 左邊：接續複製區下緣
+          ctx.lineTo(half, subBot + half)
+          ctx.lineTo(W - half, subBot + half)  // 底邊
+          ctx.lineTo(W - half, dy)             // 右邊
+          ctx.stroke()
+        }
+
         // 續下頁（頁碼上方）
         ctx.fillStyle = '#1d4ed8'
         ctx.font = `bold ${Math.round(13 * scale)}px ${cjkFont}`
@@ -337,6 +352,21 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         ctx.fillText(`本頁小計　${fmtNT(sub)}`, W - Math.round(40 * sc), capacity - Math.round(46 * sc))
         ctx.fillStyle = '#1d4ed8'
         ctx.fillText('～ 續下頁 ～', W - Math.round(40 * sc), capacity - Math.round(16 * sc))
+
+        // 頁框收邊（無欄位資訊時的退回版本）
+        {
+          const frameW = Math.max(2, Math.round(2.5 * scale))
+          const half = frameW / 2
+          const yb = capacity - Math.round(56 * sc)
+          ctx.strokeStyle = '#333333'
+          ctx.lineWidth = frameW
+          ctx.beginPath()
+          ctx.moveTo(half, dy)
+          ctx.lineTo(half, yb)
+          ctx.lineTo(W - half, yb)
+          ctx.lineTo(W - half, dy)
+          ctx.stroke()
+        }
       }
 
       // 5) 置底頁碼

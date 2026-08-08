@@ -122,6 +122,12 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
         .total-row td { font-weight: 700; font-size: 13px; }
+        .page { border: 2.5px solid #333; }
+        .tax-row td { border-left: none; border-right: none; }
+        .tax-row td:first-child { border-left: 2.5px solid #333; }
+        .tax-row td:last-child  { border-right: 2.5px solid #333; }
+        .tax-top td    { border-top: 2.5px solid #333; }
+        .tax-bottom td { border-bottom: 2.5px solid #333; }
         .notes-stamp-row { display: flex; align-items: flex-start; gap: 20px; margin-top: 8px; }
         .notes-section { flex: 1; min-width: 0; }
         .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
@@ -175,8 +181,8 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
               <th style={{ textAlign: 'left', width: 110 }}>規格型號</th>
               <th style={{ width: 44 }}>單位</th>
               <th style={{ width: 44 }}>數量</th>
-              <th style={{ width: 88 }}>單價</th>
-              <th style={{ width: 96 }}>金額</th>
+              <th style={{ width: 88 }}>含稅單價</th>
+              <th style={{ width: 96 }}>含稅金額</th>
             </tr>
           </thead>
           <tbody>
@@ -217,15 +223,15 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
           </tbody>
           {/* 訂單已成立，不再列原價與折扣；金額需與發票對得起來 */}
           <tfoot>
-            <tr className="total-row">
+            <tr className="total-row tax-row tax-top">
               <td colSpan={5}>未稅金額</td>
               <td colSpan={3} className="num">NT$ {fmt(netAmt)}</td>
             </tr>
-            <tr className="total-row">
+            <tr className="total-row tax-row">
               <td colSpan={5}>營業稅 5%</td>
               <td colSpan={3} className="num">NT$ {fmt(taxAmt)}</td>
             </tr>
-            <tr className="total-row">
+            <tr className="total-row tax-row tax-bottom">
               <td colSpan={5}>含稅合計　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(order.total_amount))}</td>
             </tr>

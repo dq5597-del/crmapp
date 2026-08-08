@@ -68,6 +68,12 @@ export default async function RepairQuotePrintPage({ params }: { params: { id: s
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
         .total-row td { font-weight: 700; font-size: 13px; }
+        .page { border: 2.5px solid #333; }
+        .tax-row td { border-left: none; border-right: none; }
+        .tax-row td:first-child { border-left: 2.5px solid #333; }
+        .tax-row td:last-child  { border-right: 2.5px solid #333; }
+        .tax-top td    { border-top: 2.5px solid #333; }
+        .tax-bottom td { border-bottom: 2.5px solid #333; }
         .status-badge { display: inline-block; padding: 2px 10px; border: 1px solid #888; border-radius: 12px; font-size: 12px; font-weight: 600; }
         .sign-row { display: flex; justify-content: space-between; margin-top: 32px; }
         .sign-box { width: 45%; }
@@ -160,8 +166,8 @@ export default async function RepairQuotePrintPage({ params }: { params: { id: s
                 <th style={{ textAlign: 'left', width: 100 }}>型號</th>
                 <th style={{ width: 44 }}>單位</th>
                 <th style={{ width: 44 }}>數量</th>
-                <th style={{ width: 84 }}>單價</th>
-                <th style={{ width: 96 }}>金額</th>
+                <th style={{ width: 84 }}>含稅單價</th>
+                <th style={{ width: 96 }}>含稅金額</th>
               </tr>
             </thead>
             <tbody>
@@ -189,9 +195,9 @@ export default async function RepairQuotePrintPage({ params }: { params: { id: s
                 const tax = Number(rq.total_amount ?? 0) - net
                 return (
                   <>
-                    <tr className="total-row"><td colSpan={5} className="num">未稅金額</td><td colSpan={2} className="num">NT$ {fmt(net)}</td></tr>
-                    <tr className="total-row"><td colSpan={5} className="num">營業稅 5%</td><td colSpan={2} className="num">NT$ {fmt(tax)}</td></tr>
-                    <tr className="total-row"><td colSpan={5} className="num">含稅合計</td><td colSpan={2} className="num">NT$ {fmt(rq.total_amount)}</td></tr>
+                    <tr className="total-row tax-row tax-top"><td colSpan={5} className="num">未稅金額</td><td colSpan={2} className="num">NT$ {fmt(net)}</td></tr>
+                    <tr className="total-row tax-row"><td colSpan={5} className="num">營業稅 5%</td><td colSpan={2} className="num">NT$ {fmt(tax)}</td></tr>
+                    <tr className="total-row tax-row tax-bottom"><td colSpan={5} className="num">含稅合計</td><td colSpan={2} className="num">NT$ {fmt(rq.total_amount)}</td></tr>
                   </>
                 )
               })()}
