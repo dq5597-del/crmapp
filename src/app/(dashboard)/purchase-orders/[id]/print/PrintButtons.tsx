@@ -53,12 +53,9 @@ export default function PrintButtons() {
     if (loading) return
     setLoading(landscape ? 'printL' : 'print')
     try {
-      let r: Awaited<ReturnType<typeof printPdf>> | null = null
-      if (landscape) r = await printPdf(getFileName(), true)
-      else {
-        const printer = await queueCurrentDocument('purchase_order', getFileName())
-        alert(`已直接送到「${printer.name}」列印。`)
-      }
+      // 直向與橫向一致：都先產生 PDF 再開列印對話框，讓使用者確認後才印。
+      // （不再走 queueCurrentDocument 直送印表機 —— 按下去就印，沒有反悔機會）
+      const r = await printPdf(getFileName(), landscape)
       if (r === 'downloaded') alert('無法直接開啟列印，已改為下載 PDF，請開啟檔案後列印')
     } catch (e) {
       console.error(e)
