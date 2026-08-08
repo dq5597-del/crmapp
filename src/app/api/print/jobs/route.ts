@@ -18,20 +18,27 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: '未登入' }, { status: 401 })
   const body = await req.json().catch(() => ({}))
   const documentHtml = typeof body.document_html === 'string' ? body.document_html : ''
-  if (body.document_type === 'sales_order') {
+  const documentPurposes: Record<string, { purpose: string; kind: string }> = {
+    sales_order: { purpose: 'sales_order_a4', kind: 'sales_order_a4' },
+    quote: { purpose: 'office_documents_a4', kind: 'office_document_a4' },
+    purchase_order: { purpose: 'office_documents_a4', kind: 'office_document_a4' },
+    purchase: { purpose: 'office_documents_a4', kind: 'office_document_a4' },
+  }
+  const documentConfig = documentPurposes[String(body.document_type ?? '')]
+  if (documentConfig) {
     if (!documentHtml || documentHtml.length > 2_000_000) return NextResponse.json({ error: '銷貨單列印內容不完整' }, { status: 400 })
     const sb = printServiceClient()!
-    let q = sb.from('print_printers').select('*').eq('purpose', 'sales_order_a4').eq('is_active', true).order('is_default', { ascending: false }).limit(1)
+    let q = sb.from('print_printers').select('*').eq('purpose', documentConfig.purpose).eq('is_active', true).order('is_default', { ascending: false }).limit(1)
     q = user.branch_id ? q.or(`branch_id.eq.${user.branch_id},branch_id.is.null`) : q.is('branch_id', null)
     const { data: printers } = await q
     const printer = printers?.[0]
     if (!printer) return NextResponse.json({ error: '尚未設定銷貨單印表機' }, { status: 409 })
     const { data, error } = await sb.from('print_jobs').insert({
       printer_id: printer.id, branch_id: printer.branch_id ?? user.branch_id,
-      source_type: 'sales_order_document', source_id: body.source_id || null,
+      source_type: `${String(body.document_type)}_document`, source_id: body.source_id || null,
       order_no: String(body.order_no ?? ''), requested_by: user.id,
       // Base64 keeps Traditional Chinese intact when Windows PowerShell 5 reads the JSON response.
-      payload: { kind: 'sales_order_a4', html_base64: Buffer.from(documentHtml, 'utf8').toString('base64'), copies: 1 },
+      payload: { kind: documentConfig.kind, html_base64: Buffer.from(documentHtml, 'utf8').toString('base64'), copies: 1 },
     }).select('id,status').single()
     return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ job: data, printer: { id: printer.id, name: printer.name } }, { status: 201 })
   }

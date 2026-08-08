@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Search, PackagePlus, Plus, X, Trash2, Barcode } from 'lucide-react'
+import { Search, PackagePlus, Plus, X, Trash2, Barcode, Printer } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import ProductPickerModal from '@/components/ProductPickerModal'
 import {
@@ -14,6 +14,9 @@ import {
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import PurchaseBarcodeModal from '@/components/purchases/PurchaseBarcodeModal'
+import { queueHtmlDocument } from '@/lib/cloud-document-print'
+
+const htmlEsc = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -224,6 +227,19 @@ export default function PurchasesPage() {
     setBarcodeOrder(row)
   }
 
+  async function printPurchase(row: any) {
+    setBarcodeLoading(row.id)
+    try {
+      const { data, error } = await supabase.from('purchase_items').select('brand,product_name,model,unit,quantity,unit_price,item_notes,warehouses(name)').eq('purchase_id', row.id).order('seq_no')
+      if (error) throw error
+      const detailRows = (data ?? []).map((item: any, idx: number) => `<tr><td>${idx + 1}</td><td>${htmlEsc(item.brand)}</td><td>${htmlEsc(item.product_name)}</td><td>${htmlEsc(item.model)}</td><td>${htmlEsc(item.warehouses?.name)}</td><td>${htmlEsc(item.unit)}</td><td class="n">${Number(item.quantity)}</td><td class="n">${Number(item.unit_price).toLocaleString('zh-TW')}</td><td class="n">${(Number(item.quantity) * Number(item.unit_price)).toLocaleString('zh-TW')}</td></tr>${item.item_notes ? `<tr class="note"><td colspan="9">備註：${htmlEsc(item.item_notes)}</td></tr>` : ''}`).join('')
+      const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${htmlEsc(row.purchase_no)}</title><style>@page{size:A4;margin:14mm}body{font-family:"Microsoft JhengHei",sans-serif;color:#111;font-size:12px}h1{text-align:center;font-size:24px;margin:0 0 18px}.info{display:flex;justify-content:space-between;margin:4px 0}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #777;padding:6px}th{background:#ddd}.n{text-align:right}.note td{font-size:11px;color:#555}.total{text-align:right;font-size:16px;font-weight:700;margin-top:12px}</style></head><body><h1>進 貨 單</h1><div class="info"><span>廠商：${htmlEsc(row.vendors?.company_name ?? row.vendor_name)}</span><span>進貨單號：${htmlEsc(row.purchase_no)}</span></div><div class="info"><span>進貨日期：${htmlEsc(row.purchase_date)}</span><span>狀態：${htmlEsc(row.status)}</span></div><table><thead><tr><th>#</th><th>品牌</th><th>品名</th><th>型號</th><th>入庫倉庫</th><th>單位</th><th>數量</th><th>單價</th><th>金額</th></tr></thead><tbody>${detailRows}</tbody></table><div class="total">合計：NT$ ${Number(row.total_amount).toLocaleString('zh-TW')}</div>${row.notes ? `<p>備註：${htmlEsc(row.notes)}</p>` : ''}</body></html>`
+      const printer = await queueHtmlDocument('purchase', html, row.id, row.purchase_no)
+      alert(`已直接送到「${printer.name}」列印。`)
+    } catch (e) { alert('進貨單列印失敗：' + ((e as Error).message || '未知錯誤')) }
+    finally { setBarcodeLoading(null) }
+  }
+
 
   // 編輯既有進貨單
   async function handleUpdate() {
@@ -415,6 +431,11 @@ export default function PurchasesPage() {
                     </select>
                   </td>
                   <td className="px-4 py-3 text-center">
+                    <button type="button" onClick={() => printPurchase(r)} disabled={barcodeLoading === r.id}
+                      title="直接列印進貨單"
+                      className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+                      <Printer size={14} /> 列印
+                    </button>
                     <button type="button" onClick={() => openBarcodePrint(r)} disabled={barcodeLoading === r.id}
                       title="列印進貨條碼"
                       className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-50 disabled:opacity-50">

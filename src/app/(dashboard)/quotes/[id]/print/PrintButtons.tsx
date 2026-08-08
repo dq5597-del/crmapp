@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { downloadPdf, sharePdf, printPdf } from '@/lib/pdf-paginate'
 import PrintPreviewModal from '@/components/PrintPreviewModal'
+import { queueCurrentDocument } from '@/lib/cloud-document-print'
 
 function getFileName() {
   const t = (document.title || '').trim()
@@ -52,7 +53,12 @@ export default function PrintButtons() {
     if (loading) return
     setLoading(landscape ? 'printL' : 'print')
     try {
-      const r = await printPdf(getFileName(), landscape)
+      let r: Awaited<ReturnType<typeof printPdf>> | null = null
+      if (landscape) r = await printPdf(getFileName(), true)
+      else {
+        const printer = await queueCurrentDocument('quote', getFileName())
+        alert(`已直接送到「${printer.name}」列印。`)
+      }
       if (r === 'downloaded') alert('無法直接開啟列印，已改為下載 PDF，請開啟檔案後列印')
     } catch (e) {
       console.error(e)

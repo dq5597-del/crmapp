@@ -88,7 +88,7 @@ while ($true) {
     $response = Invoke-AgentApi '/api/print/agent/claim'
     if ($null -ne $response.job) {
       try {
-        if ($response.job.payload.kind -eq 'sales_order_a4') {
+        if ($response.job.payload.kind -in @('sales_order_a4','office_document_a4')) {
           Print-SalesOrderA4 $response.printer.windows_printer_name $response.job.payload
         } else {
           foreach ($label in $response.job.payload.labels) { Print-WarrantyLabel $response.printer.windows_printer_name $response.job.payload $label }
