@@ -5,7 +5,13 @@ import { createClient } from '@/lib/supabase'
 import { toStorageSafeName } from '@/lib/storage-key'
 import { MessageSquare, Plus, Send, Paperclip, X, Navigation, Users, Video, Trash2 } from 'lucide-react'
 
-type RosterUser = { id: string; full_name: string | null; role: string }
+type RosterUser = {
+  id: string
+  full_name: string | null
+  role: string
+  title: string | null
+  branch_id: string | null
+}
 type Thread = { id: string; title: string | null; is_group: boolean; created_by: string | null; updated_at: string }
 type Msg = {
   id: string; thread_id: string; sender_id: string | null; body: string | null
@@ -319,13 +325,19 @@ export default function MessagesPage() {
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">選擇收件人（勾多人＝群組）</label>
+                <p className="text-xs text-blue-600 mb-2">
+                  只顯示同一通訊處可聯絡的人員；經理僅能傳給本處主任或工程師。
+                </p>
                 <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-50">
                   {roster.filter(u => u.id !== me).map(u => (
                     <label key={u.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer">
                       <input type="checkbox" checked={pick.has(u.id)}
                         onChange={e => setPick(prev => { const n = new Set(prev); if (e.target.checked) n.add(u.id); else n.delete(u.id); return n })}
                         className="w-4 h-4 accent-blue-600" />
-                      <span className="text-gray-700">{u.full_name || u.id.slice(0, 6)}</span>
+                      <span className="text-gray-700">
+                        {u.full_name || u.id.slice(0, 6)}
+                        {u.title ? <span className="text-gray-400 ml-1">（{u.title}）</span> : null}
+                      </span>
                     </label>
                   ))}
                 </div>
