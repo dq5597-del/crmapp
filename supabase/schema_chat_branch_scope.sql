@@ -1,4 +1,5 @@
 -- 訊息依通訊處隔離：同處才能成為對話成員；經理只能聯絡同處主任／工程師。
+-- 董事長與 CEO 具有全公司查看及建立對話權限。
 -- 可重複執行。
 
 alter table public.chat_threads
@@ -46,15 +47,35 @@ as $$
   select exists (
     select 1
     from public.chat_threads t
-    join public.chat_members m on m.thread_id = t.id
     join public.user_profiles me on me.id = (select auth.uid())
     where t.id = p_thread
-      and m.user_id = (select auth.uid())
       and coalesce(me.is_active, true)
       and (
-        (me.branch_id is not null and t.branch_id = me.branch_id)
-        or (me.branch_id is null and t.created_by = (select auth.uid()))
+        me.title in ('董事長', 'CEO', '執行長')
+        or (
+          exists (
+            select 1 from public.chat_members m
+            where m.thread_id = t.id and m.user_id = (select auth.uid())
+          )
+          and (
+            (me.branch_id is not null and t.branch_id = me.branch_id)
+            or (me.branch_id is null and t.created_by = (select auth.uid()))
+          )
+        )
       )
+  );
+$$;
+
+create or replace function private.chat_thread_membership(p_thread uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1 from public.chat_members
+    where thread_id = p_thread and user_id = (select auth.uid())
   );
 $$;
 
@@ -75,7 +96,8 @@ as $$
       and coalesce(actor.is_active, true)
       and coalesce(target.is_active, true)
       and (
-        p_user = (select auth.uid())
+        actor.title in ('董事長', 'CEO', '執行長')
+        or p_user = (select auth.uid())
         or (
           actor.branch_id is not null
           and target.branch_id = actor.branch_id
@@ -107,7 +129,8 @@ as $$
   from public.user_profiles p, me
   where coalesce(p.is_active, true)
     and (
-      p.id = me.id
+      me.title in ('董事長', 'CEO', '執行長')
+      or p.id = me.id
       or (
         me.branch_id is not null
         and p.branch_id = me.branch_id
@@ -133,10 +156,10 @@ create policy chat_threads_insert on public.chat_threads for insert to authentic
     select branch_id from public.user_profiles where id = (select auth.uid())
   ));
 create policy chat_threads_update on public.chat_threads for update to authenticated
-  using ((select private.chat_thread_access(id)))
-  with check ((select private.chat_thread_access(id)));
+  using ((select private.chat_thread_membership(id)))
+  with check ((select private.chat_thread_membership(id)));
 create policy chat_threads_delete on public.chat_threads for delete to authenticated
-  using ((select private.chat_thread_access(id)) or created_by = (select auth.uid()));
+  using ((select private.chat_thread_membership(id)) or created_by = (select auth.uid()));
 
 drop policy if exists chat_members_select on public.chat_members;
 drop policy if exists chat_members_insert on public.chat_members;
@@ -150,7 +173,7 @@ create policy chat_members_update on public.chat_members for update to authentic
   using (user_id = (select auth.uid()) and (select private.chat_thread_access(thread_id)))
   with check (user_id = (select auth.uid()) and (select private.chat_thread_access(thread_id)));
 create policy chat_members_delete on public.chat_members for delete to authenticated
-  using ((select private.chat_thread_access(thread_id)));
+  using ((select private.chat_thread_membership(thread_id)));
 
 drop policy if exists chat_messages_select on public.chat_messages;
 drop policy if exists chat_messages_insert on public.chat_messages;
