@@ -28,10 +28,16 @@ export async function POST(req: NextRequest) {
   if (documentConfig) {
     if (!documentHtml || documentHtml.length > 2_000_000) return NextResponse.json({ error: '銷貨單列印內容不完整' }, { status: 400 })
     const sb = printServiceClient()!
-    let q = sb.from('print_printers').select('*').eq('purpose', documentConfig.purpose).eq('is_active', true).order('is_default', { ascending: false }).limit(1)
-    q = user.branch_id ? q.or(`branch_id.eq.${user.branch_id},branch_id.is.null`) : q.is('branch_id', null)
-    const { data: printers } = await q
-    const printer = printers?.[0]
+    let printer: any = null
+    if (body.printer_id) {
+      const { data } = await sb.from('print_printers').select('*').eq('id', body.printer_id).eq('is_active', true).maybeSingle()
+      if (data && data.purpose !== 'warranty_label' && Number(data.label_width_mm) >= 200 && Number(data.label_height_mm) >= 280 && (data.branch_id === null || data.branch_id === user.branch_id)) printer = data
+    } else {
+      let q = sb.from('print_printers').select('*').eq('purpose', documentConfig.purpose).eq('is_active', true).order('is_default', { ascending: false }).limit(1)
+      q = user.branch_id ? q.or(`branch_id.eq.${user.branch_id},branch_id.is.null`) : q.is('branch_id', null)
+      const { data } = await q
+      printer = data?.[0]
+    }
     if (!printer) return NextResponse.json({ error: '尚未設定銷貨單印表機' }, { status: 409 })
     const { data, error } = await sb.from('print_jobs').insert({
       printer_id: printer.id, branch_id: printer.branch_id ?? user.branch_id,
