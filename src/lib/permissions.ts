@@ -68,6 +68,54 @@ export type Perm = {
 }
 export type PermMap = Record<string, Perm>
 
+export const DASHBOARD_FEATURES = new Set([
+  'dashboard', 'chairman', 'ceo', 'manager', 'dept', 'team', 'finance',
+  'finance-team', 'acct-staff', 'tech-team', 'chief-engineer',
+  'senior-engineer', 'hr-dashboard',
+])
+
+const DASHBOARD_HREFS: Record<string, string> = {
+  dashboard: '/', chairman: '/chairman', ceo: '/ceo', manager: '/manager',
+  dept: '/dept', team: '/team', finance: '/finance',
+  'finance-team': '/finance-team', 'acct-staff': '/acct-staff',
+  'tech-team': '/tech-team', 'chief-engineer': '/chief-engineer',
+  'senior-engineer': '/senior-engineer', 'hr-dashboard': '/hr',
+}
+
+/**
+ * 戰情室只依人員職稱決定，不受角色權限或個人例外影響。
+ * role 僅用於舊資料／「員工」職稱的部門判斷。
+ */
+export function dashboardFeatureFor(title: string, role: string): string | null {
+  const t = title.trim().toUpperCase()
+  const byTitle: Record<string, string> = {
+    '董事長': 'chairman',
+    'CEO': 'ceo',
+    '執行長': 'ceo',
+    '總經理': 'manager',
+    '經理': 'dept',
+    '主任': 'team',
+    '業務主任': 'team',
+    '會計主管': 'finance-team',
+    '會計': 'acct-staff',
+    '會計人員': 'acct-staff',
+    '技術主管': 'tech-team',
+    '總工程師': 'chief-engineer',
+    '資深工程師': 'senior-engineer',
+    '工程師': 'tech-team',
+    '人資': 'hr-dashboard',
+    '人資主管': 'hr-dashboard',
+  }
+  if (byTitle[t]) return byTitle[t]
+
+  const r = role.trim().toLowerCase()
+  if (r === 'hr') return 'hr-dashboard'
+  if (r === 'accountant') return 'acct-staff'
+  if (r === 'tech') return 'tech-team'
+  if (['sales', 'user', 'viewer'].includes(r) || t === '員工') return 'dashboard'
+  return null
+}
+
 const NONE: Perm = { can_view: false, can_create: false, can_edit: false, can_delete: false, can_cost: false }
 const ALL: Perm = { can_view: true, can_create: true, can_edit: true, can_delete: true, can_cost: true }
 
@@ -80,6 +128,7 @@ export function usePermissions() {
   const [ready, setReady] = useState(false)
   const [bypass, setBypass] = useState(false)   // 資料表不存在 → 全開
   const [role, setRole] = useState<string>('')
+  const [title, setTitle] = useState<string>('')
 
   useEffect(() => {
     (async () => {
@@ -87,8 +136,9 @@ export function usePermissions() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setReady(true); return }
 
-      const { data: prof } = await supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle()
+      const { data: prof } = await supabase.from('user_profiles').select('role, title').eq('id', user.id).maybeSingle()
       setRole(prof?.role ?? '')
+      setTitle(prof?.title ?? '')
 
       const { data, error } = await supabase.rpc('my_permissions')
       if (error) {
@@ -108,8 +158,14 @@ export function usePermissions() {
   }, [])
 
   const isAdmin = role === 'admin' || role === '管理員'
+  const dashboardFeature = dashboardFeatureFor(title, role)
+  const dashboardHref = dashboardFeature ? DASHBOARD_HREFS[dashboardFeature] : null
 
   function can(feature: string, action: keyof Perm = 'can_view'): boolean {
+    // 戰情室是互斥的：每個帳號永遠只能看到自己職稱對應的一間。
+    if (DASHBOARD_FEATURES.has(feature)) {
+      return action === 'can_view' && feature === dashboardFeature
+    }
     if (bypass || isAdmin) return true
     return !!perms[feature]?.[action]
   }
@@ -119,5 +175,8 @@ export function usePermissions() {
     return perms[feature] ?? NONE
   }
 
-  return { perms, can, permOf, ready, bypass, isAdmin, role }
+  return {
+    perms, can, permOf, ready, bypass, isAdmin, role, title,
+    dashboardFeature, dashboardHref,
+  }
 }
