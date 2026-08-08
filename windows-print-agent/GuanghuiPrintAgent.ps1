@@ -68,7 +68,10 @@ function Print-SalesOrderA4($PrinterName, $Payload) {
     $uri = [uri]$htmlPath
     $p = Start-Process -FilePath $chrome -ArgumentList @('--headless','--disable-gpu','--no-pdf-header-footer',("--print-to-pdf=$pdfPath"),$uri.AbsoluteUri) -WindowStyle Hidden -Wait -PassThru
     if ($p.ExitCode -ne 0 -or -not (Test-Path $pdfPath)) { throw 'Failed to create the sales order PDF.' }
-    Start-Process -FilePath $acrobat -ArgumentList @('/n','/s','/o','/h','/t',("`"$pdfPath`""),("`"$PrinterName`"")) -WindowStyle Hidden -Wait
+    $printerInfo = Get-Printer -Name $PrinterName -ErrorAction Stop
+    $acrobatProcess = Start-Process -FilePath $acrobat -ArgumentList @('/n','/s','/o','/h','/t',("`"$pdfPath`""),("`"$PrinterName`""),("`"$($printerInfo.DriverName)`""),("`"$($printerInfo.PortName)`"")) -WindowStyle Hidden -PassThru
+    Start-Sleep -Seconds 12
+    if ($acrobatProcess.HasExited -and $acrobatProcess.ExitCode -ne 0) { throw 'Adobe Acrobat could not print the sales order.' }
   } finally {
     if (Test-Path $work) { Remove-Item -LiteralPath $work -Recurse -Force }
   }
