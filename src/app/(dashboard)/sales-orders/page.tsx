@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Search, ShoppingCart, Plus, X, Trash2, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from 'lucide-react'
+import { Search, ShoppingCart, Plus, X, Trash2, Tag, FolderPlus, GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, ShieldCheck } from 'lucide-react'
 import BrandInput from '@/components/BrandInput'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
@@ -13,6 +13,7 @@ import RowDeleteButton from '@/components/RowDeleteButton'
 import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/lib/auto-ledger'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
+import WarrantyLabelModal from '@/components/sales-orders/WarrantyLabelModal'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -64,6 +65,9 @@ export default function SalesOrdersPage() {
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
+  const [reprintOrder, setReprintOrder] = useState<any | null>(null)
+  const [reprintItems, setReprintItems] = useState<any[]>([])
+  const [reprintLoading, setReprintLoading] = useState<string | null>(null)
 
   // form fields
   const [clientId, setClientId] = useState('')
@@ -120,6 +124,30 @@ export default function SalesOrdersPage() {
       (p.model?.toLowerCase() ?? '').includes(q) ||
       (p.brand?.toLowerCase() ?? '').includes(q)
     ).slice(0, 20)
+  }
+
+  async function openWarrantyReprint(order: any) {
+    setReprintLoading(order.id)
+    const { data, error } = await supabase
+      .from('sales_order_items')
+      .select('id, product_name, model, quantity, is_category')
+      .eq('order_id', order.id)
+      .order('seq_no')
+    setReprintLoading(null)
+
+    if (error) {
+      alert(`無法載入保固貼紙資料：${error.message}`)
+      return
+    }
+
+    const printableItems = (data ?? []).filter(item => !item.is_category && item.product_name?.trim())
+    if (printableItems.length === 0) {
+      alert('此銷貨單沒有可補印的商品品項')
+      return
+    }
+
+    setReprintItems(printableItems)
+    setReprintOrder(order)
   }
 
   function onProductPick(idx: number, p: any) {
@@ -464,6 +492,16 @@ export default function SalesOrdersPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-500">{formatDate(o.created_at)}</td>
                   <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => openWarrantyReprint(o)}
+                      disabled={reprintLoading === o.id}
+                      title="補印保固貼紙"
+                      className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-teal-700 transition-colors hover:bg-teal-50 disabled:cursor-wait disabled:opacity-50"
+                    >
+                      <ShieldCheck size={14} />
+                      {reprintLoading === o.id ? '載入中' : '補印貼紙'}
+                    </button>
                     <CopyDocButton type="sales-orders" id={o.id} title="複製此銷貨單（單號重新產生、狀態回草稿）" />
                     <RowDeleteButton
                       table="sales_orders"
@@ -783,6 +821,20 @@ export default function SalesOrdersPage() {
       )}
 
       {/* 快速新增產品 Modal */}
+      {reprintOrder && (
+        <WarrantyLabelModal
+          open
+          onClose={() => {
+            setReprintOrder(null)
+            setReprintItems([])
+          }}
+          orderNo={reprintOrder.order_no ?? ''}
+          purchaseDate={reprintOrder.created_at ? new Date(reprintOrder.created_at).toLocaleDateString('zh-TW') : ''}
+          clientName={reprintOrder.clients?.company_name ?? ''}
+          items={reprintItems}
+        />
+      )}
+
       {quickAddIdx !== null && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
