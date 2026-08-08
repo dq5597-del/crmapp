@@ -34,9 +34,9 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
   const copyCount = (idx: number) => copies[idx] ?? Math.max(1, Math.ceil(Number(printable[idx]?.quantity) || 1))
   const total = printable.reduce((sum, _, idx) => sum + (isSelected(idx) ? copyCount(idx) : 0), 0)
 
-  function printLabels() {
+  function printLabels(onlyIdx?: number) {
     const labels = printable.flatMap((item, idx) => {
-      if (!isSelected(idx)) return []
+      if (onlyIdx !== undefined ? idx !== onlyIdx : !isSelected(idx)) return []
       return Array.from({ length: Math.min(100, copyCount(idx)) }, () => `
         <section class="label">
           <header><strong>GH 光輝影音科技</strong><span>產品保固貼紙</span></header>
@@ -86,6 +86,12 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
                   <span className="block truncate font-medium">{item.product_name}</span>
                   {item.model && <span className="block truncate text-xs text-gray-400">型號：{item.model}</span>}
                 </span>
+                <button type="button"
+                  onClick={e => { e.preventDefault(); e.stopPropagation(); printLabels(idx) }}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100"
+                  title="只列印這個品項">
+                  <Printer size={13} /> 單印
+                </button>
                 <span className="text-xs text-gray-500">張數</span>
                 <input type="number" min={1} max={100} value={copyCount(idx)} disabled={!isSelected(idx)}
                   onChange={e => setCopies(p => ({ ...p, [idx]: Math.max(1, Math.min(100, Number(e.target.value) || 1)) }))}
@@ -100,7 +106,7 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
           <span className="text-sm text-gray-500">共 {total} 張</span>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm">取消</button>
-            <button type="button" onClick={printLabels} disabled={total === 0} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"><Printer size={15} />列印</button>
+            <button type="button" onClick={() => printLabels()} disabled={total === 0} className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"><Printer size={15} />列印</button>
           </div>
         </div>
       </div>
