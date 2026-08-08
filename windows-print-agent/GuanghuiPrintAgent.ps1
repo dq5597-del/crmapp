@@ -38,7 +38,8 @@ function Print-WarrantyLabel($PrinterName, $Payload, $Label) {
       $g.DrawString('GH 光輝影音科技', $titleFont, $teal, $x, $y)
       $g.DrawString('產品保固貼紙', $smallBold, $teal, $x + $w - 90, $y + 3)
       $g.DrawLine((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(31,157,159), 1.5)), $x, $y + 20, $x + $w, $y + 20)
-      $g.DrawString($product, $productFont, $black, (New-Object System.Drawing.RectangleF($x, $y + 24, $w, 35)))
+      $productBox = [System.Drawing.RectangleF]::new([single]$x, [single]($y + 24), [single]$w, [single]35)
+      $g.DrawString($product, $productFont, $black, $productBox)
       if ($model) { $g.DrawString("型號：$model", $small, $black, $x, $y + 58) }
       $g.DrawString("購買日期：$purchaseDate", $small, $black, $x, $y + 74)
       $g.DrawString("銷貨單號：$orderNo", $small, $black, $x + 135, $y + 74)
@@ -69,4 +70,3 @@ while ($true) {
   } catch { Write-Warning "連線失敗：$($_.Exception.Message)" }
   Start-Sleep -Seconds $PollSeconds
 }
-
