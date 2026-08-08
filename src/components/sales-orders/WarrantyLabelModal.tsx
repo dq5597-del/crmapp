@@ -56,12 +56,12 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
     if (!win) { alert('無法開啟列印視窗，請允許此網站使用彈出視窗。'); return }
     win.document.write(`<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>保固貼紙_${esc(orderNo)}</title><style>
       *{box-sizing:border-box}html,body{margin:0;background:#eee;font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111}
-      .label{width:70mm;height:40mm;background:#fff;border:1px dashed #999;margin:5mm auto;padding:3.2mm 4mm;display:flex;flex-direction:column;overflow:hidden;page-break-after:always}
+      .label{width:80mm;height:40mm;background:#fff;border:1px dashed #999;margin:5mm auto;padding:3.2mm 4mm;display:flex;flex-direction:column;overflow:hidden;page-break-after:always}
       header{display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #1f9d9f;padding-bottom:1.5mm;color:#117c7e;font-size:10pt}
       header span{font-size:8.5pt;font-weight:700}main{flex:1;padding-top:1.5mm;min-height:0}.product{font-size:11pt;font-weight:800;line-height:1.25;max-height:9mm;overflow:hidden}
       .model,.client{font-size:7.5pt;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row{display:flex;justify-content:space-between;font-size:8pt;line-height:1.45}.row b{font-weight:700}
       footer{border-top:1px solid #bbb;padding-top:1mm;text-align:center;font-size:7.2pt;color:#333}
-      @media print{html,body{background:#fff}.label{margin:0;border:0}@page{size:70mm 40mm;margin:0}}
+      @media print{html,body{background:#fff}.label{margin:0;border:0}@page{size:80mm 40mm;margin:0}}
     </style></head><body>${labels}<script>setTimeout(function(){window.focus();window.print()},350)<\/script></body></html>`)
     win.document.close()
   }
@@ -100,7 +100,7 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
             ))}
             {printable.length === 0 && <div className="p-6 text-center text-sm text-gray-400">這張銷貨單尚無可列印品項</div>}
           </div>
-          <p className="mt-3 text-xs text-gray-400">貼紙尺寸：70 × 40 mm。預設張數等於購買數量，可依實際設備調整。</p>
+          <p className="mt-3 text-xs text-gray-400">貼紙尺寸：80 × 40 mm。預設張數等於購買數量，可依實際設備調整。</p>
         </div>
         <div className="flex items-center justify-between border-t bg-gray-50 px-5 py-4">
           <span className="text-sm text-gray-500">共 {total} 張</span>
