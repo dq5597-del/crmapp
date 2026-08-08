@@ -393,12 +393,17 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPress
 
   async function insertWordPressImages(files: File[]) {
     if (!files.length) return
+    const imageFiles = files.filter(file => file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(file.name))
+    if (imageFiles.length !== files.length) {
+      alert('只能選擇 JPG、PNG、WebP 或 GIF 圖片')
+    }
+    if (!imageFiles.length) return
     const selectionStart = textareaRef.current?.selectionStart ?? value.length
     const selectionEnd = textareaRef.current?.selectionEnd ?? selectionStart
     setUploadingImages(true)
     try {
       const snippets: string[] = []
-      for (const file of files) {
+      for (const file of imageFiles) {
         const fd = new FormData()
         fd.append('file', file)
         fd.append('alt_text', file.name.replace(/\.[^.]+$/, ''))
@@ -435,9 +440,9 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPress
           <>
             <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImages} className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 disabled:opacity-50">
               {uploadingImages ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
-              {uploadingImages ? '上傳至官網中…' : '插入圖片'}
+              {uploadingImages ? '上傳至官網中…' : '插入圖片（裝置 / Drive）'}
             </button>
-            <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="hidden" onChange={e => insertWordPressImages(Array.from(e.target.files ?? []))} />
+            <input ref={imageInputRef} type="file" multiple className="hidden" onChange={e => insertWordPressImages(Array.from(e.target.files ?? []))} />
           </>
         )}
       </div>
@@ -722,6 +727,10 @@ export default function ProductsPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   async function uploadImage(file: File, key: string): Promise<string | null> {
+    if (!(file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(file.name))) {
+      alert('只能選擇 JPG、PNG、WebP 或 GIF 圖片')
+      return null
+    }
     setImgUploading(key)
     try {
       const fd = new FormData()
@@ -1242,8 +1251,8 @@ export default function ProductsPage() {
                                                   <button type="button" onClick={() => setWebImages(a => [...a, { image_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 貼網址</button>
                                                   <label className="text-xs text-emerald-700 hover:underline cursor-pointer flex items-center gap-1">
                                                     <Upload size={12} />
-                                                    {imgUploading === 'gallery' ? '上傳中…' : '從電腦上傳'}
-                                                    <input type="file" accept="image/*" multiple className="hidden" disabled={imgUploading != null}
+                                                    {imgUploading === 'gallery' ? '上傳中…' : '從裝置 / Google Drive'}
+                                                    <input type="file" multiple className="hidden" disabled={imgUploading != null}
                                                       onChange={async e => {
                                                         const files = [...(e.target.files ?? [])]
                                                         for (const f of files) {
@@ -1441,8 +1450,8 @@ export default function ProductsPage() {
                                                   <input value={form.web_main_image_url} onChange={e => setForm(p => ({ ...p, web_main_image_url: e.target.value }))} className={inputClass} placeholder="貼網址，或按右邊上傳" />
                                                   <label className="shrink-0 flex items-center gap-1 px-2.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 cursor-pointer">
                                                     <Upload size={13} />
-                                                    {imgUploading === 'main' ? '上傳中…' : '上傳'}
-                                                    <input type="file" accept="image/*" className="hidden" disabled={imgUploading != null}
+                                                    {imgUploading === 'main' ? '上傳中…' : '裝置 / Drive'}
+                                                    <input type="file" className="hidden" disabled={imgUploading != null}
                                                       onChange={async e => {
                                                         const f = e.target.files?.[0]; if (!f) return
                                                         const url = await uploadImage(f, 'main')
