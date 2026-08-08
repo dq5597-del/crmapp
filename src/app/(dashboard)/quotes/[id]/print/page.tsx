@@ -146,11 +146,11 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .sub-header { text-align: center; font-size: 16px; color: #333; margin-bottom: 8px; }
         .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 3px; }
         table { border-collapse: collapse; width: 100%; margin-top: 6px; }
-        th { background: #d9d9d9; font-weight: 700; font-size: 14px; border: 1px solid #888; padding: 6px 6px; text-align: center; }
-        td { border: 1px solid #aaa; padding: 6px 6px; font-size: 14px; vertical-align: top; }
+        th { background: #d9d9d9; font-weight: 700; font-size: 14px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
+        td { border: 1px solid #aaa; padding: 4px 6px; font-size: 14px; vertical-align: top; }
         .num { text-align: right; }
         .center { text-align: center; }
-        .notes-row td { border-top: none; color: #555; font-size: 12.5px; padding: 3px 8px 6px; }
+        .notes-row td { border-top: none; color: #555; font-size: 12.5px; padding: 1px 8px 3px; }
         .total-row td { font-weight: 700; font-size: 15px; }
         /* 未稅／稅額／含稅合計框成一個粗框區塊 */
         .tax-row td { border-left: none; border-right: none; }
@@ -164,8 +164,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .notes-title { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
         .notes-section li { font-size: 13.5px; line-height: 1.5; }
-        .stamp-box { width: 132px; flex-shrink: 0; display: flex; justify-content: center; }
-        .stamp-box img { width: 124px; height: auto; }
+        .stamp-box { width: 112px; flex-shrink: 0; display: flex; justify-content: center; }
+        .stamp-box img { width: 104px; height: auto; }
       `}</style>
 
       <PrintButtons />
