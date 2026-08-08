@@ -53,13 +53,38 @@ function Print-WarrantyLabel($PrinterName, $Payload, $Label) {
   }
 }
 
+function Print-SalesOrderA4($PrinterName, $Payload) {
+  $work = Join-Path $env:TEMP ('gh-print-' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $work | Out-Null
+  $htmlPath = Join-Path $work 'sales-order.html'
+  $pdfPath = Join-Path $work 'sales-order.pdf'
+  try {
+    $html = ([string]$Payload.html) -replace '<head>', '<head><base href="https://crmapp-topaz.vercel.app/">'
+    [System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.UTF8Encoding]::new($true))
+    $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+    $acrobat = 'C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe'
+    if (-not (Test-Path $chrome)) { throw 'Google Chrome is required on the print computer.' }
+    if (-not (Test-Path $acrobat)) { throw 'Adobe Acrobat is required on the print computer.' }
+    $uri = [uri]$htmlPath
+    $p = Start-Process -FilePath $chrome -ArgumentList @('--headless','--disable-gpu','--no-pdf-header-footer',("--print-to-pdf=$pdfPath"),$uri.AbsoluteUri) -WindowStyle Hidden -Wait -PassThru
+    if ($p.ExitCode -ne 0 -or -not (Test-Path $pdfPath)) { throw 'Failed to create the sales order PDF.' }
+    Start-Process -FilePath $acrobat -ArgumentList @('/n','/s','/o','/h','/t',("`"$pdfPath`""),("`"$PrinterName`"")) -WindowStyle Hidden -Wait
+  } finally {
+    if (Test-Path $work) { Remove-Item -LiteralPath $work -Recurse -Force }
+  }
+}
+
 Write-Host "光輝列印服務已啟動（印表機 ID：$PrinterId）"
 while ($true) {
   try {
     $response = Invoke-AgentApi '/api/print/agent/claim'
     if ($null -ne $response.job) {
       try {
-        foreach ($label in $response.job.payload.labels) { Print-WarrantyLabel $response.printer.windows_printer_name $response.job.payload $label }
+        if ($response.job.payload.kind -eq 'sales_order_a4') {
+          Print-SalesOrderA4 $response.printer.windows_printer_name $response.job.payload
+        } else {
+          foreach ($label in $response.job.payload.labels) { Print-WarrantyLabel $response.printer.windows_printer_name $response.job.payload $label }
+        }
         Invoke-AgentApi '/api/print/agent/complete' @{ job_id = $response.job.id; ok = $true } | Out-Null
         Write-Host "[$(Get-Date -Format s)] 已列印：$($response.job.order_no)"
       } catch {

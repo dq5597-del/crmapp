@@ -17,6 +17,23 @@ export async function POST(req: NextRequest) {
   const user = await printCurrentUser()
   if (!user) return NextResponse.json({ error: '未登入' }, { status: 401 })
   const body = await req.json().catch(() => ({}))
+  const documentHtml = typeof body.document_html === 'string' ? body.document_html : ''
+  if (body.document_type === 'sales_order') {
+    if (!documentHtml || documentHtml.length > 2_000_000) return NextResponse.json({ error: '銷貨單列印內容不完整' }, { status: 400 })
+    const sb = printServiceClient()!
+    let q = sb.from('print_printers').select('*').eq('purpose', 'sales_order_a4').eq('is_active', true).order('is_default', { ascending: false }).limit(1)
+    q = user.branch_id ? q.or(`branch_id.eq.${user.branch_id},branch_id.is.null`) : q.is('branch_id', null)
+    const { data: printers } = await q
+    const printer = printers?.[0]
+    if (!printer) return NextResponse.json({ error: '尚未設定銷貨單印表機' }, { status: 409 })
+    const { data, error } = await sb.from('print_jobs').insert({
+      printer_id: printer.id, branch_id: printer.branch_id ?? user.branch_id,
+      source_type: 'sales_order_document', source_id: body.source_id || null,
+      order_no: String(body.order_no ?? ''), requested_by: user.id,
+      payload: { kind: 'sales_order_a4', html: documentHtml, copies: 1 },
+    }).select('id,status').single()
+    return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ job: data, printer: { id: printer.id, name: printer.name } }, { status: 201 })
+  }
   const labels = Array.isArray(body.labels) ? body.labels.slice(0, 100) : []
   if (!labels.length || labels.some((l: any) => !String(l?.product_name ?? '').trim() || Number(l?.copies) < 1 || Number(l?.copies) > 100)) {
     return NextResponse.json({ error: '列印品項或張數不正確' }, { status: 400 })
@@ -48,4 +65,3 @@ export async function POST(req: NextRequest) {
   }).select('id,status').single()
   return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ job: data, printer: { id: printer.id, name: printer.name } }, { status: 201 })
 }
-

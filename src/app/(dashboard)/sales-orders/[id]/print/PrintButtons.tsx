@@ -52,7 +52,21 @@ export default function PrintButtons() {
     if (loading) return
     setLoading(landscape ? 'printL' : 'print')
     try {
-      const r = await printPdf(getFileName(), landscape)
+      let r: Awaited<ReturnType<typeof printPdf>> | null = null
+      if (landscape) {
+        r = await printPdf(getFileName(), true)
+      } else {
+        const html = '<!doctype html>' + document.documentElement.outerHTML
+        const parts = window.location.pathname.split('/').filter(Boolean)
+        const sourceId = parts[parts.length - 2] || ''
+        const res = await fetch('/api/print/jobs', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ document_type: 'sales_order', document_html: html, source_id: sourceId, order_no: getFileName() }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || '建立銷貨單列印工作失敗')
+        alert(`已直接送到「${json.printer.name}」列印。`)
+      }
       if (r === 'downloaded') alert('無法直接開啟列印，已改為下載 PDF，請開啟檔案後列印')
     } catch (e) {
       console.error(e)
