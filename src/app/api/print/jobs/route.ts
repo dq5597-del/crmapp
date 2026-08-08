@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
       printer_id: printer.id, branch_id: printer.branch_id ?? user.branch_id,
       source_type: 'sales_order_document', source_id: body.source_id || null,
       order_no: String(body.order_no ?? ''), requested_by: user.id,
-      payload: { kind: 'sales_order_a4', html: documentHtml, copies: 1 },
+      // Base64 keeps Traditional Chinese intact when Windows PowerShell 5 reads the JSON response.
+      payload: { kind: 'sales_order_a4', html_base64: Buffer.from(documentHtml, 'utf8').toString('base64'), copies: 1 },
     }).select('id,status').single()
     return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ job: data, printer: { id: printer.id, name: printer.name } }, { status: 201 })
   }

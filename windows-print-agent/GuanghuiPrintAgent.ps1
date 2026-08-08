@@ -59,7 +59,12 @@ function Print-SalesOrderA4($PrinterName, $Payload) {
   $htmlPath = Join-Path $work 'sales-order.html'
   $pdfPath = Join-Path $work 'sales-order.pdf'
   try {
-    $html = ([string]$Payload.html) -replace '<head>', '<head><base href="https://crmapp-topaz.vercel.app/">'
+    if ($Payload.html_base64) {
+      $html = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([string]$Payload.html_base64))
+    } else {
+      $html = [string]$Payload.html
+    }
+    $html = $html -replace '<head>', '<head><base href="https://crmapp-topaz.vercel.app/">'
     [System.IO.File]::WriteAllText($htmlPath, $html, [System.Text.UTF8Encoding]::new($true))
     $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
     $acrobat = 'C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe'
