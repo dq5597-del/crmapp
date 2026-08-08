@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Search, PackagePlus, Plus, X, Trash2 } from 'lucide-react'
+import { Search, PackagePlus, Plus, X, Trash2, Barcode } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
 import ProductPickerModal from '@/components/ProductPickerModal'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/lib/auto-ledger'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
+import PurchaseBarcodeModal from '@/components/purchases/PurchaseBarcodeModal'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -31,19 +32,26 @@ type Item = {
   quantity: number
   unit_price: number
   item_notes: string
+  warehouse_id: string
+  barcode: string
+  product_code: string
 }
-const emptyItem = (): Item => ({ product_id: null, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '' })
+const emptyItem = (): Item => ({ product_id: null, brand: '', product_name: '', model: '', unit: '台', quantity: 1, unit_price: 0, item_notes: '', warehouse_id: '', barcode: '', product_code: '' })
 
 export default function PurchasesPage() {
   const supabase = createClient()
   const [rows, setRows] = useState<any[]>([])
   const [vendors, setVendors] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
+  const [warehouses, setWarehouses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [barcodeOrder, setBarcodeOrder] = useState<any | null>(null)
+  const [barcodeItems, setBarcodeItems] = useState<any[]>([])
+  const [barcodeLoading, setBarcodeLoading] = useState<string | null>(null)
   // 編輯中的進貨單（null = 新增模式）
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingNo, setEditingNo] = useState('')
@@ -62,7 +70,7 @@ export default function PurchasesPage() {
   const [items, setItems] = useState<Item[]>([emptyItem()])
   // 欄寬微調：每個使用者自己存，拖動即時生效
   const { widths: colW, startResize, reset: resetColW } = useColWidths('purchase-items', {
-    brand: 110, name: 220, model: 150, unit: 56, qty: 60, price: 110, total: 112,
+    brand: 110, name: 220, model: 150, warehouse: 130, unit: 56, qty: 60, price: 110, total: 112,
   })
   const [pickerTarget, setPickerTarget] = useState<number | 'append' | null>(null)
   const [termDefaults, setTermDefaults] = useState({ payment_terms: '', notes: '' })
@@ -71,12 +79,14 @@ export default function PurchasesPage() {
     Promise.all([
       supabase.from('purchases').select('*, vendors(company_name)').order('created_at', { ascending: false }),
       supabase.from('vendors').select('id, company_name, contact_name, phone').eq('is_active', true).order('company_name'),
-      supabase.from('products').select('id, brand, product_name, model, unit, list_price, cost_price, stock_qty, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name'),
+      supabase.from('products').select('id, brand, product_name, model, unit, list_price, cost_price, stock_qty, barcode, product_code, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name'),
+      supabase.from('warehouses').select('id, code, name, location').eq('is_active', true).order('name'),
       supabase.from('system_settings').select('*').single(),
-    ]).then(([rRes, vRes, pRes, sRes]) => {
+    ]).then(([rRes, vRes, pRes, wRes, sRes]) => {
       setRows(rRes.data ?? [])
       setVendors(vRes.data ?? [])
       setProducts(pRes.data ?? [])
+      setWarehouses(wRes.data ?? [])
       const s = sRes.data as any
       if (s) setTermDefaults({ payment_terms: s.purchase_payment_terms ?? '', notes: s.purchase_notes ?? '' })
       setLoading(false)
@@ -114,7 +124,7 @@ export default function PurchasesPage() {
     setShowForm(true)
 
     const [{ data: itemRows }, { data: aps }] = await Promise.all([
-      supabase.from('purchase_items').select('*').eq('purchase_id', r.id).order('seq_no'),
+      supabase.from('purchase_items').select('*, products(barcode, product_code)').eq('purchase_id', r.id).order('seq_no'),
       supabase.from('payables').select('payable_no, paid_amount, status').eq('purchase_id', r.id),
     ])
     setItems(
@@ -128,6 +138,9 @@ export default function PurchasesPage() {
             quantity: Number(i.quantity) || 0,
             unit_price: Number(i.unit_price) || 0,
             item_notes: i.item_notes ?? '',
+            warehouse_id: i.warehouse_id ?? '',
+            barcode: i.products?.barcode ?? '',
+            product_code: i.products?.product_code ?? '',
           }))
         : [emptyItem()]
     )
@@ -164,11 +177,11 @@ export default function PurchasesPage() {
         const t = next[pickerTarget]
         if (t && !t.product_name.trim() && picked.length > 0) {
           const p = picked[0]
-          next[pickerTarget] = { ...t, product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.cost_price) || 0 }
+          next[pickerTarget] = { ...t, product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.cost_price) || 0, barcode: p.barcode ?? '', product_code: p.product_code ?? '' }
           list = picked.slice(1)
         }
       }
-      list.forEach(p => next.push({ ...emptyItem(), product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.cost_price) || 0 }))
+      list.forEach(p => next.push({ ...emptyItem(), product_id: p.id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit ?? '台', unit_price: Number(p.cost_price) || 0, barcode: p.barcode ?? '', product_code: p.product_code ?? '' }))
       return next
     })
     setPickerTarget(null)
@@ -192,8 +205,25 @@ export default function PurchasesPage() {
       product_name: i.product_name, model: i.model || null,
       unit: i.unit, quantity: i.quantity, unit_price: i.unit_price,
       item_notes: i.item_notes || null,
+      warehouse_id: i.warehouse_id || null,
     }))
   }
+
+  async function openBarcodePrint(row: any) {
+    setBarcodeLoading(row.id)
+    const { data, error } = await supabase.from('purchase_items')
+      .select('id, product_name, model, quantity, warehouse_id, products(barcode, product_code), warehouses(name)')
+      .eq('purchase_id', row.id).order('seq_no')
+    setBarcodeLoading(null)
+    if (error) return alert(`無法載入條碼資料：${error.message}`)
+    setBarcodeItems((data ?? []).map((item: any) => ({
+      id: item.id, product_name: item.product_name, model: item.model, quantity: item.quantity,
+      barcode: item.products?.barcode ?? '', product_code: item.products?.product_code ?? '',
+      warehouse_name: item.warehouses?.name ?? '',
+    })))
+    setBarcodeOrder(row)
+  }
+
 
   // 編輯既有進貨單
   async function handleUpdate() {
@@ -201,6 +231,7 @@ export default function PurchasesPage() {
     if (!vendorId) return alert('請選擇廠商')
     const validItems = items.filter(i => i.product_name.trim())
     if (validItems.length === 0) return alert('請至少填一筆品項')
+    if (validItems.some(i => !i.warehouse_id)) return alert('請為每個進貨品項指定入庫倉庫')
 
     const newTotal = validItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)
     if (apLocked) {
@@ -264,6 +295,7 @@ export default function PurchasesPage() {
     if (!vendorId) return alert('請選擇廠商')
     const validItems = items.filter(i => i.product_name.trim())
     if (validItems.length === 0) return alert('請至少填一筆品項')
+    if (validItems.some(i => !i.warehouse_id)) return alert('請為每個進貨品項指定入庫倉庫')
     setSaving(true)
     try {
       const purchase_no = await generateNo()
@@ -383,6 +415,11 @@ export default function PurchasesPage() {
                     </select>
                   </td>
                   <td className="px-4 py-3 text-center">
+                    <button type="button" onClick={() => openBarcodePrint(r)} disabled={barcodeLoading === r.id}
+                      title="列印進貨條碼"
+                      className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-50 disabled:opacity-50">
+                      <Barcode size={14} /> {barcodeLoading === r.id ? '載入中' : '列印條碼'}
+                    </button>
                     <RowDeleteButton
                       table="purchases" id={r.id} label="進貨單"
                       confirmMessage={`確定刪除進貨單 ${r.purchase_no}？品項一併刪除（已入庫的異動不會自動還原，請至庫存管理沖銷）。`}
@@ -478,6 +515,7 @@ export default function PurchasesPage() {
                         <ResizableTH col="brand" widths={colW} startResize={startResize} className="text-left px-2 py-2 text-gray-500 font-medium">品牌</ResizableTH>
                         <ResizableTH col="name" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">品名 *</ResizableTH>
                         <ResizableTH col="model" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">型號</ResizableTH>
+                        <ResizableTH col="warehouse" widths={colW} startResize={startResize} className="text-left px-2 py-2 text-gray-500 font-medium">入庫倉庫 *</ResizableTH>
                         <ResizableTH col="unit" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">單位</ResizableTH>
                         <ResizableTH col="qty" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">數量</ResizableTH>
                         <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">進價</ResizableTH>
@@ -510,6 +548,13 @@ export default function PurchasesPage() {
                           <td className="px-2 py-1.5">
                             <input value={item.model} onChange={e => updateItem(idx, 'model', e.target.value)}
                               className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs" />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <select value={item.warehouse_id} onChange={e => updateItem(idx, 'warehouse_id', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg bg-white text-xs">
+                              <option value="">選擇倉庫</option>
+                              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                            </select>
                           </td>
                           <td className="px-2 py-1.5">
                             <input value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
@@ -567,6 +612,15 @@ export default function PurchasesPage() {
           onClose={() => setPickerTarget(null)}
           onConfirm={handlePickerConfirm}
           confirmLabel="帶入進貨單"
+        />
+      )}
+
+      {barcodeOrder && (
+        <PurchaseBarcodeModal
+          open
+          onClose={() => { setBarcodeOrder(null); setBarcodeItems([]) }}
+          purchaseNo={barcodeOrder.purchase_no ?? ''}
+          items={barcodeItems}
         />
       )}
     </div>

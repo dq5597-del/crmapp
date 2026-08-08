@@ -147,7 +147,7 @@ export async function ensureStockInForPurchase(
   if (existing && existing.length > 0) return 'exists'
 
   const { data: items } = await supabase
-    .from('purchase_items').select('product_id, quantity, unit_price')
+    .from('purchase_items').select('product_id, quantity, unit_price, warehouse_id')
     .eq('purchase_id', purchaseId).not('product_id', 'is', null)
   const rows = (items ?? []).filter(i => Number(i.quantity) > 0)
   if (rows.length === 0) return 'skipped'
@@ -158,6 +158,7 @@ export async function ensureStockInForPurchase(
       type: '入庫',
       quantity: Math.abs(Number(i.quantity)),
       unit_cost: Number(i.unit_price) || null,
+      warehouse_id: i.warehouse_id ?? null,
       reference_no: order.purchase_no,
       notes: `進貨單 ${order.purchase_no} 到貨自動入庫`,
     }))
@@ -289,7 +290,7 @@ export async function reconcileStockForPurchase(
   if (!order) return { status: 'error', message: '讀取進貨單失敗' }
 
   const { data: txns, error: txErr } = await supabase
-    .from('inventory_transactions').select('product_id, quantity')
+    .from('inventory_transactions').select('product_id, quantity, warehouse_id')
     .eq('reference_no', order.purchase_no)
   if (txErr) return { status: 'error', message: `查詢庫存異動失敗：${txErr.message}` }
   if (!txns || txns.length === 0) return { status: 'skipped' }  // 尚未入庫，不需調整
@@ -297,31 +298,35 @@ export async function reconcileStockForPurchase(
   const recorded = new Map<string, number>()
   for (const t of txns) {
     if (!t.product_id) continue
-    recorded.set(t.product_id, (recorded.get(t.product_id) ?? 0) + Number(t.quantity || 0))
+    const key = `${t.product_id}::${t.warehouse_id ?? ''}`
+    recorded.set(key, (recorded.get(key) ?? 0) + Number(t.quantity || 0))
   }
 
   const { data: items } = await supabase
-    .from('purchase_items').select('product_id, quantity, unit_price')
+    .from('purchase_items').select('product_id, quantity, unit_price, warehouse_id')
     .eq('purchase_id', purchaseId).not('product_id', 'is', null)
 
   const desired = new Map<string, number>()
   const costs = new Map<string, number>()
   for (const i of items ?? []) {
     if (!i.product_id) continue
-    desired.set(i.product_id, (desired.get(i.product_id) ?? 0) + (Number(i.quantity) || 0))
-    costs.set(i.product_id, Number(i.unit_price) || 0)
+    const key = `${i.product_id}::${i.warehouse_id ?? ''}`
+    desired.set(key, (desired.get(key) ?? 0) + (Number(i.quantity) || 0))
+    costs.set(key, Number(i.unit_price) || 0)
   }
 
   const rows: any[] = []
-  const productIds = new Set<string>([...recorded.keys(), ...desired.keys()])
-  for (const pid of Array.from(productIds)) {
-    const delta = (desired.get(pid) ?? 0) - (recorded.get(pid) ?? 0)
+  const stockKeys = new Set<string>([...recorded.keys(), ...desired.keys()])
+  for (const key of Array.from(stockKeys)) {
+    const [pid, warehouseId] = key.split('::')
+    const delta = (desired.get(key) ?? 0) - (recorded.get(key) ?? 0)
     if (Math.abs(delta) < 0.0001) continue
     rows.push({
       product_id: pid,
       type: delta > 0 ? '入庫' : '出庫',
       quantity: delta,
-      unit_cost: delta > 0 ? (costs.get(pid) || null) : null,
+      unit_cost: delta > 0 ? (costs.get(key) || null) : null,
+      warehouse_id: warehouseId || null,
       reference_no: order.purchase_no,
       vendor_id: order.vendor_id ?? null,
       notes: `進貨單 ${order.purchase_no} 修改後庫存差額調整（${delta > 0 ? '+' : ''}${delta}）`,
