@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { preparePhotoAsWebP } from '@/lib/client-image-webp'
 import { ProjectStatus } from '@/types'
 import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload, FileText, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
@@ -139,9 +140,16 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
     if (onBeforeUpload && !(await onBeforeUpload())) return
     setUploading(true)
     try {
+      let uploadFile = file
+      try {
+        uploadFile = await preparePhotoAsWebP(file)
+      } catch {
+        // 舊版瀏覽器或特殊手機格式無法在前端轉檔時，交由伺服器轉換。
+      }
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', uploadFile)
       fd.append('folder', `專案照片/${cat}`)
+      fd.append('convert_webp', '1')
       const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '上傳失敗')
@@ -207,9 +215,10 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
           className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
           <ImageIcon size={14} /> 開啟舊檔
         </button>
-        {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
+        {uploading && <span className="text-xs text-gray-400 animate-pulse">轉成 WebP 並上傳中...</span>}
         <span className="ml-auto text-xs text-gray-400">上傳至「{catLabel}」</span>
       </div>
+      <div className="-mt-1 mb-3 text-xs text-gray-400">電腦選圖或手機拍照上傳，都會自動轉成 WebP 檔。</div>
 
       {/* Photo Grid */}
       {loading ? (

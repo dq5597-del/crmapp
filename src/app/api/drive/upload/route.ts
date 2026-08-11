@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { uploadToDrive, driveConfigured, testDrive, driveMode } from '@/lib/gdrive'
+import sharp from 'sharp'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -9,6 +10,7 @@ export const maxDuration = 60
  *   file    檔案
  *   folder  子資料夾名稱（專案照片 / 產品圖片 / 專案檔案 / 名片…）
  *   public  '1' = 設成公開連結（產品圖要推官網才需要）
+ *   convert_webp '1' = 圖片縮放並轉成 WebP（專案照片使用）
  *
  * 回傳 { file_id, public_url? }
  */
@@ -24,19 +26,43 @@ export async function POST(req: Request) {
     const file = form.get('file') as File | null
     const folder = (form.get('folder') as string) || '其他'
     const isPublic = form.get('public') === '1'
+    const convertWebP = form.get('convert_webp') === '1'
 
     if (!file) return NextResponse.json({ error: '沒有收到檔案' }, { status: 400 })
 
-    const buf = Buffer.from(await file.arrayBuffer())
+    let buf: Buffer = Buffer.from(await file.arrayBuffer())
+    let fileName = file.name
+    let mimeType = file.type || 'application/octet-stream'
+
+    if (convertWebP) {
+      const looksLikeImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(file.name)
+      if (!looksLikeImage) {
+        return NextResponse.json({ error: '只能將圖片轉成 WebP' }, { status: 400 })
+      }
+      buf = await sharp(buf)
+        .rotate()
+        .resize({ width: 2560, height: 2560, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 84 })
+        .toBuffer()
+      fileName = `${file.name.replace(/\.[^.]+$/, '') || `project-photo-${Date.now()}`}.webp`
+      mimeType = 'image/webp'
+    }
+
     const result = await uploadToDrive({
       folder,
-      name: `${Date.now()}_${file.name}`,
-      mimeType: file.type || 'application/octet-stream',
+      name: `${Date.now()}_${fileName}`,
+      mimeType,
       data: buf,
       makePublic: isPublic,
     })
 
-    return NextResponse.json({ file_id: result.id, public_url: result.publicUrl })
+    return NextResponse.json({
+      file_id: result.id,
+      public_url: result.publicUrl,
+      file_name: fileName,
+      mime_type: mimeType,
+      converted_to_webp: convertWebP,
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message ?? '上傳失敗' }, { status: 500 })
   }
