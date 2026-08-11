@@ -128,24 +128,21 @@ async function getAccessToken(): Promise<string> {
   return data.access_token
 }
 
-/** 取得（或建立）子資料夾，例：專案照片 / 產品圖片 / 專案檔案 */
-export async function ensureFolder(name: string, token?: string): Promise<string> {
-  const t = token ?? await getAccessToken()
-  const parent = process.env.GDRIVE_FOLDER_ID!
-
+async function ensureFolderUnderParent(name: string, parent: string, token: string): Promise<{ id: string; created: boolean }> {
   const q = encodeURIComponent(
     `name='${name.replace(/'/g, "\\'")}' and '${parent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
   )
   const findRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-    { headers: { Authorization: `Bearer ${t}` } }
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
   )
   const found = await findRes.json()
-  if (found.files?.length) return found.files[0].id
+  if (!findRes.ok) throw new Error('搜尋 Drive 資料夾失敗：' + (found.error?.message ?? findRes.status))
+  if (found.files?.length) return { id: found.files[0].id, created: false }
 
   const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name,
       mimeType: 'application/vnd.google-apps.folder',
@@ -154,7 +151,31 @@ export async function ensureFolder(name: string, token?: string): Promise<string
   })
   const created = await createRes.json()
   if (!createRes.ok) throw new Error('建立 Drive 資料夾失敗：' + (created.error?.message ?? ''))
-  return created.id
+  return { id: created.id, created: true }
+}
+
+/** 取得（或建立）GDRIVE_FOLDER_ID 底下的子資料夾。 */
+export async function ensureFolder(name: string, token?: string): Promise<string> {
+  const t = token ?? await getAccessToken()
+  const result = await ensureFolderUnderParent(name, process.env.GDRIVE_FOLDER_ID!, t)
+  return result.id
+}
+
+/** 從指定父資料夾逐層尋找或建立路徑；'root' 代表個人「我的雲端硬碟」。 */
+export async function ensureDriveFolderPath(parts: string[], startParentId = 'root') {
+  const token = await getAccessToken()
+  let parentId = startParentId
+  const folders: { id: string; name: string; created: boolean }[] = []
+
+  for (const rawName of parts) {
+    const name = rawName.trim()
+    if (!name) throw new Error('Drive 資料夾名稱不可為空白')
+    const folder = await ensureFolderUnderParent(name, parentId, token)
+    folders.push({ id: folder.id, name, created: folder.created })
+    parentId = folder.id
+  }
+
+  return { id: parentId, folders }
 }
 
 /** 上傳檔案到 Drive（multipart），回傳 file id */

@@ -14,6 +14,7 @@ import { ensureReceivableForSalesOrder, ensureStockOutForSalesOrder } from '@/li
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
 import WarrantyLabelModal from '@/components/sales-orders/WarrantyLabelModal'
+import { ensureClientDriveFolder } from '@/lib/client-drive-folder'
 
 const STATUS_COLORS: Record<string, string> = {
   '草稿': 'bg-gray-100 text-gray-600',
@@ -407,8 +408,17 @@ export default function SalesOrdersPage() {
       .insert({ company_name: value })
       .select('id, company_name')
       .single()
+    if (error || !data) {
+      setCreatingClient(false)
+      alert('新增失敗: ' + (error?.message ?? ''))
+      return
+    }
+    try {
+      await ensureClientDriveFolder(data.id)
+    } catch (folderError: any) {
+      alert('客戶已建立，但 Google Drive 資料夾建立失敗：' + (folderError?.message ?? '未知錯誤'))
+    }
     setCreatingClient(false)
-    if (error || !data) { alert('新增失敗: ' + (error?.message ?? '')); return }
     setClients(prev =>
       [...prev, data].sort((a, b) => a.company_name.localeCompare(b.company_name, 'zh-Hant'))
     )

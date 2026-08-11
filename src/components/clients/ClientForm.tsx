@@ -6,6 +6,7 @@ import { Client, ClientStatus } from '@/types'
 import { Camera, Loader2, CheckCircle } from 'lucide-react'
 import AppearanceTagPicker from '@/components/ui/AppearanceTagPicker'
 import Link from 'next/link'
+import { ensureClientDriveFolder } from '@/lib/client-drive-folder'
 
 const STATUS_OPTIONS: ClientStatus[] = ['有需求', '規劃中', '服務未完成', '已完成', '暫緩']
 
@@ -124,7 +125,16 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
     }
 
     if (result.error) { setError('儲存失敗：' + result.error.message) }
-    else { onSuccess(result.data.id) }
+    else {
+      if (!initialData?.id) {
+        try {
+          await ensureClientDriveFolder(result.data.id)
+        } catch (folderError: any) {
+          alert('客戶已建立，但 Google Drive 資料夾建立失敗：' + (folderError?.message ?? '未知錯誤'))
+        }
+      }
+      onSuccess(result.data.id)
+    }
     setSaving(false)
   }
 

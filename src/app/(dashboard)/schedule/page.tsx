@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
+import { ensureClientDriveFolder } from '@/lib/client-drive-folder'
 import {
   ChevronLeft, ChevronRight, Plus, X, Clock, Building2, Truck,
   Cake, ShieldCheck, Sparkles, Pencil, Trash2, Check, AlarmClock, CalendarDays, Navigation
@@ -646,6 +647,11 @@ function PlanModal({ schedule, defaultDate, clients, vendors, contacts, addClien
       .insert({ company_name: name, status: '有需求' })
       .select('id, company_name, address').single()
     if (error || !data) { alert('新增客戶失敗：' + (error?.message ?? '')); return }
+    try {
+      await ensureClientDriveFolder(data.id)
+    } catch (folderError: any) {
+      alert('客戶已建立，但 Google Drive 資料夾建立失敗：' + (folderError?.message ?? '未知錯誤'))
+    }
     addClient(data as Company)
     setF(p => ({ ...p, client_id: data.id, contact_id: '' }))
   }

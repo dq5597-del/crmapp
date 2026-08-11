@@ -10,6 +10,7 @@ import { useColWidths, ResizableTH, ColWidthTools } from '@/components/Resizable
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import ProductPickerModal from '@/components/ProductPickerModal'
+import { ensureClientDriveFolder } from '@/lib/client-drive-folder'
 
 type MarketPlatform = {
   key: string
@@ -89,7 +90,14 @@ function QuickAddClientModal({ initialName, onClose, onCreated }: QuickAddClient
     if (!form.company_name.trim()) return
     setSaving(true)
     const { data, error } = await supabase.from('clients').insert(form).select('*').single()
-    if (!error && data) onCreated(data)
+    if (!error && data) {
+      try {
+        await ensureClientDriveFolder(data.id)
+      } catch (folderError: any) {
+        alert('客戶已建立，但 Google Drive 資料夾建立失敗：' + (folderError?.message ?? '未知錯誤'))
+      }
+      onCreated(data)
+    }
     setSaving(false)
   }
 
