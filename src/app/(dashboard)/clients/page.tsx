@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Client } from '@/types'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
-import { Plus, Search, Phone, MapPin, Calendar, Award } from 'lucide-react'
+import { openClientDriveFolder } from '@/lib/client-drive-folder'
+import { Plus, Search, Phone, MapPin, Calendar, Award, FolderOpen, Loader2 } from 'lucide-react'
 import RowDeleteButton from '@/components/RowDeleteButton'
 
 const STATUS_OPTIONS = ['全部', '有需求', '規劃中', '服務未完成', '已完成', '暫緩']
@@ -41,6 +42,7 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState('全部')
   const [tierFilter, setTierFilter] = useState('全部分級')
   const [revenueMap, setRevenueMap] = useState<Record<string, number>>({})
+  const [openingFolderId, setOpeningFolderId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchClients()
@@ -66,6 +68,18 @@ export default function ClientsPage() {
       if (o.client_id) map[o.client_id] = (map[o.client_id] || 0) + Number(o.total_amount || 0)
     })
     setRevenueMap(map)
+  }
+
+  async function handleOpenFolder(client: Client) {
+    if (openingFolderId === client.id) return
+    setOpeningFolderId(client.id)
+    try {
+      await openClientDriveFolder(client.id)
+    } catch (error: any) {
+      alert(`無法開啟「${client.company_name}」資料夾：${error?.message ?? '未知錯誤'}`)
+    } finally {
+      setOpeningFolderId(null)
+    }
   }
 
   const tiers = computeTiers(revenueMap)
@@ -156,12 +170,71 @@ export default function ClientsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(client => (
-            <Link
+            <div
               key={client.id}
-              href={`/clients/${client.id}`}
-              className="relative bg-white border border-gray-100 rounded-2xl p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+              className="bg-white border border-gray-100 rounded-2xl p-4 hover:border-blue-300 hover:shadow-md transition-all group"
             >
-              <div className="absolute bottom-2 right-2 z-10">
+              <Link href={`/clients/${client.id}`} className="block">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+                        {client.company_name}
+                      </h3>
+                      {getTier(client.id) !== '尚無交易' && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border shrink-0 ${TIER_STYLES[getTier(client.id)]}`}>
+                          {getTier(client.id)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-500 text-sm mt-0.5">{client.contact_name ?? '—'}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-lg font-medium shrink-0 ml-2 ${CLIENT_STATUS_COLORS[client.status]}`}>
+                    {client.status}
+                  </span>
+                </div>
+
+                {revenueMap[client.id] > 0 && (
+                  <p className="text-xs text-gray-400 mb-2">累計成交：NT${revenueMap[client.id].toLocaleString()}</p>
+                )}
+
+                <div className="space-y-1.5 text-sm text-gray-500">
+                  {client.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone size={13} className="shrink-0" />
+                      <span className="truncate">{client.phone}</span>
+                    </div>
+                  )}
+                  {client.address && (
+                    <div className="flex items-center gap-2">
+                      <MapPin size={13} className="shrink-0" />
+                      <span className="truncate">{client.address}</span>
+                    </div>
+                  )}
+                  {client.next_visit_date && (
+                    <div className="flex items-center gap-2 text-orange-600">
+                      <Calendar size={13} className="shrink-0" />
+                      <span>應回訪：{formatDate(client.next_visit_date)}</span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenFolder(client)}
+                  disabled={openingFolderId === client.id}
+                  title={`開啟「${client.company_name}」的 Google Drive 資料夾`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 disabled:opacity-50 transition-colors"
+                >
+                  {openingFolderId === client.id ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <FolderOpen size={13} />
+                  )}
+                  {openingFolderId === client.id ? '開啟中…' : '開啟資料夾'}
+                </button>
                 <RowDeleteButton
                   table="clients"
                   id={client.id}
@@ -169,52 +242,10 @@ export default function ClientsPage() {
                   confirmMessage={`確定刪除單位「${client.company_name}」？相關聯絡人將一併刪除，此動作無法復原。`}
                   onDeleted={id => setClients(prev => prev.filter(x => x.id !== id))}
                   iconOnly
+                  className="ml-0"
                 />
               </div>
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
-                      {client.company_name}
-                    </h3>
-                    {getTier(client.id) !== '尚無交易' && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border shrink-0 ${TIER_STYLES[getTier(client.id)]}`}>
-                        {getTier(client.id)}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-gray-500 text-sm mt-0.5">{client.contact_name ?? '—'}</p>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-lg font-medium shrink-0 ml-2 ${CLIENT_STATUS_COLORS[client.status]}`}>
-                  {client.status}
-                </span>
-              </div>
-
-              {revenueMap[client.id] > 0 && (
-                <p className="text-xs text-gray-400 mb-2">累計成交：NT${revenueMap[client.id].toLocaleString()}</p>
-              )}
-
-              <div className="space-y-1.5 text-sm text-gray-500">
-                {client.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone size={13} className="shrink-0" />
-                    <span className="truncate">{client.phone}</span>
-                  </div>
-                )}
-                {client.address && (
-                  <div className="flex items-center gap-2">
-                    <MapPin size={13} className="shrink-0" />
-                    <span className="truncate">{client.address}</span>
-                  </div>
-                )}
-                {client.next_visit_date && (
-                  <div className="flex items-center gap-2 text-orange-600">
-                    <Calendar size={13} className="shrink-0" />
-                    <span>應回訪：{formatDate(client.next_visit_date)}</span>
-                  </div>
-                )}
-              </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
