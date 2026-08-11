@@ -1385,7 +1385,7 @@ export default function ProductsPage() {
                                             <div>
                                                 <label className="text-xs text-gray-500 mb-1 block">完整商品介紹</label>
                                                 <HtmlCodeEditor value={form.web_description} onChange={v => setForm(p => ({ ...p, web_description: v }))} rows={8} placeholder="可直接貼上 HTML，例如 <p>...</p>" allowWordPressImages />
-                                                <div className="mt-1.5 text-[11px] text-gray-400">可一次選擇多張 JPG、PNG、WebP 或 GIF（單張 4MB 內）；圖片會上傳到 WordPress 媒體庫並插入目前游標位置。</div>
+                                                <div className="mt-1.5 text-[11px] text-gray-400">未來上傳的 JPG、PNG 圖檔會自動轉成 WebP，並存入 WordPress 媒體庫；WebP 與 GIF 會保留原格式（單張 4MB 內）。</div>
                                             </div>
                                         )}
                                         {activeTab === 'spec' && (
@@ -1458,6 +1458,7 @@ export default function ProductsPage() {
                                                       }} />
                                                   </label>
                                                 </div>
+                                                <div className="mt-1.5 text-[11px] text-gray-400">未來上傳的 JPG、PNG 圖檔會自動轉成 WebP，並存入 WordPress 媒體庫。</div>
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">BSMI 許可字號</label>
