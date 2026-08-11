@@ -440,7 +440,7 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPress
           <>
             <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImages} className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 disabled:opacity-50">
               {uploadingImages ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
-              {uploadingImages ? '上傳至官網中…' : '插入圖片（裝置 / Drive）'}
+              {uploadingImages ? '上傳至 WordPress 中…' : '插入圖片（WordPress 媒體庫）'}
             </button>
             <input ref={imageInputRef} type="file" multiple className="hidden" onChange={e => insertWordPressImages(Array.from(e.target.files ?? []))} />
           </>
@@ -721,7 +721,7 @@ export default function ProductsPage() {
     fetchAll()
   }
 
-  // ── 圖片上傳到 Google Drive（產品圖需公開連結，官網才抓得到）──
+  // ── 產品圖片一律上傳到 WordPress 媒體庫 ──
   const [imgUploading, setImgUploading] = useState<string | null>(null)
   // ── 點小圖放大預覽（燈箱）──
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -735,12 +735,11 @@ export default function ProductsPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('folder', '產品圖片')
-      fd.append('public', '1')          // 官網要抓 → 公開連結
-      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      fd.append('alt_text', file.name.replace(/\.[^.]+$/, ''))
+      const res = await fetch('/api/wordpress/media', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '上傳失敗')
-      return data.public_url ?? null
+      return data.url ?? null
     } catch (e: any) {
       alert('圖片上傳失敗：' + e.message)
       return null
@@ -1243,15 +1242,14 @@ export default function ProductsPage() {
                                                             // eslint-disable-next-line @next/next/no-img-element
                                                             <img src={driveImageUrl(img.image_url, 100)} alt="" className="w-7 h-7 rounded object-cover bg-gray-50 border border-gray-100 shrink-0 cursor-zoom-in" onClick={() => setPreviewUrl(driveImageUrl(img.image_url, 1600))} onError={e => { (e.target as HTMLImageElement).style.opacity = '0.2' }} />
                                                         )}
-                                                        <input value={img.image_url} onChange={e => setWebImages(a => a.map((r, ri) => ri === i ? { ...r, image_url: e.target.value } : r))} placeholder="圖片網址" className={inputClass + ' text-xs py-1.5'} />
+                                                        <input value={img.image_url} readOnly aria-label="WordPress 媒體網址" className={inputClass + ' text-xs py-1.5 bg-gray-50'} />
                                                         <button type="button" onClick={() => setWebImages(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
                                                     </div>
                                                 ))}
                                                 <div className="flex items-center gap-3">
-                                                  <button type="button" onClick={() => setWebImages(a => [...a, { image_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 貼網址</button>
                                                   <label className="text-xs text-emerald-700 hover:underline cursor-pointer flex items-center gap-1">
                                                     <Upload size={12} />
-                                                    {imgUploading === 'gallery' ? '上傳中…' : '從裝置 / Google Drive'}
+                                                    {imgUploading === 'gallery' ? '上傳至 WordPress 中…' : '上傳至 WordPress 媒體庫'}
                                                     <input type="file" multiple className="hidden" disabled={imgUploading != null}
                                                       onChange={async e => {
                                                         const files = [...(e.target.files ?? [])]
@@ -1447,10 +1445,10 @@ export default function ProductsPage() {
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">主圖</label>
                                                 <div className="flex gap-1">
-                                                  <input value={form.web_main_image_url} onChange={e => setForm(p => ({ ...p, web_main_image_url: e.target.value }))} className={inputClass} placeholder="貼網址，或按右邊上傳" />
+                                                  <input value={form.web_main_image_url} readOnly aria-label="WordPress 主圖網址" className={inputClass + ' bg-gray-50'} placeholder="尚未上傳主圖" />
                                                   <label className="shrink-0 flex items-center gap-1 px-2.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 cursor-pointer">
                                                     <Upload size={13} />
-                                                    {imgUploading === 'main' ? '上傳中…' : '裝置 / Drive'}
+                                                    {imgUploading === 'main' ? '上傳至 WordPress 中…' : '上傳 WordPress'}
                                                     <input type="file" className="hidden" disabled={imgUploading != null}
                                                       onChange={async e => {
                                                         const f = e.target.files?.[0]; if (!f) return

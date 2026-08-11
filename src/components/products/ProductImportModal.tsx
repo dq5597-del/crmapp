@@ -208,7 +208,7 @@ export default function ProductImportModal({ products, onClose, onDone }: Props)
               <ul className="text-xs text-gray-500 space-y-1 leading-relaxed">
                 <li>• 比對既有產品的依據：<b>型號</b> →（找不到再看）<b>官網SKU</b>，不分大小寫。</li>
                 <li>• 下一步會逐筆列出「新增／更新／跳過」，確認後才會真的寫入。</li>
-                <li>• 圖片欄位填公開的 http(s) 網址，匯入時自動轉存 Google Drive。</li>
+                <li>• 圖片欄位填公開的 http(s) 網址，匯入時自動轉存 WordPress 媒體庫。</li>
                 <li>• 更新既有產品時<b>不會覆蓋庫存數量</b>。</li>
               </ul>
             </div>

@@ -45,7 +45,7 @@ export const PRODUCT_COLUMNS: ImportColumn[] = [
 /** 子表欄位（product_features / product_images） */
 export const SUB_COLUMNS: ImportColumn[] = [
   { header: '產品特色', key: 'features', type: 'list', width: 30, note: '用 | 分隔，每項最多 5 字、最多 10 項' },
-  { header: '主圖網址', key: 'main_image_url', type: 'text', width: 40, note: 'http(s) 圖片網址，匯入時自動轉存 Google Drive' },
+  { header: '主圖網址', key: 'main_image_url', type: 'text', width: 40, note: 'http(s) 圖片網址，匯入時自動轉存 WordPress 媒體庫' },
   { header: '其他圖片網址', key: 'image_urls', type: 'list', width: 40, note: '多張用 | 分隔' },
 ]
 

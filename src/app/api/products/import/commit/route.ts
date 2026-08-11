@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { uploadToDrive, driveConfigured } from '@/lib/gdrive'
+import { isConfiguredWordPressMediaUrl, uploadWordPressMedia } from '@/lib/wordpress-media'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   for (const c of cats ?? []) catMap.set(`${c.main_category}||${c.sub_category}`, c.id)
 
   const results: { rowNo: number; ok: boolean; action: string; name: string; error?: string; note?: string }[] = []
-  const imageCache = new Map<string, string>()   // 原網址 → Drive 公開連結（同檔只上傳一次）
+  const imageCache = new Map<string, string>()   // 原網址 → WordPress 媒體網址（同檔只上傳一次）
   let inserted = 0, updated = 0, failed = 0
 
   for (const item of items) {
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         payload.category_id = catId
       }
 
-      // ── 圖片：下載外部網址 → 轉存 Google Drive 公開連結 ──
+      // ── 圖片：下載外部網址 → 轉存 WordPress 媒體庫 ──
       const mainImg = (item.main_image_url ?? '').trim()
       if (mainImg) {
         const url = await transferImage(mainImg, imageCache, notes)
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ inserted, updated, failed, results })
 }
 
-/** 下載外部圖片 → 上傳 Google Drive（公開連結）。失敗則沿用原網址並記警告。 */
+/** 下載外部圖片 → 上傳 WordPress 媒體庫。失敗則沿用原網址並記警告。 */
 async function transferImage(
   url: string,
   cache: Map<string, string>,
@@ -143,23 +143,16 @@ async function transferImage(
   const u = url.trim()
   if (!u) return null
   if (cache.has(u)) return cache.get(u)!
-
-  // 已經是 Drive 連結就不再搬
-  if (/drive\.google\.com|googleusercontent\.com/i.test(u)) {
+  if (isConfiguredWordPressMediaUrl(u)) {
     cache.set(u, u)
     return u
   }
   if (!/^https?:\/\//i.test(u)) return null
-  if (!driveConfigured()) {
-    notes.push('Google Drive 未設定，圖片沿用原網址')
-    cache.set(u, u)
-    return u
-  }
 
   try {
     const res = await fetch(u, { redirect: 'follow' })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const ct = res.headers.get('content-type') ?? ''
+    const ct = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
     if (!/^image\//i.test(ct)) throw new Error(`不是圖片（${ct || '未知類型'}）`)
     const buf = Buffer.from(await res.arrayBuffer())
     if (buf.length > 10 * 1024 * 1024) throw new Error('圖片超過 10MB')
@@ -168,16 +161,14 @@ async function transferImage(
     const base = decodeURIComponent(u.split('/').pop() ?? 'image').split('?')[0] || 'image'
     const fileName = /\.\w{3,4}$/.test(base) ? base : `${base}.${ext}`
 
-    const result = await uploadToDrive({
-      folder: '產品圖片',
-      name: `${Date.now()}_${fileName}`,
+    const result = await uploadWordPressMedia({
+      fileName: `${Date.now()}_${fileName}`,
       mimeType: ct,
       data: buf,
-      makePublic: true,
+      altText: fileName.replace(/\.[^.]+$/, ''),
     })
-    const publicUrl = result.publicUrl ?? u
-    cache.set(u, publicUrl)
-    return publicUrl
+    cache.set(u, result.url)
+    return result.url
   } catch (e: any) {
     notes.push(`圖片轉存失敗（${u}）：${e?.message ?? ''}，沿用原網址`)
     cache.set(u, u)
