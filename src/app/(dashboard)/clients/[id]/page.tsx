@@ -13,9 +13,10 @@ import VisitsTab from '@/components/clients/VisitsTab'
 import ProjectsTab from '@/components/clients/ProjectsTab'
 import CompetitorsTab from '@/components/clients/CompetitorsTab'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
+import { openClientDriveFolder } from '@/lib/client-drive-folder'
 import {
   ArrowLeft, Edit2, Phone, MapPin, Calendar,
-  Users, FileText, Briefcase, Eye, Building2, Trash2, Cake, Printer
+  Users, FileText, Briefcase, Eye, Building2, Trash2, Cake, Printer, FolderOpen, Loader2
 } from 'lucide-react'
 
 const TABS = [
@@ -45,6 +46,7 @@ export default function ClientDetailPage() {
   const [autoEditId, setAutoEditId] = useState<string | undefined>(undefined)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [openingFolder, setOpeningFolder] = useState(false)
 
   // Quote counts for badge
   const [quoteCount, setQuoteCount] = useState(0)
@@ -77,6 +79,18 @@ export default function ClientDetailPage() {
       setDeleting(false)
     } else {
       router.push('/clients')
+    }
+  }
+
+  async function handleOpenFolder() {
+    if (openingFolder || !client) return
+    setOpeningFolder(true)
+    try {
+      await openClientDriveFolder(client.id)
+    } catch (error: any) {
+      alert(`無法開啟「${client.company_name}」資料夾：${error?.message ?? '未知錯誤'}`)
+    } finally {
+      setOpeningFolder(false)
     }
   }
 
@@ -136,6 +150,16 @@ export default function ClientDetailPage() {
               開報價單
             </Link>
           )}
+          <button
+            type="button"
+            onClick={handleOpenFolder}
+            disabled={openingFolder}
+            title={`開啟「${client.company_name}」的 Google Drive 資料夾`}
+            className="flex items-center gap-1.5 border border-blue-200 hover:bg-blue-50 px-3 py-2 rounded-xl text-sm font-medium text-blue-700 disabled:opacity-50"
+          >
+            {openingFolder ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
+            {openingFolder ? '開啟中…' : '開啟資料夾'}
+          </button>
           <button
             onClick={() => window.open(`/clients/${id}/print`, '_blank')}
             className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700"
