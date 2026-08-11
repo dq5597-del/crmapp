@@ -128,6 +128,71 @@ async function getAccessToken(): Promise<string> {
   return data.access_token
 }
 
+export interface DriveFolderInfo {
+  id: string
+  name: string
+  parents: string[]
+}
+
+async function getDriveFolderInfoWithToken(folderId: string, token: string): Promise<DriveFolderInfo> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,name,mimeType,parents,trashed&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  const data = await res.json()
+  if (!res.ok) throw new Error('找不到 Drive 資料夾：' + (data.error?.message ?? res.status))
+  if (data.trashed || data.mimeType !== 'application/vnd.google-apps.folder') {
+    throw new Error('指定項目不是可使用的 Google Drive 資料夾')
+  }
+  return { id: data.id, name: data.name, parents: data.parents ?? [] }
+}
+
+/** 取得並驗證單一 Google Drive 資料夾。 */
+export async function getDriveFolderInfo(folderId: string) {
+  const token = await getAccessToken()
+  return getDriveFolderInfoWithToken(folderId, token)
+}
+
+/** 列出指定父資料夾底下的子資料夾。 */
+export async function listDriveFolders(parentId = 'root'): Promise<DriveFolderInfo[]> {
+  const token = await getAccessToken()
+  const q = encodeURIComponent(
+    `'${parentId.replace(/'/g, "\\'")}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  )
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,parents)&orderBy=name_natural&pageSize=1000&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  const data = await res.json()
+  if (!res.ok) throw new Error('讀取 Drive 資料夾失敗：' + (data.error?.message ?? res.status))
+  return (data.files ?? []).map((folder: any) => ({
+    id: folder.id,
+    name: folder.name,
+    parents: folder.parents ?? [],
+  }))
+}
+
+/** 從指定資料夾回溯到「我的雲端硬碟」，供人工指派時驗證並產生顯示路徑。 */
+export async function getDriveFolderPath(folderId: string) {
+  const token = await getAccessToken()
+  const root = await getDriveFolderInfoWithToken('root', token)
+  const folders: DriveFolderInfo[] = []
+  let currentId = folderId
+
+  for (let depth = 0; depth < 50; depth += 1) {
+    if (currentId === 'root' || currentId === root.id) {
+      return { folders, reachedRoot: true }
+    }
+    const folder = await getDriveFolderInfoWithToken(currentId, token)
+    folders.unshift(folder)
+    const parentId = folder.parents[0]
+    if (!parentId) return { folders, reachedRoot: false }
+    currentId = parentId
+  }
+
+  throw new Error('Google Drive 資料夾層級過深，無法確認完整路徑')
+}
+
 async function ensureFolderUnderParent(name: string, parent: string, token: string): Promise<{ id: string; created: boolean }> {
   const q = encodeURIComponent(
     `name='${name.replace(/'/g, "\\'")}' and '${parent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`

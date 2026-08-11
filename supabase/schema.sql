@@ -89,6 +89,9 @@ create table clients (
   last_service_date     date,
   next_visit_date       date,         -- 下次應回訪日期（可手動或自動計算）
   notes                 text,
+  drive_folder_id       text,
+  drive_folder_path     text,
+  drive_folder_custom   boolean not null default false,
   created_by            uuid references auth.users(id) on delete set null,
   created_at            timestamptz default now(),
   updated_at            timestamptz default now()

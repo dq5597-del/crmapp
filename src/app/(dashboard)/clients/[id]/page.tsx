@@ -12,11 +12,12 @@ import ImportantDatesTab from '@/components/clients/ImportantDatesTab'
 import VisitsTab from '@/components/clients/VisitsTab'
 import ProjectsTab from '@/components/clients/ProjectsTab'
 import CompetitorsTab from '@/components/clients/CompetitorsTab'
+import ClientDriveFolderDialog from '@/components/clients/ClientDriveFolderDialog'
 import { CLIENT_STATUS_COLORS, formatDate } from '@/lib/utils'
 import { openClientDriveFolder } from '@/lib/client-drive-folder'
 import {
   ArrowLeft, Edit2, Phone, MapPin, Calendar,
-  Users, FileText, Briefcase, Eye, Building2, Trash2, Cake, Printer, FolderOpen, Loader2
+  Users, FileText, Briefcase, Eye, Building2, Trash2, Cake, Printer, FolderOpen, Loader2, Settings2
 } from 'lucide-react'
 
 const TABS = [
@@ -47,6 +48,7 @@ export default function ClientDetailPage() {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [openingFolder, setOpeningFolder] = useState(false)
+  const [folderSettingsOpen, setFolderSettingsOpen] = useState(false)
 
   // Quote counts for badge
   const [quoteCount, setQuoteCount] = useState(0)
@@ -86,7 +88,13 @@ export default function ClientDetailPage() {
     if (openingFolder || !client) return
     setOpeningFolder(true)
     try {
-      await openClientDriveFolder(client.id)
+      const folder = await openClientDriveFolder(client.id)
+      setClient(previous => previous ? {
+        ...previous,
+        drive_folder_id: folder.folder_id,
+        drive_folder_path: folder.path,
+        drive_folder_custom: folder.custom,
+      } : previous)
     } catch (error: any) {
       alert(`無法開啟「${client.company_name}」資料夾：${error?.message ?? '未知錯誤'}`)
     } finally {
@@ -159,6 +167,15 @@ export default function ClientDetailPage() {
           >
             {openingFolder ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
             {openingFolder ? '開啟中…' : '開啟資料夾'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFolderSettingsOpen(true)}
+            title="變更客戶的 Google Drive 資料夾位置"
+            className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700"
+          >
+            <Settings2 size={14} />
+            設定位置
           </button>
           <button
             onClick={() => window.open(`/clients/${id}/print`, '_blank')}
@@ -299,6 +316,22 @@ export default function ClientDetailPage() {
             </Link>
           ))}
         </div>
+      )}
+
+      {folderSettingsOpen && (
+        <ClientDriveFolderDialog
+          clientId={client.id}
+          clientName={client.company_name}
+          currentPath={client.drive_folder_path ?? null}
+          isCustom={!!client.drive_folder_custom}
+          onClose={() => setFolderSettingsOpen(false)}
+          onSaved={folder => setClient(previous => previous ? {
+            ...previous,
+            drive_folder_id: folder.folder_id,
+            drive_folder_path: folder.path,
+            drive_folder_custom: folder.custom,
+          } : previous)}
+        />
       )}
     </div>
   )
