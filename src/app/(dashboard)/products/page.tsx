@@ -11,10 +11,12 @@ import ProductImportModal from '@/components/products/ProductImportModal'
 import BarcodePreview from '@/components/products/BarcodePreview'
 import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
+import ProductFilterFields from '@/components/products/ProductFilterFields'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { CATALOG_DRIVE_ROOT, encodeWebsiteCategory, parseWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
+import { buildFilterGroups, buildProductOptionMap, matchesGroupedOptions, type ProductFilterGroup } from '@/lib/product-filters'
 
 type MarketPriceRow = {
   product_id: string
@@ -469,6 +471,7 @@ export default function ProductsPage() {
   // 品牌篩選（2026-07 新增）：品牌清單自現有產品歸納，A-Z 簡碼快速定位
   const [brandFilter, setBrandFilter] = useState('')
   const [brandLetter, setBrandLetter] = useState('')
+  const [tagFilters, setTagFilters] = useState<string[]>([])
   const [showBrandDropdown, setShowBrandDropdown] = useState(false)
   // 分頁（2026-07）：產品數已破七百筆，一次全渲染會拖慢整頁操作
   const PER_PAGE = 10
@@ -559,6 +562,10 @@ export default function ProductsPage() {
     const [downloadUploading, setDownloadUploading] = useState<number | null>(null)
     const [webVendors, setWebVendors] = useState<{ id?: string; vendor_id: string; cost: number | null; is_primary: boolean }[]>([])
     const [vendorList, setVendorList] = useState<Vendor[]>([])
+    const [filterGroups, setFilterGroups] = useState<ProductFilterGroup[]>([])
+    const [productOptionMap, setProductOptionMap] = useState<Record<string, string[]>>({})
+    const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
+    const [numericFilterValues, setNumericFilterValues] = useState<Record<string, string>>({})
 
     useEffect(() => { fetchAll() }, [])
 
@@ -577,13 +584,18 @@ export default function ProductsPage() {
     }, [])
 
   async function fetchAll() {
-    const [pRes, cRes, mRes] = await Promise.all([
+    const [pRes, cRes, mRes, groupRes, optionRes, assignmentRes] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('product_name'),
       supabase.from('product_categories').select('*').order('main_category').order('sub_category'),
       supabase.from('market_prices').select('*'),
+      supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('product_filter_assignments').select('product_id,option_id'),
     ])
     setProducts(pRes.data ?? [])
     setCategories(cRes.data ?? [])
+    setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? []))
+    setProductOptionMap(buildProductOptionMap(assignmentRes.data ?? []))
     const mm: Record<string, MarketPriceRow[]> = {}
     for (const r of (mRes.data ?? []) as MarketPriceRow[]) {
       if (!mm[r.product_id]) mm[r.product_id] = []
@@ -600,16 +612,20 @@ export default function ProductsPage() {
   }
 
     async function loadWebSubData(productId: string) {
-        const [imgRes, dlRes, featRes, vendRes] = await Promise.all([
+        const [imgRes, dlRes, featRes, vendRes, assignmentRes, numberRes] = await Promise.all([
             supabase.from('product_images').select('id,image_url').eq('product_id', productId).order('sort_order'),
             supabase.from('product_downloads').select('id,file_name,file_url').eq('product_id', productId).order('sort_order'),
             supabase.from('product_features').select('id,feature_text').eq('product_id', productId).order('sort_order'),
             supabase.from('product_vendors').select('id,vendor_id,cost,is_primary').eq('product_id', productId).order('sort_order'),
+            supabase.from('product_filter_assignments').select('option_id').eq('product_id', productId),
+            supabase.from('product_filter_numbers').select('group_id,numeric_value').eq('product_id', productId),
         ])
         setWebImages(imgRes.data ?? [])
         setWebDownloads(dlRes.data ?? [])
         setWebFeatures(featRes.data ?? [])
         setWebVendors(vendRes.data ?? [])
+        setSelectedOptionIds((assignmentRes.data ?? []).map(row => row.option_id))
+        setNumericFilterValues(Object.fromEntries((numberRes.data ?? []).map(row => [row.group_id, String(row.numeric_value)])))
     }
 
     function startEdit(p?: Product) {
@@ -659,6 +675,8 @@ export default function ProductsPage() {
             setWebDownloads([])
             setWebFeatures([])
             setWebVendors([])
+            setSelectedOptionIds([])
+            setNumericFilterValues({})
         }
         setWebMainCategory('')
         setWebCategoryInput('')
@@ -673,16 +691,24 @@ export default function ProductsPage() {
             supabase.from('product_downloads').delete().eq('product_id', productId),
             supabase.from('product_features').delete().eq('product_id', productId),
             supabase.from('product_vendors').delete().eq('product_id', productId),
+            supabase.from('product_filter_assignments').delete().eq('product_id', productId),
+            supabase.from('product_filter_numbers').delete().eq('product_id', productId),
         ])
         const imgRows = webImages.filter(r => r.image_url.trim()).map((r, i) => ({ product_id: productId, image_url: r.image_url.trim(), sort_order: i }))
         const dlRows = webDownloads.filter(r => r.file_name.trim() && r.file_url.trim()).map((r, i) => ({ product_id: productId, file_name: r.file_name.trim(), file_url: r.file_url.trim(), sort_order: i }))
         const featRows = webFeatures.filter(r => r.feature_text.trim()).slice(0, 10).map((r, i) => ({ product_id: productId, feature_text: r.feature_text.trim().slice(0, 5), sort_order: i }))
         const vendRows = webVendors.filter(r => r.vendor_id).map((r, i) => ({ product_id: productId, vendor_id: r.vendor_id, cost: r.cost, is_primary: r.is_primary, sort_order: i }))
+        const tagRows = selectedOptionIds.slice(0, 20).map(optionId => ({ product_id: productId, option_id: optionId }))
+        const numberRows = Object.entries(numericFilterValues)
+            .filter(([, value]) => value !== '' && Number.isFinite(Number(value)))
+            .map(([groupId, value]) => ({ product_id: productId, group_id: groupId, numeric_value: Number(value) }))
         await Promise.all([
             imgRows.length > 0 ? supabase.from('product_images').insert(imgRows) : Promise.resolve(),
             dlRows.length > 0 ? supabase.from('product_downloads').insert(dlRows) : Promise.resolve(),
             featRows.length > 0 ? supabase.from('product_features').insert(featRows) : Promise.resolve(),
             vendRows.length > 0 ? supabase.from('product_vendors').insert(vendRows) : Promise.resolve(),
+            tagRows.length > 0 ? supabase.from('product_filter_assignments').insert(tagRows) : Promise.resolve(),
+            numberRows.length > 0 ? supabase.from('product_filter_numbers').insert(numberRows) : Promise.resolve(),
         ])
     }
 
@@ -930,16 +956,19 @@ export default function ProductsPage() {
       ((p as any).barcode?.toLowerCase() ?? '').includes(search.toLowerCase())
     if (!matchSearch) return false
     if (brandFilter && (p.brand ?? '').trim().toLowerCase() !== brandFilter.toLowerCase()) return false
-    if (!catFilter) return true
-    const cat = categories.find(c => c.id === p.category_id)
-    return cat?.main_category === catFilter
+    if (!matchesGroupedOptions(productOptionMap[p.id] ?? [], tagFilters, filterGroups)) return false
+    if (catFilter) {
+      const cat = categories.find(c => c.id === p.category_id)
+      if (cat?.main_category !== catFilter) return false
+    }
+    return true
   })
 
   // 分頁切片；篩選條件一變就回到第 1 頁，避免停在不存在的頁碼
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const safePage = Math.min(page, totalPages)
   const paged = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE)
-  useEffect(() => { setPage(1) }, [search, catFilter, brandFilter, brandLetter])
+  useEffect(() => { setPage(1) }, [search, catFilter, brandFilter, brandLetter, tagFilters])
 
   const categoryGrouped = categories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
     if (!acc[c.main_category]) acc[c.main_category] = []
@@ -949,6 +978,7 @@ export default function ProductsPage() {
 
   function getCatalogFolderPaths(): string[][] {
     const paths: string[][] = []
+    const categoryPaths: string[][] = []
     const brandFolder = form.brand.trim() || '未設定品牌'
     for (const selectedCategory of form.web_categories) {
       const { mainCategory: selectedMainCategory, subCategory: selectedSubCategory } = parseWebsiteCategory(selectedCategory)
@@ -957,16 +987,24 @@ export default function ProductsPage() {
         && (!selectedMainCategory || category.main_category.trim().toLocaleLowerCase() === selectedMainCategory.toLocaleLowerCase())
       )
       if (matches.length === 0) {
-        paths.push([CATALOG_DRIVE_ROOT, selectedMainCategory || '其他分類', selectedSubCategory.trim(), brandFolder])
+        categoryPaths.push([CATALOG_DRIVE_ROOT, selectedMainCategory || '其他分類', selectedSubCategory.trim()])
         continue
       }
       for (const category of matches) {
-        paths.push([CATALOG_DRIVE_ROOT, category.main_category.trim(), category.sub_category.trim(), brandFolder])
+        categoryPaths.push([CATALOG_DRIVE_ROOT, category.main_category.trim(), category.sub_category.trim()])
       }
     }
 
-    if (paths.length === 0) return [[CATALOG_DRIVE_ROOT, '未分類', '未分類', brandFolder]]
-    return Array.from(new Map(paths.map(path => [JSON.stringify(path), path])).values())
+    if (categoryPaths.length === 0) categoryPaths.push([CATALOG_DRIVE_ROOT, '未分類', '未分類'])
+    for (const categoryPath of categoryPaths) {
+      paths.push([...categoryPath, brandFolder])
+      for (const group of filterGroups.filter(item => item.input_type === 'multi_select')) {
+        for (const option of group.options.filter(item => selectedOptionIds.includes(item.id))) {
+          paths.push([...categoryPath, '_篩選器', group.name, option.name])
+        }
+      }
+    }
+    return Array.from(new Map(paths.map(path => [JSON.stringify(path), path])).values()).slice(0, 100)
   }
 
   function addWebCategory() {
@@ -1086,6 +1124,33 @@ export default function ProductsPage() {
                 {shownBrands.length === 0 && <span className="text-xs text-gray-300">此字母沒有品牌</span>}
               </div>
             )}
+          </div>
+        )}
+        {filterGroups.some(group => group.input_type === 'multi_select') && (
+          <div className="w-full rounded-xl border border-violet-100 bg-violet-50/30 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-violet-700">Tags 篩選（同組 OR、跨組 AND）</span>
+              {tagFilters.length > 0 ? (
+                <button type="button" onClick={() => setTagFilters([])} className="text-[11px] text-violet-600 hover:underline">清除 {tagFilters.length} 項</button>
+              ) : null}
+            </div>
+            {filterGroups.filter(group => group.input_type === 'multi_select').map(group => (
+              <div key={group.id} className="flex flex-wrap items-center gap-1.5">
+                <span className="w-16 shrink-0 text-[11px] text-gray-400">{group.name}</span>
+                {group.options.map(option => {
+                  const active = tagFilters.includes(option.id)
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setTagFilters(current => active ? current.filter(id => id !== option.id) : [...current, option.id])}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-violet-300'}`}
+                    >{option.name}</button>
+                  )
+                })}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1445,6 +1510,16 @@ export default function ProductsPage() {
                                                         </span>
                                                     ))}
                                                 </div>
+                                            </div>
+
+                                            <div className="mb-3">
+                                                <ProductFilterFields
+                                                    groups={filterGroups}
+                                                    selectedOptionIds={selectedOptionIds}
+                                                    numericValues={numericFilterValues}
+                                                    onSelectedOptionIdsChange={setSelectedOptionIds}
+                                                    onNumericValuesChange={setNumericFilterValues}
+                                                />
                                             </div>
 
                                             <div className="grid grid-cols-3 gap-3 mb-1">

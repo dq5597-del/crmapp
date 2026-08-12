@@ -19,15 +19,15 @@ export function websiteCategoryLeaf(value: string) {
   return parseWebsiteCategory(value).subCategory
 }
 
-/** 僅允許型錄分類根目錄下的大類 / 小類路徑。 */
+/** 型錄路徑：根目錄 / 大類 / 小類 / 品牌，或根目錄 / 大類 / 小類 / _篩選器 / 群組 / Tag。 */
 export function normalizeCatalogFolderPaths(value: unknown): string[][] {
   if (!Array.isArray(value)) return []
 
   const paths = value
-    .slice(0, 50)
+    .slice(0, 100)
     .filter(Array.isArray)
     .map(parts => (parts as unknown[])
-      .slice(0, 4)
+      .slice(0, 6)
       .filter((part): part is string => typeof part === 'string')
       .map(part => part.trim().slice(0, 150))
       .filter(Boolean))

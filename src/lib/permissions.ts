@@ -29,6 +29,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'notes',            label: '業務筆記',        group: '業務',   href: '/notes' },
   { key: 'todos',            label: '任務清單',        group: '業務',   href: '/todos' },
   { key: 'schedule',         label: '每日行程',        group: '業務',   href: '/schedule' },
+  { key: 'product-selector', label: '產品篩選／型錄分享', group: '業務', href: '/product-selector' },
 
   { key: 'sales-orders',     label: '銷貨單',          group: '進銷存', href: '/sales-orders',   costLabel: '看成本' },
   { key: 'inquiries',        label: '廠商詢價單',      group: '進銷存', href: '/inquiries' },

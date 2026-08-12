@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2, ShoppingBag, Clock
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2, ShoppingBag, Clock, SlidersHorizontal
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
@@ -49,6 +49,7 @@ const businessItems = [
   { href: '/tasks',    label: '交辦任務', icon: ClipboardList },
   { href: '/schedule', label: '每日行程', icon: CalendarDays },
   { href: '/notes',    label: '業務筆記', icon: StickyNote },
+  { href: '/product-selector', label: '產品篩選', icon: SlidersHorizontal },
 ]
 
 // ── 七大分類 ──────────────────────────────────────────────
