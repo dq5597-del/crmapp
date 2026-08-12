@@ -949,6 +949,7 @@ export default function ProductsPage() {
 
   function getCatalogFolderPaths(): string[][] {
     const paths: string[][] = []
+    const brandFolder = form.brand.trim() || '未設定品牌'
     for (const selectedCategory of form.web_categories) {
       const { mainCategory: selectedMainCategory, subCategory: selectedSubCategory } = parseWebsiteCategory(selectedCategory)
       const matches = categories.filter(category =>
@@ -956,15 +957,15 @@ export default function ProductsPage() {
         && (!selectedMainCategory || category.main_category.trim().toLocaleLowerCase() === selectedMainCategory.toLocaleLowerCase())
       )
       if (matches.length === 0) {
-        paths.push([CATALOG_DRIVE_ROOT, selectedMainCategory || '其他分類', selectedSubCategory.trim()])
+        paths.push([CATALOG_DRIVE_ROOT, selectedMainCategory || '其他分類', selectedSubCategory.trim(), brandFolder])
         continue
       }
       for (const category of matches) {
-        paths.push([CATALOG_DRIVE_ROOT, category.main_category.trim(), category.sub_category.trim()])
+        paths.push([CATALOG_DRIVE_ROOT, category.main_category.trim(), category.sub_category.trim(), brandFolder])
       }
     }
 
-    if (paths.length === 0) return [[CATALOG_DRIVE_ROOT, '未分類']]
+    if (paths.length === 0) return [[CATALOG_DRIVE_ROOT, '未分類', '未分類', brandFolder]]
     return Array.from(new Map(paths.map(path => [JSON.stringify(path), path])).values())
   }
 
@@ -1560,7 +1561,7 @@ export default function ProductsPage() {
                                                             <div key={path.join('\u0000')} className="text-[11px] text-amber-700">{path.join(' / ')}</div>
                                                         ))}
                                                     </div>
-                                                    <div className="text-[10px] text-amber-600 mt-1">同一份型錄只占一份空間；其他分類會建立捷徑。貼上 Google Drive 連結後，儲存產品也會自動整理。</div>
+                                                    <div className="text-[10px] text-amber-600 mt-1">路徑依序為大類／小類／品牌。同一份型錄只占一份空間；其他分類會建立捷徑。貼上 Google Drive 連結後，儲存產品也會自動整理。</div>
                                                 </div>
                                                 <div className="text-[11px] text-gray-400 border-t border-gray-100 pt-3 mb-2">支援 PDF、ZIP、Word、Excel、PowerPoint 等格式；單檔 4MB 內可直接上傳。</div>
                                                 <div className="space-y-2 mb-3">
