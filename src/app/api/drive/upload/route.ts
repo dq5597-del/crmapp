@@ -5,6 +5,9 @@ import sharp from 'sharp'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
+// Vercel Functions 請求本文有大小限制，預留 multipart 邊界空間。
+const MAX_FILE_SIZE = 4 * 1024 * 1024
+
 /**
  * POST /api/drive/upload   （multipart form-data）
  *   file    檔案
@@ -29,6 +32,9 @@ export async function POST(req: Request) {
     const convertWebP = form.get('convert_webp') === '1'
 
     if (!file) return NextResponse.json({ error: '沒有收到檔案' }, { status: 400 })
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: '單一檔案不可超過 4MB；較大的檔案請先上傳到 Google Drive，再貼上共用連結。' }, { status: 400 })
+    }
 
     let buf: Buffer = Buffer.from(await file.arrayBuffer())
     let fileName = file.name

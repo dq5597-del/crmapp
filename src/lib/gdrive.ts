@@ -286,8 +286,10 @@ export async function uploadToDrive(opts: {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: 'reader', type: 'anyone' }),
     })
-    // 舊格式 uc?export=view 已被 Google 限制熱連結（常 403 破圖），改用 thumbnail 端點
-    publicUrl = `https://drive.google.com/thumbnail?id=${data.id}&sz=w1600`
+    // 圖片提供可嵌入網址；其他檔案提供直接下載網址。
+    publicUrl = opts.mimeType.startsWith('image/')
+      ? `https://drive.google.com/thumbnail?id=${data.id}&sz=w1600`
+      : `https://drive.google.com/uc?export=download&id=${data.id}`
   }
 
   return { id: data.id, publicUrl }

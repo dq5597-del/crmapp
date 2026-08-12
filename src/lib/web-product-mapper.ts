@@ -5,6 +5,7 @@
  *   feature_1~10        → 首頁與相關商品的紅字特色標章（相關商品用 feature_2~4）
  *   av_feature_item_1~8 → 商品頁「產品特色」編號清單
  *   av_download_*       → 檔案下載分頁
+ *   av_download_files   → CRM 的完整下載檔清單（JSON）
  *   av_tab_specs        → 詳細規格分頁（留空則用商品屬性自動產生）
  *   av_tab_shipping     → 購物說明分頁（留空則用全站預設）
  *   av_source / av_crm_id → 後台「CRM 待審」清單用
@@ -121,6 +122,16 @@ export function buildWooPayload(
   metaPush(meta, 'av_download_catalog', p.catalog_url ?? downloads.find(d => /型錄|catalog/i.test(d.file_name))?.file_url ?? '')
   metaPush(meta, 'av_download_manual', p.manual_url ?? downloads.find(d => /說明書|manual/i.test(d.file_name))?.file_url ?? '')
   metaPush(meta, 'av_download_cad', cad?.file_url ?? '')
+  const downloadFiles = downloads
+    .filter(d => d.file_name.trim() && d.file_url.trim())
+    .map(d => ({ name: d.file_name.trim(), url: d.file_url.trim() }))
+  if (p.catalog_url && !downloadFiles.some(d => d.url === p.catalog_url)) {
+    downloadFiles.unshift({ name: '產品型錄', url: p.catalog_url })
+  }
+  if (p.manual_url && !downloadFiles.some(d => d.url === p.manual_url)) {
+    downloadFiles.push({ name: '使用說明書', url: p.manual_url })
+  }
+  metaPush(meta, 'av_download_files', JSON.stringify(downloadFiles))
 
   // 分頁內容
   metaPush(meta, 'av_tab_specs', p.web_spec_html ?? '')

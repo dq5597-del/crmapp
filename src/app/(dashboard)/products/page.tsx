@@ -549,12 +549,13 @@ export default function ProductsPage() {
         if (data) setForm(p => ({ ...p, product_code: data as string }))
     }
     const [promoEnabled, setPromoEnabled] = useState(false)
-    const [activeTab, setActiveTab] = useState<'intro' | 'spec' | 'shop' | 'review'>('intro')
+    const [activeTab, setActiveTab] = useState<'intro' | 'spec' | 'downloads' | 'shop' | 'review'>('intro')
     const [webExpanded, setWebExpanded] = useState(false)
     const [defaultWebExpanded, setDefaultWebExpanded] = useState(false)
     const [webImages, setWebImages] = useState<{ id?: string; image_url: string }[]>([])
     const [webFeatures, setWebFeatures] = useState<{ id?: string; feature_text: string }[]>([])
     const [webDownloads, setWebDownloads] = useState<{ id?: string; file_name: string; file_url: string }[]>([])
+    const [downloadUploading, setDownloadUploading] = useState<number | null>(null)
     const [webVendors, setWebVendors] = useState<{ id?: string; vendor_id: string; cost: number | null; is_primary: boolean }[]>([])
     const [vendorList, setVendorList] = useState<Vendor[]>([])
 
@@ -758,6 +759,31 @@ export default function ProductsPage() {
       return null
     } finally {
       setImgUploading(null)
+    }
+  }
+
+  async function uploadProductDownload(file: File, index: number) {
+    if (file.size > 4 * 1024 * 1024) {
+      alert('單一檔案不可超過 4MB；較大的檔案請先上傳到 Google Drive，將權限設為「知道連結的人」，再貼上共用連結。')
+      return
+    }
+    setDownloadUploading(index)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', '產品資料下載')
+      fd.append('public', '1')
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+      if (!data.public_url) throw new Error('Google Drive 沒有回傳公開下載連結')
+      setWebDownloads(current => current.map((row, rowIndex) => rowIndex === index
+        ? { ...row, file_name: row.file_name.trim() || data.file_name || file.name, file_url: data.public_url }
+        : row))
+    } catch (error: any) {
+      alert('產品資料上傳失敗：' + (error?.message ?? '未知錯誤'))
+    } finally {
+      setDownloadUploading(null)
     }
   }
 
@@ -1454,7 +1480,7 @@ export default function ProductsPage() {
                                     </div>
 
                                     <div className="flex gap-1 border-b border-gray-100 -mx-4 px-4 overflow-x-auto">
-                                        {([['intro', '商品介紹'], ['spec', '詳細規格'], ['shop', '購物說明'], ['review', '產品評價']] as const).map(([key, label]) => (
+                                        {([['intro', '商品介紹'], ['spec', '詳細規格'], ['downloads', '產品資料下載'], ['shop', '購物說明'], ['review', '產品評價']] as const).map(([key, label]) => (
                                             <button key={key} type="button" onClick={() => setActiveTab(key)} className={`px-4 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${activeTab === key ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>{label}</button>
                                         ))}
                                     </div>
@@ -1471,22 +1497,42 @@ export default function ProductsPage() {
                                             <div>
                                                 <label className="text-xs text-gray-500 mb-1 block">產品規格（可直接貼上規格表 HTML）</label>
                                                 <HtmlCodeEditor value={form.web_spec_html ?? ''} onChange={v => setForm(p => ({ ...p, web_spec_html: v }))} rows={10} placeholder={'<table class="shop_attributes">\n<tbody>\n<tr><th>品牌</th><td>...</td></tr>\n</tbody>\n</table>'} />
-                                                <div className="border-t border-gray-100 pt-3 mt-4">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-xs font-medium text-gray-700">附加檔案</span>
-                                                        <span className="text-[11px] text-gray-400">{webDownloads.length} 個檔案</span>
+                                            </div>
+                                        )}
+                                        {activeTab === 'downloads' && (
+                                            <div>
+                                                <div className="flex items-start justify-between gap-3 mb-3">
+                                                    <div>
+                                                        <div className="text-xs font-medium text-gray-700">產品資料下載</div>
+                                                        <div className="text-[11px] text-gray-400 mt-0.5">檔案會存入 Google Drive，並同步顯示在官網單一商品頁。</div>
                                                     </div>
-                                                    <div className="space-y-1.5 mb-2">
-                                                        {webDownloads.map((dl, i) => (
-                                                            <div key={dl.id ?? `new-${i}`} className="flex gap-2">
-                                                                <input value={dl.file_name} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_name: e.target.value } : r))} placeholder="檔名（如：使用手冊）" className={inputClass + ' flex-1 text-xs py-1.5'} />
-                                                                <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="下載連結" className={inputClass + ' flex-1 text-xs py-1.5'} />
-                                                                <button type="button" onClick={() => setWebDownloads(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <button type="button" onClick={() => setWebDownloads(a => [...a, { file_name: '', file_url: '' }])} className="text-xs text-blue-600 hover:underline">+ 新增檔案</button>
+                                                    <span className="text-[11px] text-gray-400 whitespace-nowrap">{webDownloads.length} 個檔案</span>
                                                 </div>
+                                                <div className="text-[11px] text-gray-400 border-t border-gray-100 pt-3 mb-2">支援 PDF、ZIP、Word、Excel、PowerPoint 等格式；單檔 4MB 內可直接上傳。</div>
+                                                <div className="space-y-2 mb-3">
+                                                    {webDownloads.map((dl, i) => (
+                                                        <div key={dl.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto_auto] gap-2 items-center">
+                                                            <input value={dl.file_name} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_name: e.target.value } : r))} placeholder="檔名（如：使用手冊）" className={inputClass + ' text-xs py-1.5'} />
+                                                            <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="Google Drive 下載連結" className={inputClass + ' text-xs py-1.5'} />
+                                                            <label className="inline-flex items-center justify-center gap-1 px-2.5 py-2 border border-blue-200 rounded-lg text-xs text-blue-700 hover:bg-blue-50 cursor-pointer whitespace-nowrap">
+                                                                {downloadUploading === i ? <Loader2 size={12} className="animate-spin" /> : <FileUp size={12} />}
+                                                                {downloadUploading === i ? '上傳中' : '上傳 Drive'}
+                                                                <input
+                                                                    type="file"
+                                                                    className="hidden"
+                                                                    disabled={downloadUploading != null}
+                                                                    onChange={async e => {
+                                                                        const file = e.target.files?.[0]
+                                                                        if (file) await uploadProductDownload(file, i)
+                                                                        e.target.value = ''
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                            <button type="button" aria-label={`移除下載檔案 ${dl.file_name || i + 1}`} onClick={() => setWebDownloads(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <button type="button" onClick={() => setWebDownloads(a => [...a, { file_name: '', file_url: '' }])} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><Plus size={12} /> 新增下載檔案</button>
                                             </div>
                                         )}
                                         {activeTab === 'shop' && (
