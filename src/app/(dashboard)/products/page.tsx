@@ -1335,6 +1335,38 @@ export default function ProductsPage() {
                                                     : <span className="text-gray-400 font-normal text-sm">請於「進銷存模式」填寫品牌／型號／產品名稱</span>}
                                             </div>
 
+                                            <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/40 mb-3">
+                                                <label className="text-xs font-medium text-blue-700 mb-1.5 block">官網分類（可多選）</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        list="web-category-list"
+                                                        value={webCategoryInput}
+                                                        onChange={e => setWebCategoryInput(e.target.value)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addWebCategory() } }}
+                                                        className={inputClass}
+                                                        placeholder="選擇既有分類或輸入新分類"
+                                                    />
+                                                    <datalist id="web-category-list">
+                                                        {allWebCategories.map(category => <option key={category} value={category} />)}
+                                                    </datalist>
+                                                    <button type="button" onClick={addWebCategory} className="px-3 py-2 border border-blue-200 bg-white rounded-lg text-xs text-blue-700 hover:bg-blue-50 whitespace-nowrap">加入</button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 mt-2 min-h-6">
+                                                    {form.web_categories.length === 0 && <span className="text-[11px] text-gray-400">尚未選擇官網分類，可加入多個分類</span>}
+                                                    {form.web_categories.map(category => (
+                                                        <span key={category} className="inline-flex items-center gap-1 rounded-full bg-white border border-blue-100 px-2.5 py-1 text-xs text-blue-700">
+                                                            {category}
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`移除官網分類 ${category}`}
+                                                                onClick={() => setForm(current => ({ ...current, web_categories: current.web_categories.filter(value => value !== category) }))}
+                                                                className="text-blue-400 hover:text-blue-700"
+                                                            ><X size={12} /></button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+
                                             <div className="grid grid-cols-3 gap-3 mb-1">
                                                 <div>
                                                     <label className="text-[11px] text-gray-400 mb-1 block">網路價</label>
@@ -1468,7 +1500,7 @@ export default function ProductsPage() {
                                         onClick={() => setWebExpanded(v => !v)}
                                         className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700"
                                     >
-                                        <span>進階網站設定（SKU／分類／認證字號）</span>
+                                        <span>進階網站設定（SKU／主圖／認證字號）</span>
                                         <ChevronRight size={16} className={`text-gray-400 transition-transform ${webExpanded ? 'rotate-90' : ''}`} />
                                     </button>
                                     {webExpanded && (
@@ -1476,37 +1508,6 @@ export default function ProductsPage() {
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">SKU</label>
                                                 <input value={form.web_sku} onChange={e => setForm(p => ({ ...p, web_sku: e.target.value }))} className={inputClass} />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <label className="text-xs text-gray-600 mb-1 block">官網分類（可多選）</label>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        list="web-category-list"
-                                                        value={webCategoryInput}
-                                                        onChange={e => setWebCategoryInput(e.target.value)}
-                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addWebCategory() } }}
-                                                        className={inputClass}
-                                                        placeholder="選擇既有分類或輸入新分類"
-                                                    />
-                                                    <datalist id="web-category-list">
-                                                        {allWebCategories.map(category => <option key={category} value={category} />)}
-                                                    </datalist>
-                                                    <button type="button" onClick={addWebCategory} className="px-3 py-2 border border-blue-200 rounded-lg text-xs text-blue-700 hover:bg-blue-50 whitespace-nowrap">加入</button>
-                                                </div>
-                                                <div className="flex flex-wrap gap-1.5 mt-2 min-h-6">
-                                                    {form.web_categories.length === 0 && <span className="text-[11px] text-gray-400">尚未選擇官網分類</span>}
-                                                    {form.web_categories.map(category => (
-                                                        <span key={category} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
-                                                            {category}
-                                                            <button
-                                                                type="button"
-                                                                aria-label={`移除官網分類 ${category}`}
-                                                                onClick={() => setForm(current => ({ ...current, web_categories: current.web_categories.filter(value => value !== category) }))}
-                                                                className="text-blue-400 hover:text-blue-700"
-                                                            ><X size={12} /></button>
-                                                        </span>
-                                                    ))}
-                                                </div>
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">主圖</label>
