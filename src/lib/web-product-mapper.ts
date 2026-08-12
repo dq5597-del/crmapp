@@ -23,6 +23,7 @@ export type CrmProductRow = {
   notes: string | null
   web_sku?: string | null
   web_category?: string | null
+  web_categories?: string[] | null
   web_description?: string | null
   web_main_image_url?: string | null
   web_sale_price?: number | null
@@ -55,7 +56,7 @@ export type WooPayload = {
   date_on_sale_to?: string | null
   description?: string
   backorders?: 'no' | 'notify' | 'yes'
-  categories?: { id: number }[]
+  categories?: { id?: number; name?: string }[]
   images?: { src: string }[]
   tags?: { name: string }[]
   meta_data: { key: string; value: string }[]
@@ -85,7 +86,7 @@ function metaPush(meta: { key: string; value: string }[], key: string, value: un
 export function buildWooPayload(
   p: CrmProductRow,
   sub: CrmSubData,
-  categoryId: number | null,
+  categoryIds: number[],
   opts: { status: 'draft' | 'publish' } = { status: 'draft' }
 ): WooPayload {
   const features = [...sub.features].sort((a, b) => a.sort_order - b.sort_order).map(f => f.feature_text.trim()).filter(Boolean)
@@ -147,7 +148,7 @@ export function buildWooPayload(
     payload.date_on_sale_to = p.web_promo_price_to || null
   }
 
-  if (categoryId) payload.categories = [{ id: categoryId }]
+  if (categoryIds.length > 0) payload.categories = categoryIds.map(id => ({ id }))
   if (uniqueImages.length > 0) payload.images = uniqueImages.map(src => ({ src }))
 
   // 官網首頁區塊標籤（網站端每日排程會把「最新商品」上架滿 30 天自動轉「熱銷商品」）
@@ -167,7 +168,8 @@ export function validateForWeb(p: CrmProductRow, sub: CrmSubData): string[] {
   const price = p.web_sale_price && p.web_sale_price > 0 ? p.web_sale_price : p.list_price
   if (!price || price <= 0) missing.push('網站售價')
   if (!(p.web_main_image_url ?? '').trim() && sub.images.length === 0) missing.push('主圖')
-  if (!(p.web_category ?? '').trim()) missing.push('網站分類')
+  const webCategories = p.web_categories?.filter(c => c.trim()) ?? []
+  if (webCategories.length === 0 && !(p.web_category ?? '').trim()) missing.push('網站分類')
   if (sub.features.filter(f => f.feature_text.trim()).length < 3) missing.push('特色（至少 3 項）')
   return missing
 }

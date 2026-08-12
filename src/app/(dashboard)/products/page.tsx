@@ -518,12 +518,14 @@ export default function ProductsPage() {
   const [marketMap, setMarketMap] = useState<Record<string, MarketPriceRow[]>>({})
   const [marketRefreshing, setMarketRefreshing] = useState<string | null>(null)
   const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
+  const [inventoryMainCategory, setInventoryMainCategory] = useState('')
+  const [webCategoryInput, setWebCategoryInput] = useState('')
     const [form, setForm] = useState({
         category_id: null as string | null,
         brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
         list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
-        web_sku: '', web_category: '', web_description: '',
+        web_sku: '', web_category: '', web_categories: [] as string[], web_description: '',
         web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
         web_bsmi_no: '', web_ncc_no: '', web_publish: false,
         web_product_id: '', web_product_url: '',
@@ -610,11 +612,16 @@ export default function ProductsPage() {
     function startEdit(p?: Product) {
         if (p) {
             const pAny = p as any
+            const inventoryCategory = categories.find(category => category.id === p.category_id)
+            setInventoryMainCategory(inventoryCategory?.main_category ?? '')
             setForm({
                 category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '', product_code: pAny.product_code ?? '', safe_stock: pAny.safe_stock ?? 0,
                 list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
                 width_cm: pAny.width_cm ?? 0, depth_cm: pAny.depth_cm ?? 0, height_cm: pAny.height_cm ?? 0,
                 web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
+                web_categories: Array.isArray(pAny.web_categories) && pAny.web_categories.length > 0
+                    ? pAny.web_categories.filter((value: unknown): value is string => typeof value === 'string' && !!value.trim())
+                    : (pAny.web_category?.trim() ? [pAny.web_category.trim()] : []),
                 web_description: pAny.web_description ?? '',
                 web_main_image_url: pAny.web_main_image_url ?? '', web_sale_price: pAny.web_sale_price ?? 0,
                 web_allow_backorder: pAny.web_allow_backorder ?? false, web_bsmi_no: pAny.web_bsmi_no ?? '',
@@ -630,11 +637,12 @@ export default function ProductsPage() {
             setEditingId(p.id)
             loadWebSubData(p.id)
         } else {
+            setInventoryMainCategory('')
             setForm({
                 category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
                 list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
-                web_sku: '', web_category: '', web_description: '',
+                web_sku: '', web_category: '', web_categories: [], web_description: '',
                 web_main_image_url: '', web_sale_price: 0, web_allow_backorder: false,
                 web_bsmi_no: '', web_ncc_no: '', web_publish: false,
                 web_product_id: '', web_product_url: '',
@@ -649,6 +657,7 @@ export default function ProductsPage() {
             setWebFeatures([])
             setWebVendors([])
         }
+        setWebCategoryInput('')
         setWebExpanded(defaultWebExpanded)
         setFormMode('simple')
         setActiveTab('intro')
@@ -687,6 +696,8 @@ export default function ProductsPage() {
         }
         const payload = {
             ...form,
+            // web_category 保留第一個分類，讓尚未更新的舊流程仍能讀取；新流程使用 web_categories。
+            web_category: form.web_categories[0] ?? null,
             // 空字串會撞到料號的唯一索引（'' 不算 null），一律轉 null
             product_code: form.product_code.trim() || null,
             web_promo_price: promoEnabled ? form.web_promo_price : null,
@@ -886,6 +897,22 @@ export default function ProductsPage() {
     return acc
   }, {})
 
+  const allWebCategories = Array.from(new Set(products.flatMap(product => {
+    const values = product.web_categories?.length
+      ? product.web_categories
+      : (product.web_category?.trim() ? [product.web_category.trim()] : [])
+    return values.filter(Boolean)
+  }))).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+
+  function addWebCategory() {
+    const value = webCategoryInput.trim()
+    if (!value) return
+    setForm(current => current.web_categories.some(category => category.toLocaleLowerCase() === value.toLocaleLowerCase())
+      ? current
+      : { ...current, web_categories: [...current.web_categories, value] })
+    setWebCategoryInput('')
+  }
+
   const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
   return (
@@ -1015,15 +1042,27 @@ export default function ProductsPage() {
                         {formMode === 'simple' ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                 <div className="col-span-2 sm:col-span-3">
-                                    <label className="text-xs text-gray-600 mb-1 block">產品分類</label>
-                                    <div className="flex gap-2">
-                                        <select value={form.category_id ?? ''} onChange={e => setForm(p => ({ ...p, category_id: e.target.value || null }))} className={inputClass + ' flex-1'}>
-                                            <option value="">— 未分類 —</option>
-                                            {Object.entries(categoryGrouped).map(([main, cats]) => (
-                                                <optgroup key={main} label={main}>
-                                                    {cats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
-                                                </optgroup>
-                                            ))}
+                                    <label className="text-xs text-gray-600 mb-1 block">進銷存分類</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+                                        <select
+                                            value={inventoryMainCategory}
+                                            onChange={e => {
+                                                setInventoryMainCategory(e.target.value)
+                                                setForm(p => ({ ...p, category_id: null }))
+                                            }}
+                                            className={inputClass}
+                                        >
+                                            <option value="">先選大類</option>
+                                            {Object.keys(categoryGrouped).map(main => <option key={main} value={main}>{main}</option>)}
+                                        </select>
+                                        <select
+                                            value={form.category_id ?? ''}
+                                            onChange={e => setForm(p => ({ ...p, category_id: e.target.value || null }))}
+                                            disabled={!inventoryMainCategory}
+                                            className={inputClass + ' disabled:bg-gray-50 disabled:text-gray-400'}
+                                        >
+                                            <option value="">{inventoryMainCategory ? '再選小類' : '請先選大類'}</option>
+                                            {(categoryGrouped[inventoryMainCategory] ?? []).map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
                                         </select>
                                         <button type="button" onClick={() => setShowCatModal(true)} className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 whitespace-nowrap">
                                             + 新增分類
@@ -1438,9 +1477,36 @@ export default function ProductsPage() {
                                                 <label className="text-xs text-gray-600 mb-1 block">SKU</label>
                                                 <input value={form.web_sku} onChange={e => setForm(p => ({ ...p, web_sku: e.target.value }))} className={inputClass} />
                                             </div>
-                                            <div>
-                                                <label className="text-xs text-gray-600 mb-1 block">網站商品分類</label>
-                                                <input value={form.web_category} onChange={e => setForm(p => ({ ...p, web_category: e.target.value }))} className={inputClass} placeholder="如：藍牙喇叭系統" />
+                                            <div className="col-span-2">
+                                                <label className="text-xs text-gray-600 mb-1 block">官網分類（可多選）</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        list="web-category-list"
+                                                        value={webCategoryInput}
+                                                        onChange={e => setWebCategoryInput(e.target.value)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addWebCategory() } }}
+                                                        className={inputClass}
+                                                        placeholder="選擇既有分類或輸入新分類"
+                                                    />
+                                                    <datalist id="web-category-list">
+                                                        {allWebCategories.map(category => <option key={category} value={category} />)}
+                                                    </datalist>
+                                                    <button type="button" onClick={addWebCategory} className="px-3 py-2 border border-blue-200 rounded-lg text-xs text-blue-700 hover:bg-blue-50 whitespace-nowrap">加入</button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 mt-2 min-h-6">
+                                                    {form.web_categories.length === 0 && <span className="text-[11px] text-gray-400">尚未選擇官網分類</span>}
+                                                    {form.web_categories.map(category => (
+                                                        <span key={category} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
+                                                            {category}
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`移除官網分類 ${category}`}
+                                                                onClick={() => setForm(current => ({ ...current, web_categories: current.web_categories.filter(value => value !== category) }))}
+                                                                className="text-blue-400 hover:text-blue-700"
+                                                            ><X size={12} /></button>
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">主圖</label>

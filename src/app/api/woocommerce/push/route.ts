@@ -48,6 +48,24 @@ async function findCategoryId(name: string, auth: string): Promise<number | null
   }
 }
 
+/** 取得官網分類 ID；若官網尚無此分類，建立後回傳新 ID。 */
+async function findOrCreateCategoryId(name: string, auth: string): Promise<number | null> {
+  const existingId = await findCategoryId(name, auth)
+  if (existingId) return existingId
+  try {
+    const res = await fetch(`${storeBase()}/wp-json/wc/v3/products/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: auth },
+      body: JSON.stringify({ name: name.trim() }),
+    })
+    if (!res.ok) return null
+    const category = await res.json()
+    return category?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function POST(req: Request) {
   const auth = wcAuthHeader()
   const store = storeBase()
@@ -82,13 +100,18 @@ export async function POST(req: Request) {
     const row = p as CrmProductRow
     const missing = validateForWeb(row, sub)
 
-    const categoryId = await findCategoryId(row.web_category ?? '', auth)
-    const payload: any = buildWooPayload(row, sub, categoryId, { status: publish ? 'publish' : 'draft' })
+    // 新欄位支援多個官網分類；舊資料仍可由 web_category 自動相容。
+    const webCategories = Array.from(new Set(
+      (row.web_categories?.length ? row.web_categories : [row.web_category ?? ''])
+        .map(name => name.trim())
+        .filter(Boolean)
+    ))
+    const resolvedCategories = await Promise.all(
+      webCategories.map(async name => ({ name, id: await findOrCreateCategoryId(name, auth) }))
+    )
+    const categoryIds = resolvedCategories.flatMap(category => category.id ? [category.id] : [])
+    const payload: any = buildWooPayload(row, sub, categoryIds, { status: publish ? 'publish' : 'draft' })
 
-    // 官網分類找不到時，退回用名稱建立關聯（WooCommerce 會自行比對）
-    if (!categoryId && row.web_category) {
-      payload.categories = [{ name: row.web_category }]
-    }
     // 庫存
     payload.manage_stock = true
     payload.stock_quantity = Number((p as any).stock_qty ?? 0)
@@ -135,7 +158,7 @@ export async function POST(req: Request) {
         status: data.status,
         action: wcId ? '已更新' : '已建立',
         missing,                       // 缺少的欄位（僅提醒，不阻擋）
-        category_matched: !!categoryId,
+        category_matched: resolvedCategories.every(category => !!category.id),
       })
     } catch (e: any) {
       results.push({ id, name: row.product_name, ok: false, error: e.message ?? '連線失敗' })

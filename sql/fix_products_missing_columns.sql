@@ -22,6 +22,7 @@ alter table products
   add column if not exists height_cm            numeric(8,1) default 0,
   add column if not exists web_sku              text,
   add column if not exists web_category         text,
+  add column if not exists web_categories       text[] not null default '{}',
   add column if not exists web_description      text,
   add column if not exists web_main_image_url   text,
   add column if not exists web_sale_price       numeric(12,2),

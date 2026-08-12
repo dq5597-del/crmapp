@@ -53,6 +53,16 @@ export async function POST(req: Request) {
       delete payload.main_category
       delete payload.sub_category
 
+      // Excel 沿用單一「官網分類」欄；匯入時同時寫入新的多選欄位。
+      if (typeof payload.web_category === 'string' && payload.web_category.trim()) {
+        const webCategories = payload.web_category
+          .split(/[,，;；]/)
+          .map((value: string) => value.trim())
+          .filter(Boolean)
+        payload.web_categories = Array.from(new Set(webCategories))
+        payload.web_category = webCategories[0] ?? null
+      }
+
       // ── 分類：找不到就建立 ──
       if (main && sub) {
         const key = `${main}||${sub}`

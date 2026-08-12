@@ -33,7 +33,7 @@ export const PRODUCT_COLUMNS: ImportColumn[] = [
   { header: '啟用', key: 'is_active', type: 'bool', width: 8, note: '是／否，預設是' },
   // ── 官網欄位 ──
   { header: '官網SKU', key: 'web_sku', type: 'text', width: 16, note: '第二比對鍵' },
-  { header: '官網分類', key: 'web_category', type: 'text', width: 16 },
+  { header: '官網分類', key: 'web_category', type: 'text', width: 22, note: '多個分類請用逗號分隔' },
   { header: '官網售價', key: 'web_sale_price', type: 'number', width: 12 },
   { header: '產品介紹', key: 'web_description', type: 'text', width: 40, note: '可放 HTML' },
   { header: '規格HTML', key: 'web_spec_html', type: 'text', width: 40, note: '可放 HTML 表格' },

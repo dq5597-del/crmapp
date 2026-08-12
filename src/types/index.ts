@@ -109,6 +109,7 @@ export interface Product {
   notes: string | null
   web_sku?: string | null
   web_category?: string | null
+  web_categories?: string[] | null
   web_description?: string | null
   web_main_image_url?: string | null
   web_sale_price?: number | null
