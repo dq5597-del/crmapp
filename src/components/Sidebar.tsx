@@ -116,6 +116,7 @@ const reportItems = [
 /** 7. 設置與系統管理 */
 const systemItems = [
   { href: '/knowledge-base', label: 'SOP／教材庫', icon: Library },
+  { href: '/ai-command-center', label: 'AI 團隊戰情室', icon: Users },
   { href: '/settings',       label: '系統設定',   icon: Settings },
 ]
 

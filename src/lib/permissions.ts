@@ -53,6 +53,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'hr-trainings',     label: '教育訓練',        group: '人資',   href: '/hr/trainings' },
   { key: 'hr-contractors',   label: '協力廠商／臨時工', group: '人資',  href: '/hr/contractors',  costLabel: '看日薪與帳戶' },
 
+  { key: 'ai-command-center', label: 'AI 團隊戰情室',  group: '系統',   href: '/ai-command-center' },
   { key: 'settings',         label: '系統設定',        group: '系統',   href: '/settings' },
   { key: 'permissions',      label: '權限管理',        group: '系統' },
 ]
@@ -162,6 +163,8 @@ export function usePermissions() {
   const dashboardHref = dashboardFeature ? DASHBOARD_HREFS[dashboardFeature] : null
 
   function can(feature: string, action: keyof Perm = 'can_view'): boolean {
+    // AI 團隊戰情室包含跨代理工作與卡點，只允許系統管理員存取。
+    if (feature === 'ai-command-center') return isAdmin
     // 管理員是系統最高權限，必須在「戰情室只能看自己的」規則之前放行。
     if (bypass || isAdmin) return true
     // 戰情室是互斥的：每個帳號永遠只能看到自己職稱對應的一間。
