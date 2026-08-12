@@ -42,6 +42,7 @@ export default function ProductSelectorPage() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [ranges, setRanges] = useState<RangeMap>({})
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [resultLimit, setResultLimit] = useState(60)
   const [shareTitle, setShareTitle] = useState('為您精選的產品型錄')
   const [shareMessage, setShareMessage] = useState('您好，以下是為您整理的產品與型錄，歡迎點選查看。')
   const [recipient, setRecipient] = useState('')
@@ -95,6 +96,7 @@ export default function ProductSelectorPage() {
       return matchesNumberRanges(numberMap[product.id], ranges)
     })
   }, [products, search, brand, mainCategory, subCategory, optionMap, selectedOptions, groups, numberMap, ranges])
+  const visibleProducts = filtered.slice(0, resultLimit)
 
   async function createShare(sendEmail: boolean) {
     if (selectedProducts.length === 0) return alert('請先勾選至少一項產品')
@@ -163,7 +165,7 @@ export default function ProductSelectorPage() {
 
         <main>
           <div className="mb-3 flex items-center justify-between"><p className="text-sm text-gray-600">找到 <strong className="text-violet-700">{filtered.length}</strong> 項產品</p><button type="button" onClick={() => setSelectedProducts(filtered.map(product => product.id))} className="text-xs text-violet-700 hover:underline">全選目前結果</button></div>
-          {loading ? <div className="rounded-2xl bg-white p-16 text-center text-sm text-gray-400">載入產品中…</div> : filtered.length === 0 ? <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-16 text-center text-sm text-gray-400">沒有符合條件的產品</div> : <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{filtered.map(product => {
+          {loading ? <div className="rounded-2xl bg-white p-16 text-center text-sm text-gray-400">載入產品中…</div> : filtered.length === 0 ? <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-16 text-center text-sm text-gray-400">沒有符合條件的產品</div> : <><div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{visibleProducts.map(product => {
             const active = selectedProducts.includes(product.id)
             const values = numberMap[product.id] ?? {}
             return <article key={product.id} className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition ${active ? 'border-violet-500 ring-2 ring-violet-100' : 'border-gray-100 hover:border-violet-200'}`}>
@@ -171,7 +173,7 @@ export default function ProductSelectorPage() {
               <div className="grid h-44 place-items-center bg-gray-50 p-4">{product.web_main_image_url ? <img src={driveImageUrl(product.web_main_image_url, 600)} alt={product.product_name} loading="lazy" className="h-full w-full object-contain" /> : <Package size={36} className="text-gray-200" />}</div>
               <div className="p-4"><div className="text-xs font-semibold text-violet-700">{product.brand || '未設定品牌'}</div><h2 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-900">{product.model ? `${product.model} ` : ''}{product.product_name}</h2><div className="mt-2 flex flex-wrap gap-1">{groups.filter(group => group.input_type === 'number' && values[group.id] != null).map(group => <span key={group.id} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{group.name} {values[group.id]}{group.unit}</span>)}</div><p className="mt-3 text-xs text-gray-400">型錄 {product.product_downloads?.length ?? 0} 份</p></div>
             </article>
-          })}</div>}
+          })}</div>{visibleProducts.length < filtered.length ? <button type="button" onClick={() => setResultLimit(current => current + 60)} className="mt-4 w-full rounded-xl border border-violet-200 bg-white py-3 text-sm font-medium text-violet-700 hover:bg-violet-50">顯示更多（尚有 {filtered.length - visibleProducts.length} 項）</button> : null}</>}
         </main>
 
         <aside className="h-fit rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:sticky xl:top-4">
