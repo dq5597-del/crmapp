@@ -1,9 +1,14 @@
+import sharp from 'sharp'
+
 const ALLOWED_IMAGE_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
 ])
+
+const WORDPRESS_IMAGE_SIZE = 600
+const WORDPRESS_WEBP_QUALITY = 84
 
 export function wordpressMediaConfig() {
   const store = (process.env.WC_STORE_URL ?? '').replace(/\/$/, '')
@@ -32,6 +37,25 @@ export function safeWordPressFileName(name: string) {
   return `${base || `product-${Date.now()}`}${extension}`
 }
 
+/**
+ * 所有新上傳的商品圖片都使用一致的官網規格：
+ * - 依 EXIF 方向旋轉
+ * - 等比例縮放並置中於 600 × 600 畫布，不裁切產品內容
+ * - 空白區使用透明背景
+ * - 一律輸出 WebP
+ */
+export async function prepareWordPressImage(data: Buffer) {
+  return sharp(data, { animated: false })
+    .rotate()
+    .resize(WORDPRESS_IMAGE_SIZE, WORDPRESS_IMAGE_SIZE, {
+      fit: 'contain',
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
+      withoutEnlargement: false,
+    })
+    .webp({ quality: WORDPRESS_WEBP_QUALITY })
+    .toBuffer()
+}
+
 export async function uploadWordPressMedia(options: {
   data: Buffer
   mimeType: string
@@ -46,14 +70,9 @@ export async function uploadWordPressMedia(options: {
     throw new Error('僅支援 JPG、PNG、WebP 或 GIF 圖片')
   }
 
-  const shouldConvertToWebP = options.mimeType !== 'image/webp' && options.mimeType !== 'image/gif'
-  const uploadData = shouldConvertToWebP
-    ? await sharp(options.data).rotate().webp({ quality: 84 }).toBuffer()
-    : options.data
-  const uploadMimeType = shouldConvertToWebP ? 'image/webp' : options.mimeType
-  const uploadFileName = shouldConvertToWebP
-    ? options.fileName.replace(/\.[^.]+$/, '') + '.webp'
-    : options.fileName
+  const uploadData = await prepareWordPressImage(options.data)
+  const uploadMimeType = 'image/webp'
+  const uploadFileName = options.fileName.replace(/\.[^.]+$/, '') + '.webp'
   const filename = safeWordPressFileName(uploadFileName)
   const auth = Buffer.from(`${username}:${applicationPassword}`).toString('base64')
   const upload = await fetch(`${store}/wp-json/wp/v2/media`, {
@@ -103,4 +122,3 @@ export async function uploadWordPressMedia(options: {
     height: media.media_details?.height ?? null,
   }
 }
-import sharp from 'sharp'
