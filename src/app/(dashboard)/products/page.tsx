@@ -14,7 +14,7 @@ import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
-import { CATALOG_DRIVE_ROOT } from '@/lib/catalog-drive'
+import { CATALOG_DRIVE_ROOT, encodeWebsiteCategory, parseWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
 
 type MarketPriceRow = {
   product_id: string
@@ -701,7 +701,7 @@ export default function ProductsPage() {
         const payload = {
             ...form,
             // web_category 保留第一個分類，讓尚未更新的舊流程仍能讀取；新流程使用 web_categories。
-            web_category: form.web_categories[0] ?? null,
+            web_category: form.web_categories[0] ? websiteCategoryLeaf(form.web_categories[0]) : null,
             // 空字串會撞到料號的唯一索引（'' 不算 null），一律轉 null
             product_code: form.product_code.trim() || null,
             web_promo_price: promoEnabled ? form.web_promo_price : null,
@@ -949,12 +949,14 @@ export default function ProductsPage() {
 
   function getCatalogFolderPaths(): string[][] {
     const paths: string[][] = []
-    for (const selectedSubCategory of form.web_categories) {
+    for (const selectedCategory of form.web_categories) {
+      const { mainCategory: selectedMainCategory, subCategory: selectedSubCategory } = parseWebsiteCategory(selectedCategory)
       const matches = categories.filter(category =>
         category.sub_category.trim().toLocaleLowerCase() === selectedSubCategory.trim().toLocaleLowerCase()
+        && (!selectedMainCategory || category.main_category.trim().toLocaleLowerCase() === selectedMainCategory.toLocaleLowerCase())
       )
       if (matches.length === 0) {
-        paths.push([CATALOG_DRIVE_ROOT, '其他分類', selectedSubCategory.trim()])
+        paths.push([CATALOG_DRIVE_ROOT, selectedMainCategory || '其他分類', selectedSubCategory.trim()])
         continue
       }
       for (const category of matches) {
@@ -967,8 +969,10 @@ export default function ProductsPage() {
   }
 
   function addWebCategory() {
-    const value = webCategoryInput.trim()
-    if (!value) return
+    const subCategory = webCategoryInput.trim()
+    const mainCategory = webMainCategory.trim()
+    if (!mainCategory || !subCategory) return
+    const value = encodeWebsiteCategory(mainCategory, subCategory)
     setForm(current => current.web_categories.some(category => category.toLocaleLowerCase() === value.toLocaleLowerCase())
       ? current
       : { ...current, web_categories: [...current.web_categories, value] })

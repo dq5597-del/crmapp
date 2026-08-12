@@ -1,4 +1,23 @@
 export const CATALOG_DRIVE_ROOT = '型錄分類'
+const WEBSITE_CATEGORY_SEPARATOR = ' > '
+
+export function encodeWebsiteCategory(mainCategory: string, subCategory: string) {
+  return `${mainCategory.trim()}${WEBSITE_CATEGORY_SEPARATOR}${subCategory.trim()}`
+}
+
+export function parseWebsiteCategory(value: string): { mainCategory: string | null; subCategory: string } {
+  const normalized = value.trim()
+  const separatorIndex = normalized.indexOf(WEBSITE_CATEGORY_SEPARATOR)
+  if (separatorIndex < 0) return { mainCategory: null, subCategory: normalized }
+  return {
+    mainCategory: normalized.slice(0, separatorIndex).trim() || null,
+    subCategory: normalized.slice(separatorIndex + WEBSITE_CATEGORY_SEPARATOR.length).trim(),
+  }
+}
+
+export function websiteCategoryLeaf(value: string) {
+  return parseWebsiteCategory(value).subCategory
+}
 
 /** 僅允許型錄分類根目錄下的大類 / 小類路徑。 */
 export function normalizeCatalogFolderPaths(value: unknown): string[][] {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { buildWooPayload, validateForWeb, type CrmProductRow, type CrmSubData } from '@/lib/web-product-mapper'
+import { websiteCategoryLeaf } from '@/lib/catalog-drive'
 
 /**
  * POST /api/woocommerce/push
@@ -103,6 +104,7 @@ export async function POST(req: Request) {
     // 新欄位支援多個官網分類；舊資料仍可由 web_category 自動相容。
     const webCategories = Array.from(new Set(
       (row.web_categories?.length ? row.web_categories : [row.web_category ?? ''])
+        .map(name => websiteCategoryLeaf(name))
         .map(name => name.trim())
         .filter(Boolean)
     ))
