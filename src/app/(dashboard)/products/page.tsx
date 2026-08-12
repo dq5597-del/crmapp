@@ -14,6 +14,7 @@ import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
+import { CATALOG_DRIVE_ROOT } from '@/lib/catalog-drive'
 
 type MarketPriceRow = {
   product_id: string
@@ -724,8 +725,15 @@ export default function ProductsPage() {
             }
             await syncWebSubData(editingId as string)
         }
+        let catalogWarning = ''
+        try {
+            await organizeCatalogDownloads()
+        } catch (error: any) {
+            catalogWarning = error?.message ?? 'Google Drive 型錄分類失敗'
+        }
         setEditingId(null)
         fetchAll()
+        if (catalogWarning) alert(`產品已儲存，但型錄資料夾整理失敗：\n${catalogWarning}`)
     }
 
 
@@ -771,7 +779,8 @@ export default function ProductsPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('folder', '產品資料下載')
+      fd.append('folder', CATALOG_DRIVE_ROOT)
+      fd.append('folder_paths', JSON.stringify(getCatalogFolderPaths()))
       fd.append('public', '1')
       const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
       const data = await res.json()
@@ -785,6 +794,19 @@ export default function ProductsPage() {
     } finally {
       setDownloadUploading(null)
     }
+  }
+
+  async function organizeCatalogDownloads() {
+    const downloads = webDownloads.filter(row => row.file_name.trim() && row.file_url.trim())
+    if (downloads.length === 0) return
+
+    const res = await fetch('/api/drive/catalog-classify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ downloads, folder_paths: getCatalogFolderPaths() }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Google Drive 型錄分類失敗')
   }
 
   // ── 官網（av-shop.com）同步 ──
@@ -924,6 +946,25 @@ export default function ProductsPage() {
     acc[c.main_category].push(c)
     return acc
   }, {})
+
+  function getCatalogFolderPaths(): string[][] {
+    const paths: string[][] = []
+    for (const selectedSubCategory of form.web_categories) {
+      const matches = categories.filter(category =>
+        category.sub_category.trim().toLocaleLowerCase() === selectedSubCategory.trim().toLocaleLowerCase()
+      )
+      if (matches.length === 0) {
+        paths.push([CATALOG_DRIVE_ROOT, '其他分類', selectedSubCategory.trim()])
+        continue
+      }
+      for (const category of matches) {
+        paths.push([CATALOG_DRIVE_ROOT, category.main_category.trim(), category.sub_category.trim()])
+      }
+    }
+
+    if (paths.length === 0) return [[CATALOG_DRIVE_ROOT, '未分類']]
+    return Array.from(new Map(paths.map(path => [JSON.stringify(path), path])).values())
+  }
 
   function addWebCategory() {
     const value = webCategoryInput.trim()
@@ -1507,6 +1548,15 @@ export default function ProductsPage() {
                                                         <div className="text-[11px] text-gray-400 mt-0.5">檔案會存入 Google Drive，並同步顯示在官網單一商品頁。</div>
                                                     </div>
                                                     <span className="text-[11px] text-gray-400 whitespace-nowrap">{webDownloads.length} 個檔案</span>
+                                                </div>
+                                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-3">
+                                                    <div className="text-[11px] font-medium text-amber-800 mb-1">Google Drive 型錄分類位置</div>
+                                                    <div className="space-y-0.5">
+                                                        {getCatalogFolderPaths().map(path => (
+                                                            <div key={path.join('\u0000')} className="text-[11px] text-amber-700">{path.join(' / ')}</div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="text-[10px] text-amber-600 mt-1">同一份型錄只占一份空間；其他分類會建立捷徑。貼上 Google Drive 連結後，儲存產品也會自動整理。</div>
                                                 </div>
                                                 <div className="text-[11px] text-gray-400 border-t border-gray-100 pt-3 mb-2">支援 PDF、ZIP、Word、Excel、PowerPoint 等格式；單檔 4MB 內可直接上傳。</div>
                                                 <div className="space-y-2 mb-3">

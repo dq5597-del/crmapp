@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { uploadToDrive, driveConfigured, testDrive, driveMode } from '@/lib/gdrive'
+import { normalizeCatalogFolderPaths } from '@/lib/catalog-drive'
 import sharp from 'sharp'
 
 export const runtime = 'nodejs'
@@ -12,6 +13,7 @@ const MAX_FILE_SIZE = 4 * 1024 * 1024
  * POST /api/drive/upload   （multipart form-data）
  *   file    檔案
  *   folder  子資料夾名稱（專案照片 / 產品圖片 / 專案檔案 / 名片…）
+ *   folder_paths JSON 多層路徑陣列；型錄使用「型錄分類 / 大類 / 小類」
  *   public  '1' = 設成公開連結（產品圖要推官網才需要）
  *   convert_webp '1' = 圖片縮放並轉成 WebP（專案照片使用）
  *
@@ -28,6 +30,10 @@ export async function POST(req: Request) {
     const form = await req.formData()
     const file = form.get('file') as File | null
     const folder = (form.get('folder') as string) || '其他'
+    const rawFolderPaths = form.get('folder_paths')
+    const folderPaths = rawFolderPaths
+      ? normalizeCatalogFolderPaths(JSON.parse(String(rawFolderPaths)))
+      : []
     const isPublic = form.get('public') === '1'
     const convertWebP = form.get('convert_webp') === '1'
 
@@ -56,7 +62,9 @@ export async function POST(req: Request) {
 
     const result = await uploadToDrive({
       folder,
-      name: `${Date.now()}_${fileName}`,
+      folderPaths,
+      // 型錄依資料夾分類，保留乾淨檔名；其他既有上傳仍加時間戳避免撞名。
+      name: folderPaths.length > 0 ? fileName : `${Date.now()}_${fileName}`,
       mimeType,
       data: buf,
       makePublic: isPublic,

@@ -219,16 +219,7 @@ async function ensureFolderUnderParent(name: string, parent: string, token: stri
   return { id: created.id, created: true }
 }
 
-/** 取得（或建立）GDRIVE_FOLDER_ID 底下的子資料夾。 */
-export async function ensureFolder(name: string, token?: string): Promise<string> {
-  const t = token ?? await getAccessToken()
-  const result = await ensureFolderUnderParent(name, process.env.GDRIVE_FOLDER_ID!, t)
-  return result.id
-}
-
-/** 從指定父資料夾逐層尋找或建立路徑；'root' 代表個人「我的雲端硬碟」。 */
-export async function ensureDriveFolderPath(parts: string[], startParentId = 'root') {
-  const token = await getAccessToken()
+async function ensureDriveFolderPathWithToken(parts: string[], startParentId: string, token: string) {
   let parentId = startParentId
   const folders: { id: string; name: string; created: boolean }[] = []
 
@@ -243,16 +234,93 @@ export async function ensureDriveFolderPath(parts: string[], startParentId = 'ro
   return { id: parentId, folders }
 }
 
+/** 取得（或建立）GDRIVE_FOLDER_ID 底下的子資料夾。 */
+export async function ensureFolder(name: string, token?: string): Promise<string> {
+  const t = token ?? await getAccessToken()
+  const result = await ensureFolderUnderParent(name, process.env.GDRIVE_FOLDER_ID!, t)
+  return result.id
+}
+
+/** 從指定父資料夾逐層尋找或建立路徑；'root' 代表個人「我的雲端硬碟」。 */
+export async function ensureDriveFolderPath(parts: string[], startParentId = 'root') {
+  const token = await getAccessToken()
+  return ensureDriveFolderPathWithToken(parts, startParentId, token)
+}
+
+async function ensureShortcutUnderParent(targetId: string, name: string, parentId: string, token: string) {
+  const q = encodeURIComponent(
+    `'${parentId.replace(/'/g, "\\'")}' in parents and mimeType='application/vnd.google-apps.shortcut' and trashed=false`
+  )
+  const findRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,shortcutDetails(targetId))&pageSize=1000&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  const found = await findRes.json()
+  if (!findRes.ok) throw new Error('搜尋 Drive 型錄捷徑失敗：' + (found.error?.message ?? findRes.status))
+  if ((found.files ?? []).some((file: any) => file.shortcutDetails?.targetId === targetId)) {
+    return { created: false }
+  }
+
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      mimeType: 'application/vnd.google-apps.shortcut',
+      parents: [parentId],
+      shortcutDetails: { targetId },
+    }),
+  })
+  const created = await createRes.json()
+  if (!createRes.ok) throw new Error('建立 Drive 型錄捷徑失敗：' + (created.error?.message ?? createRes.status))
+  return { created: true }
+}
+
+/**
+ * 將同一份 Drive 型錄放進多個「大類 / 小類」資料夾。
+ * 原檔只保留一份，其他分類使用 Drive 捷徑，避免重複占用空間。
+ */
+export async function classifyDriveFile(fileId: string, folderPaths: string[][], displayName?: string, token?: string) {
+  const t = token ?? await getAccessToken()
+  const metaRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,parents,trashed&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${t}` } }
+  )
+  const meta = await metaRes.json()
+  if (!metaRes.ok || meta.trashed) throw new Error('找不到可分類的 Google Drive 型錄：' + (meta.error?.message ?? metaRes.status))
+
+  const uniquePaths = Array.from(new Map(
+    folderPaths.map(parts => [JSON.stringify(parts.map(part => part.trim()).filter(Boolean)), parts.map(part => part.trim()).filter(Boolean)])
+  ).values()).filter(parts => parts.length > 0)
+  const existingParents = new Set<string>(meta.parents ?? [])
+  let createdShortcuts = 0
+
+  for (const parts of uniquePaths) {
+    const destination = await ensureDriveFolderPathWithToken(parts, process.env.GDRIVE_FOLDER_ID!, t)
+    if (existingParents.has(destination.id)) continue
+    const shortcut = await ensureShortcutUnderParent(fileId, (displayName || meta.name || '產品型錄').trim(), destination.id, t)
+    if (shortcut.created) createdShortcuts += 1
+  }
+
+  return { fileId, folderCount: uniquePaths.length, createdShortcuts }
+}
+
 /** 上傳檔案到 Drive（multipart），回傳 file id */
 export async function uploadToDrive(opts: {
   folder: string           // 子資料夾名稱（會自動建立）
+  folderPaths?: string[][] // 多層分類路徑；第一個路徑存原檔，其餘建立捷徑
   name: string
   mimeType: string
   data: Buffer
   makePublic?: boolean     // 產品圖要推官網 → 需要公開連結
 }): Promise<{ id: string; publicUrl?: string }> {
   const token = await getAccessToken()
-  const folderId = await ensureFolder(opts.folder, token)
+  const normalizedPaths = (opts.folderPaths ?? [])
+    .map(parts => parts.map(part => part.trim()).filter(Boolean))
+    .filter(parts => parts.length > 0)
+  const folderId = normalizedPaths.length > 0
+    ? (await ensureDriveFolderPathWithToken(normalizedPaths[0], process.env.GDRIVE_FOLDER_ID!, token)).id
+    : await ensureFolder(opts.folder, token)
 
   const boundary = 'crmboundary' + Date.now()
   const metadata = JSON.stringify({ name: opts.name, parents: [folderId] })
@@ -290,6 +358,10 @@ export async function uploadToDrive(opts: {
     publicUrl = opts.mimeType.startsWith('image/')
       ? `https://drive.google.com/thumbnail?id=${data.id}&sz=w1600`
       : `https://drive.google.com/uc?export=download&id=${data.id}`
+  }
+
+  if (normalizedPaths.length > 1) {
+    await classifyDriveFile(data.id, normalizedPaths, opts.name, token)
   }
 
   return { id: data.id, publicUrl }
