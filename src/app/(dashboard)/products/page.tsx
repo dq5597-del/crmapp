@@ -519,6 +519,7 @@ export default function ProductsPage() {
   const [marketRefreshing, setMarketRefreshing] = useState<string | null>(null)
   const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
   const [inventoryMainCategory, setInventoryMainCategory] = useState('')
+  const [webMainCategory, setWebMainCategory] = useState('')
   const [webCategoryInput, setWebCategoryInput] = useState('')
     const [form, setForm] = useState({
         category_id: null as string | null,
@@ -657,6 +658,7 @@ export default function ProductsPage() {
             setWebFeatures([])
             setWebVendors([])
         }
+        setWebMainCategory('')
         setWebCategoryInput('')
         setWebExpanded(defaultWebExpanded)
         setFormMode('simple')
@@ -896,13 +898,6 @@ export default function ProductsPage() {
     acc[c.main_category].push(c)
     return acc
   }, {})
-
-  const allWebCategories = Array.from(new Set(products.flatMap(product => {
-    const values = product.web_categories?.length
-      ? product.web_categories
-      : (product.web_category?.trim() ? [product.web_category.trim()] : [])
-    return values.filter(Boolean)
-  }))).sort((a, b) => a.localeCompare(b, 'zh-Hant'))
 
   function addWebCategory() {
     const value = webCategoryInput.trim()
@@ -1337,19 +1332,32 @@ export default function ProductsPage() {
 
                                             <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/40 mb-3">
                                                 <label className="text-xs font-medium text-blue-700 mb-1.5 block">官網分類（可多選）</label>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        list="web-category-list"
+                                                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+                                                    <select
+                                                        value={webMainCategory}
+                                                        onChange={e => {
+                                                            setWebMainCategory(e.target.value)
+                                                            setWebCategoryInput('')
+                                                        }}
+                                                        className={inputClass}
+                                                        aria-label="官網分類大類"
+                                                    >
+                                                        <option value="">先選擇大類</option>
+                                                        {mainCats.map(main => <option key={main} value={main}>{main}</option>)}
+                                                    </select>
+                                                    <select
                                                         value={webCategoryInput}
                                                         onChange={e => setWebCategoryInput(e.target.value)}
-                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addWebCategory() } }}
                                                         className={inputClass}
-                                                        placeholder="選擇既有分類或輸入新分類"
-                                                    />
-                                                    <datalist id="web-category-list">
-                                                        {allWebCategories.map(category => <option key={category} value={category} />)}
-                                                    </datalist>
-                                                    <button type="button" onClick={addWebCategory} className="px-3 py-2 border border-blue-200 bg-white rounded-lg text-xs text-blue-700 hover:bg-blue-50 whitespace-nowrap">加入</button>
+                                                        aria-label="官網分類小類"
+                                                        disabled={!webMainCategory}
+                                                    >
+                                                        <option value="">{webMainCategory ? '再選擇小類' : '請先選擇大類'}</option>
+                                                        {(categoryGrouped[webMainCategory] ?? []).map(category => (
+                                                            <option key={category.id} value={category.sub_category}>{category.sub_category}</option>
+                                                        ))}
+                                                    </select>
+                                                    <button type="button" onClick={addWebCategory} disabled={!webCategoryInput} className="px-3 py-2 border border-blue-200 bg-white rounded-lg text-xs text-blue-700 hover:bg-blue-50 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50">加入</button>
                                                 </div>
                                                 <div className="flex flex-wrap gap-1.5 mt-2 min-h-6">
                                                     {form.web_categories.length === 0 && <span className="text-[11px] text-gray-400">尚未選擇官網分類，可加入多個分類</span>}
