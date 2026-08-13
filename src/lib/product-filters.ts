@@ -22,6 +22,31 @@ export type ProductFilterGroup = {
 
 export type ProductNumberMap = Record<string, Record<string, number>>
 
+export type ProductCategorySource = {
+  category?: {
+    main_category?: string | null
+    mid_category?: string | null
+    sub_category?: string | null
+  } | null
+  web_categories?: string[] | null
+  web_category?: string | null
+}
+
+export function resolveProductCategory(product: ProductCategorySource) {
+  const internalMain = product.category?.main_category?.trim() ?? ''
+  const internalSub = product.category?.sub_category?.trim()
+    || product.category?.mid_category?.trim()
+    || ''
+  if (internalMain) return { main: internalMain, sub: internalSub }
+
+  const fallback = product.web_categories?.[0] || product.web_category || ''
+  if (!fallback) return { main: '未分類', sub: '' }
+  const [main, sub = ''] = fallback.includes(' > ')
+    ? fallback.split(' > ', 2)
+    : [fallback, '']
+  return { main: main.trim(), sub: sub.trim() }
+}
+
 export function buildFilterGroups(groups: any[], options: any[]): ProductFilterGroup[] {
   const byGroup = new Map<string, ProductFilterOption[]>()
   for (const option of options) {

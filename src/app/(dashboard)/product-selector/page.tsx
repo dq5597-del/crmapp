@@ -10,6 +10,7 @@ import {
   buildProductOptionMap,
   matchesGroupedOptions,
   matchesNumberRanges,
+  resolveProductCategory,
   type ProductFilterGroup,
 } from '@/lib/product-filters'
 
@@ -24,13 +25,18 @@ type ProductRow = {
   web_sale_price: number | null
   list_price: number
   is_active: boolean
+  category: {
+    main_category: string | null
+    mid_category: string | null
+    sub_category: string | null
+  } | null
   product_downloads: { file_name: string; file_url: string; sort_order: number }[]
 }
 
 type RangeMap = Record<string, { min: string; max: string }>
 
 export default function ProductSelectorPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [products, setProducts] = useState<ProductRow[]>([])
   const [groups, setGroups] = useState<ProductFilterGroup[]>([])
   const [optionMap, setOptionMap] = useState<Record<string, string[]>>({})
@@ -48,55 +54,72 @@ export default function ProductSelectorPage() {
   const [recipient, setRecipient] = useState('')
   const [shareUrl, setShareUrl] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [sharing, setSharing] = useState(false)
 
   useEffect(() => {
     Promise.all([
-      supabase.from('products').select('id,brand,product_name,model,web_categories,web_category,web_main_image_url,web_sale_price,list_price,is_active,product_downloads(file_name,file_url,sort_order)').eq('is_active', true).order('brand').order('product_name'),
+      supabase.from('products').select('id,brand,product_name,model,web_categories,web_category,web_main_image_url,web_sale_price,list_price,is_active,category:product_categories(main_category,mid_category,sub_category),product_downloads(file_name,file_url,sort_order)').eq('is_active', true).order('brand').order('product_name'),
       supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_assignments').select('product_id,option_id'),
       supabase.from('product_filter_numbers').select('product_id,group_id,numeric_value'),
     ]).then(([productRes, groupRes, optionRes, assignmentRes, numberRes]) => {
+      const firstError = productRes.error ?? groupRes.error ?? optionRes.error ?? assignmentRes.error ?? numberRes.error
+      if (firstError) throw firstError
       setProducts((productRes.data ?? []) as unknown as ProductRow[])
       setGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? []))
       setOptionMap(buildProductOptionMap(assignmentRes.data ?? []))
       setNumberMap(buildProductNumberMap(numberRes.data ?? []))
+    }).catch(error => {
+      console.error('產品篩選資料載入失敗', error)
+      setLoadError(error instanceof Error ? error.message : '無法載入產品篩選資料')
+    }).finally(() => {
       setLoading(false)
     })
-  }, [])
+  }, [supabase])
 
   const categoryPairs = useMemo(() => {
     const pairs: { main: string; sub: string }[] = []
     const seen = new Set<string>()
     for (const product of products) {
-      const values = product.web_categories?.length ? product.web_categories : (product.web_category ? [product.web_category] : [])
-      for (const value of values) {
-        const [main, sub = ''] = value.includes(' > ') ? value.split(' > ', 2) : ['其他分類', value]
-        const key = `${main}\u0000${sub}`
-        if (!seen.has(key)) { seen.add(key); pairs.push({ main, sub }) }
-      }
+      const { main, sub } = resolveProductCategory(product)
+      const key = `${main}\u0000${sub}`
+      if (!seen.has(key)) { seen.add(key); pairs.push({ main, sub }) }
     }
     return pairs.sort((a, b) => `${a.main}${a.sub}`.localeCompare(`${b.main}${b.sub}`, 'zh-Hant'))
   }, [products])
 
   const mainCategories = Array.from(new Set(categoryPairs.map(pair => pair.main)))
-  const subCategories = categoryPairs.filter(pair => !mainCategory || pair.main === mainCategory).map(pair => pair.sub)
-  const brands = Array.from(new Set(products.map(product => product.brand?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'en'))
+  const subCategories = Array.from(new Set(categoryPairs
+    .filter(pair => pair.main === mainCategory && pair.sub)
+    .map(pair => pair.sub)))
+  const brands = Array.from(new Set(products
+    .filter(product => {
+      const category = resolveProductCategory(product)
+      if (mainCategory && category.main !== mainCategory) return false
+      return !subCategory || category.sub === subCategory
+    })
+    .map(product => product.brand?.trim())
+    .filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'en'))
 
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase()
     return products.filter(product => {
       if (query && !`${product.brand ?? ''} ${product.model ?? ''} ${product.product_name}`.toLocaleLowerCase().includes(query)) return false
       if (brand && product.brand !== brand) return false
-      const categories = product.web_categories?.length ? product.web_categories : (product.web_category ? [product.web_category] : [])
-      if (mainCategory && !categories.some(value => value.startsWith(`${mainCategory} > `))) return false
-      if (subCategory && !categories.some(value => value === `${mainCategory} > ${subCategory}` || value === subCategory)) return false
+      const category = resolveProductCategory(product)
+      if (mainCategory && category.main !== mainCategory) return false
+      if (subCategory && category.sub !== subCategory) return false
       if (!matchesGroupedOptions(optionMap[product.id] ?? [], selectedOptions, groups)) return false
       return matchesNumberRanges(numberMap[product.id], ranges)
     })
   }, [products, search, brand, mainCategory, subCategory, optionMap, selectedOptions, groups, numberMap, ranges])
   const visibleProducts = filtered.slice(0, resultLimit)
+
+  useEffect(() => {
+    setResultLimit(60)
+  }, [search, mainCategory, subCategory, brand, selectedOptions, ranges])
 
   async function createShare(sendEmail: boolean) {
     if (selectedProducts.length === 0) return alert('請先勾選至少一項產品')
@@ -150,8 +173,8 @@ export default function ProductSelectorPage() {
         <aside className="h-fit space-y-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:sticky xl:top-4">
           <div className="relative"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="品牌、型號、產品名稱" className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-violet-500" /></div>
           <div className="grid grid-cols-2 gap-2">
-            <select value={mainCategory} onChange={event => { setMainCategory(event.target.value); setSubCategory('') }} className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs"><option value="">全部大類</option>{mainCategories.map(value => <option key={value}>{value}</option>)}</select>
-            <select value={subCategory} onChange={event => setSubCategory(event.target.value)} disabled={!mainCategory} className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs disabled:bg-gray-50"><option value="">全部小類</option>{subCategories.map(value => <option key={value}>{value}</option>)}</select>
+            <select value={mainCategory} onChange={event => { setMainCategory(event.target.value); setSubCategory(''); setBrand('') }} className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs"><option value="">全部大類</option>{mainCategories.map(value => <option key={value}>{value}</option>)}</select>
+            <select value={subCategory} onChange={event => { setSubCategory(event.target.value); setBrand('') }} disabled={!mainCategory} className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs disabled:bg-gray-50"><option value="">全部小類</option>{subCategories.map(value => <option key={value}>{value}</option>)}</select>
           </div>
           <select value={brand} onChange={event => setBrand(event.target.value)} className="w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs"><option value="">全部品牌</option>{brands.map(value => <option key={value}>{value}</option>)}</select>
 
@@ -165,7 +188,7 @@ export default function ProductSelectorPage() {
 
         <main>
           <div className="mb-3 flex items-center justify-between"><p className="text-sm text-gray-600">找到 <strong className="text-violet-700">{filtered.length}</strong> 項產品</p><button type="button" onClick={() => setSelectedProducts(filtered.map(product => product.id))} className="text-xs text-violet-700 hover:underline">全選目前結果</button></div>
-          {loading ? <div className="rounded-2xl bg-white p-16 text-center text-sm text-gray-400">載入產品中…</div> : filtered.length === 0 ? <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-16 text-center text-sm text-gray-400">沒有符合條件的產品</div> : <><div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{visibleProducts.map(product => {
+          {loading ? <div className="rounded-2xl bg-white p-16 text-center text-sm text-gray-400">載入產品中…</div> : loadError ? <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-sm text-red-700">產品資料載入失敗：{loadError}</div> : filtered.length === 0 ? <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-16 text-center text-sm text-gray-400">沒有符合條件的產品</div> : <><div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{visibleProducts.map(product => {
             const active = selectedProducts.includes(product.id)
             const values = numberMap[product.id] ?? {}
             return <article key={product.id} className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition ${active ? 'border-violet-500 ring-2 ring-violet-100' : 'border-gray-100 hover:border-violet-200'}`}>
