@@ -18,9 +18,13 @@ export type ProductFilterGroup = {
   sort_order: number
   is_active: boolean
   options: ProductFilterOption[]
+  category_ids: string[]
 }
 
 export type ProductNumberMap = Record<string, Record<string, number>>
+
+export type ProductFilterTemplateGroup = { template_id: string; group_id: string }
+export type ProductCategoryFilterTemplate = { category_id: string; template_id: string }
 
 export type ProductCategorySource = {
   category?: {
@@ -47,12 +51,18 @@ export function resolveProductCategory(product: ProductCategorySource) {
   return { main: main.trim(), sub: sub.trim() }
 }
 
-export function buildFilterGroups(groups: any[], options: any[]): ProductFilterGroup[] {
+export function buildFilterGroups(groups: any[], options: any[], categoryMappings: any[] = []): ProductFilterGroup[] {
   const byGroup = new Map<string, ProductFilterOption[]>()
+  const categoriesByGroup = new Map<string, string[]>()
   for (const option of options) {
     const rows = byGroup.get(option.group_id) ?? []
     rows.push({ ...option, aliases: Array.isArray(option.aliases) ? option.aliases : [] })
     byGroup.set(option.group_id, rows)
+  }
+  for (const mapping of categoryMappings) {
+    const rows = categoriesByGroup.get(mapping.group_id) ?? []
+    rows.push(mapping.category_id)
+    categoriesByGroup.set(mapping.group_id, rows)
   }
   return groups
     .filter(group => group.is_active !== false)
@@ -61,8 +71,32 @@ export function buildFilterGroups(groups: any[], options: any[]): ProductFilterG
       options: (byGroup.get(group.id) ?? [])
         .filter(option => option.is_active !== false)
         .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'zh-Hant')),
+      category_ids: categoriesByGroup.get(group.id) ?? [],
     }))
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'zh-Hant'))
+}
+
+export function filterGroupsForCategory(groups: ProductFilterGroup[], categoryId: string | null | undefined) {
+  if (!categoryId) return []
+  return groups.filter(group => group.category_ids.includes(categoryId))
+}
+
+export function buildCategoryGroupMappings(
+  templateGroups: ProductFilterTemplateGroup[],
+  categoryTemplates: ProductCategoryFilterTemplate[],
+) {
+  const groupIdsByTemplate = new Map<string, string[]>()
+  for (const row of templateGroups) {
+    const groupIds = groupIdsByTemplate.get(row.template_id) ?? []
+    groupIds.push(row.group_id)
+    groupIdsByTemplate.set(row.template_id, groupIds)
+  }
+  return categoryTemplates.flatMap(row =>
+    (groupIdsByTemplate.get(row.template_id) ?? []).map(groupId => ({
+      category_id: row.category_id,
+      group_id: groupId,
+    })),
+  )
 }
 
 export function buildProductOptionMap(rows: any[]): Record<string, string[]> {

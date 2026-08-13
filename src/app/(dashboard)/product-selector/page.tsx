@@ -8,9 +8,11 @@ import {
   buildFilterGroups,
   buildProductNumberMap,
   buildProductOptionMap,
+  buildCategoryGroupMappings,
   matchesGroupedOptions,
   matchesNumberRanges,
   resolveProductCategory,
+  filterGroupsForCategory,
   type ProductFilterGroup,
 } from '@/lib/product-filters'
 
@@ -26,6 +28,7 @@ type ProductRow = {
   list_price: number
   is_active: boolean
   category: {
+    id: string
     main_category: string | null
     mid_category: string | null
     sub_category: string | null
@@ -59,16 +62,19 @@ export default function ProductSelectorPage() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('products').select('id,brand,product_name,model,web_categories,web_category,web_main_image_url,web_sale_price,list_price,is_active,category:product_categories(main_category,mid_category,sub_category),product_downloads(file_name,file_url,sort_order)').eq('is_active', true).order('brand').order('product_name'),
+      supabase.from('products').select('id,brand,product_name,model,web_categories,web_category,web_main_image_url,web_sale_price,list_price,is_active,category:product_categories(id,main_category,mid_category,sub_category),product_downloads(file_name,file_url,sort_order)').eq('is_active', true).order('brand').order('product_name'),
       supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_assignments').select('product_id,option_id'),
       supabase.from('product_filter_numbers').select('product_id,group_id,numeric_value'),
-    ]).then(([productRes, groupRes, optionRes, assignmentRes, numberRes]) => {
-      const firstError = productRes.error ?? groupRes.error ?? optionRes.error ?? assignmentRes.error ?? numberRes.error
+      supabase.from('product_filter_template_groups').select('template_id,group_id'),
+      supabase.from('product_category_filter_templates').select('category_id,template_id'),
+    ]).then(([productRes, groupRes, optionRes, assignmentRes, numberRes, templateGroupRes, categoryTemplateRes]) => {
+      const firstError = productRes.error ?? groupRes.error ?? optionRes.error ?? assignmentRes.error ?? numberRes.error ?? templateGroupRes.error ?? categoryTemplateRes.error
       if (firstError) throw firstError
       setProducts((productRes.data ?? []) as unknown as ProductRow[])
-      setGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? []))
+      const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [])
+      setGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings))
       setOptionMap(buildProductOptionMap(assignmentRes.data ?? []))
       setNumberMap(buildProductNumberMap(numberRes.data ?? []))
     }).catch(error => {
@@ -103,6 +109,18 @@ export default function ProductSelectorPage() {
     .map(product => product.brand?.trim())
     .filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'en'))
 
+  const selectedCategoryId = useMemo(() => {
+    if (!mainCategory || !subCategory) return null
+    return products.find(product => {
+      const category = resolveProductCategory(product)
+      return category.main === mainCategory && category.sub === subCategory
+    })?.category?.id ?? null
+  }, [products, mainCategory, subCategory])
+  const visibleGroups = useMemo(
+    () => filterGroupsForCategory(groups, selectedCategoryId),
+    [groups, selectedCategoryId],
+  )
+
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase()
     return products.filter(product => {
@@ -111,15 +129,22 @@ export default function ProductSelectorPage() {
       const category = resolveProductCategory(product)
       if (mainCategory && category.main !== mainCategory) return false
       if (subCategory && category.sub !== subCategory) return false
-      if (!matchesGroupedOptions(optionMap[product.id] ?? [], selectedOptions, groups)) return false
+      if (!matchesGroupedOptions(optionMap[product.id] ?? [], selectedOptions, visibleGroups)) return false
       return matchesNumberRanges(numberMap[product.id], ranges)
     })
-  }, [products, search, brand, mainCategory, subCategory, optionMap, selectedOptions, groups, numberMap, ranges])
+  }, [products, search, brand, mainCategory, subCategory, optionMap, selectedOptions, visibleGroups, numberMap, ranges])
   const visibleProducts = filtered.slice(0, resultLimit)
 
   useEffect(() => {
     setResultLimit(60)
   }, [search, mainCategory, subCategory, brand, selectedOptions, ranges])
+
+  useEffect(() => {
+    const visibleGroupIds = new Set(visibleGroups.map(group => group.id))
+    const visibleOptionIds = new Set(visibleGroups.flatMap(group => group.options.map(option => option.id)))
+    setSelectedOptions(current => current.filter(optionId => visibleOptionIds.has(optionId)))
+    setRanges(current => Object.fromEntries(Object.entries(current).filter(([groupId]) => visibleGroupIds.has(groupId))))
+  }, [visibleGroups])
 
   async function createShare(sendEmail: boolean) {
     if (selectedProducts.length === 0) return alert('請先勾選至少一項產品')
@@ -178,10 +203,12 @@ export default function ProductSelectorPage() {
           </div>
           <select value={brand} onChange={event => setBrand(event.target.value)} className="w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs"><option value="">全部品牌</option>{brands.map(value => <option key={value}>{value}</option>)}</select>
 
-          {groups.filter(group => group.input_type === 'multi_select').map(group => (
+          {!subCategory ? <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/40 p-3 text-xs leading-5 text-violet-700">請先選擇小類，系統會顯示該產品類別專用的篩選條件。</div> : null}
+          {subCategory && visibleGroups.length === 0 ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-700">這個小類目前尚未設定專用篩選器。</div> : null}
+          {visibleGroups.filter(group => group.input_type === 'multi_select').map(group => (
             <fieldset key={group.id} className="border-t border-gray-100 pt-3"><legend className="mb-2 text-xs font-semibold text-gray-700">{group.name}</legend><div className="flex flex-wrap gap-1.5">{group.options.map(option => { const active = selectedOptions.includes(option.id); return <button key={option.id} type="button" aria-pressed={active} onClick={() => setSelectedOptions(current => active ? current.filter(id => id !== option.id) : [...current, option.id])} className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>{option.name}</button> })}</div></fieldset>
           ))}
-          {groups.filter(group => group.input_type === 'number').map(group => (
+          {visibleGroups.filter(group => group.input_type === 'number').map(group => (
             <fieldset key={group.id} className="border-t border-gray-100 pt-3"><legend className="mb-2 text-xs font-semibold text-gray-700">{group.name} {group.unit ? `(${group.unit})` : ''}</legend><div className="grid grid-cols-2 gap-2"><input type="number" min="0" placeholder="最小" value={ranges[group.id]?.min ?? ''} onChange={event => setRanges(current => ({ ...current, [group.id]: { min: event.target.value, max: current[group.id]?.max ?? '' } }))} className="w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs" /><input type="number" min="0" placeholder="最大" value={ranges[group.id]?.max ?? ''} onChange={event => setRanges(current => ({ ...current, [group.id]: { min: current[group.id]?.min ?? '', max: event.target.value } }))} className="w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs" /></div></fieldset>
           ))}
         </aside>
@@ -194,7 +221,7 @@ export default function ProductSelectorPage() {
             return <article key={product.id} className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition ${active ? 'border-violet-500 ring-2 ring-violet-100' : 'border-gray-100 hover:border-violet-200'}`}>
               <button type="button" aria-label={`${active ? '取消' : '選取'} ${product.product_name}`} onClick={() => setSelectedProducts(current => active ? current.filter(id => id !== product.id) : [...current, product.id])} className={`absolute right-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-full border ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 bg-white text-gray-300'}`}>{active ? <Check size={15} /> : null}</button>
               <div className="grid h-44 place-items-center bg-gray-50 p-4">{product.web_main_image_url ? <img src={driveImageUrl(product.web_main_image_url, 600)} alt={product.product_name} loading="lazy" className="h-full w-full object-contain" /> : <Package size={36} className="text-gray-200" />}</div>
-              <div className="p-4"><div className="text-xs font-semibold text-violet-700">{product.brand || '未設定品牌'}</div><h2 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-900">{product.model ? `${product.model} ` : ''}{product.product_name}</h2><div className="mt-2 flex flex-wrap gap-1">{groups.filter(group => group.input_type === 'number' && values[group.id] != null).map(group => <span key={group.id} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{group.name} {values[group.id]}{group.unit}</span>)}</div><p className="mt-3 text-xs text-gray-400">型錄 {product.product_downloads?.length ?? 0} 份</p></div>
+              <div className="p-4"><div className="text-xs font-semibold text-violet-700">{product.brand || '未設定品牌'}</div><h2 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-900">{product.model ? `${product.model} ` : ''}{product.product_name}</h2><div className="mt-2 flex flex-wrap gap-1">{visibleGroups.filter(group => group.input_type === 'number' && values[group.id] != null).map(group => <span key={group.id} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{group.name} {values[group.id]}{group.unit}</span>)}</div><p className="mt-3 text-xs text-gray-400">型錄 {product.product_downloads?.length ?? 0} 份</p></div>
             </article>
           })}</div>{visibleProducts.length < filtered.length ? <button type="button" onClick={() => setResultLimit(current => current + 60)} className="mt-4 w-full rounded-xl border border-violet-200 bg-white py-3 text-sm font-medium text-violet-700 hover:bg-violet-50">顯示更多（尚有 {filtered.length - visibleProducts.length} 項）</button> : null}</>}
         </main>

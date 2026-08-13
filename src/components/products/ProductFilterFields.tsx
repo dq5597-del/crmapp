@@ -37,6 +37,12 @@ export default function ProductFilterFields({
         <p className="mt-1 text-[11px] text-violet-600">同一商品可選多個 Tags；型錄會同步建立「_篩選器／群組／Tag」捷徑。</p>
       </div>
 
+      {groups.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-violet-200 bg-white p-3 text-xs text-violet-600">
+          請先選擇進銷存小類；系統會顯示該類別專用的 Tags 與數值規格。
+        </p>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         {multiGroups.map(group => (
           <fieldset key={group.id} className="rounded-lg border border-violet-100 bg-white p-2.5">

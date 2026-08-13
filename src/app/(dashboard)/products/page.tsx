@@ -16,7 +16,7 @@ import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { CATALOG_DRIVE_ROOT, encodeWebsiteCategory, parseWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
-import { buildFilterGroups, buildProductOptionMap, matchesGroupedOptions, type ProductFilterGroup } from '@/lib/product-filters'
+import { buildCategoryGroupMappings, buildFilterGroups, buildProductOptionMap, filterGroupsForCategory, matchesGroupedOptions, type ProductFilterGroup } from '@/lib/product-filters'
 
 type MarketPriceRow = {
   product_id: string
@@ -584,17 +584,20 @@ export default function ProductsPage() {
     }, [])
 
   async function fetchAll() {
-    const [pRes, cRes, mRes, groupRes, optionRes, assignmentRes] = await Promise.all([
+    const [pRes, cRes, mRes, groupRes, optionRes, assignmentRes, templateGroupRes, categoryTemplateRes] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('product_name'),
       supabase.from('product_categories').select('*').order('main_category').order('sub_category'),
       supabase.from('market_prices').select('*'),
       supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_assignments').select('product_id,option_id'),
+      supabase.from('product_filter_template_groups').select('template_id,group_id'),
+      supabase.from('product_category_filter_templates').select('category_id,template_id'),
     ])
     setProducts(pRes.data ?? [])
     setCategories(cRes.data ?? [])
-    setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? []))
+    const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [])
+    setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings))
     setProductOptionMap(buildProductOptionMap(assignmentRes.data ?? []))
     const mm: Record<string, MarketPriceRow[]> = {}
     for (const r of (mRes.data ?? []) as MarketPriceRow[]) {
@@ -1181,6 +1184,8 @@ export default function ProductsPage() {
                                             onChange={e => {
                                                 setInventoryMainCategory(e.target.value)
                                                 setForm(p => ({ ...p, category_id: null }))
+                                                setSelectedOptionIds([])
+                                                setNumericFilterValues({})
                                             }}
                                             className={inputClass}
                                         >
@@ -1189,7 +1194,11 @@ export default function ProductsPage() {
                                         </select>
                                         <select
                                             value={form.category_id ?? ''}
-                                            onChange={e => setForm(p => ({ ...p, category_id: e.target.value || null }))}
+                                            onChange={e => {
+                                                setForm(p => ({ ...p, category_id: e.target.value || null }))
+                                                setSelectedOptionIds([])
+                                                setNumericFilterValues({})
+                                            }}
                                             disabled={!inventoryMainCategory}
                                             className={inputClass + ' disabled:bg-gray-50 disabled:text-gray-400'}
                                         >
@@ -1514,7 +1523,7 @@ export default function ProductsPage() {
 
                                             <div className="mb-3">
                                                 <ProductFilterFields
-                                                    groups={filterGroups}
+                                                    groups={filterGroupsForCategory(filterGroups, form.category_id)}
                                                     selectedOptionIds={selectedOptionIds}
                                                     numericValues={numericFilterValues}
                                                     onSelectedOptionIdsChange={setSelectedOptionIds}
