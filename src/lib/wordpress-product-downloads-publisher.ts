@@ -29,11 +29,51 @@ async function snippetRequest(path: string, auth: WordPressAuth, init?: RequestI
   return data
 }
 
+export function isSnippetActive(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+  if (typeof value === 'string') {
+    return ['1', 'true', 'yes', 'on', 'active'].includes(value.trim().toLowerCase())
+  }
+  return false
+}
+
+export function normalizeSnippetCode(value: unknown): string {
+  return typeof value === 'string'
+    ? value.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').trimEnd()
+    : ''
+}
+
+export function snippetCodeMatches(actual: unknown, expected: unknown): boolean {
+  return normalizeSnippetCode(actual) === normalizeSnippetCode(expected)
+}
+
+function normalizeSnippetScope(value: unknown): string {
+  if (typeof value === 'string') return value.trim().toLowerCase()
+  if (value && typeof value === 'object') {
+    const scope = value as Record<string, unknown>
+    const canonical = [scope.value, scope.slug]
+      .map(normalizeSnippetScope)
+      .filter(Boolean)
+    if (canonical.length > 0) {
+      return new Set(canonical).size === 1 ? canonical[0] : ''
+    }
+    return normalizeSnippetScope(scope.name)
+  }
+  return ''
+}
+
+export function snippetScopeMatches(actual: unknown, expected: string): boolean {
+  return normalizeSnippetScope(actual) === normalizeSnippetScope(expected)
+}
+
 function writableSnippet(snippet: any) {
+  const scope = normalizeSnippetScope(snippet?.scope)
+  if (!scope) throw new Error('WordPress 備份片段的執行範圍無法辨識，拒絕放寬為 global')
   return {
     name: snippet?.name ?? '', desc: snippet?.desc ?? '', code: snippet?.code ?? '',
-    tags: Array.isArray(snippet?.tags) ? snippet.tags : [], scope: snippet?.scope ?? 'global',
-    priority: Number(snippet?.priority ?? 10), active: !!snippet?.active, network: snippet?.network ?? null,
+    tags: Array.isArray(snippet?.tags) ? snippet.tags : [], scope,
+    priority: Number(snippet?.priority ?? 10), active: isSnippetActive(snippet?.active), network: snippet?.network ?? null,
   }
 }
 
@@ -42,11 +82,13 @@ async function deactivateLegacyDownloadsTabDedupSnippet(auth: WordPressAuth) {
   const snippets = Array.isArray(list) ? list : (list?.snippets ?? [])
   const current = snippets.find((snippet: any) => snippet.name === WORDPRESS_PRODUCT_DOWNLOADS_DEDUP_SNIPPET_NAME)
   if (!current?.id) return null
-  if (current.active) {
+  const currentResponse = await snippetRequest(`/snippets/${current.id}`, auth)
+  const currentDetails = currentResponse?.snippet ?? currentResponse
+  if (isSnippetActive(currentDetails?.active ?? current.active)) {
     await snippetRequest(`/snippets/${current.id}/deactivate`, auth, { method: 'PUT' })
     const verifiedResponse = await snippetRequest(`/snippets/${current.id}`, auth)
     const verified = verifiedResponse?.snippet ?? verifiedResponse
-    if (verified?.active) throw new Error('WordPress 舊下載分頁去重片段停用失敗')
+    if (isSnippetActive(verified?.active)) throw new Error('WordPress 舊下載分頁去重片段停用失敗')
   }
   return current.id
 }
@@ -57,13 +99,24 @@ export async function ensureWordPressProductDownloadsSnippet() {
   const list = await snippetRequest(`/snippets?search=${encodeURIComponent(WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME)}&per_page=100`, auth)
   const snippets = Array.isArray(list) ? list : (list?.snippets ?? [])
   const current = snippets.find((snippet: any) => snippet.name === WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME)
-  if (current?.active && current?.code === wordpressProductDownloadsSnippet) {
-    const dedupSnippetId = await deactivateLegacyDownloadsTabDedupSnippet(auth)
-    return { action: 'unchanged', snippet_id: current.id, dedup_snippet_id: dedupSnippetId, active: true }
-  }
-
   const backupResponse = current?.id ? await snippetRequest(`/snippets/${current.id}`, auth) : null
   const backup = backupResponse?.snippet ?? backupResponse
+  if (current?.id && (!backup?.id || String(backup.id) !== String(current.id))) {
+    throw new Error('WordPress 未回傳可驗證的原始下載片段，拒絕在無備份下更新')
+  }
+  if (backup?.id && !normalizeSnippetScope(backup.scope)) {
+    throw new Error('WordPress 原始下載片段的執行範圍無法辨識，拒絕更新')
+  }
+  if (
+    backup?.id &&
+    isSnippetActive(backup.active) &&
+    snippetCodeMatches(backup.code, wordpressProductDownloadsSnippet) &&
+    snippetScopeMatches(backup.scope, 'global')
+  ) {
+    const dedupSnippetId = await deactivateLegacyDownloadsTabDedupSnippet(auth)
+    return { action: 'unchanged', snippet_id: backup.id, dedup_snippet_id: dedupSnippetId, active: true }
+  }
+
   const payload = {
     name: WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME,
     desc: '顯示 CRM 同步的產品型錄、使用手冊與規格 PDF。',
@@ -75,7 +128,7 @@ export async function ensureWordPressProductDownloadsSnippet() {
   try {
     // Code Snippets 會在儲存時驗證 PHP。若舊片段仍啟用，同名函式會被誤判為重複宣告；
     // 因此更新前先停用，但停用、儲存、啟用全都必須落在同一個 rollback 範圍內。
-    if (current?.id && current?.active) {
+    if (current?.id && isSnippetActive(backup?.active ?? current.active)) {
       await snippetRequest(`/snippets/${current.id}/deactivate`, auth, { method: 'PUT' })
     }
     const savedResponse = current
@@ -92,25 +145,42 @@ export async function ensureWordPressProductDownloadsSnippet() {
     const verifiedResponse = await snippetRequest(`/snippets/${snippetId}`, auth)
     const verified = verifiedResponse?.snippet ?? verifiedResponse
     if (verified?.code_error) throw new Error(`官網 PHP 語法檢查失敗：${verified.code_error}`)
-    if (verified?.code !== wordpressProductDownloadsSnippet || verified?.scope !== 'global' || verified?.active !== true) {
+    if (
+      !snippetCodeMatches(verified?.code, wordpressProductDownloadsSnippet) ||
+      !snippetScopeMatches(verified?.scope, 'global') ||
+      !isSnippetActive(verified?.active)
+    ) {
       throw new Error('官網下載片段回讀驗證失敗')
     }
   } catch (error) {
     if (backup?.id) {
       try {
         // 還原舊程式前必須確認目前版本真的已停用，否則相同函式名稱可能在 PUT 時衝突。
-        await snippetRequest(`/snippets/${backup.id}/deactivate`, auth, { method: 'PUT' })
+        const rollbackCurrentResponse = await snippetRequest(`/snippets/${backup.id}`, auth)
+        const rollbackCurrent = rollbackCurrentResponse?.snippet ?? rollbackCurrentResponse
+        if (isSnippetActive(rollbackCurrent?.active)) {
+          await snippetRequest(`/snippets/${backup.id}/deactivate`, auth, { method: 'PUT' })
+        }
         const inactiveResponse = await snippetRequest(`/snippets/${backup.id}`, auth)
         const inactive = inactiveResponse?.snippet ?? inactiveResponse
-        if (inactive?.active) throw new Error('無法停用待還原的產品下載程式')
+        if (isSnippetActive(inactive?.active)) throw new Error('無法停用待還原的產品下載程式')
         await snippetRequest(`/snippets/${backup.id}`, auth, {
           method: 'PUT',
           body: JSON.stringify({ ...writableSnippet(backup), active: false }),
         })
-        await snippetRequest(`/snippets/${backup.id}/${backup.active ? 'activate' : 'deactivate'}`, auth, { method: 'PUT' })
+        const backupWasActive = isSnippetActive(backup.active)
+        const backupScope = normalizeSnippetScope(backup.scope)
+        if (!backupScope) throw new Error('備份片段的執行範圍無法辨識')
+        if (backupWasActive) {
+          await snippetRequest(`/snippets/${backup.id}/activate`, auth, { method: 'PUT' })
+        }
         const rollbackResponse = await snippetRequest(`/snippets/${backup.id}`, auth)
         const rolledBack = rollbackResponse?.snippet ?? rollbackResponse
-        if (rolledBack?.code !== backup.code || !!rolledBack?.active !== !!backup.active) {
+        if (
+          !snippetCodeMatches(rolledBack?.code, backup.code) ||
+          !snippetScopeMatches(rolledBack?.scope, backupScope) ||
+          isSnippetActive(rolledBack?.active) !== backupWasActive
+        ) {
           throw new Error('還原後內容或啟用狀態不一致')
         }
       } catch (rollbackError) {
