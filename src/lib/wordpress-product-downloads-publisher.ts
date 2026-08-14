@@ -65,6 +65,9 @@ export async function ensureWordPressProductDownloadsSnippet() {
   if (!snippetId) throw new Error('WordPress 未回傳程式片段 ID')
 
   try {
+    const preflightResponse = await snippetRequest(`/snippets/${snippetId}`, auth)
+    const preflight = preflightResponse?.snippet ?? preflightResponse
+    if (preflight?.code_error) throw new Error(`WordPress PHP 驗證失敗：${preflight.code_error}`)
     await snippetRequest(`/snippets/${snippetId}/activate`, auth, { method: 'PUT' })
     const verifiedResponse = await snippetRequest(`/snippets/${snippetId}`, auth)
     const verified = verifiedResponse?.snippet ?? verifiedResponse
