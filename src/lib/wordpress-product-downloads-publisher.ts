@@ -42,11 +42,16 @@ export async function ensureWordPressProductDownloadsSnippet() {
 
   const backupResponse = current?.id ? await snippetRequest(`/snippets/${current.id}`, auth) : null
   const backup = backupResponse?.snippet ?? backupResponse
+  // Code Snippets 會在儲存時驗證 PHP。若舊片段仍啟用，同名函式會被誤判為重複宣告；
+  // 因此更新前先用獨立請求停用，儲存驗證完成後再重新啟用。
+  if (current?.id && current?.active) {
+    await snippetRequest(`/snippets/${current.id}/deactivate`, auth, { method: 'PUT' })
+  }
   const payload = {
     name: WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME,
     desc: '顯示 CRM 同步的產品型錄、使用手冊與規格 PDF。',
     code: wordpressProductDownloadsSnippet,
-    scope: 'global', priority: 10, active: true,
+    scope: 'global', priority: 10, active: false,
     tags: ['woocommerce', 'product-downloads', 'crm'],
   }
   const savedResponse = current
@@ -57,7 +62,7 @@ export async function ensureWordPressProductDownloadsSnippet() {
   if (!snippetId) throw new Error('WordPress 未回傳程式片段 ID')
 
   try {
-    if (!saved?.active) await snippetRequest(`/snippets/${snippetId}/activate`, auth, { method: 'PUT' })
+    await snippetRequest(`/snippets/${snippetId}/activate`, auth, { method: 'PUT' })
     const verifiedResponse = await snippetRequest(`/snippets/${snippetId}`, auth)
     const verified = verifiedResponse?.snippet ?? verifiedResponse
     if (verified?.code_error) throw new Error(`官網 PHP 語法檢查失敗：${verified.code_error}`)
