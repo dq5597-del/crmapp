@@ -1,11 +1,6 @@
-<?php
-/**
- * Code Snippets: 商品資料下載（CRM）
- *
- * CRM 將下載檔清單寫入 av_download_files。本片段會接管既有的
- * 「產品資料下載」頁籤；若網站沒有該頁籤，則自動新增。
- */
+export const WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME = '光輝 CRM 商品資料下載'
 
+export const wordpressProductDownloadsSnippet = String.raw`
 add_action( 'init', 'gh_crm_register_product_download_files_meta' );
 function gh_crm_register_product_download_files_meta() {
     register_post_meta( 'product', 'av_download_files', array(
@@ -83,3 +78,4 @@ add_action( 'wp_head', function() {
     if ( ! function_exists( 'is_product' ) || ! is_product() ) return;
     echo '<style>.gh-product-downloads{display:grid;gap:10px}.gh-product-download{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;text-decoration:none!important;color:#1f2937!important;background:#fff}.gh-product-download:hover{border-color:#2563eb;background:#eff6ff;color:#1d4ed8!important}.gh-product-download__action{color:#2563eb;font-weight:600;white-space:nowrap}</style>';
 } );
+`

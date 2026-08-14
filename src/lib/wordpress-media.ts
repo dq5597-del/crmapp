@@ -8,7 +8,12 @@ const ALLOWED_IMAGE_TYPES = new Set([
 ])
 
 const WORDPRESS_IMAGE_SIZE = 600
+const WORDPRESS_CONTENT_MAX_WIDTH = 1800
+const WORDPRESS_CONTENT_MAX_HEIGHT = 2600
 const WORDPRESS_WEBP_QUALITY = 84
+const WORDPRESS_CONTENT_WEBP_QUALITY = 90
+
+export type WordPressImagePreset = 'product' | 'content'
 
 export function wordpressMediaConfig() {
   const store = (process.env.WC_STORE_URL ?? '').replace(/\/$/, '')
@@ -38,15 +43,22 @@ export function safeWordPressFileName(name: string) {
 }
 
 /**
- * 所有新上傳的商品圖片都使用一致的官網規格：
- * - 依 EXIF 方向旋轉
- * - 等比例縮放並置中於 600 × 600 畫布，不裁切產品內容
- * - 空白區使用透明背景
- * - 一律輸出 WebP
+ * product：商品主圖／相簿統一為 600 × 600，不裁切產品內容。
+ * content：商品介紹與型錄頁保留長寬比，最長邊限制在 1800 × 2600。
+ * 兩者都依 EXIF 方向旋轉並輸出 WebP。
  */
-export async function prepareWordPressImage(data: Buffer) {
-  return sharp(data, { animated: false })
-    .rotate()
+export async function prepareWordPressImage(data: Buffer, preset: WordPressImagePreset = 'product') {
+  const image = sharp(data, { animated: false }).rotate()
+  if (preset === 'content') {
+    return image
+      .resize(WORDPRESS_CONTENT_MAX_WIDTH, WORDPRESS_CONTENT_MAX_HEIGHT, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: WORDPRESS_CONTENT_WEBP_QUALITY })
+      .toBuffer()
+  }
+  return image
     .resize(WORDPRESS_IMAGE_SIZE, WORDPRESS_IMAGE_SIZE, {
       fit: 'contain',
       background: { r: 255, g: 255, b: 255, alpha: 0 },
@@ -61,6 +73,7 @@ export async function uploadWordPressMedia(options: {
   mimeType: string
   fileName: string
   altText?: string
+  preset?: WordPressImagePreset
 }) {
   const { store, username, applicationPassword } = wordpressMediaConfig()
   if (!store || !username || !applicationPassword) {
@@ -70,7 +83,7 @@ export async function uploadWordPressMedia(options: {
     throw new Error('僅支援 JPG、PNG、WebP 或 GIF 圖片')
   }
 
-  const uploadData = await prepareWordPressImage(options.data)
+  const uploadData = await prepareWordPressImage(options.data, options.preset)
   const uploadMimeType = 'image/webp'
   const uploadFileName = options.fileName.replace(/\.[^.]+$/, '') + '.webp'
   const filename = safeWordPressFileName(uploadFileName)

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isAllowedWordPressImageType, uploadWordPressMedia } from '@/lib/wordpress-media'
+import { isAllowedWordPressImageType, uploadWordPressMedia, type WordPressImagePreset } from '@/lib/wordpress-media'
 
 // Vercel Functions 的請求內容有大小上限，預留 multipart 邊界空間。
 const MAX_FILE_SIZE = 4 * 1024 * 1024
@@ -7,6 +7,7 @@ export async function POST(req: Request) {
   const form = await req.formData()
   const file = form.get('file')
   const altText = String(form.get('alt_text') ?? '').trim()
+  const preset: WordPressImagePreset = form.get('preset') === 'content' ? 'content' : 'product'
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: '沒有收到圖片檔案' }, { status: 400 })
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
       mimeType: file.type,
       fileName: file.name,
       altText,
+      preset,
     })
     return NextResponse.json(media)
   } catch (error: any) {

@@ -410,6 +410,7 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPress
         const fd = new FormData()
         fd.append('file', file)
         fd.append('alt_text', file.name.replace(/\.[^.]+$/, ''))
+        fd.append('preset', 'content')
         const res = await fetch('/api/wordpress/media', { method: 'POST', body: fd })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? `${file.name} 上傳失敗`)

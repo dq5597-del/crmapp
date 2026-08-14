@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { buildWooPayload, validateForWeb, type CrmProductRow, type CrmSubData } from '@/lib/web-product-mapper'
 import { websiteCategoryLeaf } from '@/lib/catalog-drive'
+import { ensureWordPressProductDownloadsSnippet } from '@/lib/wordpress-product-downloads-publisher'
 
 /**
  * POST /api/woocommerce/push
@@ -83,6 +84,12 @@ export async function POST(req: Request) {
 
   const supabase = createServerSupabaseClient()
   const results: any[] = []
+  let downloadTab: any = null
+  try {
+    downloadTab = await ensureWordPressProductDownloadsSnippet()
+  } catch (error: any) {
+    downloadTab = { error: error?.message ?? '官網產品資料下載片段安裝失敗' }
+  }
 
   for (const id of product_ids) {
     const [{ data: p }, { data: feats }, { data: imgs }, { data: dls }] = await Promise.all([
@@ -168,7 +175,7 @@ export async function POST(req: Request) {
   }
 
   const okCount = results.filter(r => r.ok).length
-  return NextResponse.json({ ok: okCount, failed: results.length - okCount, results })
+  return NextResponse.json({ ok: okCount, failed: results.length - okCount, download_tab: downloadTab, results })
 }
 
 /** GET /api/woocommerce/push → 測試連線 */
