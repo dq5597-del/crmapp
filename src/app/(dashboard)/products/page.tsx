@@ -591,7 +591,7 @@ export default function ProductsPage() {
       supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_assignments').select('product_id,option_id'),
-      supabase.from('product_filter_template_groups').select('template_id,group_id'),
+      supabase.from('product_filter_template_groups').select('template_id,group_id,sort_order'),
       supabase.from('product_category_filter_templates').select('category_id,template_id'),
     ])
     setProducts(pRes.data ?? [])

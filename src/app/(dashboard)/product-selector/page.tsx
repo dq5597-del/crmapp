@@ -67,7 +67,7 @@ export default function ProductSelectorPage() {
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_assignments').select('product_id,option_id'),
       supabase.from('product_filter_numbers').select('product_id,group_id,numeric_value'),
-      supabase.from('product_filter_template_groups').select('template_id,group_id'),
+      supabase.from('product_filter_template_groups').select('template_id,group_id,sort_order'),
       supabase.from('product_category_filter_templates').select('category_id,template_id'),
     ]).then(([productRes, groupRes, optionRes, assignmentRes, numberRes, templateGroupRes, categoryTemplateRes]) => {
       const firstError = productRes.error ?? groupRes.error ?? optionRes.error ?? assignmentRes.error ?? numberRes.error ?? templateGroupRes.error ?? categoryTemplateRes.error
