@@ -68,6 +68,81 @@ async function findOrCreateCategoryId(name: string, auth: string): Promise<numbe
   }
 }
 
+type WooBrand = { id: number; name: string }
+
+function normalizeBrandName(name: string): string {
+  return name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US')
+}
+
+/**
+ * 將 CRM 品牌對應至 WooCommerce 內建 product_brand taxonomy。
+ * 僅接受正規化後完全相同的品牌名稱，避免模糊搜尋誤綁其他品牌。
+ */
+async function findBrandId(name: string, auth: string): Promise<number | null> {
+  const wanted = normalizeBrandName(name)
+  if (!wanted) return null
+
+  const res = await fetch(
+    `${storeBase()}/wp-json/wc/v3/products/brands?search=${encodeURIComponent(name.trim())}&per_page=100`,
+    { headers: { Authorization: auth }, cache: 'no-store' }
+  )
+  if (!res.ok) {
+    throw new Error(`讀取官網品牌失敗（HTTP ${res.status}）`)
+  }
+
+  const list = await res.json() as WooBrand[]
+  const exact = Array.isArray(list)
+    ? list.find(brand => Number.isFinite(brand.id) && normalizeBrandName(brand.name ?? '') === wanted)
+    : null
+  return exact?.id ?? null
+}
+
+async function findOrCreateBrandId(
+  name: string,
+  auth: string,
+  cache: Map<string, number>
+): Promise<number | null> {
+  const displayName = name.normalize('NFKC').trim().replace(/\s+/g, ' ')
+  const key = normalizeBrandName(displayName)
+  if (!key) return null
+
+  const cached = cache.get(key)
+  if (cached) return cached
+
+  const existingId = await findBrandId(displayName, auth)
+  if (existingId) {
+    cache.set(key, existingId)
+    return existingId
+  }
+
+  const res = await fetch(`${storeBase()}/wp-json/wc/v3/products/brands`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    body: JSON.stringify({ name: displayName }),
+  })
+  const data = await res.json().catch(() => null)
+
+  if (res.ok && Number.isFinite(data?.id)) {
+    cache.set(key, data.id)
+    return data.id
+  }
+
+  // 併發推送同一新品牌時，另一個請求可能已先建立 term。
+  const conflictId = Number(data?.data?.resource_id)
+  if (data?.code === 'term_exists' && Number.isFinite(conflictId) && conflictId > 0) {
+    cache.set(key, conflictId)
+    return conflictId
+  }
+
+  const recoveredId = await findBrandId(displayName, auth)
+  if (recoveredId) {
+    cache.set(key, recoveredId)
+    return recoveredId
+  }
+
+  throw new Error(data?.message ?? `建立官網品牌失敗（HTTP ${res.status}）`)
+}
+
 export async function POST(req: Request) {
   const auth = wcAuthHeader()
   const store = storeBase()
@@ -84,6 +159,7 @@ export async function POST(req: Request) {
 
   const supabase = createServerSupabaseClient()
   const results: any[] = []
+  const brandIdCache = new Map<string, number>()
   let downloadTab: any = null
   try {
     downloadTab = await ensureWordPressProductDownloadsSnippet()
@@ -120,6 +196,21 @@ export async function POST(req: Request) {
     )
     const categoryIds = resolvedCategories.flatMap(category => category.id ? [category.id] : [])
     const payload: any = buildWooPayload(row, sub, categoryIds, { status: publish ? 'publish' : 'draft' })
+
+    let brandId: number | null = null
+    const brandName = row.brand?.trim() ?? ''
+    try {
+      brandId = await findOrCreateBrandId(brandName, auth, brandIdCache)
+      if (brandId) payload.brands = [{ id: brandId }]
+    } catch (error: any) {
+      results.push({
+        id,
+        name: row.product_name,
+        ok: false,
+        error: error?.message ?? '官網品牌同步失敗',
+      })
+      continue
+    }
 
     // 庫存
     payload.manage_stock = true
@@ -168,6 +259,9 @@ export async function POST(req: Request) {
         action: wcId ? '已更新' : '已建立',
         missing,                       // 缺少的欄位（僅提醒，不阻擋）
         category_matched: resolvedCategories.every(category => !!category.id),
+        brand_matched: !!brandId,
+        brand_id: brandId,
+        brand_name: brandName || null,
       })
     } catch (e: any) {
       results.push({ id, name: row.product_name, ok: false, error: e.message ?? '連線失敗' })

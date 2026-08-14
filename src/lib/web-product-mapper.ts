@@ -58,6 +58,7 @@ export type WooPayload = {
   description?: string
   backorders?: 'no' | 'notify' | 'yes'
   categories?: { id?: number; name?: string }[]
+  brands?: { id: number }[]
   images?: { src: string }[]
   tags?: { name: string }[]
   meta_data: { key: string; value: string }[]
@@ -175,6 +176,7 @@ export function buildWooPayload(
 export function validateForWeb(p: CrmProductRow, sub: CrmSubData): string[] {
   const missing: string[] = []
   if (!p.product_name?.trim()) missing.push('產品名稱')
+  if (!p.brand?.trim()) missing.push('品牌')
   if (!((p.web_sku || p.model) ?? '').trim()) missing.push('SKU / 型號')
   const price = p.web_sale_price && p.web_sale_price > 0 ? p.web_sale_price : p.list_price
   if (!price || price <= 0) missing.push('網站售價')
