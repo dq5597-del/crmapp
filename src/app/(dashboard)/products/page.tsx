@@ -16,7 +16,7 @@ import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { CATALOG_DRIVE_ROOT, encodeWebsiteCategory, parseWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
-import { buildCategoryGroupMappings, buildFilterGroups, buildProductOptionMap, filterGroupsForCategory, matchesGroupedOptions, type ProductFilterGroup } from '@/lib/product-filters'
+import { buildCategoryGroupMappings, buildFilterGroups, filterGroupsForCategory, type ProductFilterGroup } from '@/lib/product-filters'
 
 type MarketPriceRow = {
   product_id: string
@@ -471,7 +471,6 @@ export default function ProductsPage() {
   // 品牌篩選（2026-07 新增）：品牌清單自現有產品歸納，A-Z 簡碼快速定位
   const [brandFilter, setBrandFilter] = useState('')
   const [brandLetter, setBrandLetter] = useState('')
-  const [tagFilters, setTagFilters] = useState<string[]>([])
   const [showBrandDropdown, setShowBrandDropdown] = useState(false)
   // 分頁（2026-07）：產品數已破七百筆，一次全渲染會拖慢整頁操作
   const PER_PAGE = 10
@@ -563,7 +562,6 @@ export default function ProductsPage() {
     const [webVendors, setWebVendors] = useState<{ id?: string; vendor_id: string; cost: number | null; is_primary: boolean }[]>([])
     const [vendorList, setVendorList] = useState<Vendor[]>([])
     const [filterGroups, setFilterGroups] = useState<ProductFilterGroup[]>([])
-    const [productOptionMap, setProductOptionMap] = useState<Record<string, string[]>>({})
     const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
     const [numericFilterValues, setNumericFilterValues] = useState<Record<string, string>>({})
 
@@ -584,13 +582,12 @@ export default function ProductsPage() {
     }, [])
 
   async function fetchAll() {
-    const [pRes, cRes, mRes, groupRes, optionRes, assignmentRes, templateGroupRes, categoryTemplateRes] = await Promise.all([
+    const [pRes, cRes, mRes, groupRes, optionRes, templateGroupRes, categoryTemplateRes] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('product_name'),
       supabase.from('product_categories').select('*').order('main_category').order('sub_category'),
       supabase.from('market_prices').select('*'),
       supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('product_filter_assignments').select('product_id,option_id'),
       supabase.from('product_filter_template_groups').select('template_id,group_id,sort_order'),
       supabase.from('product_category_filter_templates').select('category_id,template_id'),
     ])
@@ -598,7 +595,6 @@ export default function ProductsPage() {
     setCategories(cRes.data ?? [])
     const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [])
     setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings))
-    setProductOptionMap(buildProductOptionMap(assignmentRes.data ?? []))
     const mm: Record<string, MarketPriceRow[]> = {}
     for (const r of (mRes.data ?? []) as MarketPriceRow[]) {
       if (!mm[r.product_id]) mm[r.product_id] = []
@@ -959,7 +955,6 @@ export default function ProductsPage() {
       ((p as any).barcode?.toLowerCase() ?? '').includes(search.toLowerCase())
     if (!matchSearch) return false
     if (brandFilter && (p.brand ?? '').trim().toLowerCase() !== brandFilter.toLowerCase()) return false
-    if (!matchesGroupedOptions(productOptionMap[p.id] ?? [], tagFilters, filterGroups)) return false
     if (catFilter) {
       const cat = categories.find(c => c.id === p.category_id)
       if (cat?.main_category !== catFilter) return false
@@ -971,7 +966,7 @@ export default function ProductsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const safePage = Math.min(page, totalPages)
   const paged = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE)
-  useEffect(() => { setPage(1) }, [search, catFilter, brandFilter, brandLetter, tagFilters])
+  useEffect(() => { setPage(1) }, [search, catFilter, brandFilter, brandLetter])
 
   const categoryGrouped = categories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
     if (!acc[c.main_category]) acc[c.main_category] = []
@@ -1127,33 +1122,6 @@ export default function ProductsPage() {
                 {shownBrands.length === 0 && <span className="text-xs text-gray-300">此字母沒有品牌</span>}
               </div>
             )}
-          </div>
-        )}
-        {filterGroups.some(group => group.input_type === 'multi_select') && (
-          <div className="w-full rounded-xl border border-violet-100 bg-violet-50/30 p-3 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-medium text-violet-700">Tags 篩選（同組 OR、跨組 AND）</span>
-              {tagFilters.length > 0 ? (
-                <button type="button" onClick={() => setTagFilters([])} className="text-[11px] text-violet-600 hover:underline">清除 {tagFilters.length} 項</button>
-              ) : null}
-            </div>
-            {filterGroups.filter(group => group.input_type === 'multi_select').map(group => (
-              <div key={group.id} className="flex flex-wrap items-center gap-1.5">
-                <span className="w-16 shrink-0 text-[11px] text-gray-400">{group.name}</span>
-                {group.options.map(option => {
-                  const active = tagFilters.includes(option.id)
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setTagFilters(current => active ? current.filter(id => id !== option.id) : [...current, option.id])}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-violet-300'}`}
-                    >{option.name}</button>
-                  )
-                })}
-              </div>
-            ))}
           </div>
         )}
       </div>
