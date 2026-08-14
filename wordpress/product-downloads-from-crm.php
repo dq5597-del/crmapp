@@ -53,17 +53,27 @@ add_shortcode( 'avshop_downloads', function() {
     return gh_crm_product_downloads_html( get_queried_object_id() ?: get_the_ID() );
 } );
 
-add_filter( 'woocommerce_product_tabs', 'gh_crm_product_downloads_tab', 98 );
+// 必須最後處理，確保主題／既有外掛先註冊原本的「產品資料下載」頁籤。
+add_filter( 'woocommerce_product_tabs', 'gh_crm_product_downloads_tab', 999999 );
 function gh_crm_product_downloads_tab( $tabs ) {
     global $product;
     $product_id = $product ? $product->get_id() : get_the_ID();
     if ( empty( gh_crm_product_download_items( $product_id ) ) ) return $tabs;
+    $download_keys = array();
     foreach ( $tabs as $key => $tab ) {
         $title = isset( $tab['title'] ) ? wp_strip_all_tags( $tab['title'] ) : '';
         if ( false !== strpos( $title, '產品資料下載' ) ) {
-            $tabs[ $key ]['callback'] = 'gh_crm_render_product_downloads_tab';
-            return $tabs;
+            $download_keys[] = $key;
         }
+    }
+    if ( ! empty( $download_keys ) ) {
+        // 保留網站原本最後註冊的頁籤位置，移除任何重複頁籤。
+        $keep_key = end( $download_keys );
+        foreach ( $download_keys as $key ) {
+            if ( $key !== $keep_key ) unset( $tabs[ $key ] );
+        }
+        $tabs[ $keep_key ]['callback'] = 'gh_crm_render_product_downloads_tab';
+        return $tabs;
     }
     $tabs['gh_crm_downloads'] = array(
         'title' => '產品資料下載',
