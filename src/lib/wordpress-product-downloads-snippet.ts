@@ -48,27 +48,17 @@ add_shortcode( 'avshop_downloads', function() {
     return gh_crm_product_downloads_html( get_queried_object_id() ?: get_the_ID() );
 } );
 
-// 必須最後處理，確保主題／既有外掛先註冊原本的「產品資料下載」頁籤。
-add_filter( 'woocommerce_product_tabs', 'gh_crm_product_downloads_tab', 999999 );
+add_filter( 'woocommerce_product_tabs', 'gh_crm_product_downloads_tab', 98 );
 function gh_crm_product_downloads_tab( $tabs ) {
     global $product;
     $product_id = $product ? $product->get_id() : get_the_ID();
     if ( empty( gh_crm_product_download_items( $product_id ) ) ) return $tabs;
-    $download_keys = array();
     foreach ( $tabs as $key => $tab ) {
         $title = isset( $tab['title'] ) ? wp_strip_all_tags( $tab['title'] ) : '';
         if ( false !== strpos( $title, '產品資料下載' ) ) {
-            $download_keys[] = $key;
+            $tabs[ $key ]['callback'] = 'gh_crm_render_product_downloads_tab';
+            return $tabs;
         }
-    }
-    if ( ! empty( $download_keys ) ) {
-        // 保留網站原本最後註冊的頁籤位置，移除任何重複頁籤。
-        $keep_key = end( $download_keys );
-        foreach ( $download_keys as $key ) {
-            if ( $key !== $keep_key ) unset( $tabs[ $key ] );
-        }
-        $tabs[ $keep_key ]['callback'] = 'gh_crm_render_product_downloads_tab';
-        return $tabs;
     }
     $tabs['gh_crm_downloads'] = array(
         'title' => '產品資料下載',
@@ -88,4 +78,27 @@ add_action( 'wp_head', function() {
     if ( ! function_exists( 'is_product' ) || ! is_product() ) return;
     echo '<style>.gh-product-downloads{display:grid;gap:10px}.gh-product-download{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;text-decoration:none!important;color:#1f2937!important;background:#fff}.gh-product-download:hover{border-color:#2563eb;background:#eff6ff;color:#1d4ed8!important}.gh-product-download__action{color:#2563eb;font-weight:600;white-space:nowrap}</style>';
 } );
+`
+
+export const WORDPRESS_PRODUCT_DOWNLOADS_DEDUP_SNIPPET_NAME = '光輝 CRM 產品下載分頁去重'
+
+export const wordpressProductDownloadsDedupSnippet = String.raw`
+add_filter( 'woocommerce_product_tabs', function( $tabs ) {
+    $download_keys = array();
+    foreach ( $tabs as $key => $tab ) {
+        $title = isset( $tab['title'] ) ? wp_strip_all_tags( $tab['title'] ) : '';
+        if ( false !== strpos( $title, '產品資料下載' ) ) $download_keys[] = $key;
+    }
+    if ( count( $download_keys ) < 2 ) return $tabs;
+
+    // 保留網站原本最後註冊的頁籤位置，移除前面重複新增的頁籤。
+    $keep_key = end( $download_keys );
+    foreach ( $download_keys as $key ) {
+        if ( $key !== $keep_key ) unset( $tabs[ $key ] );
+    }
+    if ( function_exists( 'gh_crm_render_product_downloads_tab' ) ) {
+        $tabs[ $keep_key ]['callback'] = 'gh_crm_render_product_downloads_tab';
+    }
+    return $tabs;
+}, 999999 );
 `

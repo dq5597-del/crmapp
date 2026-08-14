@@ -1,5 +1,10 @@
 import { wordpressMediaConfig } from './wordpress-media'
-import { WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME, wordpressProductDownloadsSnippet } from './wordpress-product-downloads-snippet'
+import {
+  WORDPRESS_PRODUCT_DOWNLOADS_DEDUP_SNIPPET_NAME,
+  WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME,
+  wordpressProductDownloadsDedupSnippet,
+  wordpressProductDownloadsSnippet,
+} from './wordpress-product-downloads-snippet'
 
 type WordPressAuth = { store: string; header: string }
 
@@ -33,14 +38,43 @@ function writableSnippet(snippet: any) {
   }
 }
 
+async function ensureDownloadsTabDedupSnippet(auth: WordPressAuth) {
+  const list = await snippetRequest(`/snippets?search=${encodeURIComponent(WORDPRESS_PRODUCT_DOWNLOADS_DEDUP_SNIPPET_NAME)}&per_page=100`, auth)
+  const snippets = Array.isArray(list) ? list : (list?.snippets ?? [])
+  const current = snippets.find((snippet: any) => snippet.name === WORDPRESS_PRODUCT_DOWNLOADS_DEDUP_SNIPPET_NAME)
+  if (current?.active && current?.code === wordpressProductDownloadsDedupSnippet) return current.id
+
+  const payload = {
+    name: WORDPRESS_PRODUCT_DOWNLOADS_DEDUP_SNIPPET_NAME,
+    desc: '移除重複的產品資料下載頁籤，保留原網站頁籤位置與 CRM PDF 清單。',
+    code: wordpressProductDownloadsDedupSnippet,
+    scope: 'global', priority: 11, active: false,
+    tags: ['woocommerce', 'product-downloads', 'crm'],
+  }
+  const savedResponse = current
+    ? await snippetRequest(`/snippets/${current.id}`, auth, { method: 'PUT', body: JSON.stringify(payload) })
+    : await snippetRequest('/snippets', auth, { method: 'POST', body: JSON.stringify(payload) })
+  const saved = savedResponse?.snippet ?? savedResponse
+  const snippetId = saved?.id ?? current?.id
+  if (!snippetId) throw new Error('WordPress 未回傳下載分頁去重片段 ID')
+  await snippetRequest(`/snippets/${snippetId}/activate`, auth, { method: 'PUT' })
+  const verifiedResponse = await snippetRequest(`/snippets/${snippetId}`, auth)
+  const verified = verifiedResponse?.snippet ?? verifiedResponse
+  if (verified?.code !== wordpressProductDownloadsDedupSnippet || verified?.active !== true) {
+    throw new Error('WordPress 下載分頁去重片段驗證失敗')
+  }
+  return snippetId
+}
+
 export async function ensureWordPressProductDownloadsSnippet() {
   const auth = wordpressAuth()
+  const dedupSnippetId = auth ? await ensureDownloadsTabDedupSnippet(auth) : null
   if (!auth) throw new Error('WordPress 管理帳號尚未設定')
   const list = await snippetRequest(`/snippets?search=${encodeURIComponent(WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME)}&per_page=100`, auth)
   const snippets = Array.isArray(list) ? list : (list?.snippets ?? [])
   const current = snippets.find((snippet: any) => snippet.name === WORDPRESS_PRODUCT_DOWNLOADS_SNIPPET_NAME)
   if (current?.active && current?.code === wordpressProductDownloadsSnippet) {
-    return { action: 'unchanged', snippet_id: current.id, active: true }
+    return { action: 'unchanged', snippet_id: current.id, dedup_snippet_id: dedupSnippetId, active: true }
   }
 
   const backupResponse = current?.id ? await snippetRequest(`/snippets/${current.id}`, auth) : null
@@ -84,5 +118,5 @@ export async function ensureWordPressProductDownloadsSnippet() {
     }
     throw error
   }
-  return { action: current ? 'updated' : 'created', snippet_id: snippetId, active: true }
+  return { action: current ? 'updated' : 'created', snippet_id: snippetId, dedup_snippet_id: dedupSnippetId, active: true }
 }
