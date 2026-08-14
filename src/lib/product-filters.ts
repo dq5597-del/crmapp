@@ -22,6 +22,8 @@ export type ProductFilterGroup = {
 }
 
 export type ProductNumberMap = Record<string, Record<string, number>>
+export type NumericRangePreset = { id: string; label: string; min?: number; max?: number }
+export type NumericPresetSelections = Record<string, string[]>
 
 export type ProductFilterTemplateGroup = { template_id: string; group_id: string }
 export type ProductCategoryFilterTemplate = { category_id: string; template_id: string }
@@ -144,5 +146,80 @@ export function matchesNumberRanges(
     if (range.min && value < Number(range.min)) return false
     if (range.max && value > Number(range.max)) return false
     return true
+  })
+}
+
+function rangePresets(bounds: number[], unit: string | null): NumericRangePreset[] {
+  const suffix = unit ? ` ${unit}` : ''
+  const presets: NumericRangePreset[] = bounds.map((bound, index) => index === 0
+    ? { id: `to_${bound}`, label: `${bound}${suffix} 以下`, max: bound }
+    : { id: `${bounds[index - 1]}_${bound}`, label: `${bounds[index - 1]}–${bound}${suffix}`, min: bounds[index - 1], max: bound })
+  presets.push({ id: `over_${bounds[bounds.length - 1]}`, label: `${bounds[bounds.length - 1]}${suffix} 以上`, min: bounds[bounds.length - 1] })
+  return presets
+}
+
+function exactPresets(values: number[], unit: string | null): NumericRangePreset[] {
+  const suffix = unit ? ` ${unit}` : ''
+  return values.map(value => ({ id: `exact_${value}`, label: `${value}${suffix}`, min: value, max: value }))
+}
+
+export function numericRangePresets(group: Pick<ProductFilterGroup, 'slug' | 'unit'>): NumericRangePreset[] {
+  const { slug, unit } = group
+  if (slug.includes('impedance') || slug === 'rated_load_ohm') return exactPresets([2, 4, 8, 16], unit)
+  if (slug.includes('brightness_ansi')) return rangePresets([3000, 5000, 8000, 12000], unit)
+  if (slug.includes('brightness_nit')) return rangePresets([350, 500, 700, 1000], unit)
+  if (slug.includes('capacity_va')) return rangePresets([750, 1500, 3000, 6000], unit)
+  if (slug.includes('power_w') || unit === 'W' || unit === 'W/聲道') return rangePresets([100, 300, 600, 1000], unit)
+  if (slug.includes('size_in') || slug === 'diagonal_in' || unit === '吋') return rangePresets([10, 32, 55, 75, 100], unit)
+  if (slug.includes('storage') && unit === 'TB') return rangePresets([1, 4, 8, 16], unit)
+  if (slug.includes('storage') && unit === 'GB') return rangePresets([64, 256, 1000, 4000], unit)
+  if (unit === 'Gbps') return rangePresets([1, 2.5, 10, 40], unit)
+  if (unit === 'Mbps') return rangePresets([10, 100, 500, 1000], unit)
+  if (unit === 'dB') return rangePresets([100, 110, 120, 130], unit)
+  if (unit === 'fps') return rangePresets([30, 60, 120], unit)
+  if (unit === '倍') return rangePresets([3, 10, 20, 30], unit)
+  if (unit === 'm') return rangePresets([5, 10, 30, 100], unit)
+  if (unit === '小時') return rangePresets([4, 8, 12, 20], unit)
+  if (unit === '分鐘') return rangePresets([10, 30, 60, 120], unit)
+  if (unit === 'mm') return rangePresets([10, 100, 500, 1000], unit)
+  if (unit === 'kg') return rangePresets([5, 15, 30, 60], unit)
+  if (unit === '°') return rangePresets([30, 60, 90, 120], unit)
+  if (unit === '%') return rangePresets([25, 50, 75, 100], unit)
+  if (unit === 'kHz') return rangePresets([48, 96, 192], unit)
+  if (unit === 'MHz') return rangePresets([500, 700, 900, 2400], unit)
+  if (unit === 'K') return rangePresets([3000, 4500, 5600, 6500], unit)
+  if (unit === 'CRI') return rangePresets([80, 90, 95], unit)
+  if (unit === 'VA') return rangePresets([750, 1500, 3000, 6000], unit)
+  if (unit === 'A') return rangePresets([5, 10, 15, 30], unit)
+  if (unit === 'J') return rangePresets([500, 1000, 2000, 4000], unit)
+  if (unit === ':1') return rangePresets([0.5, 1, 2, 4], unit)
+  if (unit === '首') return rangePresets([10000, 30000, 60000, 100000], unit)
+  if (['聲道', '區', '孔', '支', '組', '路', 'Bay', '點', '埠', 'U', '鍵', 'ch'].includes(unit ?? '') || /(count|channel|port|zone|bus|matrix|preamp)/.test(slug)) {
+    return [
+      { id: 'exact_1', label: `1 ${unit ?? ''}`.trim(), min: 1, max: 1 },
+      { id: 'exact_2', label: `2 ${unit ?? ''}`.trim(), min: 2, max: 2 },
+      { id: '3_4', label: `3–4 ${unit ?? ''}`.trim(), min: 3, max: 4 },
+      { id: '5_8', label: `5–8 ${unit ?? ''}`.trim(), min: 5, max: 8 },
+      { id: 'over_9', label: `9 ${unit ?? ''}以上`.trim(), min: 9 },
+    ]
+  }
+  return rangePresets([10, 50, 100, 500], unit)
+}
+
+export function matchesNumericPresetFilters(
+  productValues: Record<string, number> | undefined,
+  selections: NumericPresetSelections,
+  groups: ProductFilterGroup[],
+): boolean {
+  const groupMap = new Map(groups.map(group => [group.id, group]))
+  return Object.entries(selections).every(([groupId, selectedIds]) => {
+    if (selectedIds.length === 0) return true
+    const value = productValues?.[groupId]
+    const group = groupMap.get(groupId)
+    if (value == null || Number.isNaN(value) || !group) return false
+    const selected = new Set(selectedIds)
+    return numericRangePresets(group).some(preset => selected.has(preset.id)
+      && (preset.min == null || value >= preset.min)
+      && (preset.max == null || value <= preset.max))
   })
 }

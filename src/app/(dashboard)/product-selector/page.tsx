@@ -10,10 +10,12 @@ import {
   buildProductOptionMap,
   buildCategoryGroupMappings,
   matchesGroupedOptions,
-  matchesNumberRanges,
+  matchesNumericPresetFilters,
+  numericRangePresets,
   resolveProductCategory,
   filterGroupsForCategory,
   type ProductFilterGroup,
+  type NumericPresetSelections,
 } from '@/lib/product-filters'
 
 type ProductRow = {
@@ -36,8 +38,6 @@ type ProductRow = {
   product_downloads: { file_name: string; file_url: string; sort_order: number }[]
 }
 
-type RangeMap = Record<string, { min: string; max: string }>
-
 export default function ProductSelectorPage() {
   const supabase = useMemo(() => createClient(), [])
   const [products, setProducts] = useState<ProductRow[]>([])
@@ -49,7 +49,7 @@ export default function ProductSelectorPage() {
   const [subCategory, setSubCategory] = useState('')
   const [brand, setBrand] = useState('')
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
-  const [ranges, setRanges] = useState<RangeMap>({})
+  const [numericSelections, setNumericSelections] = useState<NumericPresetSelections>({})
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [resultLimit, setResultLimit] = useState(60)
   const [shareTitle, setShareTitle] = useState('為您精選的產品型錄')
@@ -130,20 +130,20 @@ export default function ProductSelectorPage() {
       if (mainCategory && category.main !== mainCategory) return false
       if (subCategory && category.sub !== subCategory) return false
       if (!matchesGroupedOptions(optionMap[product.id] ?? [], selectedOptions, visibleGroups)) return false
-      return matchesNumberRanges(numberMap[product.id], ranges)
+      return matchesNumericPresetFilters(numberMap[product.id], numericSelections, visibleGroups)
     })
-  }, [products, search, brand, mainCategory, subCategory, optionMap, selectedOptions, visibleGroups, numberMap, ranges])
+  }, [products, search, brand, mainCategory, subCategory, optionMap, selectedOptions, visibleGroups, numberMap, numericSelections])
   const visibleProducts = filtered.slice(0, resultLimit)
 
   useEffect(() => {
     setResultLimit(60)
-  }, [search, mainCategory, subCategory, brand, selectedOptions, ranges])
+  }, [search, mainCategory, subCategory, brand, selectedOptions, numericSelections])
 
   useEffect(() => {
     const visibleGroupIds = new Set(visibleGroups.map(group => group.id))
     const visibleOptionIds = new Set(visibleGroups.flatMap(group => group.options.map(option => option.id)))
     setSelectedOptions(current => current.filter(optionId => visibleOptionIds.has(optionId)))
-    setRanges(current => Object.fromEntries(Object.entries(current).filter(([groupId]) => visibleGroupIds.has(groupId))))
+    setNumericSelections(current => Object.fromEntries(Object.entries(current).filter(([groupId]) => visibleGroupIds.has(groupId))))
   }, [visibleGroups])
 
   async function createShare(sendEmail: boolean) {
@@ -181,7 +181,7 @@ export default function ProductSelectorPage() {
   }
 
   function clearFilters() {
-    setSearch(''); setMainCategory(''); setSubCategory(''); setBrand(''); setSelectedOptions([]); setRanges({})
+    setSearch(''); setMainCategory(''); setSubCategory(''); setBrand(''); setSelectedOptions([]); setNumericSelections({})
   }
 
   return (
@@ -209,7 +209,16 @@ export default function ProductSelectorPage() {
             <fieldset key={group.id} className="border-t border-gray-100 pt-3"><legend className="mb-2 text-xs font-semibold text-gray-700">{group.name}</legend><div className="flex flex-wrap gap-1.5">{group.options.map(option => { const active = selectedOptions.includes(option.id); return <button key={option.id} type="button" aria-pressed={active} onClick={() => setSelectedOptions(current => active ? current.filter(id => id !== option.id) : [...current, option.id])} className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>{option.name}</button> })}</div></fieldset>
           ))}
           {visibleGroups.filter(group => group.input_type === 'number').map(group => (
-            <fieldset key={group.id} className="border-t border-gray-100 pt-3"><legend className="mb-2 text-xs font-semibold text-gray-700">{group.name} {group.unit ? `(${group.unit})` : ''}</legend><div className="grid grid-cols-2 gap-2"><input type="number" min="0" placeholder="最小" value={ranges[group.id]?.min ?? ''} onChange={event => setRanges(current => ({ ...current, [group.id]: { min: event.target.value, max: current[group.id]?.max ?? '' } }))} className="w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs" /><input type="number" min="0" placeholder="最大" value={ranges[group.id]?.max ?? ''} onChange={event => setRanges(current => ({ ...current, [group.id]: { min: current[group.id]?.min ?? '', max: event.target.value } }))} className="w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs" /></div></fieldset>
+            <fieldset key={group.id} className="border-t border-gray-100 pt-3">
+              <legend className="mb-2 text-xs font-semibold text-gray-700">{group.name}</legend>
+              <div className="flex flex-wrap gap-1.5">{numericRangePresets(group).map(preset => {
+                const active = numericSelections[group.id]?.includes(preset.id) ?? false
+                return <button key={preset.id} type="button" aria-pressed={active} onClick={() => setNumericSelections(current => {
+                  const selected = current[group.id] ?? []
+                  return { ...current, [group.id]: active ? selected.filter(id => id !== preset.id) : [...selected, preset.id] }
+                })} className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>{preset.label}</button>
+              })}</div>
+            </fieldset>
           ))}
         </aside>
 
