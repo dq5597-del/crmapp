@@ -18,7 +18,10 @@ async function snippetRequest(path: string, auth: WordPressAuth, init?: RequestI
   const text = await response.text()
   let data: any = null
   try { data = text ? JSON.parse(text) : null } catch { /* handled below */ }
-  if (!response.ok) throw new Error(data?.message ?? `WordPress Code Snippets HTTP ${response.status}`)
+  if (!response.ok) {
+    const detail = data?.data ? `｜${JSON.stringify(data.data)}` : (data?.code ? `｜${data.code}` : '')
+    throw new Error(`${data?.message ?? `WordPress Code Snippets HTTP ${response.status}`}${detail}`)
+  }
   return data
 }
 
