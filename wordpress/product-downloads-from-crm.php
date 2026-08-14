@@ -2,8 +2,8 @@
 /**
  * Code Snippets: 商品資料下載（CRM）
  *
- * CRM 將下載檔清單寫入 av_download_files。本片段會接管既有的
- * 「產品資料下載」頁籤；若網站沒有該頁籤，則自動新增。
+ * CRM 將下載檔清單寫入 av_download_files。官網既有的
+ * 「產品資料下載」自訂頁籤透過 [avshop_downloads] 顯示內容。
  */
 
 add_action( 'init', 'gh_crm_register_product_download_files_meta' );
@@ -53,31 +53,10 @@ add_shortcode( 'avshop_downloads', function() {
     return gh_crm_product_downloads_html( get_queried_object_id() ?: get_the_ID() );
 } );
 
-add_filter( 'woocommerce_product_tabs', 'gh_crm_product_downloads_tab', 98 );
-function gh_crm_product_downloads_tab( $tabs ) {
-    global $product;
-    $product_id = $product ? $product->get_id() : get_the_ID();
-    if ( empty( gh_crm_product_download_items( $product_id ) ) ) return $tabs;
-    foreach ( $tabs as $key => $tab ) {
-        $title = isset( $tab['title'] ) ? wp_strip_all_tags( $tab['title'] ) : '';
-        if ( false !== strpos( $title, '產品資料下載' ) ) {
-            $tabs[ $key ]['callback'] = 'gh_crm_render_product_downloads_tab';
-            return $tabs;
-        }
-    }
-    $tabs['gh_crm_downloads'] = array(
-        'title' => '產品資料下載',
-        'priority' => 30,
-        'callback' => 'gh_crm_render_product_downloads_tab',
-    );
-    return $tabs;
-}
-
-function gh_crm_render_product_downloads_tab() {
-    global $product;
-    $product_id = $product ? $product->get_id() : get_the_ID();
-    echo gh_crm_product_downloads_html( $product_id );
-}
+/*
+ * 不註冊 woocommerce_product_tabs。avshop 主題會把 Woo 分頁與自訂分頁
+ * 合併；額外建立原生 Woo 分頁會讓「產品資料下載」出現兩次。
+ */
 
 add_action( 'wp_head', function() {
     if ( ! function_exists( 'is_product' ) || ! is_product() ) return;

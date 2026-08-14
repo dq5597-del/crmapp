@@ -48,31 +48,11 @@ add_shortcode( 'avshop_downloads', function() {
     return gh_crm_product_downloads_html( get_queried_object_id() ?: get_the_ID() );
 } );
 
-add_filter( 'woocommerce_product_tabs', 'gh_crm_product_downloads_tab', 98 );
-function gh_crm_product_downloads_tab( $tabs ) {
-    global $product;
-    $product_id = $product ? $product->get_id() : get_the_ID();
-    if ( empty( gh_crm_product_download_items( $product_id ) ) ) return $tabs;
-    foreach ( $tabs as $key => $tab ) {
-        $title = isset( $tab['title'] ) ? wp_strip_all_tags( $tab['title'] ) : '';
-        if ( false !== strpos( $title, '產品資料下載' ) ) {
-            $tabs[ $key ]['callback'] = 'gh_crm_render_product_downloads_tab';
-            return $tabs;
-        }
-    }
-    $tabs['gh_crm_downloads'] = array(
-        'title' => '產品資料下載',
-        'priority' => 30,
-        'callback' => 'gh_crm_render_product_downloads_tab',
-    );
-    return $tabs;
-}
-
-function gh_crm_render_product_downloads_tab() {
-    global $product;
-    $product_id = $product ? $product->get_id() : get_the_ID();
-    echo gh_crm_product_downloads_html( $product_id );
-}
+/*
+ * 官網的 avshop 自訂分頁已在「產品資料下載」內容中嵌入
+ * [avshop_downloads]。不可再註冊 woocommerce_product_tabs，否則主題的
+ * 分頁合併器會同時收進原生 Woo 分頁與 avshop 分頁，造成標題及內容重複。
+ */
 
 add_action( 'wp_head', function() {
     if ( ! function_exists( 'is_product' ) || ! is_product() ) return;
@@ -81,24 +61,3 @@ add_action( 'wp_head', function() {
 `
 
 export const WORDPRESS_PRODUCT_DOWNLOADS_DEDUP_SNIPPET_NAME = '光輝 CRM 產品下載分頁去重'
-
-export const wordpressProductDownloadsDedupSnippet = String.raw`
-add_filter( 'woocommerce_product_tabs', function( $tabs ) {
-    $download_keys = array();
-    foreach ( $tabs as $key => $tab ) {
-        $title = isset( $tab['title'] ) ? wp_strip_all_tags( $tab['title'] ) : '';
-        if ( false !== strpos( $title, '產品資料下載' ) ) $download_keys[] = $key;
-    }
-    if ( count( $download_keys ) < 2 ) return $tabs;
-
-    // 保留網站原本最後註冊的頁籤位置，移除前面重複新增的頁籤。
-    $keep_key = end( $download_keys );
-    foreach ( $download_keys as $key ) {
-        if ( $key !== $keep_key ) unset( $tabs[ $key ] );
-    }
-    if ( function_exists( 'gh_crm_render_product_downloads_tab' ) ) {
-        $tabs[ $keep_key ]['callback'] = 'gh_crm_render_product_downloads_tab';
-    }
-    return $tabs;
-}, 999999 );
-`
