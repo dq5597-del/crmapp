@@ -107,33 +107,33 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
         html, body { background: #fff; }
         .app-shell { background: #fff !important; }
         body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', '微軟正黑體', sans-serif; font-size: 12px; color: #000; margin: 0; background: #fff; }
-        .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; background: #fff; }
+        .page { max-width: 210mm; margin: 0 auto; padding: 14px 28px 16px; background: #fff; }
         .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
         .logo { display: flex; align-items: center; width: 210px; flex-shrink: 0; }
         .logo-img { width: 100%; height: auto; display: block; }
         .header-spacer { width: 210px; flex-shrink: 0; }
-        .title-block { flex: 1; text-align: center; }
-        h1 { font-size: 32px; font-weight: 700; text-align: center; margin: 6px 0 6px; letter-spacing: 6px; }
-        .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-        th { background: #d9d9d9; font-weight: 700; font-size: 12px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
-        td { border: 1px solid #aaa; padding: 5px 6px; font-size: 12px; vertical-align: top; }
+        .title-block { flex: 1; text-align: center; align-self: flex-start; margin-top: -10px; }
+        h1 { font-size: 32px; font-weight: 700; text-align: center; margin: 2px 0 2px; letter-spacing: 6px; }
+        .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 3px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+        th { background: #d9d9d9; font-weight: 700; font-size: 14px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
+        td { border: 1px solid #aaa; padding: 4px 6px; font-size: 14px; vertical-align: top; }
         .num { text-align: right; }
         .center { text-align: center; }
-        .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
-        .total-row td { font-weight: 700; font-size: 13px; }
+        .notes-row td { border-top: none; color: #555; font-size: 12.5px; padding: 1px 8px 3px; }
+        .total-row td { font-weight: 700; font-size: 15px; }
         .tax-row td { border-left: none; border-right: none; }
         .tax-row td:first-child { border-left: 2.5px solid #333; }
         .tax-row td:last-child  { border-right: 2.5px solid #333; }
         .tax-top td    { border-top: 2.5px solid #333; }
         .tax-bottom td { border-bottom: 2.5px solid #333; }
-        .notes-stamp-row { display: flex; align-items: flex-start; gap: 20px; margin-top: 8px; }
+        .notes-stamp-row { display: flex; align-items: flex-start; gap: 20px; margin-top: 5px; }
         .notes-section { flex: 1; min-width: 0; }
-        .notes-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
+        .notes-title { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; }
         .notes-section ol { margin: 0; padding-left: 20px; list-style: decimal; }
-        .notes-section li { font-size: 12px; line-height: 1.9; }
-        .stamp-box { width: 132px; flex-shrink: 0; display: flex; justify-content: center; }
-        .stamp-box img { width: 124px; height: auto; }
+        .notes-section li { font-size: 13.5px; line-height: 1.5; }
+        .stamp-box { width: 112px; flex-shrink: 0; display: flex; justify-content: center; }
+        .stamp-box img { width: 104px; height: auto; }
         .sign-row { display: flex; gap: 40px; margin-top: 14px; }
         .sign-box { flex: 1; }
         .sign-title { font-weight: 700; font-size: 12px; margin-bottom: 6px; }

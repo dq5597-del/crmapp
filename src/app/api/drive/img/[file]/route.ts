@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { downloadFromDrive, driveConfigured } from '@/lib/gdrive'
+import { downloadFromDrive, driveConfigured, DriveAuthError } from '@/lib/gdrive'
 
 export const runtime = 'nodejs'
 
@@ -47,6 +47,22 @@ export async function GET(_req: Request, { params }: { params: { file: string } 
       },
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message ?? '讀取失敗' }, { status: 404 })
+    // 授權失敗是伺服器端問題，不是「找不到檔案」。
+    // 原本一律回 404，導致 WooCommerce 推送顯示「錯誤: Not Found」，
+    // 排查方向被誤導成圖片被刪除。改為回 502 並標示原因。
+    if (e instanceof DriveAuthError || e?.isAuthError) {
+      return NextResponse.json(
+        {
+          error: e.message ?? 'Google Drive 授權失敗',
+          failure: 'CREDENTIALS',
+          hint: '請確認 GOOGLE_OAUTH_REFRESH_TOKEN 是否有效；若為批次操作，可能是短時間內大量請求遭 Google 限流，稍後重試即可。',
+        },
+        { status: 502, headers: { 'X-Failure': 'CREDENTIALS' } }
+      )
+    }
+    return NextResponse.json(
+      { error: e.message ?? '讀取失敗', failure: 'NOT_FOUND' },
+      { status: 404, headers: { 'X-Failure': 'NOT_FOUND' } }
+    )
   }
 }

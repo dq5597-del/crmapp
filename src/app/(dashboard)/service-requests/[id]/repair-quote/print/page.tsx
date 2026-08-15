@@ -46,28 +46,28 @@ export default async function RepairQuotePrintPage({ params }: { params: { id: s
         html, body { background: #fff; }
         .app-shell { background: #fff !important; }
         body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', '微軟正黑體', sans-serif; font-size: 12px; color: #000; margin: 0; background: #fff; }
-        .page { max-width: 210mm; margin: 0 auto; padding: 24px 28px; background: #fff; }
+        .page { max-width: 210mm; margin: 0 auto; padding: 14px 28px 16px; background: #fff; }
         .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
         .logo { display: flex; align-items: center; width: 210px; flex-shrink: 0; }
         .logo-img { width: 100%; height: auto; display: block; }
         .header-spacer { width: 210px; flex-shrink: 0; }
-        .title-block { flex: 1; text-align: center; }
-        h1 { font-size: 32px; font-weight: 700; text-align: center; margin: 6px 0 6px; letter-spacing: 6px; }
-        .sub-header { text-align: center; font-size: 12px; color: #333; margin-bottom: 16px; }
-        .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
+        .title-block { flex: 1; text-align: center; align-self: flex-start; margin-top: -10px; }
+        h1 { font-size: 32px; font-weight: 700; text-align: center; margin: 2px 0 2px; letter-spacing: 6px; }
+        .sub-header { text-align: center; font-size: 13.5px; color: #333; margin-bottom: 8px; }
+        .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 3px; }
         .section { margin-top: 14px; }
         .section-title { font-weight: 700; font-size: 13px; background: #d9d9d9; padding: 4px 8px; border: 1px solid #888; }
         table { border-collapse: collapse; width: 100%; }
-        .field-table td { border: 1px solid #aaa; padding: 6px 8px; font-size: 12px; vertical-align: top; }
+        .field-table td { border: 1px solid #aaa; padding: 5px 8px; font-size: 14px; vertical-align: top; }
         .field-label { background: #f2f2f2; font-weight: 600; width: 110px; white-space: nowrap; }
         .field-value { width: 40%; }
-        .textarea-box { border: 1px solid #aaa; border-top: none; padding: 8px; min-height: 40px; font-size: 12px; white-space: pre-wrap; }
-        .item-table th { background: #d9d9d9; font-weight: 700; font-size: 12px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
-        .item-table td { border: 1px solid #aaa; padding: 5px 6px; font-size: 12px; vertical-align: top; }
+        .textarea-box { border: 1px solid #aaa; border-top: none; padding: 8px; min-height: 40px; font-size: 13.5px; white-space: pre-wrap; }
+        .item-table th { background: #d9d9d9; font-weight: 700; font-size: 14px; border: 1px solid #888; padding: 5px 6px; text-align: center; }
+        .item-table td { border: 1px solid #aaa; padding: 4px 6px; font-size: 14px; vertical-align: top; }
         .num { text-align: right; }
         .center { text-align: center; }
-        .notes-row td { border-top: none; color: #555; font-size: 11px; padding: 3px 8px 6px; }
-        .total-row td { font-weight: 700; font-size: 13px; }
+        .notes-row td { border-top: none; color: #555; font-size: 12.5px; padding: 1px 8px 3px; }
+        .total-row td { font-weight: 700; font-size: 15px; }
         .tax-row td { border-left: none; border-right: none; }
         .tax-row td:first-child { border-left: 2.5px solid #333; }
         .tax-row td:last-child  { border-right: 2.5px solid #333; }

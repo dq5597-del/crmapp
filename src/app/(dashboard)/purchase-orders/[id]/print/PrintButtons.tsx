@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { downloadPdf, sharePdf, printPdf } from '@/lib/pdf-paginate'
 import PrintPreviewModal from '@/components/PrintPreviewModal'
-import { chooseTemporaryA4Printer, queueCurrentDocument } from '@/lib/cloud-document-print'
 
 function getFileName() {
   const t = (document.title || '').trim()
@@ -65,17 +64,6 @@ export default function PrintButtons() {
     }
   }
 
-  const handleTemporaryPrint = async () => {
-    if (loading) return
-    try {
-      const selected = await chooseTemporaryA4Printer()
-      if (!selected) return
-      setLoading('print')
-      const printer = await queueCurrentDocument('purchase_order', getFileName(), selected.id)
-      alert(`本次已改送到「${printer.name}」列印；下次仍使用原本固定印表機。`)
-    } catch (e) { alert((e as Error).message) } finally { setLoading('') }
-  }
-
   const handleDownloadPdf = async () => {
     if (loading) return
     setLoading('download')
@@ -121,13 +109,6 @@ export default function PrintButtons() {
         style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
         {loading === 'print' ? '排版中…' : '直向列印'}
-      </button>
-      <button
-        onClick={handleTemporaryPrint}
-        disabled={!!loading}
-        style={{ padding: '8px 14px', background: '#475569', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
-      >
-        臨時換印表機
       </button>
       <button
         onClick={() => handlePrint(true)}

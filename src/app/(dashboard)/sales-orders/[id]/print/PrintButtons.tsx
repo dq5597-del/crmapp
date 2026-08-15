@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { downloadPdf, sharePdf, printPdf } from '@/lib/pdf-paginate'
 import PrintPreviewModal from '@/components/PrintPreviewModal'
-import { chooseTemporaryA4Printer, queueCurrentDocument } from '@/lib/cloud-document-print'
 
 function getFileName() {
   const t = (document.title || '').trim()
@@ -53,21 +52,9 @@ export default function PrintButtons() {
     if (loading) return
     setLoading(landscape ? 'printL' : 'print')
     try {
-      let r: Awaited<ReturnType<typeof printPdf>> | null = null
-      if (landscape) {
-        r = await printPdf(getFileName(), true)
-      } else {
-        const html = '<!doctype html>' + document.documentElement.outerHTML
-        const parts = window.location.pathname.split('/').filter(Boolean)
-        const sourceId = parts[parts.length - 2] || ''
-        const res = await fetch('/api/print/jobs', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ document_type: 'sales_order', document_html: html, source_id: sourceId, order_no: getFileName() }),
-        })
-        const json = await res.json()
-        if (!res.ok) throw new Error(json.error || '建立銷貨單列印工作失敗')
-        alert(`已直接送到「${json.printer.name}」列印。`)
-      }
+      // 直向與橫向一致：都先產生 PDF 再開列印對話框，讓使用者確認後才印。
+      // （不再送 /api/print/jobs 直送印表機 —— 按下去就印，沒有反悔機會）
+      const r = await printPdf(getFileName(), landscape)
       if (r === 'downloaded') alert('無法直接開啟列印，已改為下載 PDF，請開啟檔案後列印')
     } catch (e) {
       console.error(e)
@@ -75,17 +62,6 @@ export default function PrintButtons() {
     } finally {
       setLoading('')
     }
-  }
-
-  const handleTemporaryPrint = async () => {
-    if (loading) return
-    try {
-      const selected = await chooseTemporaryA4Printer()
-      if (!selected) return
-      setLoading('print')
-      const printer = await queueCurrentDocument('sales_order', getFileName(), selected.id)
-      alert(`本次已改送到「${printer.name}」列印；下次仍使用原本固定印表機。`)
-    } catch (e) { alert((e as Error).message) } finally { setLoading('') }
   }
 
   const handleDownloadPdf = async () => {
@@ -133,13 +109,6 @@ export default function PrintButtons() {
         style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
         {loading === 'print' ? '排版中…' : '直向列印'}
-      </button>
-      <button
-        onClick={handleTemporaryPrint}
-        disabled={!!loading}
-        style={{ padding: '8px 14px', background: '#475569', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
-      >
-        臨時換印表機
       </button>
       <button
         onClick={() => handlePrint(true)}

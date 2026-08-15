@@ -25,6 +25,10 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUS_OPTIONS = ['草稿', '已確認', '出貨中', '已完成', '取消']
+const INVOICE_TYPES = [
+  { value: '二聯式', title: '二聯式發票', description: '一般消費者，不填買方統一編號' },
+  { value: '三聯式', title: '三聯式發票', description: '公司、機關或團體報帳使用' },
+] as const
 
 type Item = {
   product_id: string | null
@@ -83,6 +87,7 @@ export default function SalesOrdersPage() {
   const [paymentTerms, setPaymentTerms] = useState('')
   const [bankAccount, setBankAccount] = useState('')
   const [status, setStatus] = useState('已確認')
+  const [invoiceType, setInvoiceType] = useState<'二聯式' | '三聯式' | ''>('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<Item[]>([emptyItem()])
   // 欄寬微調：每個使用者自己存，拖動即時生效
@@ -239,7 +244,7 @@ export default function SalesOrdersPage() {
     setDeliveryDate(''); setDeliveryAddress('')
     setPaymentTerms(termDefaults.payment_terms)
     setBankAccount(termDefaults.bank_account)
-    setStatus('已確認'); setNotes(termDefaults.notes); setItems([emptyItem()])
+    setStatus('已確認'); setInvoiceType(''); setNotes(termDefaults.notes); setItems([emptyItem()])
   }
 
   async function generateOrderNo() {
@@ -261,6 +266,7 @@ export default function SalesOrdersPage() {
 
   async function handleCreate() {
     if (!clientId) return alert('請選擇客戶')
+    if (!invoiceType) return alert('請選擇要開立二聯式或三聯式發票')
     const validItems = items.filter(i => i.product_name.trim())
     if (validItems.filter(i => !i.is_category).length === 0) return alert('請至少填一筆品項')
     setSaving(true)
@@ -277,7 +283,7 @@ export default function SalesOrdersPage() {
           contact_name: contactName, client_phone: clientPhone,
           delivery_date: deliveryDate || null, delivery_address: deliveryAddress,
           payment_terms: paymentTerms, bank_account: bankAccount,
-          subtotal, tax_amount, total_amount, notes, status,
+          subtotal, tax_amount, total_amount, notes, status, invoice_type: invoiceType,
         })
         .select().single()
       if (error) throw error
@@ -472,6 +478,7 @@ export default function SalesOrdersPage() {
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">客戶名稱</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">案名</th>
                 <th className="text-right px-4 py-3 text-gray-600 font-medium">含稅總計</th>
+                <th className="text-center px-4 py-3 text-gray-600 font-medium">發票</th>
                 <th className="text-center px-4 py-3 text-gray-600 font-medium">狀態</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">建立日期</th>
                 <th className="text-center px-4 py-3 text-gray-600 font-medium">操作</th>
@@ -479,9 +486,9 @@ export default function SalesOrdersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">載入中...</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-gray-400">載入中...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">沒有銷貨單</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-gray-400">沒有銷貨單</td></tr>
               ) : filtered.map(o => (
                 <tr key={o.id} className={`border-b border-gray-50 transition-colors ${selected.includes(o.id) ? 'bg-green-50/70' : 'hover:bg-green-50'}`}>
                   <td className="px-3 py-3 text-center">
@@ -495,6 +502,13 @@ export default function SalesOrdersPage() {
                   <td className="px-4 py-3 text-gray-700">{o.clients?.company_name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{o.project_name ?? '—'}</td>
                   <td className="px-4 py-3 text-right font-semibold">{formatCurrency(o.total_amount)}</td>
+                  <td className="px-4 py-3 text-center">
+                    {o.invoice_type ? (
+                      <span className={`text-xs px-2 py-1 rounded-lg font-medium ${o.invoice_type === '三聯式' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {o.invoice_type}
+                      </span>
+                    ) : <span className="text-xs text-gray-400">未指定</span>}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`text-xs px-2 py-1 rounded-lg font-medium ${STATUS_COLORS[o.status] ?? 'bg-gray-100 text-gray-600'}`}>
                       {o.status}
@@ -612,6 +626,30 @@ export default function SalesOrdersPage() {
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
                     {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
                   </select>
+                </div>
+              </div>
+
+              {/* 發票種類 */}
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-2">開立發票 *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {INVOICE_TYPES.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setInvoiceType(option.value)}
+                      aria-pressed={invoiceType === option.value}
+                      className={`rounded-xl border p-4 text-left transition-colors ${invoiceType === option.value ? 'border-green-500 bg-green-50 ring-2 ring-green-100' : 'border-gray-200 hover:border-green-300 hover:bg-green-50/40'}`}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                        <span className={`h-4 w-4 rounded-full border flex items-center justify-center ${invoiceType === option.value ? 'border-green-600' : 'border-gray-300'}`}>
+                          {invoiceType === option.value && <span className="h-2 w-2 rounded-full bg-green-600" />}
+                        </span>
+                        {option.title}
+                      </span>
+                      <span className="mt-1 ml-6 block text-xs text-gray-500">{option.description}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 

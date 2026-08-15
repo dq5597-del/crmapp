@@ -48,3 +48,7 @@ deploy-setup.bat
 *.gdoc
 *.gsheet
 *.gslides
+
+# 本機安裝程式暫存（JDK/財政部Turnkey安裝檔等，體積超過 GitHub 100MB 限制，不應進版控）
+/Temp/
+/Tools/

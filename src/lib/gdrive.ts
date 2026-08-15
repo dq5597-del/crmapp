@@ -75,8 +75,41 @@ function normalizePrivateKey(raw: string): string {
   return [`-----BEGIN ${label}-----`, ...lines, `-----END ${label}-----`, ''].join('\n')
 }
 
+/**
+ * 授權錯誤專用型別。
+ *
+ * 沒有這個標記時，呼叫端（例如 /api/drive/img）會把「授權失敗」跟
+ * 「檔案不存在」混為一談，一律回 404 —— 排查時會被誤導成圖片被刪掉。
+ */
+export class DriveAuthError extends Error {
+  readonly isAuthError = true
+  constructor(message: string) {
+    super(message)
+    this.name = 'DriveAuthError'
+  }
+}
+
+/**
+ * access token 快取。
+ *
+ * 【為何需要】原本每呼叫一次 getAccessToken() 就跟 Google 換一次 token。
+ * 推送商品到官網時一次要抓多張圖，等於瞬間發出一串 token 請求，
+ * Google 會限流（rate_limit_exceeded / 暫時性拒絕），
+ * 症狀就是「批次操作時圖片讀取失敗，單獨測試又正常」。
+ *
+ * Google 的 access token 有效期約 3600 秒，快取起來重複使用即可。
+ * 提前 5 分鐘過期，避免邊界時間剛好失效。
+ */
+let tokenCache: { token: string; expiresAt: number } | null = null
+const TOKEN_SAFETY_MARGIN_MS = 5 * 60 * 1000
+
+/** 供測試或重新授權後手動清除 */
+export function clearTokenCache() {
+  tokenCache = null
+}
+
 /** 用使用者的 refresh token 換 access token（檔案歸使用者所有） */
-async function getAccessTokenViaOAuth(): Promise<string> {
+async function getAccessTokenViaOAuth(): Promise<{ token: string; expiresIn: number }> {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -89,12 +122,22 @@ async function getAccessTokenViaOAuth(): Promise<string> {
   })
   const data = await res.json()
   if (!res.ok) {
-    throw new Error('Google 授權失敗（refresh token 可能已失效，請重新授權）：' + (data.error_description ?? data.error ?? res.status))
+    throw new DriveAuthError(
+      'Google 授權失敗（refresh token 可能已失效或被限流，請稍後重試或重新授權）：' +
+      (data.error_description ?? data.error ?? res.status)
+    )
   }
-  return data.access_token
+  if (!data.access_token) {
+    // 這一段以前沒有檢查：Google 回 200 但沒帶 token 時，
+    // 會把 undefined 當成 token 送出去，Drive 便回
+    // 「Expected OAuth 2 access token」——正是這次故障的訊息。
+    throw new DriveAuthError('Google 回應中沒有 access_token（可能被限流），請稍後重試')
+  }
+  return { token: data.access_token, expiresIn: Number(data.expires_in) || 3600 }
 }
 
-async function getAccessToken(): Promise<string> {
+/** 實際跟 Google 換 token（未快取） */
+async function fetchAccessToken(): Promise<{ token: string; expiresIn: number }> {
   if (oauthConfigured()) return getAccessTokenViaOAuth()
 
   const email = process.env.GOOGLE_SA_EMAIL!
@@ -124,8 +167,24 @@ async function getAccessToken(): Promise<string> {
     }),
   })
   const data = await res.json()
-  if (!res.ok) throw new Error('Google 認證失敗：' + (data.error_description ?? data.error ?? res.status))
-  return data.access_token
+  if (!res.ok) throw new DriveAuthError('Google 認證失敗：' + (data.error_description ?? data.error ?? res.status))
+  if (!data.access_token) throw new DriveAuthError('Google 回應中沒有 access_token（可能被限流），請稍後重試')
+  return { token: data.access_token, expiresIn: Number(data.expires_in) || 3600 }
+}
+
+/**
+ * 取得 access token（帶快取）。
+ *
+ * 同一個 Serverless 執行個體在 token 有效期內只會跟 Google 換一次，
+ * 大幅降低被限流的機率——這是本次「批次推送時圖片讀取失敗」的主因。
+ */
+async function getAccessToken(): Promise<string> {
+  const now = Date.now()
+  if (tokenCache && tokenCache.expiresAt > now) return tokenCache.token
+
+  const { token, expiresIn } = await fetchAccessToken()
+  tokenCache = { token, expiresAt: now + expiresIn * 1000 - TOKEN_SAFETY_MARGIN_MS }
+  return token
 }
 
 export interface DriveFolderInfo {
@@ -369,22 +428,50 @@ export async function uploadToDrive(opts: {
 
 /** 下載檔案內容（供 CRM 代理顯示，檔案維持私有） */
 export async function downloadFromDrive(fileId: string): Promise<{ body: ArrayBuffer; mimeType: string }> {
-  const token = await getAccessToken()
+  // 401 代表 token 失效（例如快取的 token 剛好被撤銷）→ 清掉快取重試一次。
+  // 只重試一次，避免憑證真的壞掉時無限打 Google。
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await getAccessToken()
 
-  const metaRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType&supportsAllDrives=true`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  const meta = await metaRes.json()
-  if (!metaRes.ok) throw new Error('找不到檔案：' + (meta.error?.message ?? ''))
+    const metaRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType&supportsAllDrives=true`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
 
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  if (!res.ok) throw new Error('下載失敗：HTTP ' + res.status)
+    if (metaRes.status === 401 && attempt === 0) {
+      clearTokenCache()
+      continue
+    }
 
-  return { body: await res.arrayBuffer(), mimeType: meta.mimeType ?? 'application/octet-stream' }
+    const meta = await metaRes.json().catch(() => ({}))
+
+    if (!metaRes.ok) {
+      const msg = meta?.error?.message ?? `HTTP ${metaRes.status}`
+      // 關鍵修正：授權問題不可再偽裝成「找不到檔案」
+      if (metaRes.status === 401 || metaRes.status === 403) {
+        throw new DriveAuthError('Google Drive 授權失敗：' + msg)
+      }
+      throw new Error('找不到檔案：' + msg)
+    }
+
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+
+    if (res.status === 401 && attempt === 0) {
+      clearTokenCache()
+      continue
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new DriveAuthError('Google Drive 授權失敗：下載階段 HTTP ' + res.status)
+    }
+    if (!res.ok) throw new Error('下載失敗：HTTP ' + res.status)
+
+    return { body: await res.arrayBuffer(), mimeType: meta.mimeType ?? 'application/octet-stream' }
+  }
+
+  throw new DriveAuthError('Google Drive 授權失敗：重試後仍無法取得有效權杖')
 }
 
 /** 刪除檔案（丟到 Drive 垃圾桶） */

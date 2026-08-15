@@ -947,14 +947,20 @@ export default function ProductsPage() {
       })
     : allBrands
 
+  const searchTerms = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
   const filtered = products.filter(p => {
-    const matchSearch = !search ||
-      p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.brand?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
-      (p.model?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
-      ((p as any).product_code?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
-      ((p as any).barcode?.toLowerCase() ?? '').includes(search.toLowerCase())
+    const searchText = [
+      p.product_name,
+      p.brand,
+      p.model,
+      (p as any).product_code,
+      (p as any).barcode,
+    ].filter(Boolean).join(' ').toLocaleLowerCase()
+    const matchSearch = searchTerms.every(term => searchText.includes(term))
     if (!matchSearch) return false
+
+    // 搜尋文字存在時採全域即時搜尋，不讓先前選取的品牌／分類隱藏結果。
+    if (searchTerms.length > 0) return true
     if (brandFilter && (p.brand ?? '').trim().toLowerCase() !== brandFilter.toLowerCase()) return false
     if (catFilter) {
       const cat = categories.find(c => c.id === p.category_id)

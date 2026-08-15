@@ -57,7 +57,7 @@ create or replace view public.hr_roster as
   union all
   select c.id,
          coalesce(c.kind, '臨時工') as kind,
-         coalesce(nullif(c.company_name, ''), c.contact_name, '未命名') as name,
+         coalesce(nullif(c.name, ''), nullif(c.company_name, ''), c.contact_name, '未命名') as name,
          c.phone                 as phone,
          c.skill                 as skill,
          coalesce(c.day_rate, 0) as day_rate
