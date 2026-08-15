@@ -83,6 +83,7 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
   const [noTable, setNoTable] = useState(false)
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState<Record<string, boolean>>({})
+  const [formOpen, setFormOpen] = useState(false)
 
   const [batch, setBatch] = useState(false)
   const [form, setForm] = useState({
@@ -176,6 +177,7 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
       date_from: today(), date_to: today(),
     }))
     setBatch(false)
+    setFormOpen(true)
   }
 
   const previewDates = batch ? dateRange(form.date_from, form.date_to) : [form.date_from]
@@ -327,16 +329,26 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
         </div>
       </div>
 
-      {/* 登記派工：人員直接帶出，不用另外「加人」 */}
+      {/* 登記派工：人員直接帶出，不用另外「加人」；預設收合，點「新增派工紀錄」才展開欄位 */}
       <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><UserPlus size={14} /> 登記派工（沒有的人會自動加入本專案人員）</span>
-          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-            <input type="checkbox" checked={batch} onChange={e => setBatch(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300" />
-            <CalendarRange size={13} /> 連續多天一次登記
-          </label>
+          <div className="flex items-center gap-3">
+            {formOpen && (
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <input type="checkbox" checked={batch} onChange={e => setBatch(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300" />
+                <CalendarRange size={13} /> 連續多天一次登記
+              </label>
+            )}
+            <button type="button" onClick={() => setFormOpen(o => !o)}
+              className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700">
+              {formOpen ? <><ChevronDown size={14} /> 收合欄位</> : <><Plus size={14} /> 新增派工紀錄</>}
+            </button>
+          </div>
         </div>
 
+        {formOpen && (
+        <>
         <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
           <div className="col-span-2 md:col-span-3">
             <label className="text-xs text-gray-500 mb-1 block">人員</label>
@@ -432,6 +444,8 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
             {msg && <span className="ml-2 text-green-600">{msg}</span>}
           </span>
         </div>
+        </>
+        )}
       </div>
 
       {/* 人員清單：直接由派工紀錄彙整而成，依身分分三組顯示，不混在一起 */}

@@ -79,6 +79,18 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
     return { wTotal, progress: Math.round(weighted * 10) / 10, delayed, done }
   }, [rows])
 
+  /** 整案「實際開工／完工」：不用今天的日期，改用兩個里程碑工項自己的起迄日──
+   *  開工＝「拉線與管路施作」的預定起，完工＝「竣工交付與正式驗收」的預定迄。
+   *  兩個日期剛好同一天時，不重複顯示成「X ～ X」，只顯示一個日期。 */
+  const milestones = useMemo(() => {
+    const startTask = rows.find(r => (r.task_name || '').includes('拉線'))
+    const endTask = rows.find(r => (r.task_name || '').includes('竣工交付'))
+    const actualStart = startTask?.planned_start || null
+    const actualEnd = endTask?.planned_end || null
+    const sameDay = !!actualStart && !!actualEnd && actualStart === actualEnd
+    return { actualStart, actualEnd, sameDay }
+  }, [rows])
+
   function addRow() {
     setRows(rs => [...rs, {
       project_id: projectId,
@@ -172,6 +184,19 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
           <div className={`h-full transition-all ${stats.delayed > 0 ? 'bg-amber-500' : stats.progress >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
             style={{ width: `${Math.min(100, stats.progress)}%` }} />
         </div>
+        {(milestones.actualStart || milestones.actualEnd) && (
+          <div className="text-xs text-gray-500">
+            {milestones.sameDay ? (
+              <span>實際開工／完工 <b className="text-gray-900">{milestones.actualStart}</b></span>
+            ) : (
+              <>
+                {milestones.actualStart && <span>實際開工 <b className="text-gray-900">{milestones.actualStart}</b></span>}
+                {milestones.actualStart && milestones.actualEnd && <span className="mx-1.5">～</span>}
+                {milestones.actualEnd && <span className="text-green-700">完工 <b className="text-gray-900">{milestones.actualEnd}</b></span>}
+              </>
+            )}
+          </div>
+        )}
         {weightOff && (
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
             權重合計 {stats.wTotal}%（非 100%）。完成率仍以加權平均計算，但建議調整為 100% 以免與請款進度對不上。
