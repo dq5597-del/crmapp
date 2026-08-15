@@ -101,7 +101,11 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
       supabase.from('project_work_logs').select('*').eq('project_id', projectId)
         .order('work_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('hr_roster').select('*').order('name'),
-      supabase.from('project_tasks').select('task_name').eq('project_id', projectId).order('seq_no'),
+      // 施工項目下拉固定抓「標準施工範本」的 7 個工項（不看這個專案有沒有實際套用過範本）
+      supabase.from('project_task_template_items')
+        .select('task_name, seq_no, project_task_templates!inner(name)')
+        .eq('project_task_templates.name', '標準施工範本')
+        .order('seq_no'),
     ])
     if (cRes.error || wRes.error) { console.error(cRes.error || wRes.error); setNoTable(true) }
     setCrew((cRes.data as any) ?? [])
@@ -406,7 +410,7 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
           <div className="col-span-2 md:col-span-2">
             <label className="text-xs text-gray-500 mb-1 block">施工項目</label>
             <select value={form.work_item} onChange={e => setForm(f => ({ ...f, work_item: e.target.value }))} className={inp}>
-              <option value="">{taskItems.length ? '— 請選擇 —' : '尚未建立工項清單'}</option>
+              <option value="">{taskItems.length ? '— 請選擇 —' : '尚未建立「標準施工範本」'}</option>
               {taskItems.map(t => <option key={t.task_name} value={t.task_name}>{t.task_name}</option>)}
             </select>
           </div>
