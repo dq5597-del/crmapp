@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Plus, Trash2, Save, ListChecks, LayoutTemplate, AlertTriangle, CheckCheck } from 'lucide-react'
+import { Plus, Trash2, Save, ListChecks, AlertTriangle, CheckCheck } from 'lucide-react'
 
 type Task = {
   id?: string
@@ -36,25 +36,19 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
 }) {
   const supabase = createClient()
   const [rows, setRows] = useState<Task[]>([])
-  const [templates, setTemplates] = useState<any[]>([])
   const [taskCatalog, setTaskCatalog] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [noTable, setNoTable] = useState(false)
   const [msg, setMsg] = useState('')
-
-  const [tplId, setTplId] = useState('')
-  const [tplStart, setTplStart] = useState(today())
-  const [applying, setApplying] = useState(false)
   const [customMode, setCustomMode] = useState<Record<string, boolean>>({})
 
   useEffect(() => { load() }, [projectId])
 
   async function load() {
     setLoading(true)
-    const [tRes, tplRes, catRes] = await Promise.all([
+    const [tRes, catRes] = await Promise.all([
       supabase.from('project_tasks').select('*').eq('project_id', projectId).order('seq_no'),
-      supabase.from('project_task_templates').select('id, name, category').eq('is_active', true).order('name'),
       // 工項名稱下拉固定抓「標準施工範本」的 7 個工項名稱，跟派工紀錄的施工項目下拉共用同一份清單
       supabase.from('project_task_template_items')
         .select('task_name, seq_no, project_task_templates!inner(name)')
@@ -63,9 +57,7 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
     ])
     if (tRes.error) { console.error(tRes.error); setNoTable(true) }
     setRows((tRes.data as any) ?? [])
-    setTemplates(tplRes.data ?? [])
     setTaskCatalog(((catRes.data as any) ?? []).map((x: any) => x.task_name))
-    if (!tplId && (tplRes.data ?? []).length > 0) setTplId(tplRes.data![0].id)
     setLoading(false)
   }
 
@@ -78,26 +70,6 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
     const done = rows.filter(r => n(r.progress_pct) >= 100).length
     return { wTotal, progress: Math.round(weighted * 10) / 10, delayed, done }
   }, [rows])
-
-  async function applyTemplate() {
-    if (!tplId) { alert('請先選擇範本'); return }
-    if (onBeforeSave && !(await onBeforeSave())) return
-    const replace = rows.length > 0
-    if (replace && !confirm(`此專案已有 ${rows.length} 筆工項。\n套用範本會清空現有工項並重建（進度紀錄一併刪除），確定嗎？`)) return
-
-    setApplying(true)
-    const { data, error } = await supabase.rpc('apply_task_template', {
-      p_project_id: projectId,
-      p_template_id: tplId,
-      p_start_date: tplStart || today(),
-      p_replace: replace,
-    })
-    setApplying(false)
-    if (error) { alert('套用範本失敗：' + error.message); return }
-    setMsg(`已套用 ${data} 個工項`)
-    setTimeout(() => setMsg(''), 2500)
-    load()
-  }
 
   function addRow() {
     setRows(rs => [...rs, {
@@ -199,34 +171,6 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
         )}
       </div>
 
-      {/* 套用範本 */}
-      <div className="rounded-xl border border-gray-200 bg-white p-3">
-        <div className="flex items-end gap-2 flex-wrap">
-          <div className="flex-1 min-w-[180px]">
-            <label className="text-xs text-gray-500 mb-1 block flex items-center gap-1">
-              <LayoutTemplate size={12} /> 套用工項範本
-            </label>
-            <select value={tplId} onChange={e => setTplId(e.target.value)} className={inp}>
-              {templates.length === 0 && <option value="">（尚無範本）</option>}
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}{t.category ? `（${t.category}）` : ''}</option>
-              ))}
-            </select>
-          </div>
-          <div className="w-36">
-            <label className="text-xs text-gray-500 mb-1 block">起始日</label>
-            <input type="date" value={tplStart} onChange={e => setTplStart(e.target.value)} className={inp} />
-          </div>
-          <button type="button" onClick={applyTemplate} disabled={applying || !tplId}
-            className="text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-lg disabled:opacity-50">
-            {applying ? '套用中…' : rows.length > 0 ? '覆蓋套用' : '一鍵套用'}
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 mt-1.5">
-          依範本的預估工期從起始日往後排預定起訖日。已有工項時會清空重建，進度紀錄一併刪除。
-        </p>
-      </div>
-
       {/* 工項清單 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-sm text-gray-600">工項清單</span>
@@ -254,7 +198,7 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
       ) : rows.length === 0 ? (
         <div className="p-6 text-center text-gray-400 text-sm">
           <ListChecks size={20} className="mx-auto mb-1 text-gray-300" />
-          尚未建立工項。上方選範本一鍵套用，或按「加工項」自行輸入。
+          尚未建立工項。按「加工項」開始新增。
         </div>
       ) : (
         <div className="space-y-2">
