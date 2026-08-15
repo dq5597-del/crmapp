@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Plus, Trash2, Save, ListChecks, LayoutTemplate, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Save, ListChecks, LayoutTemplate, AlertTriangle, CheckCheck } from 'lucide-react'
 
 type Task = {
   id?: string
@@ -37,6 +37,7 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
   const supabase = createClient()
   const [rows, setRows] = useState<Task[]>([])
   const [templates, setTemplates] = useState<any[]>([])
+  const [taskCatalog, setTaskCatalog] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [noTable, setNoTable] = useState(false)
@@ -50,13 +51,19 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
 
   async function load() {
     setLoading(true)
-    const [tRes, tplRes] = await Promise.all([
+    const [tRes, tplRes, catRes] = await Promise.all([
       supabase.from('project_tasks').select('*').eq('project_id', projectId).order('seq_no'),
       supabase.from('project_task_templates').select('id, name, category').eq('is_active', true).order('name'),
+      // 工項名稱下拉固定抓「標準施工範本」的 7 個工項名稱，跟派工紀錄的施工項目下拉共用同一份清單
+      supabase.from('project_task_template_items')
+        .select('task_name, seq_no, project_task_templates!inner(name)')
+        .eq('project_task_templates.name', '標準施工範本')
+        .order('seq_no'),
     ])
     if (tRes.error) { console.error(tRes.error); setNoTable(true) }
     setRows((tRes.data as any) ?? [])
     setTemplates(tplRes.data ?? [])
+    setTaskCatalog(((catRes.data as any) ?? []).map((x: any) => x.task_name))
     if (!tplId && (tplRes.data ?? []).length > 0) setTplId(tplRes.data![0].id)
     setLoading(false)
   }
@@ -101,6 +108,13 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
 
   function patch(i: number, p: Partial<Task>) {
     setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...p } : r))
+  }
+
+  /** 整案已完工時的捷徑：不用一項一項拖進度，全部一次設 100% */
+  function markAllDone() {
+    if (rows.length === 0) return
+    if (!confirm(`確定把全部 ${rows.length} 個工項都設為 100% 完工？記得設完要按「儲存進度」才會真的存檔。`)) return
+    setRows(rs => rs.map(r => ({ ...r, progress_pct: 100 })))
   }
 
   async function removeRow(i: number) {
@@ -213,10 +227,16 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
       </div>
 
       {/* 工項清單 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-sm text-gray-600">工項清單</span>
         <div className="flex items-center gap-2">
           {msg && <span className="text-xs text-green-600">{msg}</span>}
+          {rows.length > 0 && (
+            <button type="button" onClick={markAllDone}
+              className="flex items-center gap-1 text-sm border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-lg">
+              <CheckCheck size={14} /> 已完工，全部設 100%
+            </button>
+          )}
           <button type="button" onClick={addRow}
             className="flex items-center gap-1 text-sm border border-gray-200 bg-white hover:bg-gray-50 px-3 py-1.5 rounded-lg">
             <Plus size={14} /> 加工項
@@ -248,7 +268,13 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
                     <label className="text-xs text-gray-500 mb-1 block">工項名稱 *</label>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
-                      <input value={r.task_name} onChange={e => patch(i, { task_name: e.target.value })} className={inp} />
+                      <select value={r.task_name} onChange={e => patch(i, { task_name: e.target.value })} className={inp}>
+                        <option value="">— 請選擇 —</option>
+                        {r.task_name && !taskCatalog.includes(r.task_name) && (
+                          <option value={r.task_name}>{r.task_name}（自訂）</option>
+                        )}
+                        {taskCatalog.map(nm => <option key={nm} value={nm}>{nm}</option>)}
+                      </select>
                     </div>
                   </div>
                   <div className="col-span-1 md:col-span-1">
