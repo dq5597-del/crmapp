@@ -46,6 +46,7 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
   const [tplId, setTplId] = useState('')
   const [tplStart, setTplStart] = useState(today())
   const [applying, setApplying] = useState(false)
+  const [customMode, setCustomMode] = useState<Record<string, boolean>>({})
 
   useEffect(() => { load() }, [projectId])
 
@@ -260,21 +261,33 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
           {rows.map((r, i) => {
             const pct = n(r.progress_pct)
             const delayed = pct < 100 && !!r.planned_end && r.planned_end < today()
+            const rowKey = r.id ?? `new-${i}`
+            const forcedCustom = !!r.task_name && !taskCatalog.includes(r.task_name)
+            const inCustomMode = customMode[rowKey] ?? forcedCustom
             return (
-              <div key={r.id ?? `new-${i}`}
+              <div key={rowKey}
                 className={`rounded-xl border p-3 ${delayed ? 'border-red-200 bg-red-50/40' : 'border-gray-200 bg-white'}`}>
                 <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
                   <div className="col-span-2 md:col-span-4">
-                    <label className="text-xs text-gray-500 mb-1 block">工項名稱 *</label>
+                    <label className="text-xs text-gray-500 mb-1 block flex items-center justify-between">
+                      <span>工項名稱 *</span>
+                      <button type="button"
+                        onClick={() => setCustomMode(m => ({ ...m, [rowKey]: !inCustomMode }))}
+                        className="text-blue-500 hover:underline font-normal normal-case">
+                        {inCustomMode ? '改用清單選擇' : '改自行輸入'}
+                      </button>
+                    </label>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
-                      <select value={r.task_name} onChange={e => patch(i, { task_name: e.target.value })} className={inp}>
-                        <option value="">— 請選擇 —</option>
-                        {r.task_name && !taskCatalog.includes(r.task_name) && (
-                          <option value={r.task_name}>{r.task_name}（自訂）</option>
-                        )}
-                        {taskCatalog.map(nm => <option key={nm} value={nm}>{nm}</option>)}
-                      </select>
+                      {inCustomMode ? (
+                        <input value={r.task_name} onChange={e => patch(i, { task_name: e.target.value })}
+                          className={inp} placeholder="自行輸入工項名稱" />
+                      ) : (
+                        <select value={r.task_name} onChange={e => patch(i, { task_name: e.target.value })} className={inp}>
+                          <option value="">— 請選擇 —</option>
+                          {taskCatalog.map(nm => <option key={nm} value={nm}>{nm}</option>)}
+                        </select>
+                      )}
                     </div>
                   </div>
                   <div className="col-span-1 md:col-span-1">
