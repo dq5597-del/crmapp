@@ -40,10 +40,10 @@ type Group = { key: string; crew: Crew | null; name: string; member_kind: string
 const KINDS = ['員工', '協力廠商', '臨時工'] as const
 const ROLES = ['工頭', '技師', '工班人員', '助手'] as const
 const RATE_TYPES = ['日薪', '時薪', '點工', '外包計件'] as const
-const KIND_COLORS: Record<string, string> = {
-  '員工': 'bg-blue-100 text-blue-700',
-  '協力廠商': 'bg-purple-100 text-purple-700',
-  '臨時工': 'bg-amber-100 text-amber-700',
+const KIND_SECTION: Record<string, { label: string; bar: string }> = {
+  '員工': { label: '👔 正式員工', bar: 'border-blue-200 bg-blue-50/60 text-blue-800' },
+  '協力廠商': { label: '🤝 協力廠商', bar: 'border-purple-200 bg-purple-50/60 text-purple-800' },
+  '臨時工': { label: '👷 臨時工', bar: 'border-amber-200 bg-amber-50/60 text-amber-800' },
 }
 const RATE_HINT: Record<string, string> = {
   '日薪': '成本 = 日薪 × 工時 ÷ 8',
@@ -129,6 +129,12 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
       return da === db ? a.name.localeCompare(b.name) : da.localeCompare(db)
     })
   }, [crew, logs])
+
+  /** 依身分分成三組顯示，不要混在一起 */
+  const groupedByKind = useMemo(
+    () => KINDS.map(k => ({ kind: k, items: groups.filter(g => g.member_kind === k) })),
+    [groups]
+  )
 
   const summary = useMemo(() => {
     const hours = logs.reduce((s, l) => s + n(l.hours), 0)
@@ -334,9 +340,19 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
                   {crew.map(c => <option key={`crew|${c.id}`} value={`crew|${c.id}`}>{c.name}（{c.member_kind}）</option>)}
                 </optgroup>
               )}
-              <optgroup label="全公司名冊">
-                {roster.map(p => <option key={`roster|${p.id}`} value={`roster|${p.id}`}>{p.name}（{p.kind}）</option>)}
-              </optgroup>
+              {KINDS.map(k => {
+                const list = roster.filter(p => p.kind === k)
+                if (!list.length) return null
+                return (
+                  <optgroup key={k} label={`全公司名冊－${k}`}>
+                    {list.map(p => (
+                      <option key={`roster|${p.id}`} value={`roster|${p.id}`}>
+                        {p.name}{p.skill ? `（${p.skill}）` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
           </div>
 
@@ -408,7 +424,7 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
         </div>
       </div>
 
-      {/* 人員清單：直接由派工紀錄彙整而成 */}
+      {/* 人員清單：直接由派工紀錄彙整而成，依身分分三組顯示，不混在一起 */}
       {loading ? (
         <div className="p-6 text-center text-gray-400 text-sm">載入中…</div>
       ) : groups.length === 0 ? (
@@ -417,108 +433,119 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
           尚無施工人員，上方登記第一筆派工即可自動加入
         </div>
       ) : (
-        <div className="space-y-2">
-          {groups.map(g => {
-            const isOpen = !!open[g.key]
-            const totalDays = new Set(g.logs.map(l => l.work_date)).size
-            const totalHours = g.logs.reduce((s, l) => s + n(l.hours), 0)
-            const totalCost = g.logs.reduce((s, l) => s + n(l.cost), 0)
+        <div className="space-y-4">
+          {groupedByKind.map(({ kind, items }) => {
+            if (items.length === 0) return null
+            const sec = KIND_SECTION[kind]
             return (
-              <div key={g.key}
-                className={`rounded-xl border overflow-hidden ${g.crew?.is_leader ? 'border-amber-300 bg-amber-50/40' : 'border-gray-200 bg-white'}`}>
-                <div className="p-3">
-                  <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
-                    <button type="button" onClick={() => setOpen(o => ({ ...o, [g.key]: !isOpen }))}
-                      className="col-span-2 md:col-span-3 flex items-center gap-1.5 text-left">
-                      {isOpen ? <ChevronDown size={15} className="text-gray-400 shrink-0" /> : <ChevronRight size={15} className="text-gray-400 shrink-0" />}
-                      <span className="font-medium text-gray-900 truncate">{g.name}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${KIND_COLORS[g.member_kind] ?? 'bg-gray-100 text-gray-600'}`}>{g.member_kind}</span>
-                    </button>
-
-                    {g.crew ? (
-                      <>
-                        <div className="col-span-1 md:col-span-2">
-                          <label className="text-xs text-gray-500 mb-1 block">角色</label>
-                          <select value={g.crew.role} onChange={e => updateCrewField(g.crew!.id, { role: e.target.value })} className={inp}>
-                            {ROLES.map(k => <option key={k}>{k}</option>)}
-                          </select>
-                        </div>
-                        <div className="col-span-1 md:col-span-2">
-                          <label className="text-xs text-gray-500 mb-1 block">電話</label>
-                          <input value={g.crew.phone ?? ''} onChange={e => updateCrewField(g.crew!.id, { phone: e.target.value })} className={inp} />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="col-span-2 md:col-span-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                        舊資料未連結人員檔，角色/電話無法編輯
-                      </div>
-                    )}
-
-                    <div className="col-span-2 md:col-span-3 text-xs text-gray-500 flex items-center gap-2 flex-wrap">
-                      <span>累計 <b className="text-gray-900">{totalDays}</b> 天</span>
-                      <span>{totalHours} 小時</span>
-                      <span>成本 <b className="text-gray-900">NT${totalCost.toLocaleString()}</b></span>
-                    </div>
-
-                    <div className="col-span-2 md:col-span-2 flex md:justify-end gap-1">
-                      {g.crew && (
-                        <button type="button" title="設為工頭" onClick={() => updateCrewField(g.crew!.id, { is_leader: true })}
-                          className={`p-1.5 rounded-lg ${g.crew.is_leader ? 'bg-amber-400 text-white' : 'text-gray-400 hover:bg-gray-100'}`}>
-                          <Crown size={15} />
-                        </button>
-                      )}
-                      <button type="button" title="再加一天" onClick={() => quickAddFor(g)}
-                        className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50">
-                        <Plus size={15} />
-                      </button>
-                      <button type="button" title="移除此人" onClick={() => removePerson(g)}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
+              <div key={kind} className="space-y-2">
+                <div className={`flex items-center gap-2 text-sm font-semibold rounded-lg border px-3 py-1.5 ${sec.bar}`}>
+                  <span>{sec.label}</span>
+                  <span className="text-xs font-normal opacity-70">{items.length} 人</span>
                 </div>
+                {items.map(g => {
+                  const isOpen = !!open[g.key]
+                  const totalDays = new Set(g.logs.map(l => l.work_date)).size
+                  const totalHours = g.logs.reduce((s, l) => s + n(l.hours), 0)
+                  const totalCost = g.logs.reduce((s, l) => s + n(l.cost), 0)
+                  return (
+                    <div key={g.key}
+                      className={`rounded-xl border overflow-hidden ${g.crew?.is_leader ? 'border-amber-300 bg-amber-50/40' : 'border-gray-200 bg-white'}`}>
+                      <div className="p-3">
+                        <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
+                          <button type="button" onClick={() => setOpen(o => ({ ...o, [g.key]: !isOpen }))}
+                            className="col-span-2 md:col-span-3 flex items-center gap-1.5 text-left">
+                            {isOpen ? <ChevronDown size={15} className="text-gray-400 shrink-0" /> : <ChevronRight size={15} className="text-gray-400 shrink-0" />}
+                            <span className="font-medium text-gray-900 truncate">{g.name}</span>
+                          </button>
 
-                {isOpen && (
-                  <div className="border-t border-gray-100 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 text-left text-gray-500">
-                          <th className="px-3 py-1.5 font-medium">日期</th>
-                          <th className="px-3 py-1.5 font-medium">施工項目</th>
-                          <th className="px-3 py-1.5 font-medium text-right">工時</th>
-                          <th className="px-3 py-1.5 font-medium">計價</th>
-                          <th className="px-3 py-1.5 font-medium text-right">單價</th>
-                          <th className="px-3 py-1.5 font-medium text-right">成本</th>
-                          <th className="px-3 py-1.5"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {g.logs.length === 0 ? (
-                          <tr><td colSpan={7} className="px-3 py-3 text-center text-gray-400">
-                            <Clock size={14} className="inline mr-1" /> 尚無工時紀錄
-                          </td></tr>
-                        ) : g.logs.slice().sort((a, b) => b.work_date.localeCompare(a.work_date)).map(l => (
-                          <tr key={l.id} className="border-t border-gray-100 hover:bg-gray-50/60">
-                            <td className="px-3 py-1.5 whitespace-nowrap text-gray-600">{l.work_date}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{l.work_item ?? '—'}</td>
-                            <td className="px-3 py-1.5 text-right text-gray-700">{n(l.hours)}</td>
-                            <td className="px-3 py-1.5">
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${l.rate_type === '外包計件' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{l.rate_type}</span>
-                            </td>
-                            <td className="px-3 py-1.5 text-right text-gray-500">{n(l.rate).toLocaleString()}</td>
-                            <td className="px-3 py-1.5 text-right font-medium text-gray-900">{n(l.cost).toLocaleString()}</td>
-                            <td className="px-3 py-1.5 text-right">
-                              <button type="button" onClick={() => removeLog(l)} className="p-1 rounded-lg text-red-500 hover:bg-red-50">
-                                <Trash2 size={13} />
+                          {g.crew ? (
+                            <>
+                              <div className="col-span-1 md:col-span-2">
+                                <label className="text-xs text-gray-500 mb-1 block">角色</label>
+                                <select value={g.crew.role} onChange={e => updateCrewField(g.crew!.id, { role: e.target.value })} className={inp}>
+                                  {ROLES.map(k => <option key={k}>{k}</option>)}
+                                </select>
+                              </div>
+                              <div className="col-span-1 md:col-span-2">
+                                <label className="text-xs text-gray-500 mb-1 block">電話</label>
+                                <input value={g.crew.phone ?? ''} onChange={e => updateCrewField(g.crew!.id, { phone: e.target.value })} className={inp} />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="col-span-2 md:col-span-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                              舊資料未連結人員檔，角色/電話無法編輯
+                            </div>
+                          )}
+
+                          <div className="col-span-2 md:col-span-3 text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                            <span>累計 <b className="text-gray-900">{totalDays}</b> 天</span>
+                            <span>{totalHours} 小時</span>
+                            <span>成本 <b className="text-gray-900">NT${totalCost.toLocaleString()}</b></span>
+                          </div>
+
+                          <div className="col-span-2 md:col-span-2 flex md:justify-end gap-1">
+                            {g.crew && (
+                              <button type="button" title="設為工頭" onClick={() => updateCrewField(g.crew!.id, { is_leader: true })}
+                                className={`p-1.5 rounded-lg ${g.crew.is_leader ? 'bg-amber-400 text-white' : 'text-gray-400 hover:bg-gray-100'}`}>
+                                <Crown size={15} />
                               </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                            )}
+                            <button type="button" title="再加一天" onClick={() => quickAddFor(g)}
+                              className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50">
+                              <Plus size={15} />
+                            </button>
+                            <button type="button" title="移除此人" onClick={() => removePerson(g)}
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {isOpen && (
+                        <div className="border-t border-gray-100 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-gray-50 text-left text-gray-500">
+                                <th className="px-3 py-1.5 font-medium">日期</th>
+                                <th className="px-3 py-1.5 font-medium">施工項目</th>
+                                <th className="px-3 py-1.5 font-medium text-right">工時</th>
+                                <th className="px-3 py-1.5 font-medium">計價</th>
+                                <th className="px-3 py-1.5 font-medium text-right">單價</th>
+                                <th className="px-3 py-1.5 font-medium text-right">成本</th>
+                                <th className="px-3 py-1.5"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {g.logs.length === 0 ? (
+                                <tr><td colSpan={7} className="px-3 py-3 text-center text-gray-400">
+                                  <Clock size={14} className="inline mr-1" /> 尚無工時紀錄
+                                </td></tr>
+                              ) : g.logs.slice().sort((a, b) => b.work_date.localeCompare(a.work_date)).map(l => (
+                                <tr key={l.id} className="border-t border-gray-100 hover:bg-gray-50/60">
+                                  <td className="px-3 py-1.5 whitespace-nowrap text-gray-600">{l.work_date}</td>
+                                  <td className="px-3 py-1.5 text-gray-600">{l.work_item ?? '—'}</td>
+                                  <td className="px-3 py-1.5 text-right text-gray-700">{n(l.hours)}</td>
+                                  <td className="px-3 py-1.5">
+                                    <span className={`text-xs px-1.5 py-0.5 rounded ${l.rate_type === '外包計件' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{l.rate_type}</span>
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right text-gray-500">{n(l.rate).toLocaleString()}</td>
+                                  <td className="px-3 py-1.5 text-right font-medium text-gray-900">{n(l.cost).toLocaleString()}</td>
+                                  <td className="px-3 py-1.5 text-right">
+                                    <button type="button" onClick={() => removeLog(l)} className="p-1 rounded-lg text-red-500 hover:bg-red-50">
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
