@@ -77,6 +77,7 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
   const [crew, setCrew] = useState<Crew[]>([])
   const [logs, setLogs] = useState<Log[]>([])
   const [roster, setRoster] = useState<any[]>([])
+  const [taskItems, setTaskItems] = useState<{ task_name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [noTable, setNoTable] = useState(false)
@@ -95,16 +96,18 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
 
   async function load() {
     setLoading(true)
-    const [cRes, wRes, rRes] = await Promise.all([
+    const [cRes, wRes, rRes, tRes] = await Promise.all([
       supabase.from('project_crew').select('*').eq('project_id', projectId).order('is_leader', { ascending: false }).order('created_at'),
       supabase.from('project_work_logs').select('*').eq('project_id', projectId)
         .order('work_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('hr_roster').select('*').order('name'),
+      supabase.from('project_tasks').select('task_name').eq('project_id', projectId).order('seq_no'),
     ])
     if (cRes.error || wRes.error) { console.error(cRes.error || wRes.error); setNoTable(true) }
     setCrew((cRes.data as any) ?? [])
     setLogs((wRes.data as any) ?? [])
     setRoster(rRes.data ?? [])
+    setTaskItems((tRes.data as any) ?? [])
     setLoading(false)
   }
 
@@ -402,8 +405,16 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
 
           <div className="col-span-2 md:col-span-2">
             <label className="text-xs text-gray-500 mb-1 block">施工項目</label>
-            <input value={form.work_item} onChange={e => setForm(f => ({ ...f, work_item: e.target.value }))}
-              className={inp} placeholder="配線／掛架／調校" />
+            <select value={form.work_item} onChange={e => setForm(f => ({ ...f, work_item: e.target.value }))} className={inp}>
+              <option value="">{taskItems.length ? '— 請選擇 —' : '尚未建立工項清單'}</option>
+              {taskItems.map(t => <option key={t.task_name} value={t.task_name}>{t.task_name}</option>)}
+            </select>
+          </div>
+
+          <div className="col-span-2 md:col-span-2">
+            <label className="text-xs text-gray-500 mb-1 block">備註</label>
+            <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              className={inp} placeholder="選填" />
           </div>
 
           <div className="col-span-2 md:col-span-2 flex justify-end">
@@ -510,6 +521,7 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
                               <tr className="bg-gray-50 text-left text-gray-500">
                                 <th className="px-3 py-1.5 font-medium">日期</th>
                                 <th className="px-3 py-1.5 font-medium">施工項目</th>
+                                <th className="px-3 py-1.5 font-medium">備註</th>
                                 <th className="px-3 py-1.5 font-medium text-right">工時</th>
                                 <th className="px-3 py-1.5 font-medium">計價</th>
                                 <th className="px-3 py-1.5 font-medium text-right">單價</th>
@@ -519,13 +531,14 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
                             </thead>
                             <tbody>
                               {g.logs.length === 0 ? (
-                                <tr><td colSpan={7} className="px-3 py-3 text-center text-gray-400">
+                                <tr><td colSpan={8} className="px-3 py-3 text-center text-gray-400">
                                   <Clock size={14} className="inline mr-1" /> 尚無工時紀錄
                                 </td></tr>
                               ) : g.logs.slice().sort((a, b) => b.work_date.localeCompare(a.work_date)).map(l => (
                                 <tr key={l.id} className="border-t border-gray-100 hover:bg-gray-50/60">
                                   <td className="px-3 py-1.5 whitespace-nowrap text-gray-600">{l.work_date}</td>
                                   <td className="px-3 py-1.5 text-gray-600">{l.work_item ?? '—'}</td>
+                                  <td className="px-3 py-1.5 text-gray-500">{l.notes ?? '—'}</td>
                                   <td className="px-3 py-1.5 text-right text-gray-700">{n(l.hours)}</td>
                                   <td className="px-3 py-1.5">
                                     <span className={`text-xs px-1.5 py-0.5 rounded ${l.rate_type === '外包計件' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{l.rate_type}</span>
