@@ -342,11 +342,6 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
             <label className="text-xs text-gray-500 mb-1 block">人員</label>
             <select value={form.person} onChange={e => pickPerson(e.target.value)} className={inp}>
               <option value="">— 手動輸入 —</option>
-              {crew.length > 0 && (
-                <optgroup label="本專案人員">
-                  {crew.map(c => <option key={`crew|${c.id}`} value={`crew|${c.id}`}>{c.name}（{c.member_kind}）</option>)}
-                </optgroup>
-              )}
               {KINDS.map(k => {
                 const list = roster.filter(p => p.kind === k)
                 if (!list.length) return null
