@@ -19,6 +19,8 @@ type Task = {
   notes?: string | null
 }
 
+const KINDS = ['員工', '協力廠商', '臨時工'] as const
+
 const inp = 'w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400'
 const n = (v: any) => Number(v ?? 0) || 0
 const today = () => new Date().toISOString().slice(0, 10)
@@ -37,27 +39,33 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
   const supabase = createClient()
   const [rows, setRows] = useState<Task[]>([])
   const [taskCatalog, setTaskCatalog] = useState<string[]>([])
+  const [crew, setCrew] = useState<{ id: string; name: string; member_kind: string; is_leader: boolean }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [noTable, setNoTable] = useState(false)
   const [msg, setMsg] = useState('')
   const [customMode, setCustomMode] = useState<Record<string, boolean>>({})
+  const [assigneeCustomMode, setAssigneeCustomMode] = useState<Record<string, boolean>>({})
 
   useEffect(() => { load() }, [projectId])
 
   async function load() {
     setLoading(true)
-    const [tRes, catRes] = await Promise.all([
+    const [tRes, catRes, crewRes] = await Promise.all([
       supabase.from('project_tasks').select('*').eq('project_id', projectId).order('seq_no'),
       // 工項名稱下拉固定抓「標準施工範本」的 7 個工項名稱，跟派工紀錄的施工項目下拉共用同一份清單
       supabase.from('project_task_template_items')
         .select('task_name, seq_no, project_task_templates!inner(name)')
         .eq('project_task_templates.name', '標準施工範本')
         .order('seq_no'),
+      // 負責人／工班下拉連結本專案的施工人員名單（施工人員與派工紀錄分頁裡的那份）
+      supabase.from('project_crew').select('id, name, member_kind, is_leader')
+        .eq('project_id', projectId).order('is_leader', { ascending: false }).order('name'),
     ])
     if (tRes.error) { console.error(tRes.error); setNoTable(true) }
     setRows((tRes.data as any) ?? [])
     setTaskCatalog(((catRes.data as any) ?? []).map((x: any) => x.task_name))
+    setCrew((crewRes.data as any) ?? [])
     setLoading(false)
   }
 
@@ -208,6 +216,8 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
             const rowKey = r.id ?? `new-${i}`
             const forcedCustom = !!r.task_name && !taskCatalog.includes(r.task_name)
             const inCustomMode = customMode[rowKey] ?? forcedCustom
+            const assigneeForcedCustom = !!r.assignee && !crew.some(c => c.name === r.assignee)
+            const assigneeInCustomMode = assigneeCustomMode[rowKey] ?? assigneeForcedCustom
             return (
               <div key={rowKey}
                 className={`rounded-xl border p-3 ${delayed ? 'border-red-200 bg-red-50/40' : 'border-gray-200 bg-white'}`}>
@@ -248,8 +258,33 @@ export default function ProjectTasksSection({ projectId, onBeforeSave }: {
                     <input type="date" value={r.planned_end ?? ''} onChange={e => patch(i, { planned_end: e.target.value })} className={inp} />
                   </div>
                   <div className="col-span-1 md:col-span-2">
-                    <label className="text-xs text-gray-500 mb-1 block">負責人／工班</label>
-                    <input value={r.assignee ?? ''} onChange={e => patch(i, { assignee: e.target.value })} className={inp} />
+                    <label className="text-xs text-gray-500 mb-1 block flex items-center justify-between">
+                      <span>負責人／工班</span>
+                      <button type="button"
+                        onClick={() => setAssigneeCustomMode(m => ({ ...m, [rowKey]: !assigneeInCustomMode }))}
+                        className="text-blue-500 hover:underline font-normal normal-case">
+                        {assigneeInCustomMode ? '改用名單選擇' : '改自行輸入'}
+                      </button>
+                    </label>
+                    {assigneeInCustomMode ? (
+                      <input value={r.assignee ?? ''} onChange={e => patch(i, { assignee: e.target.value })}
+                        className={inp} placeholder="自行輸入" />
+                    ) : (
+                      <select value={r.assignee ?? ''} onChange={e => patch(i, { assignee: e.target.value })} className={inp}>
+                        <option value="">— 請選擇 —</option>
+                        {KINDS.map(k => {
+                          const list = crew.filter(c => c.member_kind === k)
+                          if (!list.length) return null
+                          return (
+                            <optgroup key={k} label={k}>
+                              {list.map(c => (
+                                <option key={c.id} value={c.name}>{c.name}{c.is_leader ? '（工頭）' : ''}</option>
+                              ))}
+                            </optgroup>
+                          )
+                        })}
+                      </select>
+                    )}
                   </div>
                   <div className="col-span-2 md:col-span-1 flex md:justify-end pb-1">
                     <button type="button" onClick={() => removeRow(i)}
