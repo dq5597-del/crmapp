@@ -253,12 +253,10 @@ export default function SalesOrderDetailPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
           <Sheet size={13} /> 匯出 Excel
         </button>
+        {/* 開列印頁並跳出分享提示：手機選應用程式送 PDF，桌機給下載連結。
+            不再只是複製一條需要登入才看得到的內部網址。 */}
         <button
-          onClick={async () => {
-            const url = `${window.location.origin}/sales-orders/${id}/print`
-            try { await navigator.clipboard.writeText(url); alert('已複製銷貨單列印連結，可貼給客戶或同事。') }
-            catch { prompt('複製此連結：', url) }
-          }}
+          onClick={() => window.open(`/sales-orders/${id}/print?share=1`, '_blank')}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <Send size={13} /> 分享銷貨單
         </button>
