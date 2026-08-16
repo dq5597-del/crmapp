@@ -114,13 +114,20 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   const rowCutsCss: number[] = []
   // 每個品項主列的下緣 + 金額 + 項次（供計算本頁小計、補列編號）
   const itemAmountsCss: { bottom: number; amount: number; no: number }[] = []
+  // 金額欄的欄位索引（供本頁小計對齊；備註欄在金額右側時不可假設是最後一欄）
+  let amtColIdx = -1
   for (const tr of bodyRows) {
     const isCat = tr.classList.contains('cat-row')
     const isNote = tr.classList.contains('notes-row')
     if (!isCat && !isNote) {
-      // 主列金額 = 最後一格數字；項次 = 第一格數字
+      // 主列金額 = 最後一個靠右數字欄（.num）；項次 = 第一格數字
+      // （不能取「最後一格」—— 金額右邊還有備註欄時會抓到文字而算出 0）
       const cells = tr.querySelectorAll('td')
-      const last = cells[cells.length - 1]
+      const numCells = Array.from(cells).filter(c => c.classList.contains('num'))
+      const last = numCells.length ? numCells[numCells.length - 1] : cells[cells.length - 1]
+      if (amtColIdx < 0 && numCells.length) {
+        amtColIdx = Array.from(cells).indexOf(numCells[numCells.length - 1])
+      }
       const first = cells[0]
       const amt = last ? Number((last.textContent || '').replace(/[^0-9.-]/g, '')) : 0
       const no = first ? parseInt((first.textContent || '').replace(/[^0-9]/g, ''), 10) : NaN
@@ -210,7 +217,7 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     const gx0 = hasGrid ? colEdges[0] : 0
     const gx1 = hasGrid ? colEdges[colEdges.length - 1] : W
     const rowHpx = Math.max(20, Math.round(rowHcss * scale))
-    const subRowH = Math.round(rowHpx * 1.15)          // 本頁小計列高
+    const subRowH = Math.round(rowHpx * 0.9)           // 本頁小計列高（比品項列略矮即可）
     const footerStripH = Math.round(58 * sc)           // 頁尾（續下頁＋頁碼）兩行
     // 表格（含補白列）填到接近頁尾，只留小計列＋頁尾文字的高度
     const fillBottom = capacity - footerStripH - subRowH
@@ -311,17 +318,22 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         // 本頁小計列（接在補白列下一行）
         const subTop = fy
         const subBot = fy + subRowH
-        const amtLeft = colEdges[colEdges.length - 2]
-        const labLeft = colEdges[colEdges.length - 3]
+        // 金額欄可能不是最後一欄（右邊還有備註），小計要對齊金額欄而非表格右緣
+        const aIdx = amtColIdx >= 0 && amtColIdx + 1 < colEdges.length
+          ? amtColIdx
+          : colEdges.length - 2
+        const amtLeft = colEdges[aIdx]
+        const amtRight = colEdges[aIdx + 1] ?? gx1
+        const labLeft = colEdges[Math.max(0, aIdx - 1)]
         ctx.beginPath(); ctx.moveTo(gx0, subBot + 0.5); ctx.lineTo(gx1, subBot + 0.5); ctx.stroke()
-        for (const xe of [gx0, labLeft, amtLeft, gx1]) { ctx.beginPath(); ctx.moveTo(xe + 0.5, subTop); ctx.lineTo(xe + 0.5, subBot); ctx.stroke() }
+        for (const xe of [gx0, labLeft, amtLeft, amtRight, gx1]) { ctx.beginPath(); ctx.moveTo(xe + 0.5, subTop); ctx.lineTo(xe + 0.5, subBot); ctx.stroke() }
         const midY = (subTop + subBot) / 2
         ctx.fillStyle = '#111827'
         ctx.font = `bold ${Math.round(13 * scale)}px ${cjkFont}`
         ctx.textAlign = 'center'
         ctx.fillText('本頁小計', (labLeft + amtLeft) / 2, midY)
         ctx.textAlign = 'right'
-        ctx.fillText(fmtNT(pageSubtotal(r.start, r.end)), gx1 - Math.round(6 * scale), midY)
+        ctx.fillText(fmtNT(pageSubtotal(r.start, r.end)), amtRight - Math.round(6 * scale), midY)
 
         // 續下頁（頁碼上方）
         ctx.fillStyle = '#1d4ed8'

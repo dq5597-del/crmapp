@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
+import ShopQr from './ShopQr'
 import { buildQuoteFileName } from '@/lib/utils'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
@@ -184,9 +185,12 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             <h1>報 價 單</h1>
             {quote.project_name && <div className="sub-header">{quote.project_name}</div>}
           </div>
-          <div className="header-spacer" style={{ textAlign: 'right', fontSize: 11, color: '#333', lineHeight: 1.9, alignSelf: 'flex-end' }}>
-            <div>服務電話：03-8321087</div>
-            <div>地址：花蓮市民權三街十號</div>
+          <div className="header-spacer" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8, alignSelf: 'flex-end' }}>
+            <div style={{ textAlign: 'right', fontSize: 13, color: '#333', lineHeight: 1.75 }}>
+              <div>服務電話：03-8321087</div>
+              <div>地址：花蓮市民權三街十號</div>
+            </div>
+            <ShopQr url="https://av-shop.com" size={52} />
           </div>
         </div>
 

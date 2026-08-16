@@ -111,14 +111,14 @@ export default function PrintButtons() {
         預覽列印
       </button>
       <button
-        onClick={() => openPreview(false)}
+        onClick={() => handlePrint(false)}
         disabled={!!loading}
         style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
         {loading === 'print' ? '排版中…' : '直向列印'}
       </button>
       <button
-        onClick={() => openPreview(true)}
+        onClick={() => handlePrint(true)}
         disabled={!!loading}
         style={{ padding: '8px 20px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
