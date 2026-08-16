@@ -1888,15 +1888,6 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               />
             </Accordion>
 
-            <Accordion title="🏛️ 業主提供的檔案" color={AMBER}>
-              <FileSection
-                projectId={editingId as string}
-                supabase={supabase}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-                category="owner"
-              />
-            </Accordion>
-
             <AccordionGroup title="🏗️ 場勘資訊與施工限制（7 項）" color={GREEN}>
               <Accordion title="③ 場勘基本資訊" color={GREEN}>
                 <div className="grid grid-cols-2 gap-3">
