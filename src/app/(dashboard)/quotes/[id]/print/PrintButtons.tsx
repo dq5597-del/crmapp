@@ -15,7 +15,14 @@ function getFileName() {
 export default function PrintButtons() {
   const [loading, setLoading] = useState<'' | 'download' | 'share' | 'print' | 'printL'>('')
   const [showPreview, setShowPreview] = useState(false)
+  const [previewLandscape, setPreviewLandscape] = useState(false)
   const router = useRouter()
+
+  /** 直向／橫向都先開預覽，確認版面後再由預覽視窗下載或分享 —— 不直接送印 */
+  const openPreview = (landscape: boolean) => {
+    setPreviewLandscape(landscape)
+    setShowPreview(true)
+  }
 
   /**
    * 關閉
@@ -104,14 +111,14 @@ export default function PrintButtons() {
         預覽列印
       </button>
       <button
-        onClick={() => handlePrint(false)}
+        onClick={() => openPreview(false)}
         disabled={!!loading}
         style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
         {loading === 'print' ? '排版中…' : '直向列印'}
       </button>
       <button
-        onClick={() => handlePrint(true)}
+        onClick={() => openPreview(true)}
         disabled={!!loading}
         style={{ padding: '8px 20px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer', fontSize: 14, fontWeight: 600, opacity: loading ? 0.7 : 1 }}
       >
@@ -142,7 +149,7 @@ export default function PrintButtons() {
         open={showPreview}
         onClose={() => setShowPreview(false)}
         fileName={getFileName()}
-        landscape={false}
+        landscape={previewLandscape}
       />
     </div>
   )
