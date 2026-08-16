@@ -17,6 +17,27 @@ export default function PrintButtons() {
   const [showPreview, setShowPreview] = useState(false)
   const [previewLandscape, setPreviewLandscape] = useState(false)
   const [sharePrompt, setSharePrompt] = useState(false)
+
+  // 備註版面：'col' = 含稅金額右側欄位（預設）、'row' = 品項下方整列
+  // 切換方式是在列印容器上加減 class，兩種版面的 HTML 都已存在，由 CSS 決定顯示哪個，
+  // 所以列印與 PDF 擷取到的一定是畫面上看到的那一版。
+  const [noteMode, setNoteMode] = useState<'col' | 'row'>('col')
+  useEffect(() => {
+    const saved = (localStorage.getItem('gh-quote-note-mode') as 'col' | 'row' | null) ?? 'col'
+    setNoteMode(saved)
+  }, [])
+  useEffect(() => {
+    const page = document.getElementById('print-page-content')
+    if (!page) return
+    page.classList.toggle('note-mode-row', noteMode === 'row')
+  }, [noteMode])
+  const toggleNoteMode = () => {
+    setNoteMode(prev => {
+      const next = prev === 'col' ? 'row' : 'col'
+      try { localStorage.setItem('gh-quote-note-mode', next) } catch { }
+      return next
+    })
+  }
   const router = useRouter()
 
   /** 直向／橫向都先開預覽，確認版面後再由預覽視窗下載或分享 —— 不直接送印 */
@@ -119,6 +140,13 @@ export default function PrintButtons() {
         style={{ padding: '8px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
       >
         預覽列印
+      </button>
+      <button
+        onClick={toggleNoteMode}
+        title="切換品項備註的位置，設定會記住"
+        style={{ padding: '8px 14px', background: '#fff', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+      >
+        備註：{noteMode === 'col' ? '右側欄' : '下方列'}
       </button>
       <button
         onClick={() => handlePrint(false)}

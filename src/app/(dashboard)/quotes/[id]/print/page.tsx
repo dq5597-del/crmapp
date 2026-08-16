@@ -152,8 +152,14 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .num { text-align: right; }
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 12.5px; padding: 1px 8px 3px; }
-        /* 品項備註改為獨立欄位（含稅金額右側）；長字串強制斷行避免撐開表格 */
+        /* 品項備註兩種版面（由列印頁的「備註位置」切換，預設欄位版）
+           欄位版：備註在含稅金額右側，長字串強制斷行避免撐開表格
+           整列版：備註獨立一列跨滿寬度，長內容不會把該列撐高 */
         .item-note-cell { color: #555; font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+        .notes-row { display: none; }
+        .note-mode-row .notes-row { display: table-row; }
+        .note-mode-row .item-note-cell,
+        .note-mode-row .note-col-head { display: none; }
         .total-row td { font-weight: 700; font-size: 15px; }
         /* 未稅／稅額／含稅合計框成一個粗框區塊 */
         .tax-row td { border-left: none; border-right: none; }
@@ -222,7 +228,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <th style={{ width: 44 }}>數量</th>
               <th style={{ width: 88 }}>含稅單價</th>
               <th style={{ width: 96 }}>含稅金額</th>
-              <th style={{ textAlign: 'left', width: 150 }}>備註</th>
+              <th className="note-col-head" style={{ textAlign: 'left', width: 150 }}>備註</th>
             </tr>
           </thead>
           <tbody>
@@ -243,6 +249,12 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
                   <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
                   <td className="item-note-cell">{item.item_notes?.trim() || ''}</td>
                 </tr>
+                )}
+                {/* 備註「下方整列」版本：預設隱藏，切換到 note-mode-row 時才顯示 */}
+                {!item.is_category && !!item.item_notes?.trim() && (
+                  <tr className="notes-row">
+                    <td colSpan={8}>備註：{item.item_notes}</td>
+                  </tr>
                 )}
               </Fragment>
             ))}
