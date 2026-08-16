@@ -37,24 +37,27 @@ export function generateOrderNo(prefix: string, date: Date, seq: number): string
 
 /**
  * 產生報價單存檔／匯出檔名（不含副檔名）
- * 格式：(光輝)報價單_案名_日期_編號
+ * 格式：(光輝)客戶名稱_案名報價單_日期_編號
  * 日期／編號取自報價單單號（quote_no = YYMMDD + 3碼流水號），流水號改以2碼顯示
- * 例：quote_no = 260704003, project_name = 展演廳工程 → (光輝)報價單_展演廳工程_260704_03
+ * 例：quote_no = 260815001, 客戶 = 花蓮環保局, 案名 = 150人大會議室
+ *     → (光輝)花蓮環保局_150人大會議室報價單_260815_01
+ * 客戶或案名缺一時自動略過該段，不會留下多餘底線。
  */
 export function buildQuoteFileName(
   quote: { quote_no?: string | null; project_name?: string | null },
-  fallbackName?: string | null
+  clientName?: string | null
 ): string {
   const quoteNo = quote.quote_no ?? ''
   const datePart = quoteNo.slice(0, 6)
   const seqRaw = quoteNo.slice(6)
   const seqNum = parseInt(seqRaw || '0', 10)
   const seqPart = String(seqNum || 0).padStart(2, '0')
-  const namePart = (quote.project_name?.trim() || fallbackName?.trim() || '')
-    .replace(/[\\/:*?"<>|]/g, '')
-    .trim()
 
-  return ['(光輝)報價單', namePart, datePart, seqPart].filter(Boolean).join('_')
+  // 檔名不可含這些字元，先清掉再組合
+  const clean = (s?: string | null) => (s ?? '').replace(/[\\/:*?"<>|]/g, '').trim()
+  const namePart = [clean(clientName), clean(quote.project_name)].filter(Boolean).join('_')
+
+  return [`(光輝)${namePart}報價單`, datePart, seqPart].filter(Boolean).join('_')
 }
 
 export const CLIENT_STATUS_COLORS: Record<string, string> = {
