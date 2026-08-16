@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 
 /**
- * 購物車網站 QR Code（列印抬頭用）
+ * 列印抬頭用 QR Code（目前用於 LINE 官方帳號加好友連結）
  *
  * 用 cdnjs 的 qrcode-generator 產生 data URL，再交給 <img> 顯示：
  *   - data URL 沒有跨網域問題，html2canvas 擷取 PDF 時不會變空白
@@ -46,7 +46,7 @@ export default function ShopQr({ url, size = 52 }: { url: string; size?: number 
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
-      alt="購物車網站 QR"
+      alt="LINE 加好友 QR"
       style={{ width: size, height: size, display: 'block', imageRendering: 'pixelated' }}
     />
   )

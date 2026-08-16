@@ -190,7 +190,10 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <div>服務電話：03-8321087</div>
               <div>地址：花蓮市民權三街十號</div>
             </div>
-            <ShopQr url="https://av-shop.com" size={52} />
+            <div style={{ textAlign: 'center' }}>
+              <ShopQr url="https://line.me/R/ti/p/@807wvsuu" size={52} />
+              <div style={{ fontSize: 10, color: '#333', marginTop: 1, letterSpacing: 0.2 }}>@807wvsuu</div>
+            </div>
           </div>
         </div>
 
