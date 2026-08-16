@@ -7,7 +7,6 @@ import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, 
 import Link from 'next/link'
 import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
-import ProjectWorkLogsSection from '@/components/clients/ProjectWorkLogsSection'
 import ProjectTasksSection from '@/components/clients/ProjectTasksSection'
 import { formatDate } from '@/lib/utils'
 import { usePermissions } from '@/lib/permissions'
@@ -1856,7 +1855,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               onBeforeCreate={isNewProject ? ensureSaved : undefined}
             />
 
-            <Accordion title="👷 施工團隊（工頭／工班人員）" color={PURPLE}>
+            <Accordion title="👷 施工人員與派工紀錄（工頭／工班人員）" color={PURPLE}>
               <ProjectCrewSection
                 projectId={editingId as string}
                 onBeforeSave={isNewProject ? ensureSaved : undefined}
@@ -1865,13 +1864,6 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
 
             <Accordion title="📊 施工進度（工項清單）" color={PURPLE}>
               <ProjectTasksSection
-                projectId={editingId as string}
-                onBeforeSave={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
-
-            <Accordion title="⏱ 施工工時與派工紀錄" color={PURPLE}>
-              <ProjectWorkLogsSection
                 projectId={editingId as string}
                 onBeforeSave={isNewProject ? ensureSaved : undefined}
               />
