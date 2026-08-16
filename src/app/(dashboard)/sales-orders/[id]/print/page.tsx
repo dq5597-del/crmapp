@@ -166,10 +166,10 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
             <h1>銷 貨 單</h1>
             {order.project_name && <div className="sub-header">{order.project_name}</div>}
           </div>
-          <div className="header-spacer" style={{ width: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8, alignSelf: 'flex-end' }}>
-            <div style={{ textAlign: 'center' }}>
-              <PrintHeaderQr url="https://line.me/R/ti/p/@807wvsuu" size={52} />
-              <div style={{ fontSize: 10, color: '#333', marginTop: 1, letterSpacing: 0.2 }}>@807wvsuu</div>
+          <div className="header-spacer" style={{ width: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, alignSelf: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <PrintHeaderQr url="https://line.me/R/ti/p/@807wvsuu" size={46} />
+              <div style={{ fontSize: 10, color: '#333', letterSpacing: 0.2 }}>@807wvsuu</div>
             </div>
             <div style={{ textAlign: 'right', fontSize: 13, color: '#333', lineHeight: 1.75, whiteSpace: 'nowrap' }}>
               <div>服務電話：03-8321087</div>
