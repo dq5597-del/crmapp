@@ -116,6 +116,23 @@ input[type='number'] {
   .overflow-x-auto > table {
     min-width: 860px;
   }
+
+  /* ── 列印版面例外 ──────────────────────────────────────
+     單據列印是固定 A4，字級由各列印頁自行決定，不能套用手機放大規則。
+     否則手機上每列變高 → 一頁塞不下 → 分享出去的 PDF 比桌機多好幾頁。
+     用 id 提高優先權，壓過上面的 !important。 */
+  #print-page-content table,
+  #print-page-content th,
+  #print-page-content td {
+    font-size: 14px !important;
+  }
+  #print-page-content .total-row td {
+    font-size: 15px !important;
+  }
+  #print-page-content .notes-row td,
+  #print-page-content .item-note-cell {
+    font-size: 12.5px !important;
+  }
 }
 
 /* 平板（768–1023px）：字體 14~15px，表格同樣預留空間 */
