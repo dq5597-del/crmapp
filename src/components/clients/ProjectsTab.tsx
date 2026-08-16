@@ -1821,42 +1821,63 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
           </div>
           <div className="p-4 space-y-3">
 
-            <Accordion title="① 上類 — 基本資訊" color={BLUE} defaultOpen>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="專案名稱 *" span2>
-                  <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
-                </Field>
-                <Field label="場景名稱">
-                  <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
-                </Field>
-                <Field label="使用者類型">
-                  <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
-                </Field>
-                <Field label="專案狀態">
-                  <select value={form.status} onChange={setP('status')} className={inp}>
-                    {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </Field>
-                <Field label="預算（NT$）">
-                  <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
-                </Field>
-                <Field label="專案收入（NT$，毛利分析用）">
-                  <input type="number" value={form.revenue} onChange={setP('revenue')} className={inp} placeholder="未填則以預算計算" />
-                </Field>
-                <Field label="設備成本（NT$，毛利分析用）">
-                  <input type="number" value={form.equipment_cost} onChange={setP('equipment_cost')} className={inp} />
-                </Field>
-                <Field label="施工日期">
-                  <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
-                </Field>
-                <Field label="預計完工日">
-                  <input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} />
-                </Field>
-                <Field label="說明／備注" span2>
-                  <textarea rows={2} value={form.description} onChange={setP('description')} className={ta} />
-                </Field>
-              </div>
-            </Accordion>
+            <AccordionGroup title="📋 基本資訊和需求" color={BLUE} defaultOpen>
+              <Accordion title="① 基本資訊" color={BLUE} defaultOpen>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="專案名稱 *" span2>
+                    <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
+                  </Field>
+                  <Field label="場景名稱">
+                    <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
+                  </Field>
+                  <Field label="使用者類型">
+                    <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
+                  </Field>
+                  <Field label="專案狀態">
+                    <select value={form.status} onChange={setP('status')} className={inp}>
+                      {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="預算（NT$）">
+                    <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
+                  </Field>
+                  <Field label="專案收入（NT$，毛利分析用）">
+                    <input type="number" value={form.revenue} onChange={setP('revenue')} className={inp} placeholder="未填則以預算計算" />
+                  </Field>
+                  <Field label="設備成本（NT$，毛利分析用）">
+                    <input type="number" value={form.equipment_cost} onChange={setP('equipment_cost')} className={inp} />
+                  </Field>
+                  <Field label="施工日期">
+                    <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
+                  </Field>
+                  <Field label="預計完工日">
+                    <input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} />
+                  </Field>
+                  <Field label="說明／備注" span2>
+                    <textarea rows={2} value={form.description} onChange={setP('description')} className={ta} />
+                  </Field>
+                </div>
+              </Accordion>
+
+              <Accordion title="② 需求分析" color={BLUE}>
+                <div className="grid grid-cols-1 gap-3">
+                  <Field label="主要功能定位">
+                    <input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="設備需求"><textarea rows={2} value={form.equipment_needs} onChange={setP('equipment_needs')} className={ta} /></Field>
+                    <Field label="音響需求"><textarea rows={2} value={form.audio_needs} onChange={setP('audio_needs')} className={ta} /></Field>
+                    <Field label="影像需求"><textarea rows={2} value={form.video_needs} onChange={setP('video_needs')} className={ta} /></Field>
+                    <Field label="互動需求"><textarea rows={2} value={form.interaction_needs} onChange={setP('interaction_needs')} className={ta} /></Field>
+                    <Field label="控制需求"><textarea rows={2} value={form.control_needs} onChange={setP('control_needs')} className={ta} /></Field>
+                    <Field label="其他需求"><textarea rows={2} value={form.other_needs} onChange={setP('other_needs')} className={ta} /></Field>
+                  </div>
+                  <Field label="場地規格">
+                    <textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} />
+                  </Field>
+                </div>
+              </Accordion>
+            </AccordionGroup>
 
             <Accordion title="📎 單位提供的檔案" color={BLUE}>
               <FileSection
@@ -1876,49 +1897,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               />
             </Accordion>
 
-            {/* 報價單含售價與進貨成本，依 quotes 權限決定是否顯示（工程人員預設看不到） */}
-            <ProjectQuotesAccordion
-              projectId={editingId as string}
-              clientId={clientId}
-              projectName={form.project_name}
-              supabase={supabase}
-              onBeforeCreate={isNewProject ? ensureSaved : undefined}
-            />
-
-            <Accordion title="👷 施工人員與派工紀錄（工頭／工班人員）" color={PURPLE}>
-              <ProjectCrewSection
-                projectId={editingId as string}
-                onBeforeSave={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
-
-            <Accordion title="📊 施工進度（工項清單）" color={PURPLE}>
-              <ProjectTasksSection
-                projectId={editingId as string}
-                onBeforeSave={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
-
-            <Accordion title="② 上類 — 需求分析" color={BLUE}>
-              <div className="grid grid-cols-1 gap-3">
-                <Field label="主要功能定位">
-                  <input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="設備需求"><textarea rows={2} value={form.equipment_needs} onChange={setP('equipment_needs')} className={ta} /></Field>
-                  <Field label="音響需求"><textarea rows={2} value={form.audio_needs} onChange={setP('audio_needs')} className={ta} /></Field>
-                  <Field label="影像需求"><textarea rows={2} value={form.video_needs} onChange={setP('video_needs')} className={ta} /></Field>
-                  <Field label="互動需求"><textarea rows={2} value={form.interaction_needs} onChange={setP('interaction_needs')} className={ta} /></Field>
-                  <Field label="控制需求"><textarea rows={2} value={form.control_needs} onChange={setP('control_needs')} className={ta} /></Field>
-                  <Field label="其他需求"><textarea rows={2} value={form.other_needs} onChange={setP('other_needs')} className={ta} /></Field>
-                </div>
-                <Field label="場地規格">
-                  <textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} />
-                </Field>
-              </div>
-            </Accordion>
-
-            <AccordionGroup title="🏗️ 下類 — 場勘資訊（4 項）" color={GREEN}>
+            <AccordionGroup title="🏗️ 場勘資訊與施工限制（7 項）" color={GREEN}>
               <Accordion title="③ 場勘基本資訊" color={GREEN}>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
@@ -1975,9 +1954,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                   <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
                 </div>
               </Accordion>
-            </AccordionGroup>
 
-            <AccordionGroup title="⚠️ 中類 — 施工限制與現況（3 項）" color={ORG}>
               <Accordion title="⑦ 施工條件限制" color={ORG}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2 flex gap-6 flex-wrap">
@@ -2016,6 +1993,15 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               </Accordion>
             </AccordionGroup>
 
+            {/* 報價單含售價與進貨成本，依 quotes 權限決定是否顯示（工程人員預設看不到） */}
+            <ProjectQuotesAccordion
+              projectId={editingId as string}
+              clientId={clientId}
+              projectName={form.project_name}
+              supabase={supabase}
+              onBeforeCreate={isNewProject ? ensureSaved : undefined}
+            />
+
             <AccordionGroup title="🔧 設備類 — 設備與配置圖（4 項）" color={PURPLE}>
               <Accordion title="🔧 現場設備記錄" color={PURPLE}>
                 <EquipmentSection
@@ -2048,6 +2034,22 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                   projectId={editingId as string}
                   supabase={supabase}
                   onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                />
+              </Accordion>
+            </AccordionGroup>
+
+            <AccordionGroup title="👷 施工人員與派工紀錄和施工進度（2 項）" color={PURPLE}>
+              <Accordion title="👷 施工人員與派工紀錄（工頭／工班人員）" color={PURPLE}>
+                <ProjectCrewSection
+                  projectId={editingId as string}
+                  onBeforeSave={isNewProject ? ensureSaved : undefined}
+                />
+              </Accordion>
+
+              <Accordion title="📊 施工進度（工項清單）" color={PURPLE}>
+                <ProjectTasksSection
+                  projectId={editingId as string}
+                  onBeforeSave={isNewProject ? ensureSaved : undefined}
                 />
               </Accordion>
             </AccordionGroup>
