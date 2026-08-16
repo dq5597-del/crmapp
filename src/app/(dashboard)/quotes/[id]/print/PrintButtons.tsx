@@ -102,6 +102,16 @@ export default function PrintButtons() {
     }
   }
 
+  // 由詳情頁帶 ?share=1 進來時自動觸發分享
+  // （手機跳原生分享選單、桌機顯示連結面板；等版面與字型就緒再送，避免抓到半成品）
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('share') !== '1') return
+    const t = setTimeout(() => { handleSharePdf() }, 600)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="no-print" style={{ position: 'fixed', top: 16, right: 16, display: 'flex', gap: 8, zIndex: 50 }}>
       <button

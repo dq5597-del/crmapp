@@ -300,8 +300,11 @@ export default function QuoteDetailPage() {
         >
           <Sheet size={14} /> 匯出 Excel
         </button>
-        <button onClick={handleShare} disabled={actionLoading === 'share'} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-60">
-          <Send size={14} /> {actionLoading === 'share' ? '寄送中...' : '分享報價單'}
+        {/* 開列印頁並直接觸發分享：手機跳原生分享選單（LINE／Gmail…自己選），
+            桌機顯示連結分享面板。不再直接寄到信箱。 */}
+        <button onClick={() => window.open(`/quotes/${id}/print?share=1`, '_blank')}
+          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-sm font-medium">
+          <Send size={14} /> 分享報價單
         </button>
         <button
           onClick={async () => {
