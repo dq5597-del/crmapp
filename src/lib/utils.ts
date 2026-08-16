@@ -47,17 +47,37 @@ export function buildQuoteFileName(
   quote: { quote_no?: string | null; project_name?: string | null },
   clientName?: string | null
 ): string {
-  const quoteNo = quote.quote_no ?? ''
-  const datePart = quoteNo.slice(0, 6)
-  const seqRaw = quoteNo.slice(6)
-  const seqNum = parseInt(seqRaw || '0', 10)
-  const seqPart = String(seqNum || 0).padStart(2, '0')
+  return buildDocFileName('報價單', quote.quote_no, clientName, quote.project_name)
+}
+
+/**
+ * 單據檔名共用規則（報價單／銷貨單／訂購單一致）
+ * 格式：(光輝)客戶名稱_案名單別_日期_編號
+ * 例：(光輝)花蓮環保局_150人大會議室銷貨單_260815_01
+ *
+ * 單號兩種格式都吃：
+ *   報價單 YYMMDDNNN（260815001）
+ *   銷貨單／訂購單 XX-YYMMDD-NNN（SO-260815-001）
+ * 客戶或案名缺一時自動略過該段，不會留下多餘底線。
+ */
+export function buildDocFileName(
+  docLabel: string,
+  docNo?: string | null,
+  clientName?: string | null,
+  projectName?: string | null,
+): string {
+  const no = (docNo ?? '').trim()
+  // 取單號中的 6 碼日期與最後一段流水號，兩種格式共用
+  const dateMatch = no.match(/(\d{6})/)
+  const datePart = dateMatch ? dateMatch[1] : ''
+  const seqMatch = no.match(/(\d{1,3})$/)
+  const seqPart = String(parseInt(seqMatch?.[1] ?? '0', 10) || 0).padStart(2, '0')
 
   // 檔名不可含這些字元，先清掉再組合
   const clean = (s?: string | null) => (s ?? '').replace(/[\\/:*?"<>|]/g, '').trim()
-  const namePart = [clean(clientName), clean(quote.project_name)].filter(Boolean).join('_')
+  const namePart = [clean(clientName), clean(projectName)].filter(Boolean).join('_')
 
-  return [`(光輝)${namePart}報價單`, datePart, seqPart].filter(Boolean).join('_')
+  return [`(光輝)${namePart}${docLabel}`, datePart, seqPart].filter(Boolean).join('_')
 }
 
 export const CLIENT_STATUS_COLORS: Record<string, string> = {

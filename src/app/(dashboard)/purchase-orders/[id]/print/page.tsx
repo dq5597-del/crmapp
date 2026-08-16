@@ -4,16 +4,7 @@ import { createServerSupabaseClient as createClient } from '@/lib/supabase-serve
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
 import PrintHeaderQr from '@/components/PrintHeaderQr'
-
-function buildOrderFileName(order: { order_no?: string | null }, name?: string | null): string {
-  const orderNo = order.order_no ?? ''
-  const datePart = orderNo.slice(3, 9)
-  const seqRaw = orderNo.slice(9).replace(/^-/, '')
-  const seqNum = parseInt(seqRaw || '0', 10)
-  const seqPart = String(seqNum || 0).padStart(2, '0')
-  const namePart = (name?.trim() || '').replace(/[\\/:*?"<>|]/g, '').trim()
-  return ['(光輝)訂購單', namePart, datePart, seqPart].filter(Boolean).join('_')
-}
+import { buildDocFileName } from '@/lib/utils'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const supabase = createClient()
@@ -24,7 +15,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     .single()
 
   if (!order) return {}
-  return { title: buildOrderFileName(order, order.vendor_name) }
+  return { title: buildDocFileName('訂購單', order.order_no, order.vendor_name) }
 }
 
 function numToChineseCapital(amount: number): string {
