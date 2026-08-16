@@ -186,13 +186,13 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             {quote.project_name && <div className="sub-header">{quote.project_name}</div>}
           </div>
           <div className="header-spacer" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8, alignSelf: 'flex-end' }}>
-            <div style={{ textAlign: 'right', fontSize: 13, color: '#333', lineHeight: 1.75 }}>
-              <div>服務電話：03-8321087</div>
-              <div>地址：花蓮市民權三街十號</div>
-            </div>
             <div style={{ textAlign: 'center' }}>
               <ShopQr url="https://line.me/R/ti/p/@807wvsuu" size={52} />
               <div style={{ fontSize: 10, color: '#333', marginTop: 1, letterSpacing: 0.2 }}>@807wvsuu</div>
+            </div>
+            <div style={{ textAlign: 'right', fontSize: 13, color: '#333', lineHeight: 1.75 }}>
+              <div>服務電話：03-8321087</div>
+              <div>地址：花蓮市民權三街十號</div>
             </div>
           </div>
         </div>
