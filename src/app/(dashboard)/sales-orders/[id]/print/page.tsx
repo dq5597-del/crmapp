@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
+import PrintHeaderQr from '@/components/PrintHeaderQr'
 
 function buildOrderFileName(order: { order_no?: string | null; project_name?: string | null }, fallbackName?: string | null): string {
   const orderNo = order.order_no ?? ''
@@ -165,9 +166,15 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
             <h1>銷 貨 單</h1>
             {order.project_name && <div className="sub-header">{order.project_name}</div>}
           </div>
-          <div className="header-spacer" style={{ textAlign: 'right', fontSize: 11, color: '#333', lineHeight: 1.9, alignSelf: 'flex-end' }}>
-            <div>服務電話：03-8321087</div>
-            <div>地址：花蓮市民權三街十號</div>
+          <div className="header-spacer" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8, alignSelf: 'flex-end' }}>
+            <div style={{ textAlign: 'center' }}>
+              <PrintHeaderQr url="https://line.me/R/ti/p/@807wvsuu" size={52} />
+              <div style={{ fontSize: 10, color: '#333', marginTop: 1, letterSpacing: 0.2 }}>@807wvsuu</div>
+            </div>
+            <div style={{ textAlign: 'right', fontSize: 13, color: '#333', lineHeight: 1.75 }}>
+              <div>服務電話：03-8321087</div>
+              <div>地址：花蓮市民權三街十號</div>
+            </div>
           </div>
         </div>
 

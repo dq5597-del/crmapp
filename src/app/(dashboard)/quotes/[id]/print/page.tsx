@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
-import ShopQr from './ShopQr'
+import PrintHeaderQr from '@/components/PrintHeaderQr'
 import { buildQuoteFileName } from '@/lib/utils'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
@@ -187,7 +187,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           </div>
           <div className="header-spacer" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 8, alignSelf: 'flex-end' }}>
             <div style={{ textAlign: 'center' }}>
-              <ShopQr url="https://line.me/R/ti/p/@807wvsuu" size={52} />
+              <PrintHeaderQr url="https://line.me/R/ti/p/@807wvsuu" size={52} />
               <div style={{ fontSize: 10, color: '#333', marginTop: 1, letterSpacing: 0.2 }}>@807wvsuu</div>
             </div>
             <div style={{ textAlign: 'right', fontSize: 13, color: '#333', lineHeight: 1.75 }}>
