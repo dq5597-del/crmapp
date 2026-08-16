@@ -1923,9 +1923,8 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
             </Accordion>
 
             <AccordionGroup title="🏗️ 場勘資訊與施工限制（7 項）" color={GREEN}>
-              {/* ③④⑤⑥ 場勘資訊：同一個大欄位，不個別收合 */}
-              <div>
-                <p className="text-sm font-semibold text-emerald-800 mb-2">場勘資訊</p>
+              {/* ③④⑤⑥ 場勘資訊：獨立收合欄位 */}
+              <Accordion title="場勘資訊" color={GREEN}>
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs font-medium text-emerald-700 mb-2">③ 場勘基本資訊</p>
@@ -1988,11 +1987,10 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                     </div>
                   </div>
                 </div>
-              </div>
+              </Accordion>
 
-              {/* ⑦⑧⑨ 施工限制與現況：同一個大欄位，不個別收合 */}
-              <div className="pt-4 border-t-2 border-orange-200">
-                <p className="text-sm font-semibold text-orange-800 mb-2">施工限制與現況</p>
+              {/* ⑦⑧⑨ 施工限制與現況：獨立收合欄位 */}
+              <Accordion title="施工限制與現況" color={ORG}>
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs font-medium text-orange-700 mb-2">⑦ 施工條件限制</p>
@@ -2034,7 +2032,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                     </Field>
                   </div>
                 </div>
-              </div>
+              </Accordion>
             </AccordionGroup>
 
             {/* 報價單含售價與進貨成本，依 quotes 權限決定是否顯示（工程人員預設看不到） */}
