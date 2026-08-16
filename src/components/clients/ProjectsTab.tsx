@@ -106,6 +106,7 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
   const camRef  = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -134,26 +135,40 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
     return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
   }
 
-  async function handleUpload(file: File) {
+  /** 支援一次選多張照片、依序上傳；任何一張失敗不會中斷其他張，最後統一提示失敗清單 */
+  async function handleUploadFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList).filter(Boolean)
+    if (files.length === 0) return
     if (onBeforeUpload && !(await onBeforeUpload())) return
-    setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('folder', `專案照片/${cat}`)
-      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
 
-      const { error: dbErr } = await supabase.from('project_photos').insert({
-        project_id: projectId, category: cat, storage_path: `gdrive:${data.file_id}`, notes: '',
-      })
-      if (dbErr) throw dbErr
-      await fetchPhotos()
-    } catch (e: any) {
-      alert('上傳失敗: ' + e.message)
+    setUploading(true)
+    setUploadProgress({ done: 0, total: files.length })
+    const failed: string[] = []
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('folder', `專案照片/${cat}`)
+        const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+
+        const { error: dbErr } = await supabase.from('project_photos').insert({
+          project_id: projectId, category: cat, storage_path: `gdrive:${data.file_id}`, notes: '',
+        })
+        if (dbErr) throw dbErr
+      } catch (e: any) {
+        failed.push(`${file.name}（${e.message}）`)
+      }
+      setUploadProgress({ done: i + 1, total: files.length })
     }
+
+    await fetchPhotos()
     setUploading(false)
+    setUploadProgress(null)
+    if (failed.length) alert(`部分照片上傳失敗：\n${failed.join('\n')}`)
   }
 
   async function handleDelete(photo: Photo) {
@@ -195,18 +210,22 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
       {/* Upload Controls */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
-        <input ref={fileRef} type="file" accept="image/*" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
+          onChange={e => { const files = e.target.files; if (files?.length) handleUploadFiles(files); e.target.value = '' }} />
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+          onChange={e => { const files = e.target.files; if (files?.length) handleUploadFiles(files); e.target.value = '' }} />
         <button type="button" onClick={() => camRef.current?.click()} disabled={uploading}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
           <Camera size={14} /> 拍照上傳
         </button>
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
-          <ImageIcon size={14} /> 開啟舊檔
+          <ImageIcon size={14} /> 開啟舊檔（可多選）
         </button>
-        {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
+        {uploading && (
+          <span className="text-xs text-gray-400 animate-pulse">
+            上傳中...{uploadProgress ? `（${uploadProgress.done}/${uploadProgress.total}）` : ''}
+          </span>
+        )}
         <span className="ml-auto text-xs text-gray-400">上傳至「{catLabel}」</span>
       </div>
 
@@ -1889,99 +1908,118 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
             </Accordion>
 
             <AccordionGroup title="🏗️ 場勘資訊與施工限制（7 項）" color={GREEN}>
-              <Accordion title="③ 場勘基本資訊" color={GREEN}>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
-                  <Field label="場勘負責人"><input value={survey.surveyor} onChange={setS('surveyor')} className={inp} /></Field>
-                  <Field label="現場聯絡姓名"><input value={survey.contact_name} onChange={setS('contact_name')} className={inp} /></Field>
-                  <Field label="現場聯絡電話"><input value={survey.contact_phone} onChange={setS('contact_phone')} className={inp} /></Field>
-                  <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
-                </div>
-              </Accordion>
-
-              <Accordion title="④ 空間規格資訊" color={GREEN}>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
-                  <Field label="長度（公尺）"><input type="number" value={survey.space_length} onChange={setS('space_length')} className={inp} /></Field>
-                  <Field label="寬度（公尺）"><input type="number" value={survey.space_width} onChange={setS('space_width')} className={inp} /></Field>
-                  <Field label="高度（公尺）"><input type="number" value={survey.space_height} onChange={setS('space_height')} className={inp} /></Field>
-                  <Field label="容納人數"><input type="number" value={survey.capacity} onChange={setS('capacity')} className={inp} /></Field>
-                  <Field label="天花板類型/材質"><input value={survey.ceiling_type} onChange={setS('ceiling_type')} className={inp} /></Field>
-                  <Field label="牆面材質"><input value={survey.wall_material} onChange={setS('wall_material')} className={inp} /></Field>
-                  <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
-                  <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-emerald-200">
-                  <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
-                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                </div>
-              </Accordion>
-
-              <Accordion title="⑤ 電力與網路" color={GREEN}>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
-                  <Field label="現有插座數量位置"><input value={survey.outlet_count} onChange={setS('outlet_count')} className={inp} /></Field>
-                  <Field label="電壓容量說明"><input value={survey.voltage_capacity} onChange={setS('voltage_capacity')} className={inp} /></Field>
-                  <Field label="電源射頻干擾情況"><input value={survey.rf_interference} onChange={setS('rf_interference')} className={inp} /></Field>
-                  <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
-                  <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-emerald-200">
-                  <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
-                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                </div>
-              </Accordion>
-
-              <Accordion title="⑥ 聲學與環境" color={GREEN}>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
-                  <Field label="環境噪音（dB）"><input type="number" value={survey.ambient_noise_db} onChange={setS('ambient_noise_db')} className={inp} /></Field>
-                  <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
-                  <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
-                  <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
-                </div>
-                <div className="mt-4 pt-4 border-t border-emerald-200">
-                  <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
-                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                </div>
-              </Accordion>
-
-              <Accordion title="⑦ 施工條件限制" color={ORG}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 flex gap-6 flex-wrap">
-                    <BoolField label="是否禁止酷孔打牆壁" value={survey.no_drilling} onChange={setSB('no_drilling')} />
-                    <BoolField label="是否需要採購/代購材料設備" value={survey.need_procurement} onChange={setSB('need_procurement')} />
+              {/* ③④⑤⑥ 場勘資訊：同一個大欄位，不個別收合 */}
+              <div>
+                <p className="text-sm font-semibold text-emerald-800 mb-2">場勘資訊</p>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-emerald-700 mb-2">③ 場勘基本資訊</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
+                      <Field label="場勘負責人"><input value={survey.surveyor} onChange={setS('surveyor')} className={inp} /></Field>
+                      <Field label="現場聯絡姓名"><input value={survey.contact_name} onChange={setS('contact_name')} className={inp} /></Field>
+                      <Field label="現場聯絡電話"><input value={survey.contact_phone} onChange={setS('contact_phone')} className={inp} /></Field>
+                      <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
+                    </div>
                   </div>
-                  <Field label="特殊施工時間限制"><input value={survey.special_construction_time} onChange={setS('special_construction_time')} className={inp} /></Field>
-                  <Field label="懸挂載重限制"><input value={survey.hanging_limits} onChange={setS('hanging_limits')} className={inp} /></Field>
-                  <Field label="現場施工限制說明" span2><textarea rows={2} value={survey.construction_issues} onChange={setS('construction_issues')} className={ta} /></Field>
-                  <Field label="搜運時間（分鐘）"><input type="number" value={survey.travel_time_minutes} onChange={setS('travel_time_minutes')} className={inp} /></Field>
-                  <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
-                  <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
-                  <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
-                </div>
-                <div className="mt-4 pt-4 border-t border-orange-200">
-                  <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
-                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                </div>
-              </Accordion>
 
-              <Accordion title="⑧ 現況設備補充" color={ORG}>
-                <div className="grid grid-cols-1 gap-3">
-                  <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
-                  <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
-                  <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
-                  <Field label="單位期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
-                  <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
-                  <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
-                </div>
-              </Accordion>
+                  <div className="pt-4 border-t border-emerald-200">
+                    <p className="text-xs font-medium text-emerald-700 mb-2">④ 空間規格資訊</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
+                      <Field label="長度（公尺）"><input type="number" value={survey.space_length} onChange={setS('space_length')} className={inp} /></Field>
+                      <Field label="寬度（公尺）"><input type="number" value={survey.space_width} onChange={setS('space_width')} className={inp} /></Field>
+                      <Field label="高度（公尺）"><input type="number" value={survey.space_height} onChange={setS('space_height')} className={inp} /></Field>
+                      <Field label="容納人數"><input type="number" value={survey.capacity} onChange={setS('capacity')} className={inp} /></Field>
+                      <Field label="天花板類型/材質"><input value={survey.ceiling_type} onChange={setS('ceiling_type')} className={inp} /></Field>
+                      <Field label="牆面材質"><input value={survey.wall_material} onChange={setS('wall_material')} className={inp} /></Field>
+                      <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
+                      <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-emerald-200">
+                      <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
+                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                    </div>
+                  </div>
 
-              <Accordion title="⑨ 場勘備註" color={ORG}>
-                <Field label="場勘備註內容">
-                  <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
-                </Field>
-              </Accordion>
+                  <div className="pt-4 border-t border-emerald-200">
+                    <p className="text-xs font-medium text-emerald-700 mb-2">⑤ 電力與網路</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
+                      <Field label="現有插座數量位置"><input value={survey.outlet_count} onChange={setS('outlet_count')} className={inp} /></Field>
+                      <Field label="電壓容量說明"><input value={survey.voltage_capacity} onChange={setS('voltage_capacity')} className={inp} /></Field>
+                      <Field label="電源射頻干擾情況"><input value={survey.rf_interference} onChange={setS('rf_interference')} className={inp} /></Field>
+                      <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
+                      <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-emerald-200">
+                      <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
+                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-emerald-200">
+                    <p className="text-xs font-medium text-emerald-700 mb-2">⑥ 聲學與環境</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
+                      <Field label="環境噪音（dB）"><input type="number" value={survey.ambient_noise_db} onChange={setS('ambient_noise_db')} className={inp} /></Field>
+                      <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
+                      <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
+                      <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-emerald-200">
+                      <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
+                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ⑦⑧⑨ 施工限制與現況：同一個大欄位，不個別收合 */}
+              <div className="pt-4 border-t-2 border-orange-200">
+                <p className="text-sm font-semibold text-orange-800 mb-2">施工限制與現況</p>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-orange-700 mb-2">⑦ 施工條件限制</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2 flex gap-6 flex-wrap">
+                        <BoolField label="是否禁止酷孔打牆壁" value={survey.no_drilling} onChange={setSB('no_drilling')} />
+                        <BoolField label="是否需要採購/代購材料設備" value={survey.need_procurement} onChange={setSB('need_procurement')} />
+                      </div>
+                      <Field label="特殊施工時間限制"><input value={survey.special_construction_time} onChange={setS('special_construction_time')} className={inp} /></Field>
+                      <Field label="懸挂載重限制"><input value={survey.hanging_limits} onChange={setS('hanging_limits')} className={inp} /></Field>
+                      <Field label="現場施工限制說明" span2><textarea rows={2} value={survey.construction_issues} onChange={setS('construction_issues')} className={ta} /></Field>
+                      <Field label="搜運時間（分鐘）"><input type="number" value={survey.travel_time_minutes} onChange={setS('travel_time_minutes')} className={inp} /></Field>
+                      <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
+                      <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
+                      <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-orange-200">
+                      <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
+                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-orange-200">
+                    <p className="text-xs font-medium text-orange-700 mb-2">⑧ 現況設備補充</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
+                      <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
+                      <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
+                      <Field label="單位期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
+                      <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
+                      <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-orange-200">
+                    <p className="text-xs font-medium text-orange-700 mb-2">⑨ 場勘備註</p>
+                    <Field label="場勘備註內容">
+                      <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
+                    </Field>
+                  </div>
+                </div>
+              </div>
             </AccordionGroup>
 
             {/* 報價單含售價與進貨成本，依 quotes 權限決定是否顯示（工程人員預設看不到） */}
