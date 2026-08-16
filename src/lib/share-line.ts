@@ -49,19 +49,24 @@ export function supportsNativeFileShare(): boolean {
 /**
  * 下載檔名（給簽章連結的 download 參數用）
  *
- * ⚠ 這個字串會直接進到網址的查詢字串。中文、空格、括號若沒被完整編碼，
- *   產生的連結會夾帶空白或非法字元 —— 瀏覽器當成搜尋字串、LINE 也無法點擊。
- *   因此一律轉成 ASCII 安全字元（英數、底線、減號、點），確保連結永遠可用。
- *   代價是客戶存檔時看到的是單號而非中文名，但「連結能開」優先。
+ * 保留中文，只清掉檔案系統不接受的字元與換行。
+ * 中文本身可以放在網址裡 —— 但必須做百分比編碼，見下方 appendDownloadName()。
  */
 function safeDownloadName(name: string): string {
-  const ascii = name
-    .replace(/[^\x20-\x7E]/g, '')      // 去掉中文等非 ASCII
-    .replace(/[^A-Za-z0-9._-]+/g, '_') // 空格、括號等一律換成底線
-    .replace(/_+/g, '_')
-    .replace(/^[_.]+|[_.]+$/g, '')
-    .slice(0, 60)
-  return ascii || 'document'
+  return name.replace(/[\\/:*?"<>|\r\n\t]/g, '').trim().slice(0, 80) || '單據'
+}
+
+/**
+ * 把下載檔名以百分比編碼掛回簽章連結。
+ *
+ * 不倚賴 SDK 是否有幫忙編碼 —— 先移除它可能已加上的 download 參數，
+ * 再用 encodeURIComponent 自己接一次，確保中文與括號都被正確編碼，
+ * 產生的網址不會夾帶空白或非法字元。
+ */
+function appendDownloadName(signedUrl: string, fileName: string): string {
+  const base = signedUrl.replace(/([?&])download=[^&]*/i, '$1').replace(/[?&]$/, '')
+  const sep = base.includes('?') ? '&' : '?'
+  return `${base}${sep}download=${encodeURIComponent(`${safeDownloadName(fileName)}.pdf`)}`
 }
 
 /**
@@ -98,16 +103,14 @@ export async function uploadAndCreateSignedUrl(
 
   const { data, error: signError } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(path, SHARE_EXPIRY_SECONDS, {
-      // 讓客戶存檔時拿到正確的中文檔名，而不是一串 UUID
-      download: `${safeDownloadName(fileName)}.pdf`,
-    })
+    .createSignedUrl(path, SHARE_EXPIRY_SECONDS)
 
   if (signError || !data?.signedUrl) {
     throw new Error(`產生分享連結失敗：${signError?.message ?? '未知錯誤'}`)
   }
 
-  return data.signedUrl
+  // 讓客戶存檔時拿到中文檔名，而不是一串 UUID
+  return appendDownloadName(data.signedUrl, fileName)
 }
 
 /** 組 LINE 訊息內容 */
