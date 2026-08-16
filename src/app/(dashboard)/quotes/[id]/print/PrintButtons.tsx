@@ -16,6 +16,7 @@ export default function PrintButtons() {
   const [loading, setLoading] = useState<'' | 'download' | 'share' | 'print' | 'printL'>('')
   const [showPreview, setShowPreview] = useState(false)
   const [previewLandscape, setPreviewLandscape] = useState(false)
+  const [sharePrompt, setSharePrompt] = useState(false)
   const router = useRouter()
 
   /** 直向／橫向都先開預覽，確認版面後再由預覽視窗下載或分享 —— 不直接送印 */
@@ -102,25 +103,13 @@ export default function PrintButtons() {
     }
   }
 
-  // 由詳情頁帶 ?share=1 進來時自動觸發分享
-  //   QR 是載入 CDN 後才產生的，若不等它就擷取，分享出去的 PDF 會少一塊，
-  //   與手動列印的版面不一致 → 先等 QR 出現（最多 3 秒）再送。
+  // 由詳情頁帶 ?share=1 進來時，顯示一鍵分享提示。
+  //   為什麼不自動送出：navigator.share() 規格要求必須由使用者手勢直接觸發，
+  //   用計時器自動呼叫會被瀏覽器擋掉（手機上就是「按了沒反應」）。
+  //   因此改成跳一個大按鈕，讓那一下點擊帶著手勢進去。
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
-    if (sp.get('share') !== '1') return
-
-    let cancelled = false
-    const started = Date.now()
-    const tick = setInterval(() => {
-      const ready = document.querySelector('[data-qr-ready]')
-      if (cancelled) return
-      if (ready || Date.now() - started > 3000) {
-        clearInterval(tick)
-        handleSharePdf()
-      }
-    }, 150)
-    return () => { cancelled = true; clearInterval(tick) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (sp.get('share') === '1') setSharePrompt(true)
   }, [])
 
   return (
@@ -165,6 +154,36 @@ export default function PrintButtons() {
       >
         關閉
       </button>
+
+      {sharePrompt && (
+        <div className="no-print"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,23,42,.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+          onClick={() => setSharePrompt(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 16, padding: 24, width: 'min(360px,92vw)', textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>分享報價單</div>
+            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.7, marginBottom: 16 }}>
+              點下方按鈕選擇要傳送的應用程式
+            </div>
+            <button
+              onClick={async () => { setSharePrompt(false); await handleSharePdf() }}
+              disabled={!!loading}
+              style={{
+                width: '100%', padding: '13px', background: '#2563eb', color: '#fff',
+                border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer',
+              }}>
+              {loading === 'share' ? '產生中…' : '選擇應用程式分享'}
+            </button>
+            <button onClick={() => setSharePrompt(false)}
+              style={{ width: '100%', marginTop: 8, padding: 10, background: 'none', color: '#94a3b8', border: 'none', fontSize: 13, cursor: 'pointer' }}>
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
       <PrintPreviewModal
         open={showPreview}

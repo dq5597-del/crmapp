@@ -112,7 +112,8 @@ export async function uploadAndCreateSignedUrl(
 
 /** 組 LINE 訊息內容 */
 export function buildLineMessage(fileName: string, url: string): string {
-  return [fileName, '', '請點擊連結查看：', url, '', '光輝影音科技'].join('\n')
+  // 網址放最後且獨立成行：後面若接文字，部分聊天軟體會把它一起併進連結而失效
+  return [fileName, '光輝影音科技', '', '請點擊連結查看：', url].join('\n')
 }
 
 /** LINE 分享網址 */
@@ -176,6 +177,11 @@ export function showShareLinkPanel(fileName: string, url: string): void {
                border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
         複製連結
       </button>
+      <button id="gh-share-copy-msg"
+        style="flex:1;padding:10px;background:#fff;color:#334155;border:1px solid #cbd5e1;
+               border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+        複製訊息
+      </button>
     </div>
     <button id="gh-share-close"
       style="width:100%;margin-top:8px;padding:9px;background:none;color:#94a3b8;
@@ -195,10 +201,11 @@ export function showShareLinkPanel(fileName: string, url: string): void {
     setTimeout(close, 300)
   })
 
+  // 按鈕寫「複製連結」就只複製網址 —— 複製整段訊息會讓人貼到網址列變成搜尋
   const copyBtn = card.querySelector<HTMLButtonElement>('#gh-share-copy')
   copyBtn?.addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(message)
+      await navigator.clipboard.writeText(url)
     } catch {
       const input = card.querySelector<HTMLInputElement>('#gh-share-url')
       input?.select()
@@ -206,6 +213,14 @@ export function showShareLinkPanel(fileName: string, url: string): void {
     }
     copyBtn.textContent = '已複製 ✓'
     setTimeout(() => (copyBtn.textContent = '複製連結'), 2000)
+  })
+
+  // 另外提供複製完整訊息（檔名＋說明＋連結），方便直接貼到聊天室
+  const copyMsgBtn = card.querySelector<HTMLButtonElement>('#gh-share-copy-msg')
+  copyMsgBtn?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(message) } catch { /* 忽略 */ }
+    copyMsgBtn.textContent = '已複製 ✓'
+    setTimeout(() => (copyMsgBtn.textContent = '複製訊息'), 2000)
   })
 
   document.addEventListener('keydown', function esc(e) {
