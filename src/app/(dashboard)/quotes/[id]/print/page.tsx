@@ -209,7 +209,6 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           <thead>
             <tr>
               <th style={{ width: 36 }}>編號</th>
-              <th style={{ textAlign: 'left', width: 90 }}>品牌</th>
               <th style={{ textAlign: 'left' }}>產品名稱</th>
               <th style={{ textAlign: 'left', width: 110 }}>規格型號</th>
               <th style={{ width: 44 }}>單位</th>
@@ -224,23 +223,11 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <Fragment key={item.id}>
                 {item.is_category ? (
                   <tr className="cat-row">
-                    <td colSpan={9}>{item.product_name}</td>
+                    <td colSpan={8}>{item.product_name}</td>
                   </tr>
                 ) : (
                 <tr>
                   <td className="center">{item.display_no}</td>
-                  <td>
-                    {(() => {
-                      const logo = knownBrandLogoUrl(item.brand)
-                      return (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {logo && <img src={logo} alt="" style={{ height: 14, width: 'auto', maxWidth: 56, objectFit: 'contain' }} />}
-                          <span>{item.brand ?? ''}</span>
-                        </span>
-                      )
-                    })()}
-                  </td>
                   <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>
@@ -257,25 +244,25 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             {hasDiscount && (
               <>
                 <tr className="total-row">
-                  <td colSpan={6}>原價合計</td>
+                  <td colSpan={5}>原價合計</td>
                   <td colSpan={3} className="num">NT$ {fmt(origAmt)}</td>
                 </tr>
                 <tr className="total-row">
-                  <td colSpan={6}>折扣</td>
+                  <td colSpan={5}>折扣</td>
                   <td colSpan={3} className="num">- NT$ {fmt(discAmt)}</td>
                 </tr>
               </>
             )}
             <tr className="total-row tax-row tax-top">
-              <td colSpan={6}>未稅金額</td>
+              <td colSpan={5}>未稅金額</td>
               <td colSpan={3} className="num">NT$ {fmt(netAmt)}</td>
             </tr>
             <tr className="total-row tax-row">
-              <td colSpan={6}>營業稅 5%</td>
+              <td colSpan={5}>營業稅 5%</td>
               <td colSpan={3} className="num">NT$ {fmt(taxAmt)}</td>
             </tr>
             <tr className="total-row tax-row tax-bottom">
-              <td colSpan={6}>含稅合計　{totalChinese}</td>
+              <td colSpan={5}>含稅合計　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(quote.total_amount))}</td>
             </tr>
           </tfoot>
