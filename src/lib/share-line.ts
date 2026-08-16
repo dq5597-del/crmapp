@@ -46,8 +46,22 @@ export function supportsNativeFileShare(): boolean {
  * 供 Content-Disposition 使用的檔名（可含中文）。
  * 只需擋掉會破壞 header 的字元。
  */
+/**
+ * 下載檔名（給簽章連結的 download 參數用）
+ *
+ * ⚠ 這個字串會直接進到網址的查詢字串。中文、空格、括號若沒被完整編碼，
+ *   產生的連結會夾帶空白或非法字元 —— 瀏覽器當成搜尋字串、LINE 也無法點擊。
+ *   因此一律轉成 ASCII 安全字元（英數、底線、減號、點），確保連結永遠可用。
+ *   代價是客戶存檔時看到的是單號而非中文名，但「連結能開」優先。
+ */
 function safeDownloadName(name: string): string {
-  return name.replace(/[\\/:*?"<>|\r\n\t]/g, '').trim().slice(0, 80) || '單據'
+  const ascii = name
+    .replace(/[^\x20-\x7E]/g, '')      // 去掉中文等非 ASCII
+    .replace(/[^A-Za-z0-9._-]+/g, '_') // 空格、括號等一律換成底線
+    .replace(/_+/g, '_')
+    .replace(/^[_.]+|[_.]+$/g, '')
+    .slice(0, 60)
+  return ascii || 'document'
 }
 
 /**
