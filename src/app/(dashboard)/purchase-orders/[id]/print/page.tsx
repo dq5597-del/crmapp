@@ -191,7 +191,6 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
           <thead>
             <tr>
               <th style={{ width: 36 }}>編號</th>
-              <th style={{ textAlign: 'left', width: 80 }}>品牌</th>
               <th style={{ textAlign: 'left' }}>產品名稱</th>
               <th style={{ textAlign: 'left', width: 110 }}>規格型號</th>
               <th style={{ width: 44 }}>單位</th>
@@ -210,7 +209,7 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
                   dispNo = 0
                   return (
                     <tr key={item.id} style={{ background: '#ececec' }}>
-                      <td colSpan={9} style={{ fontWeight: 700 }}>{item.product_name}</td>
+                      <td colSpan={8} style={{ fontWeight: 700 }}>{item.product_name}</td>
                     </tr>
                   )
                 }
@@ -219,7 +218,6 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
                   <Fragment key={item.id}>
                     <tr>
                       <td className="center">{dispNo}</td>
-                      <td>{item.brand ?? ''}</td>
                       <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                       <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                       <td className="center">{item.unit}</td>
@@ -230,7 +228,7 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
                     </tr>
                     {!!item.item_notes?.trim() && (
                       <tr className="notes-row">
-                        <td colSpan={9}>備註：{item.item_notes}</td>
+                        <td colSpan={8}>備註：{item.item_notes}</td>
                       </tr>
                     )}
                   </Fragment>
@@ -241,15 +239,15 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
           {/* 訂單已成立，不再列原價與折扣；金額需與發票對得起來 */}
           <tfoot>
             <tr className="total-row tax-row tax-top">
-              <td colSpan={6}>未稅金額</td>
+              <td colSpan={5}>未稅金額</td>
               <td colSpan={3} className="num">NT$ {fmt(netAmt)}</td>
             </tr>
             <tr className="total-row tax-row">
-              <td colSpan={6}>營業稅 5%</td>
+              <td colSpan={5}>營業稅 5%</td>
               <td colSpan={3} className="num">NT$ {fmt(taxAmt)}</td>
             </tr>
             <tr className="total-row tax-row tax-bottom">
-              <td colSpan={6}>含稅合計　{totalChinese}</td>
+              <td colSpan={5}>含稅合計　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(order.total_amount))}</td>
             </tr>
           </tfoot>
