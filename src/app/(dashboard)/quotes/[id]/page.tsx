@@ -19,6 +19,32 @@ export default function QuoteDetailPage() {
 
   const [quote, setQuote] = useState<Quote | null>(null)
   const [items, setItems] = useState<QuoteItem[]>([])
+
+  // 品項表格欄位顯示／收合（存 localStorage，下次開啟沿用）
+  const COLS = [
+    { key: 'code', label: '料號' },
+    { key: 'model', label: '規格型號' },
+    { key: 'unit', label: '單位' },
+    { key: 'catalog', label: '型錄' },
+    { key: 'notes', label: '備註' },
+  ] as const
+  const [cols, setCols] = useState<Record<string, boolean>>({
+    code: false, model: true, unit: true, catalog: true, notes: true,
+  })
+  const [colMenu, setColMenu] = useState(false)
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('gh-quote-item-cols')
+      if (s) setCols(p => ({ ...p, ...JSON.parse(s) }))
+    } catch { /* 忽略毀損的設定 */ }
+  }, [])
+  function toggleCol(key: string) {
+    setCols(p => {
+      const next = { ...p, [key]: !p[key] }
+      try { localStorage.setItem('gh-quote-item-cols', JSON.stringify(next)) } catch { }
+      return next
+    })
+  }
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [actionLoading, setActionLoading] = useState('')
@@ -28,7 +54,7 @@ export default function QuoteDetailPage() {
   async function fetchData() {
     const [qRes, iRes] = await Promise.all([
       supabase.from('quotes').select('*, clients(company_name, phone), salesperson:user_profiles(full_name)').eq('id', id).single(),
-      supabase.from('quote_items').select('*, products(catalog_url, manual_url)').eq('quote_id', id).order('seq_no'),
+      supabase.from('quote_items').select('*, products(catalog_url, manual_url, product_code)').eq('quote_id', id).order('seq_no'),
     ])
     setQuote(qRes.data)
     setItems(iRes.data ?? [])
@@ -326,38 +352,67 @@ export default function QuoteDetailPage() {
 
       {/* Items table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
+        {/* 欄位顯示切換 */}
+        <div className="flex justify-end px-4 pt-3 relative">
+          <button onClick={() => setColMenu(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50">
+            欄位 <span className="text-gray-400">{colMenu ? '▴' : '▾'}</span>
+          </button>
+          {colMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setColMenu(false)} />
+              <div className="absolute right-4 top-11 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 w-36">
+                {COLS.map(c => (
+                  <label key={c.key} className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox" checked={!!cols[c.key]} onChange={() => toggleCol(c.key)}
+                      className="accent-blue-600 w-3.5 h-3.5" />
+                    {c.label}
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-gray-600 font-medium w-8">#</th>
+                {cols.code && <th className="text-left px-4 py-3 text-gray-600 font-medium">料號</th>}
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">品名</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">規格型號</th>
+                {cols.model && <th className="text-left px-4 py-3 text-gray-600 font-medium">規格型號</th>}
                 <th className="text-center px-3 py-3 text-gray-600 font-medium">數量</th>
-                <th className="text-center px-3 py-3 text-gray-600 font-medium">單位</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-medium">單價</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-medium">金額</th>
-                <th className="text-center px-3 py-3 text-gray-600 font-medium">型錄</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-medium">備註</th>
+                {cols.unit && <th className="text-center px-3 py-3 text-gray-600 font-medium">單位</th>}
+                <th className="text-right px-4 py-3 text-gray-600 font-medium whitespace-nowrap">含稅單價</th>
+                <th className="text-right px-4 py-3 text-gray-600 font-medium whitespace-nowrap">含稅金額</th>
+                {cols.catalog && <th className="text-center px-3 py-3 text-gray-600 font-medium">型錄</th>}
+                {cols.notes && <th className="text-left px-4 py-3 text-gray-600 font-medium">備註</th>}
               </tr>
             </thead>
             <tbody>
               {items.map(item => (
                 <tr key={item.id} className="border-b border-gray-50">
                   <td className="px-4 py-3 text-gray-400">{item.seq_no}</td>
+                  {cols.code && (
+                    <td className="px-4 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">
+                      {(item as any).products?.product_code ?? '—'}
+                    </td>
+                  )}
                   <td className="px-4 py-3 font-medium text-gray-900">{item.product_name}</td>
-                  <td className="px-4 py-3 text-gray-500">{item.model ?? '—'}</td>
+                  {cols.model && <td className="px-4 py-3 text-gray-500">{item.model ?? '—'}</td>}
                   <td className="px-3 py-3 text-center text-gray-700">{item.quantity}</td>
-                  <td className="px-3 py-3 text-center text-gray-500">{item.unit}</td>
+                  {cols.unit && <td className="px-3 py-3 text-center text-gray-500">{item.unit}</td>}
                   <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(item.unit_price)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(item.amount)}</td>
-                  <td className="px-3 py-3 text-center text-xs text-gray-500">
-                    {item.provide_catalog && '型錄'}
-                    {item.provide_catalog && item.provide_manual && ' / '}
-                    {item.provide_manual && '說明書'}
-                    {!item.provide_catalog && !item.provide_manual && '—'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{item.item_notes ?? '—'}</td>
+                  {cols.catalog && (
+                    <td className="px-3 py-3 text-center text-xs text-gray-500">
+                      {item.provide_catalog && '型錄'}
+                      {item.provide_catalog && item.provide_manual && ' / '}
+                      {item.provide_manual && '說明書'}
+                      {!item.provide_catalog && !item.provide_manual && '—'}
+                    </td>
+                  )}
+                  {cols.notes && <td className="px-4 py-3 text-gray-500 text-xs">{item.item_notes ?? '—'}</td>}
                 </tr>
               ))}
             </tbody>
