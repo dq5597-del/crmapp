@@ -138,6 +138,9 @@ export default function SchedulePage() {
   const [actualModal, setActualModal] = useState<Schedule | null>(null)
   const [review, setReview] = useState({ good_things: '', bad_things: '', improvements: '' })
   const [reviewSaved, setReviewSaved] = useState(false)
+  const [editGap, setEditGap] = useState<{ id: string; title: string; gap_due_date: string } | null>(null)
+  const [newGap, setNewGap] = useState('')
+  const [gapSaving, setGapSaving] = useState(false)
 
   const todayStr = fmt(new Date())
 
@@ -243,6 +246,41 @@ export default function SchedulePage() {
   async function deleteSchedule(id: string) {
     if (!confirm('確定刪除此行程？')) return
     await supabase.from('schedules').delete().eq('id', id)
+    fetchAll()
+  }
+
+  // ---- 空檔任務：新增 / 個別編輯 ----
+  async function addGapTask() {
+    const title = newGap.trim()
+    if (!title) return
+    setGapSaving(true)
+    const { error } = await supabase.from('schedules').insert({
+      schedule_date: fmt(anchor), title, type: '內部作業',
+      is_gap_task: true, is_adhoc: false, status: '未開始',
+      remind_email: false, remind_days_before: 0,
+    })
+    setGapSaving(false)
+    if (error) { alert('新增失敗：' + error.message); return }
+    setNewGap('')
+    fetchAll()
+  }
+
+  function startEditGap(t: Schedule) {
+    setEditGap({ id: t.id, title: t.title, gap_due_date: t.gap_due_date ?? '' })
+  }
+
+  async function saveGap() {
+    if (!editGap) return
+    const title = editGap.title.trim()
+    if (!title) { alert('任務內容不可空白'); return }
+    setGapSaving(true)
+    const { error } = await supabase.from('schedules').update({
+      title,
+      gap_due_date: editGap.gap_due_date || null,
+    }).eq('id', editGap.id)
+    setGapSaving(false)
+    if (error) { alert('儲存失敗：' + error.message); return }
+    setEditGap(null)
     fetchAll()
   }
 
@@ -544,17 +582,59 @@ export default function SchedulePage() {
               ) : (
                 <div className="space-y-2">
                   {gapTasks.map(t => (
-                    <label key={t.id} className="flex items-center gap-2.5 text-sm cursor-pointer group">
-                      <input type="checkbox" checked={t.status === '已完成'} onChange={() => toggleGapDone(t)} className="w-4 h-4 rounded" />
-                      <span className={`flex-1 ${t.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.title}</span>
-                      {t.gap_due_date && (
-                        <span className={`text-xs ${t.gap_due_date < todayStr && t.status !== '已完成' ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{t.gap_due_date.slice(5).replace('-', '/')}</span>
-                      )}
-                      <button onClick={e => { e.preventDefault(); deleteSchedule(t.id) }} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={13} /></button>
-                    </label>
+                    editGap?.id === t.id ? (
+                      // 個別編輯
+                      <div key={t.id} className="flex flex-wrap items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                        <input
+                          value={editGap.title}
+                          onChange={e => setEditGap(p => p && ({ ...p, title: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') saveGap(); if (e.key === 'Escape') setEditGap(null) }}
+                          autoFocus
+                          placeholder="任務內容"
+                          className="flex-1 min-w-[140px] px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="date"
+                          value={editGap.gap_due_date}
+                          onChange={e => setEditGap(p => p && ({ ...p, gap_due_date: e.target.value }))}
+                          title="到期日（可留空）"
+                          className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm w-36"
+                        />
+                        <button onClick={saveGap} disabled={gapSaving}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium disabled:opacity-40">儲存</button>
+                        <button onClick={() => setEditGap(null)} title="取消" className="p-1.5 text-gray-400 hover:text-gray-700"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <div key={t.id} className="flex items-center gap-2.5 text-sm">
+                        <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+                          <input type="checkbox" checked={t.status === '已完成'} onChange={() => toggleGapDone(t)} className="w-4 h-4 rounded shrink-0" />
+                          <span className={`flex-1 min-w-0 ${t.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.title}</span>
+                        </label>
+                        {t.gap_due_date && (
+                          <span className={`text-xs shrink-0 ${t.gap_due_date < todayStr && t.status !== '已完成' ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{t.gap_due_date.slice(5).replace('-', '/')}</span>
+                        )}
+                        <button onClick={() => startEditGap(t)} title="編輯" className="p-1 text-gray-300 hover:text-blue-600 shrink-0"><Pencil size={13} /></button>
+                        <button onClick={() => deleteSchedule(t.id)} title="刪除" className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={13} /></button>
+                      </div>
+                    )
                   ))}
                 </div>
               )}
+
+              {/* 行內新增空檔任務 */}
+              <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-gray-100">
+                <input
+                  value={newGap}
+                  onChange={e => setNewGap(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addGapTask() }}
+                  placeholder="新增空檔任務…（Enter 送出）"
+                  className="flex-1 min-w-0 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button onClick={addGapTask} disabled={gapSaving || !newGap.trim()}
+                  className="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40 shrink-0">
+                  新增
+                </button>
+              </div>
             </div>
 
             {/* 每日反省 */}

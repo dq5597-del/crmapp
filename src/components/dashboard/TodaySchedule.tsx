@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { Check, X, Clock, CalendarDays, Cake, ShieldCheck, Sparkles, Pencil, Navigation } from 'lucide-react'
+import { Check, X, Clock, CalendarDays, Cake, ShieldCheck, Sparkles, Pencil, Navigation, Trash2 } from 'lucide-react'
 
 interface Sched {
   id: string
@@ -52,7 +52,8 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
   const [gaps, setGaps] = useState<Sched[]>([])
   const [occ, setOcc] = useState<Occ[]>([])
   const [editing, setEditing] = useState<Sched | null>(null)
-  const [f, setF] = useState({ actual_start: '', status: '已完成', actual_result: '' })
+  const [f, setF] = useState({ title: '', plan_start: '', actual_start: '', status: '已完成', actual_result: '' })
+  const [editGap, setEditGap] = useState<{ id: string; title: string; gap_due_date: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [newTitle, setNewTitle] = useState('')
   const [newGap, setNewGap] = useState('')
@@ -124,6 +125,8 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
   function startEdit(s: Sched) {
     const now = new Date()
     setF({
+      title: s.title,
+      plan_start: hm(s.plan_start),
       actual_start: hm(s.actual_start) || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       status: s.status === '未開始' ? '已完成' : s.status,
       actual_result: s.actual_result ?? '',
@@ -133,12 +136,37 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
 
   async function saveActual() {
     if (!editing) return
-    await supabase.from('schedules').update({
+    const title = f.title.trim()
+    if (!title) { alert('行程內容不可空白'); return }
+    const { error } = await supabase.from('schedules').update({
+      title,
+      plan_start: f.plan_start || null,
       actual_start: f.actual_start || null,
       status: f.status,
       actual_result: f.actual_result || null,
     }).eq('id', editing.id)
+    if (error) { alert('儲存失敗：' + error.message); return }
     setEditing(null)
+    fetchAll()
+  }
+
+  async function deleteSched(id: string) {
+    if (!confirm('確定刪除此項目？')) return
+    await supabase.from('schedules').delete().eq('id', id)
+    setEditing(null); setEditGap(null)
+    fetchAll()
+  }
+
+  async function saveGap() {
+    if (!editGap) return
+    const title = editGap.title.trim()
+    if (!title) { alert('任務內容不可空白'); return }
+    const { error } = await supabase.from('schedules').update({
+      title,
+      gap_due_date: editGap.gap_due_date || null,
+    }).eq('id', editGap.id)
+    if (error) { alert('儲存失敗：' + error.message); return }
+    setEditGap(null)
     fetchAll()
   }
 
@@ -212,32 +240,45 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
                     )}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLORS[s.status]}`}>{s.status}</span>
-                  {s.status === '未開始' && (
-                    <div className="flex gap-1 shrink-0">
+                  <div className="flex gap-1 shrink-0">
+                    {s.status === '未開始' && (
                       <button onClick={() => quickDone(s)} title="標記完成" className="p-1.5 text-gray-400 hover:text-green-600 rounded-lg border border-gray-100"><Check size={14} /></button>
-                      <button onClick={() => startEdit(s)} title="填實際結果" className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg border border-gray-100"><Pencil size={13} /></button>
-                    </div>
-                  )}
-                  {s.status !== '未開始' && (
-                    <button onClick={() => startEdit(s)} title="修改實際結果" className="p-1.5 text-gray-300 hover:text-blue-600 rounded-lg shrink-0"><Pencil size={13} /></button>
-                  )}
+                    )}
+                    <button onClick={() => startEdit(s)} title="編輯（內容／時間／實際結果）"
+                      className={`p-1.5 rounded-lg ${s.status === '未開始' ? 'text-gray-400 border border-gray-100' : 'text-gray-300'} hover:text-blue-600`}><Pencil size={13} /></button>
+                  </div>
                 </div>
 
-                {/* Inline 修改 = 填實際結果（原預定保留） */}
+                {/* Inline 編輯：預定內容 + 實際結果（原預定保留供比對） */}
                 {editing?.id === s.id && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 my-1.5">
-                    <div className="text-xs text-blue-700 font-medium mb-2">填實際結果（原預定保留，供比對）</div>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <input type="time" value={f.actual_start} onChange={e => setF(p => ({ ...p, actual_start: e.target.value }))}
-                        className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm w-28" />
-                      <select value={f.status} onChange={e => setF(p => ({ ...p, status: e.target.value }))}
-                        className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
-                        {['已完成', '延誤完成', '進行中', '改期', '取消'].map(x => <option key={x}>{x}</option>)}
-                      </select>
-                      <input value={f.actual_result} onChange={e => setF(p => ({ ...p, actual_result: e.target.value }))}
-                        placeholder="結果備註" className="flex-1 min-w-[160px] px-2 py-1.5 border border-gray-200 rounded-lg text-sm" />
-                      <button onClick={saveActual} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium">儲存</button>
-                      <button onClick={() => setEditing(null)} className="p-1.5 text-gray-400 hover:text-gray-700"><X size={14} /></button>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 my-1.5 space-y-2">
+                    <div>
+                      <div className="text-xs text-blue-700 font-medium mb-1.5">預定內容</div>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <input type="time" value={f.plan_start} onChange={e => setF(p => ({ ...p, plan_start: e.target.value }))}
+                          title="預定時間" className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm w-28" />
+                        <input value={f.title} onChange={e => setF(p => ({ ...p, title: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') saveActual() }}
+                          placeholder="行程內容" className="flex-1 min-w-[160px] px-2 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-blue-700 font-medium mb-1.5">實際結果</div>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <input type="time" value={f.actual_start} onChange={e => setF(p => ({ ...p, actual_start: e.target.value }))}
+                          title="實際開始時間" className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm w-28" />
+                        <select value={f.status} onChange={e => setF(p => ({ ...p, status: e.target.value }))}
+                          className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
+                          {['未開始', '已完成', '延誤完成', '進行中', '改期', '取消'].map(x => <option key={x}>{x}</option>)}
+                        </select>
+                        <input value={f.actual_result} onChange={e => setF(p => ({ ...p, actual_result: e.target.value }))}
+                          placeholder="結果備註" className="flex-1 min-w-[160px] px-2 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button onClick={saveActual} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium">儲存</button>
+                      <button onClick={() => setEditing(null)} className="px-2 py-1.5 text-gray-500 hover:text-gray-800 text-xs">取消</button>
+                      <button onClick={() => deleteSched(s.id)} title="刪除此行程" className="ml-auto p-1.5 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 )}
@@ -268,15 +309,38 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
             </div>
             <div className="space-y-1.5">
               {gaps.map(t => (
-                <label key={t.id} className="flex items-center gap-2.5 text-sm cursor-pointer">
-                  <input type="checkbox" checked={false} onChange={() => toggleGap(t)} className="w-4 h-4 rounded" />
-                  <span className="flex-1 text-gray-800">{t.title}</span>
-                  {t.gap_due_date && (
-                    <span className={`text-xs ${t.gap_due_date < todayStr ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
-                      {t.gap_due_date.slice(5).replace('-', '/')}
-                    </span>
-                  )}
-                </label>
+                editGap?.id === t.id ? (
+                  <div key={t.id} className="flex flex-wrap items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                    <input
+                      value={editGap.title}
+                      onChange={e => setEditGap(p => p && ({ ...p, title: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') saveGap(); if (e.key === 'Escape') setEditGap(null) }}
+                      autoFocus
+                      placeholder="任務內容"
+                      className="flex-1 min-w-[130px] px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input type="date" value={editGap.gap_due_date} title="到期日（可留空）"
+                      onChange={e => setEditGap(p => p && ({ ...p, gap_due_date: e.target.value }))}
+                      className="px-2 py-1.5 border border-gray-200 rounded-lg text-sm w-36" />
+                    <button onClick={saveGap} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium">儲存</button>
+                    <button onClick={() => setEditGap(null)} title="取消" className="p-1.5 text-gray-400 hover:text-gray-700"><X size={14} /></button>
+                    <button onClick={() => deleteSched(t.id)} title="刪除" className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
+                  </div>
+                ) : (
+                  <div key={t.id} className="flex items-center gap-2.5 text-sm">
+                    <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+                      <input type="checkbox" checked={false} onChange={() => toggleGap(t)} className="w-4 h-4 rounded shrink-0" />
+                      <span className="flex-1 min-w-0 text-gray-800">{t.title}</span>
+                    </label>
+                    {t.gap_due_date && (
+                      <span className={`text-xs shrink-0 ${t.gap_due_date < todayStr ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                        {t.gap_due_date.slice(5).replace('-', '/')}
+                      </span>
+                    )}
+                    <button onClick={() => setEditGap({ id: t.id, title: t.title, gap_due_date: t.gap_due_date ?? '' })}
+                      title="編輯" className="p-1 text-gray-300 hover:text-blue-600 shrink-0"><Pencil size={13} /></button>
+                  </div>
+                )
               ))}
               {gaps.length === 0 && <p className="text-xs text-gray-400">目前沒有空檔任務</p>}
             </div>

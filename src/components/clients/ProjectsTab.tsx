@@ -9,6 +9,7 @@ import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
 import ProjectTasksSection from '@/components/clients/ProjectTasksSection'
 import { formatDate } from '@/lib/utils'
+import { SPACE_TYPE_VALUES, findSpaceType } from '@/lib/space-types'
 import { usePermissions } from '@/lib/permissions'
 
 // 須與 sql/projects_phase1b_status6.sql 的 check 約束一致
@@ -1494,6 +1495,29 @@ function AccordionGroup({ title, color, defaultOpen = false, children }: {
 const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400'
 const ta  = inp + ' resize-none'
 
+// 選定空間類型後，顯示該類型的核心硬體設計概念與場勘重點（供現勘對照）
+function SpaceTypeHint({ value }: { value: string }) {
+  const st = findSpaceType(value)
+  if (!st || (st.hardware.length === 0 && st.survey.length === 0)) return null
+  return (
+    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-gray-700 space-y-2">
+      <div className="text-blue-800">{st.scenario}</div>
+      {st.hardware.length > 0 && (
+        <div>
+          <div className="font-medium text-blue-700 mb-0.5">核心硬體設計概念</div>
+          <ul className="list-disc pl-4 space-y-0.5">{st.hardware.map(h => <li key={h}>{h}</li>)}</ul>
+        </div>
+      )}
+      {st.survey.length > 0 && (
+        <div>
+          <div className="font-medium text-blue-700 mb-0.5">場勘重點（Site Survey）</div>
+          <ul className="list-disc pl-4 space-y-0.5">{st.survey.map(s => <li key={s}>{s}</li>)}</ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Field({ label, children, span2 = false }: { label: string; children: React.ReactNode; span2?: boolean }) {
   return (
     <div className={span2 ? 'col-span-2' : ''}>
@@ -1861,12 +1885,19 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                   <Field label="專案名稱 *" span2>
                     <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
                   </Field>
-                  <Field label="場景名稱">
-                    <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
+                  <Field label="空間類型">
+                    <select value={form.scene_name} onChange={setP('scene_name')} className={inp}>
+                      <option value="">請選擇空間類型</option>
+                      {SPACE_TYPE_VALUES.map(v => <option key={v} value={v}>{v}</option>)}
+                      {form.scene_name && !SPACE_TYPE_VALUES.includes(form.scene_name) && (
+                        <option value={form.scene_name}>{form.scene_name}（原資料）</option>
+                      )}
+                    </select>
                   </Field>
                   <Field label="使用者類型">
                     <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
                   </Field>
+                  <SpaceTypeHint value={form.scene_name} />
                   <Field label="專案狀態">
                     <select value={form.status} onChange={setP('status')} className={inp}>
                       {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
