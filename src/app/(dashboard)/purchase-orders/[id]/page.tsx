@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
-import { ArrowLeft, RotateCcw, FileDown, Plus, Trash2, ShoppingCart } from 'lucide-react'
+import { ArrowLeft, RotateCcw, FileDown, Plus, Trash2, ShoppingCart, Send } from 'lucide-react'
 import Link from 'next/link'
 import { ensureReceivableForSalesOrder } from '@/lib/auto-ledger'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
@@ -226,6 +226,12 @@ export default function PurchaseOrderDetailPage() {
           <ShoppingCart size={13} /> {converting ? '轉換中…' : '轉銷貨單'}
         </button>
         <DocActionBar docType="purchase-order" docId={id as string} printHref={`/purchase-orders/${id}/print`} emailLabel="Email 給廠商" />
+        {/* 開列印頁並跳出分享提示：手機選應用程式送 PDF，桌機給下載連結 */}
+        <button
+          onClick={() => window.open(`/purchase-orders/${id}/print?share=1`, '_blank')}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <Send size={13} /> 分享訂購單
+        </button>
         <Link href={`/returns?ref_type=purchase_order&ref_id=${id}`}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50">
           <RotateCcw size={13} /> 建立退貨

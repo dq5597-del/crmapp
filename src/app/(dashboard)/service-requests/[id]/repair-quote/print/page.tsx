@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
+import PrintHeaderQr from '@/components/PrintHeaderQr'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const supabase = createClient()
@@ -92,7 +93,19 @@ export default async function RepairQuotePrintPage({ params }: { params: { id: s
             <h1>維 修 報 價 單</h1>
             <div className="sub-header">單號：{rq.repair_quote_no}　原叫修單號：{req.service_no}</div>
           </div>
-          <div className="header-spacer" />
+          <div className="header-spacer" style={{ width: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, alignSelf: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <PrintHeaderQr url="https://line.me/R/ti/p/@807wvsuu" size={46} />
+              <div style={{ lineHeight: 1.3 }}>
+                <div style={{ fontSize: 10, color: '#333', fontWeight: 700 }}>LINE ID</div>
+                <div style={{ fontSize: 10, color: '#333', letterSpacing: 0.2 }}>@807wvsuu</div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', fontSize: 13, color: '#333', lineHeight: 1.75, whiteSpace: 'nowrap' }}>
+              <div>服務電話：03-8321087</div>
+              <div>地址：花蓮市民權三街十號</div>
+            </div>
+          </div>
         </div>
 
         <div className="info-row">
