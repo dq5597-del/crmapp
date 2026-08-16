@@ -103,12 +103,23 @@ export default function PrintButtons() {
   }
 
   // 由詳情頁帶 ?share=1 進來時自動觸發分享
-  // （手機跳原生分享選單、桌機顯示連結面板；等版面與字型就緒再送，避免抓到半成品）
+  //   QR 是載入 CDN 後才產生的，若不等它就擷取，分享出去的 PDF 會少一塊，
+  //   與手動列印的版面不一致 → 先等 QR 出現（最多 3 秒）再送。
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     if (sp.get('share') !== '1') return
-    const t = setTimeout(() => { handleSharePdf() }, 600)
-    return () => clearTimeout(t)
+
+    let cancelled = false
+    const started = Date.now()
+    const tick = setInterval(() => {
+      const ready = document.querySelector('[data-qr-ready]')
+      if (cancelled) return
+      if (ready || Date.now() - started > 3000) {
+        clearInterval(tick)
+        handleSharePdf()
+      }
+    }, 150)
+    return () => { cancelled = true; clearInterval(tick) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

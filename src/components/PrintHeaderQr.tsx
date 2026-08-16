@@ -41,12 +41,15 @@ export default function PrintHeaderQr({ url, size = 52 }: { url: string; size?: 
     return () => { cancelled = true }
   }, [url])
 
-  if (!src) return null
+  // 尚未產生時保留同尺寸空位：版面高度自始至終一致，
+  // PDF 擷取不會因為 QR 晚到而位移（列印與分享才會產出相同版面）
+  if (!src) return <div data-qr-placeholder style={{ width: size, height: size }} />
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt="LINE 加好友 QR"
+      data-qr-ready
       style={{ width: size, height: size, display: 'block', imageRendering: 'pixelated' }}
     />
   )

@@ -39,6 +39,15 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   el.style.minWidth = `${A4_W_PX}px`
   el.style.maxWidth = 'none'
 
+  // ── 介面縮放歸一 ─────────────────────────────────────
+  // App 會在 <html> 套 CSS zoom（設定頁的「介面縮放」，手機常不是 100%）。
+  // getBoundingClientRect 回傳縮放後座標，html2canvas 卻以未縮放版面重繪，
+  // 兩者比例不一致 → 列座標與可用高度全部算錯，手機分頁因此提早換頁、留一大片空白。
+  // 擷取期間暫時歸一，結束再還原。
+  const rootEl = document.documentElement as HTMLElement
+  const prevZoom = rootEl.style.zoom
+  rootEl.style.zoom = '1'
+
   // 等字型與圖片載入完成 + 版面穩定
   // （關鍵：若在字型/圖片載入前就量測，版面較矮，之後 html2canvas 截到較高的版面，
   //   兩者不一致會讓 scale 失真、所有列座標偏移 → 切點切到字。故先等穩定再截圖再量測。）
@@ -147,10 +156,11 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
 
   const canUseHeaderRepeat = !!(table && firstBodyRow && tfoot && bodyRows.length > 0)
 
-  // 量測完成，還原寬度
+  // 量測完成，還原寬度與介面縮放
   el.style.width = prevStyle.width
   el.style.minWidth = prevStyle.minWidth
   el.style.maxWidth = prevStyle.maxWidth
+  rootEl.style.zoom = prevZoom
 
   const srcCtx = canvas.getContext('2d', { willReadFrequently: true })!
 
