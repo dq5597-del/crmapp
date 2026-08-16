@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ProjectStatus } from '@/types'
-import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload, FileText, ExternalLink, Link2, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Briefcase, ChevronDown, X, Camera, ImageIcon, Upload, FileText, ExternalLink, Link2, Search } from 'lucide-react'
 import Link from 'next/link'
 import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
@@ -1411,6 +1411,7 @@ function EquipmentSection({ projectId, supabase, onBeforeUpload }: {
 }
 
 // ── Accordion ───────────────────────────────────────────────
+// 手機操作用滑動式展開（grid-template-rows 0fr→1fr 動畫），不是瞬間開合
 function Accordion({ title, color, defaultOpen = false, children }: {
   title: string; color: typeof BLUE; defaultOpen?: boolean; children: React.ReactNode
 }) {
@@ -1418,11 +1419,40 @@ function Accordion({ title, color, defaultOpen = false, children }: {
   return (
     <div className={`rounded-xl border ${color.border} overflow-hidden`}>
       <button type="button" onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-4 py-2.5 ${color.header} text-white text-sm font-medium`}>
+        className={`w-full flex items-center justify-between px-4 py-3 md:py-2.5 min-h-[44px] ${color.header} text-white text-sm font-medium active:opacity-80`}>
         <span>{title}</span>
-        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        <ChevronDown size={16} className={`shrink-0 transition-transform duration-300 ${open ? '' : '-rotate-90'}`} />
       </button>
-      {open && <div className={`${color.light} p-4`}>{children}</div>}
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className={`${color.light} p-4`}>{children}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 大分類外殼（上類／下類／中類／設備類…），把好幾個小 Accordion 包在一起，
+ * 手機上先收合成一條，點開才展開裡面那幾個小區塊，減少一路捲到底的長列表。
+ * 展開動畫跟 Accordion 一樣用 grid-rows，滑動式而非瞬間切換。
+ */
+function AccordionGroup({ title, color, defaultOpen = false, children }: {
+  title: string; color: typeof BLUE; defaultOpen?: boolean; children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className={`rounded-xl border-2 ${color.border} overflow-hidden`}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between px-4 py-3 min-h-[44px] ${color.header} text-white text-sm font-semibold active:opacity-80`}>
+        <span>{title}</span>
+        <ChevronDown size={18} className={`shrink-0 transition-transform duration-300 ${open ? '' : '-rotate-90'}`} />
+      </button>
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className={`${color.light} p-2.5 space-y-2`}>{children}</div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1888,133 +1918,139 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               </div>
             </Accordion>
 
-            <Accordion title="③ 下類 — 場勘基本資訊" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
-                <Field label="場勘負責人"><input value={survey.surveyor} onChange={setS('surveyor')} className={inp} /></Field>
-                <Field label="現場聯絡姓名"><input value={survey.contact_name} onChange={setS('contact_name')} className={inp} /></Field>
-                <Field label="現場聯絡電話"><input value={survey.contact_phone} onChange={setS('contact_phone')} className={inp} /></Field>
-                <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
-              </div>
-            </Accordion>
-
-            <Accordion title="④ 下類 — 空間規格資訊" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
-                <Field label="長度（公尺）"><input type="number" value={survey.space_length} onChange={setS('space_length')} className={inp} /></Field>
-                <Field label="寬度（公尺）"><input type="number" value={survey.space_width} onChange={setS('space_width')} className={inp} /></Field>
-                <Field label="高度（公尺）"><input type="number" value={survey.space_height} onChange={setS('space_height')} className={inp} /></Field>
-                <Field label="容納人數"><input type="number" value={survey.capacity} onChange={setS('capacity')} className={inp} /></Field>
-                <Field label="天花板類型/材質"><input value={survey.ceiling_type} onChange={setS('ceiling_type')} className={inp} /></Field>
-                <Field label="牆面材質"><input value={survey.wall_material} onChange={setS('wall_material')} className={inp} /></Field>
-                <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
-                <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-emerald-200">
-                <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
-
-            <Accordion title="⑤ 下類 — 電力與網路" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
-                <Field label="現有插座數量位置"><input value={survey.outlet_count} onChange={setS('outlet_count')} className={inp} /></Field>
-                <Field label="電壓容量說明"><input value={survey.voltage_capacity} onChange={setS('voltage_capacity')} className={inp} /></Field>
-                <Field label="電源射頻干擾情況"><input value={survey.rf_interference} onChange={setS('rf_interference')} className={inp} /></Field>
-                <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
-                <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-emerald-200">
-                <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
-
-            <Accordion title="⑥ 下類 — 聲學與環境" color={GREEN}>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
-                <Field label="環境噪音（dB）"><input type="number" value={survey.ambient_noise_db} onChange={setS('ambient_noise_db')} className={inp} /></Field>
-                <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
-                <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
-                <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
-              </div>
-              <div className="mt-4 pt-4 border-t border-emerald-200">
-                <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
-
-            <Accordion title="⑦ 中類 — 施工條件限制" color={ORG}>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 flex gap-6 flex-wrap">
-                  <BoolField label="是否禁止酷孔打牆壁" value={survey.no_drilling} onChange={setSB('no_drilling')} />
-                  <BoolField label="是否需要採購/代購材料設備" value={survey.need_procurement} onChange={setSB('need_procurement')} />
+            <AccordionGroup title="🏗️ 下類 — 場勘資訊（4 項）" color={GREEN}>
+              <Accordion title="③ 場勘基本資訊" color={GREEN}>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
+                  <Field label="場勘負責人"><input value={survey.surveyor} onChange={setS('surveyor')} className={inp} /></Field>
+                  <Field label="現場聯絡姓名"><input value={survey.contact_name} onChange={setS('contact_name')} className={inp} /></Field>
+                  <Field label="現場聯絡電話"><input value={survey.contact_phone} onChange={setS('contact_phone')} className={inp} /></Field>
+                  <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
                 </div>
-                <Field label="特殊施工時間限制"><input value={survey.special_construction_time} onChange={setS('special_construction_time')} className={inp} /></Field>
-                <Field label="懸挂載重限制"><input value={survey.hanging_limits} onChange={setS('hanging_limits')} className={inp} /></Field>
-                <Field label="現場施工限制說明" span2><textarea rows={2} value={survey.construction_issues} onChange={setS('construction_issues')} className={ta} /></Field>
-                <Field label="搜運時間（分鐘）"><input type="number" value={survey.travel_time_minutes} onChange={setS('travel_time_minutes')} className={inp} /></Field>
-                <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
-                <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
-                <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
-              </div>
-              <div className="mt-4 pt-4 border-t border-orange-200">
-                <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
-                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-              </div>
-            </Accordion>
+              </Accordion>
 
-            <Accordion title="⑧ 中類 — 現況設備補充" color={ORG}>
-              <div className="grid grid-cols-1 gap-3">
-                <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
-                <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
-                <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
-                <Field label="單位期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
-                <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
-                <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
-              </div>
-            </Accordion>
+              <Accordion title="④ 空間規格資訊" color={GREEN}>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
+                  <Field label="長度（公尺）"><input type="number" value={survey.space_length} onChange={setS('space_length')} className={inp} /></Field>
+                  <Field label="寬度（公尺）"><input type="number" value={survey.space_width} onChange={setS('space_width')} className={inp} /></Field>
+                  <Field label="高度（公尺）"><input type="number" value={survey.space_height} onChange={setS('space_height')} className={inp} /></Field>
+                  <Field label="容納人數"><input type="number" value={survey.capacity} onChange={setS('capacity')} className={inp} /></Field>
+                  <Field label="天花板類型/材質"><input value={survey.ceiling_type} onChange={setS('ceiling_type')} className={inp} /></Field>
+                  <Field label="牆面材質"><input value={survey.wall_material} onChange={setS('wall_material')} className={inp} /></Field>
+                  <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
+                  <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-emerald-200">
+                  <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
+                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                </div>
+              </Accordion>
 
-            <Accordion title="⑨ 中類 — 場勘備註" color={ORG}>
-              <Field label="場勘備註內容">
-                <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
-              </Field>
-            </Accordion>
+              <Accordion title="⑤ 電力與網路" color={GREEN}>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
+                  <Field label="現有插座數量位置"><input value={survey.outlet_count} onChange={setS('outlet_count')} className={inp} /></Field>
+                  <Field label="電壓容量說明"><input value={survey.voltage_capacity} onChange={setS('voltage_capacity')} className={inp} /></Field>
+                  <Field label="電源射頻干擾情況"><input value={survey.rf_interference} onChange={setS('rf_interference')} className={inp} /></Field>
+                  <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
+                  <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-emerald-200">
+                  <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
+                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                </div>
+              </Accordion>
 
-            <Accordion title="🔧 設備類 — 現場設備記錄" color={PURPLE}>
-              <EquipmentSection
-                projectId={editingId as string}
-                supabase={supabase}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
+              <Accordion title="⑥ 聲學與環境" color={GREEN}>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
+                  <Field label="環境噪音（dB）"><input type="number" value={survey.ambient_noise_db} onChange={setS('ambient_noise_db')} className={inp} /></Field>
+                  <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
+                  <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
+                  <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
+                </div>
+                <div className="mt-4 pt-4 border-t border-emerald-200">
+                  <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
+                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                </div>
+              </Accordion>
+            </AccordionGroup>
 
-            <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
-              <EquipmentMapSection
-                projectId={editingId as string}
-                supabase={supabase}
-                initLength={survey.space_length}
-                initWidth={survey.space_width}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
+            <AccordionGroup title="⚠️ 中類 — 施工限制與現況（3 項）" color={ORG}>
+              <Accordion title="⑦ 施工條件限制" color={ORG}>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 flex gap-6 flex-wrap">
+                    <BoolField label="是否禁止酷孔打牆壁" value={survey.no_drilling} onChange={setSB('no_drilling')} />
+                    <BoolField label="是否需要採購/代購材料設備" value={survey.need_procurement} onChange={setSB('need_procurement')} />
+                  </div>
+                  <Field label="特殊施工時間限制"><input value={survey.special_construction_time} onChange={setS('special_construction_time')} className={inp} /></Field>
+                  <Field label="懸挂載重限制"><input value={survey.hanging_limits} onChange={setS('hanging_limits')} className={inp} /></Field>
+                  <Field label="現場施工限制說明" span2><textarea rows={2} value={survey.construction_issues} onChange={setS('construction_issues')} className={ta} /></Field>
+                  <Field label="搜運時間（分鐘）"><input type="number" value={survey.travel_time_minutes} onChange={setS('travel_time_minutes')} className={inp} /></Field>
+                  <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
+                  <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
+                  <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
+                </div>
+                <div className="mt-4 pt-4 border-t border-orange-200">
+                  <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
+                  <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+                </div>
+              </Accordion>
 
-            <Accordion title="🖥️ 桌面設備配置圖" color={PURPLE}>
-              <DeskLayoutSection
-                projectId={editingId as string}
-                supabase={supabase}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
+              <Accordion title="⑧ 現況設備補充" color={ORG}>
+                <div className="grid grid-cols-1 gap-3">
+                  <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
+                  <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
+                  <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
+                  <Field label="單位期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
+                  <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
+                  <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
+                </div>
+              </Accordion>
 
-            <Accordion title="🗄️ 機櫃設計模擬圖" color={PURPLE}>
-              <RackDesigner
-                projectId={editingId as string}
-                supabase={supabase}
-                onBeforeUpload={isNewProject ? ensureSaved : undefined}
-              />
-            </Accordion>
+              <Accordion title="⑨ 場勘備註" color={ORG}>
+                <Field label="場勘備註內容">
+                  <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
+                </Field>
+              </Accordion>
+            </AccordionGroup>
+
+            <AccordionGroup title="🔧 設備類 — 設備與配置圖（4 項）" color={PURPLE}>
+              <Accordion title="🔧 現場設備記錄" color={PURPLE}>
+                <EquipmentSection
+                  projectId={editingId as string}
+                  supabase={supabase}
+                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                />
+              </Accordion>
+
+              <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
+                <EquipmentMapSection
+                  projectId={editingId as string}
+                  supabase={supabase}
+                  initLength={survey.space_length}
+                  initWidth={survey.space_width}
+                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                />
+              </Accordion>
+
+              <Accordion title="🖥️ 桌面設備配置圖" color={PURPLE}>
+                <DeskLayoutSection
+                  projectId={editingId as string}
+                  supabase={supabase}
+                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                />
+              </Accordion>
+
+              <Accordion title="🗄️ 機櫃設計模擬圖" color={PURPLE}>
+                <RackDesigner
+                  projectId={editingId as string}
+                  supabase={supabase}
+                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                />
+              </Accordion>
+            </AccordionGroup>
 
             <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
               <PhotoSection
