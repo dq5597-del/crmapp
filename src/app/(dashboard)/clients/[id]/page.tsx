@@ -54,12 +54,31 @@ export default function ClientDetailPage() {
   const [quoteCount, setQuoteCount] = useState(0)
   const [clientQuotes, setClientQuotes] = useState<Quote[]>([])
 
+  // 是否從「專案資料夾」深連結進來（?tab=projects&edit=xxx），
+  // 若是，左上角←鍵應該優先回到專案本身，而不是跳去客戶清單
+  const [cameFromProject, setCameFromProject] = useState(false)
+
   // 從網址讀取 ?tab= / ?edit=（供「專案資料夾」深連結進完整編輯器）
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     const t = sp.get('tab'); if (t) setActiveTab(t)
     const e = sp.get('edit'); if (e) setAutoEditId(e)
+    if (t === 'projects') setCameFromProject(true)
   }, [])
+
+  // 左上角←鍵：若是從專案資料夾點進來、目前又切去了其他頁籤，
+  // 先帶回「專案」頁籤本身；否則才真正離開這頁（回上一頁 / 客戶清單）
+  function handleBack() {
+    if (cameFromProject && activeTab !== 'projects') {
+      setActiveTab('projects')
+      return
+    }
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push('/clients')
+    }
+  }
 
   useEffect(() => {
     fetchClient()
@@ -136,7 +155,7 @@ export default function ClientDetailPage() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       {/* Back + Header */}
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => router.push('/clients')} className="text-gray-500 hover:text-gray-900">
+        <button onClick={handleBack} className="text-gray-500 hover:text-gray-900">
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1 min-w-0">

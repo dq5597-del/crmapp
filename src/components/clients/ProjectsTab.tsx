@@ -323,6 +323,7 @@ function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' 
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -348,28 +349,38 @@ function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' 
     return supabase.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl
   }
 
-  /** 新檔案存 Google Drive */
-  async function handleUpload(file: File) {
+  /** 新檔案存 Google Drive（支援一次選取多個檔案，依序上傳） */
+  async function handleUploadFiles(fileList: FileList | File[]) {
+    const selected = Array.from(fileList).filter(Boolean)
+    if (selected.length === 0) return
     if (onBeforeUpload && !(await onBeforeUpload())) return
     setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('folder', meta.folder)
-      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+    setUploadProgress({ done: 0, total: selected.length })
+    const failed: string[] = []
+    for (let i = 0; i < selected.length; i++) {
+      const file = selected[i]
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('folder', meta.folder)
+        const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? '上傳失敗')
 
-      const { error: dbErr } = await supabase.from('project_files').insert({
-        project_id: projectId, file_name: file.name, storage_path: `gdrive:${data.file_id}`,
-        file_size: file.size, mime_type: file.type || null, notes: '', category,
-      })
-      if (dbErr) throw dbErr
-      await fetchFiles()
-    } catch (e: any) {
-      alert('上傳失敗: ' + e.message)
+        const { error: dbErr } = await supabase.from('project_files').insert({
+          project_id: projectId, file_name: file.name, storage_path: `gdrive:${data.file_id}`,
+          file_size: file.size, mime_type: file.type || null, notes: '', category,
+        })
+        if (dbErr) throw dbErr
+      } catch (e: any) {
+        failed.push(`${file.name}（${e.message}）`)
+      }
+      setUploadProgress({ done: i + 1, total: selected.length })
     }
+    await fetchFiles()
     setUploading(false)
+    setUploadProgress(null)
+    if (failed.length) alert(`部分檔案上傳失敗：\n${failed.join('\n')}`)
   }
 
   async function handleDelete(f: ProjectFile) {
@@ -388,13 +399,17 @@ function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <input ref={fileRef} type="file" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
+        <input ref={fileRef} type="file" multiple className="hidden"
+          onChange={e => { const fs = e.target.files; if (fs?.length) handleUploadFiles(fs); e.target.value = '' }} />
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
           className={`flex items-center gap-1.5 px-3 py-1.5 ${meta.btnClass} text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors`}>
-          <Upload size={14} /> 上傳檔案
+          <Upload size={14} /> 上傳檔案（可多選）
         </button>
-        {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
+        {uploading && (
+          <span className="text-xs text-gray-400 animate-pulse">
+            上傳中...{uploadProgress ? `（${uploadProgress.done}/${uploadProgress.total}）` : ''}
+          </span>
+        )}
       </div>
 
       {loading ? (
