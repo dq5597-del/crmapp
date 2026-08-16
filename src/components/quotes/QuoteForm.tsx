@@ -331,7 +331,8 @@ export default function QuoteForm({
   prefillProjectId, prefillProjectName,
   onSuccess
 }: QuoteFormProps) {
-  const projectId = (initialQuote as any)?.project_id ?? prefillProjectId ?? null
+  const [projectId, setProjectId] = useState<string | null>((initialQuote as any)?.project_id ?? prefillProjectId ?? null)
+  const [clientProjects, setClientProjects] = useState<{ id: string; project_name: string; status?: string | null }[]>([])
   const router = useRouter()
   const supabase = createClient()
 
@@ -409,6 +410,12 @@ export default function QuoteForm({
     }
   }, [settings])
 
+  // 客戶變動時，重新載入該客戶底下的專案清單（供「所屬專案」下拉選用）
+  useEffect(() => {
+    if (!header.client_id) { setClientProjects([]); return }
+    loadClientProjects(header.client_id)
+  }, [header.client_id])
+
   async function loadSettings() {
     const { data } = await supabase.from('system_settings').select('*').single()
     setSettings(data)
@@ -417,6 +424,14 @@ export default function QuoteForm({
   async function loadClients() {
     const { data } = await supabase.from('clients').select('id, company_name, contact_name, phone, address').order('company_name')
     setClients(data ?? [])
+  }
+
+  async function loadClientProjects(clientId: string) {
+    const { data } = await supabase.from('projects')
+      .select('id, project_name, status')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+    setClientProjects(data ?? [])
   }
 
   async function loadSalespeople() {
@@ -442,6 +457,7 @@ export default function QuoteForm({
   function onClientSelect(clientId: string) {
     const c = clients.find(c => c.id === clientId)
     if (c) {
+      if (c.id !== header.client_id) setProjectId(null) // 換了客戶，原本連結的專案就不適用了
       setHeader(p => ({
         ...p, client_id: c.id, client_name_display: c.company_name,
         contact_name: p.contact_name || (c.contact_name ?? ''),
@@ -916,7 +932,28 @@ export default function QuoteForm({
             <label className={labelClass}>客戶地址</label>
             <input value={header.client_address} onChange={e => setHeader(p => ({ ...p, client_address: e.target.value }))} className={inputClass} placeholder="從客戶資料帶入，可修改" />
           </div>
-          <div className="sm:col-span-2">
+          <div>
+            <label className={labelClass}>所屬專案</label>
+            <select
+              value={projectId ?? ''}
+              onChange={e => {
+                const pid = e.target.value || null
+                setProjectId(pid)
+                const p = clientProjects.find(x => x.id === pid)
+                if (p) setHeader(h => ({ ...h, project_name: p.project_name }))
+              }}
+              className={inputClass}
+              disabled={!header.client_id}
+            >
+              <option value="">— 不連結專案 —</option>
+              {clientProjects.map(p => (
+                <option key={p.id} value={p.id}>{p.project_name}{p.status ? `（${p.status}）` : ''}</option>
+              ))}
+            </select>
+            {!header.client_id && <p className="text-xs text-gray-400 mt-1">請先選擇客戶</p>}
+            {header.client_id && clientProjects.length === 0 && <p className="text-xs text-gray-400 mt-1">此客戶尚無專案</p>}
+          </div>
+          <div>
             <label className={labelClass}>案名</label>
             <input value={header.project_name} onChange={e => setHeader(p => ({ ...p, project_name: e.target.value }))} className={inputClass} placeholder="例：禮堂音響設備更新" />
           </div>

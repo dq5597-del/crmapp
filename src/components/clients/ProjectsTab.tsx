@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { preparePhotoAsWebP } from '@/lib/client-image-webp'
 import { ProjectStatus } from '@/types'
-import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload, FileText, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload, FileText, ExternalLink, Link2, Search } from 'lucide-react'
 import Link from 'next/link'
 import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
+import ProjectWorkLogsSection from '@/components/clients/ProjectWorkLogsSection'
 import ProjectTasksSection from '@/components/clients/ProjectTasksSection'
 import { formatDate } from '@/lib/utils'
 import { usePermissions } from '@/lib/permissions'
@@ -139,16 +139,9 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
     if (onBeforeUpload && !(await onBeforeUpload())) return
     setUploading(true)
     try {
-      let uploadFile = file
-      try {
-        uploadFile = await preparePhotoAsWebP(file)
-      } catch {
-        // 舊版瀏覽器或特殊手機格式無法在前端轉檔時，交由伺服器轉換。
-      }
       const fd = new FormData()
-      fd.append('file', uploadFile)
+      fd.append('file', file)
       fd.append('folder', `專案照片/${cat}`)
-      fd.append('convert_webp', '1')
       const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '上傳失敗')
@@ -214,10 +207,9 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
           className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
           <ImageIcon size={14} /> 開啟舊檔
         </button>
-        {uploading && <span className="text-xs text-gray-400 animate-pulse">轉成 WebP 並上傳中...</span>}
+        {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
         <span className="ml-auto text-xs text-gray-400">上傳至「{catLabel}」</span>
       </div>
-      <div className="-mt-1 mb-3 text-xs text-gray-400">電腦選圖或手機拍照上傳，都會自動轉成 WebP 檔。</div>
 
       {/* Photo Grid */}
       {loading ? (
@@ -451,6 +443,13 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
   const [quotes, setQuotes] = useState<ProjectQuote[]>([])
   const [loading, setLoading] = useState(true)
 
+  // 連結既有報價單（本客戶在「銷售」那邊已經建立、但還沒連結專案的報價單）
+  const [linkerOpen, setLinkerOpen] = useState(false)
+  const [candidates, setCandidates] = useState<(ProjectQuote & { project_id: string | null })[]>([])
+  const [candLoading, setCandLoading] = useState(false)
+  const [candSearch, setCandSearch] = useState('')
+  const [linkingId, setLinkingId] = useState<string | null>(null)
+
   useEffect(() => { fetchQuotes() }, [projectId])
 
   async function fetchQuotes() {
@@ -462,6 +461,42 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
       .order('created_at', { ascending: false })
     setQuotes((data ?? []) as ProjectQuote[])
     setLoading(false)
+  }
+
+  async function toggleLinker() {
+    const next = !linkerOpen
+    setLinkerOpen(next)
+    if (next) {
+      setCandLoading(true)
+      const { data } = await supabase
+        .from('quotes')
+        .select('id, quote_no, project_name, project_id, status, total_amount, created_at')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false })
+      setCandidates((((data ?? []) as any[]).filter(q => q.project_id !== projectId)) as any)
+      setCandLoading(false)
+    }
+  }
+
+  const filteredCandidates = candidates.filter(q => {
+    if (!candSearch.trim()) return true
+    const s = candSearch.trim().toLowerCase()
+    return q.quote_no?.toLowerCase().includes(s) || (q.project_name ?? '').toLowerCase().includes(s)
+  })
+
+  async function linkQuote(q: ProjectQuote & { project_id: string | null }) {
+    if (q.project_id) {
+      if (!confirm(`「${q.quote_no}」目前已連結其他專案，確定要改連結到「${projectName}」嗎？`)) return
+    }
+    setLinkingId(q.id)
+    const { error } = await supabase
+      .from('quotes')
+      .update({ project_id: projectId, project_name: q.project_name || projectName || null })
+      .eq('id', q.id)
+    setLinkingId(null)
+    if (error) { alert('連結失敗：' + error.message); return }
+    setCandidates(cs => cs.filter(x => x.id !== q.id))
+    fetchQuotes()
   }
 
   const newQuoteHref = `/quotes/new?client_id=${encodeURIComponent(clientId)}` +
@@ -482,8 +517,60 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
           className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors">
           <Plus size={14} /> 新增報價單
         </Link>
+        <button type="button" onClick={toggleLinker}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+            linkerOpen ? 'bg-teal-50 border-teal-300 text-teal-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+          <Link2 size={14} /> {linkerOpen ? '收起' : '連結既有報價單'}
+        </button>
         <span className="text-xs text-gray-400">共 {quotes.length} 張</span>
       </div>
+
+      {linkerOpen && (
+        <div className="mb-4 rounded-xl border border-teal-200 bg-teal-50/40 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Search size={14} className="text-gray-400 shrink-0" />
+            <input value={candSearch} onChange={e => setCandSearch(e.target.value)}
+              placeholder="搜尋單號或案名，找到後點「連結」把它併進本專案"
+              className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-400" />
+          </div>
+          {candLoading ? (
+            <div className="text-center py-4 text-gray-400 text-xs">載入中…</div>
+          ) : filteredCandidates.length === 0 ? (
+            <div className="text-center py-4 text-gray-400 text-xs">
+              {candidates.length === 0 ? '此客戶名下沒有其他報價單可連結' : '沒有符合搜尋的報價單'}
+            </div>
+          ) : (
+            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+              {filteredCandidates.map(q => (
+                <div key={q.id} className="flex items-center gap-2 p-2 bg-white border border-gray-100 rounded-lg">
+                  <FileText size={15} className="shrink-0 text-gray-400" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-gray-900">{q.quote_no}</span>
+                      {q.status && (
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${QUOTE_STATUS_COLORS[q.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {q.status}
+                        </span>
+                      )}
+                      {q.project_id && (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">已連結其他專案</span>
+                      )}
+                    </div>
+                    {q.project_name && <div className="text-xs text-gray-500 truncate mt-0.5">{q.project_name}</div>}
+                  </div>
+                  <div className="shrink-0 text-sm font-semibold text-gray-900">
+                    NT$ {Number(q.total_amount ?? 0).toLocaleString()}
+                  </div>
+                  <button type="button" onClick={() => linkQuote(q)} disabled={linkingId === q.id}
+                    className="shrink-0 flex items-center gap-1 text-xs bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-60">
+                    <Link2 size={12} /> {linkingId === q.id ? '連結中…' : '連結'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-6 text-gray-400 text-sm">載入中...</div>
@@ -1769,7 +1856,7 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               onBeforeCreate={isNewProject ? ensureSaved : undefined}
             />
 
-            <Accordion title="👷 施工人員與派工紀錄（工頭／工班人員）" color={PURPLE}>
+            <Accordion title="👷 施工團隊（工頭／工班人員）" color={PURPLE}>
               <ProjectCrewSection
                 projectId={editingId as string}
                 onBeforeSave={isNewProject ? ensureSaved : undefined}
@@ -1778,6 +1865,13 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
 
             <Accordion title="📊 施工進度（工項清單）" color={PURPLE}>
               <ProjectTasksSection
+                projectId={editingId as string}
+                onBeforeSave={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="⏱ 施工工時與派工紀錄" color={PURPLE}>
+              <ProjectWorkLogsSection
                 projectId={editingId as string}
                 onBeforeSave={isNewProject ? ensureSaved : undefined}
               />
