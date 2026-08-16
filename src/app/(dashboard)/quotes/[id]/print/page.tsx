@@ -215,7 +215,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <th style={{ width: 44 }}>數量</th>
               <th style={{ width: 88 }}>含稅單價</th>
               <th style={{ width: 96 }}>含稅金額</th>
-              <th style={{ textAlign: 'left', width: 215 }}>備註</th>
+              <th style={{ textAlign: 'left', width: 150 }}>備註</th>
             </tr>
           </thead>
           <tbody>
