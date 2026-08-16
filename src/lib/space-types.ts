@@ -153,3 +153,56 @@ export function findSpaceType(value: string | null | undefined): SpaceType | und
   if (!value) return undefined
   return SPACE_TYPES.find(s => s.value === value)
 }
+
+// ============ 使用者類型（客戶屬性） ============
+
+export interface UserType {
+  value: string     // 存入 projects.user_type
+  scenes: string    // 常見場景
+  focus: string     // 設計／驗收重點
+}
+
+export const USER_TYPES: UserType[] = [
+  {
+    value: '教育校園（K-12／大專院校）',
+    scenes: '教室、多功能禮堂、廣播系統。',
+    focus: '強調耐用、防呆、高使用頻率、直覺操作。',
+  },
+  {
+    value: '企業商辦（一般企業／跨國外商）',
+    scenes: '中大型視訊會議室、董事會會議室、展示大廳。',
+    focus: '重視視訊相容性（Teams／Zoom）、簡潔美觀、自動化控制。',
+  },
+  {
+    value: '政府與公部門（機關／國營事業）',
+    scenes: '大禮堂、應變中心、簡報室。',
+    focus: '重視採購規範相容、穩定度與標案驗收標準。',
+  },
+  {
+    value: '醫療與專業機構（醫院／診所／研究中心）',
+    scenes: '遠距醫療視訊、會議教學演講廳、診間廣播。',
+    focus: '重視訊號低延遲與高解析度傳輸。',
+  },
+  {
+    value: '住宅與商業空間（店面／住宅招待所）',
+    scenes: '背景音樂系統（BGM）、客製化影音娛樂。',
+    focus: '重視空間美感與裝潢隱蔽性。',
+  },
+  {
+    value: '旅宿與餐飲（飯店／民宿／餐廳）',
+    scenes: '宴會廳、多功能會議中心、大廳與餐飲區背景音樂、客房娛樂系統。',
+    focus: '重視分區背景音樂與緊急廣播整合、宴會廳可分割與中控切換、裝潢界面協調、長時間運轉的散熱與維護。',
+  },
+  {
+    value: '其他',
+    scenes: '不屬於上述分類，請於說明／備註補充。',
+    focus: '',
+  },
+]
+
+export const USER_TYPE_VALUES = USER_TYPES.map(u => u.value)
+
+export function findUserType(value: string | null | undefined): UserType | undefined {
+  if (!value) return undefined
+  return USER_TYPES.find(u => u.value === value)
+}

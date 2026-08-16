@@ -9,7 +9,7 @@ import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
 import ProjectTasksSection from '@/components/clients/ProjectTasksSection'
 import { formatDate } from '@/lib/utils'
-import { SPACE_TYPE_VALUES, findSpaceType } from '@/lib/space-types'
+import { SPACE_TYPE_VALUES, findSpaceType, USER_TYPE_VALUES, findUserType } from '@/lib/space-types'
 import { usePermissions } from '@/lib/permissions'
 
 // 須與 sql/projects_phase1b_status6.sql 的 check 約束一致
@@ -1495,6 +1495,19 @@ function AccordionGroup({ title, color, defaultOpen = false, children }: {
 const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400'
 const ta  = inp + ' resize-none'
 
+// 選定使用者類型後，顯示該客群的常見場景與設計／驗收重點
+function UserTypeHint({ value }: { value: string }) {
+  const ut = findUserType(value)
+  if (!ut || !ut.focus) return null
+  return (
+    <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-gray-700">
+      <div className="font-medium text-amber-800 mb-0.5">{ut.value}</div>
+      <div>常見場景：{ut.scenes}</div>
+      <div>設計重點：{ut.focus}</div>
+    </div>
+  )
+}
+
 // 選定空間類型後，顯示該類型的核心硬體設計概念與場勘重點（供現勘對照）
 function SpaceTypeHint({ value }: { value: string }) {
   const st = findSpaceType(value)
@@ -1895,8 +1908,15 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                     </select>
                   </Field>
                   <Field label="使用者類型">
-                    <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
+                    <select value={form.user_type} onChange={setP('user_type')} className={inp}>
+                      <option value="">請選擇使用者類型</option>
+                      {USER_TYPE_VALUES.map(v => <option key={v} value={v}>{v}</option>)}
+                      {form.user_type && !USER_TYPE_VALUES.includes(form.user_type) && (
+                        <option value={form.user_type}>{form.user_type}（原資料）</option>
+                      )}
+                    </select>
                   </Field>
+                  <UserTypeHint value={form.user_type} />
                   <SpaceTypeHint value={form.scene_name} />
                   <Field label="專案狀態">
                     <select value={form.status} onChange={setP('status')} className={inp}>
