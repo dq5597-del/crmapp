@@ -18,6 +18,23 @@ export default function PrintButtons() {
   const [previewLandscape, setPreviewLandscape] = useState(false)
   const [sharePrompt, setSharePrompt] = useState(false)
 
+  // 備註版面：'col' = 含稅金額右側欄位（預設）、'row' = 品項下方整列
+  // 兩種版面的 HTML 都在頁面上，由 CSS 決定顯示哪個，列印與 PDF 擷取到的必定與畫面一致
+  const [noteMode, setNoteMode] = useState<'col' | 'row'>('col')
+  useEffect(() => {
+    setNoteMode((localStorage.getItem('gh-doc-note-mode') as 'col' | 'row' | null) ?? 'col')
+  }, [])
+  useEffect(() => {
+    document.getElementById('print-page-content')?.classList.toggle('note-mode-row', noteMode === 'row')
+  }, [noteMode])
+  const toggleNoteMode = () => {
+    setNoteMode(prev => {
+      const next = prev === 'col' ? 'row' : 'col'
+      try { localStorage.setItem('gh-doc-note-mode', next) } catch { }
+      return next
+    })
+  }
+
   // 由詳情頁帶 ?share=1 進來時顯示一鍵分享提示。
   // navigator.share() 規格要求必須由使用者手勢觸發，自動呼叫會被瀏覽器擋掉，
   // 所以改成跳一個大按鈕，讓那一下點擊帶著手勢進去。
@@ -118,6 +135,13 @@ export default function PrintButtons() {
         style={{ padding: '8px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
       >
         預覽列印
+      </button>
+      <button
+        onClick={toggleNoteMode}
+        title="切換品項備註的位置，設定會記住"
+        style={{ padding: '8px 14px', background: '#fff', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+      >
+        備註：{noteMode === 'col' ? '右側欄' : '下方列'}
       </button>
       <button
         onClick={() => handlePrint(false)}

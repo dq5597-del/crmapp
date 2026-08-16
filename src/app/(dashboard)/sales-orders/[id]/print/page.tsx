@@ -133,6 +133,12 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
         .num { text-align: right; }
         .center { text-align: center; }
         .notes-row td { border-top: none; color: #555; font-size: 12.5px; padding: 1px 8px 3px; }
+        /* 品項備註兩種版面（由列印頁的「備註位置」切換，預設欄位版） */
+        .item-note-cell { color: #555; font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+        .notes-row { display: none; }
+        .note-mode-row .notes-row { display: table-row; }
+        .note-mode-row .item-note-cell,
+        .note-mode-row .note-col-head { display: none; }
         .total-row td { font-weight: 700; font-size: 15px; }
         .tax-row td { border-left: none; border-right: none; }
         .tax-row td:first-child { border-left: 2.5px solid #333; }
@@ -205,6 +211,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
               <th style={{ width: 44 }}>數量</th>
               <th style={{ width: 88 }}>含稅單價</th>
               <th style={{ width: 96 }}>含稅金額</th>
+              <th className="note-col-head" style={{ textAlign: 'left', width: 150 }}>備註</th>
             </tr>
           </thead>
           <tbody>
@@ -216,7 +223,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
                   dispNo = 0
                   return (
                     <tr key={item.id} style={{ background: '#ececec' }}>
-                      <td colSpan={8} style={{ fontWeight: 700 }}>{item.product_name}</td>
+                      <td colSpan={9} style={{ fontWeight: 700 }}>{item.product_name}</td>
                     </tr>
                   )
                 }
@@ -232,10 +239,11 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
                       <td className="center">{item.quantity}</td>
                       <td className="num">{fmt(Number(item.unit_price))}</td>
                       <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
+                      <td className="item-note-cell">{item.item_notes?.trim() || ''}</td>
                     </tr>
                     {!!item.item_notes?.trim() && (
                       <tr className="notes-row">
-                        <td colSpan={8}>備註：{item.item_notes}</td>
+                        <td colSpan={9}>備註：{item.item_notes}</td>
                       </tr>
                     )}
                   </Fragment>
@@ -246,15 +254,15 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
           {/* 交易已成立，不再列原價與折扣；金額需與發票、應收帳款對得起來 */}
           <tfoot>
             <tr className="total-row tax-row tax-top">
-              <td colSpan={5}>未稅金額</td>
+              <td colSpan={6}>未稅金額</td>
               <td colSpan={3} className="num">NT$ {fmt(netAmt)}</td>
             </tr>
             <tr className="total-row tax-row">
-              <td colSpan={5}>營業稅 5%</td>
+              <td colSpan={6}>營業稅 5%</td>
               <td colSpan={3} className="num">NT$ {fmt(taxAmt)}</td>
             </tr>
             <tr className="total-row tax-row tax-bottom">
-              <td colSpan={5}>含稅合計　{totalChinese}</td>
+              <td colSpan={6}>含稅合計　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(order.total_amount))}</td>
             </tr>
           </tfoot>
