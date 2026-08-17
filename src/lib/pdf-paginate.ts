@@ -97,7 +97,10 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
   const bodyRows = Array.from(el.querySelectorAll('tbody tr')) as HTMLElement[]
 
   // 表格欄位 X 邊界（CSS px，相對容器左緣）→ 供補空白列時對齊直線
-  const theadThs = Array.from(el.querySelectorAll('thead th')) as HTMLElement[]
+  // ⚠ 只取「看得見」的欄位：備註欄可切換顯示位置，隱藏時 rect 全是 0，
+  //   混進來會把欄位座標整組算歪（症狀：本頁小計的金額畫到畫面外）。
+  const theadThs = (Array.from(el.querySelectorAll('thead th')) as HTMLElement[])
+    .filter(th => th.getBoundingClientRect().width > 0)
   const colEdgesCss: number[] = []
   if (theadThs.length) {
     for (const th of theadThs) colEdgesCss.push(th.getBoundingClientRect().left - containerLeft)
@@ -131,11 +134,13 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     if (!isCat && !isNote) {
       // 主列金額 = 最後一個靠右數字欄（.num）；項次 = 第一格數字
       // （不能取「最後一格」—— 金額右邊還有備註欄時會抓到文字而算出 0）
-      const cells = tr.querySelectorAll('td')
-      const numCells = Array.from(cells).filter(c => c.classList.contains('num'))
+      // 同樣只看得見的儲存格，索引才會與 colEdgesCss 對得起來
+      const cells = Array.from(tr.querySelectorAll('td'))
+        .filter(c => (c as HTMLElement).getBoundingClientRect().width > 0)
+      const numCells = cells.filter(c => c.classList.contains('num'))
       const last = numCells.length ? numCells[numCells.length - 1] : cells[cells.length - 1]
       if (amtColIdx < 0 && numCells.length) {
-        amtColIdx = Array.from(cells).indexOf(numCells[numCells.length - 1])
+        amtColIdx = cells.indexOf(numCells[numCells.length - 1])
       }
       const first = cells[0]
       const amt = last ? Number((last.textContent || '').replace(/[^0-9.-]/g, '')) : 0
