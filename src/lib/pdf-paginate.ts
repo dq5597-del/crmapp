@@ -291,7 +291,9 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
     const lastRange = ranges[ranges.length - 1]
     if (footerBlockH > 0 && lastRange && !lastRange.last) {
       const usedH = headerH + (lastRange.end - lastRange.start)
-      if (lastRange.end >= rowsEnd && usedH + footerBlockH <= capacity) {
+      // 切點會對齊框線，落點常比表格結尾少一兩像素 —— 不給容差就永遠判定「還沒排完」
+      const allItemsPlaced = lastRange.end >= rowsEnd - Math.max(6, Math.round(4 * scale))
+      if (allItemsPlaced && usedH + footerBlockH <= capacity) {
         lastRange.last = true
       } else {
         ranges.push({ start: rowsEnd, end: rowsEnd, last: true })
