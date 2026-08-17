@@ -286,8 +286,16 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
 
     // 收尾：所有品項都排完了，但最後一頁是「未含頁尾」（品項剛好塞滿、放不下總金額/備註/印章）
     // → 另起最後一頁專門放頁尾區（start==end，不畫品項，只畫表頭＋總金額/備註/印章）
-    if (footerBlockH > 0 && ranges.length && !ranges[ranges.length - 1].last) {
-      ranges.push({ start: rowsEnd, end: rowsEnd, last: true })
+    // 品項排完後，若最後那頁的剩餘空間其實放得下總計／備註／印章，就收在同一頁，
+    // 不要為了它另起一張只有總計的紙。（放不下才另開一頁）
+    const lastRange = ranges[ranges.length - 1]
+    if (footerBlockH > 0 && lastRange && !lastRange.last) {
+      const usedH = headerH + (lastRange.end - lastRange.start)
+      if (lastRange.end >= rowsEnd && usedH + footerBlockH <= capacity) {
+        lastRange.last = true
+      } else {
+        ranges.push({ start: rowsEnd, end: rowsEnd, last: true })
+      }
     }
 
     const total = ranges.length
