@@ -31,6 +31,22 @@ export default function PrintButtons() {
     if (!page) return
     page.classList.toggle('note-mode-row', noteMode === 'row')
   }, [noteMode])
+  // 金額顯示：給廠商看時可整組隱藏（單價、金額欄與總計區）
+  const [showMoney, setShowMoney] = useState(true)
+  useEffect(() => {
+    setShowMoney(localStorage.getItem('gh-quote-hide-money') !== '1')
+  }, [])
+  useEffect(() => {
+    document.getElementById('print-page-content')?.classList.toggle('hide-money', !showMoney)
+  }, [showMoney])
+  const toggleMoney = () => {
+    setShowMoney(prev => {
+      const next = !prev
+      try { localStorage.setItem('gh-quote-hide-money', next ? '0' : '1') } catch { }
+      return next
+    })
+  }
+
   const toggleNoteMode = () => {
     setNoteMode(prev => {
       const next = prev === 'col' ? 'row' : 'col'
@@ -140,6 +156,13 @@ export default function PrintButtons() {
         style={{ padding: '8px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
       >
         預覽列印
+      </button>
+      <button
+        onClick={toggleMoney}
+        title="隱藏後單價、金額與總計都不會出現，適合給廠商看"
+        style={{ padding: '8px 14px', background: showMoney ? '#fff' : '#fef3c7', color: showMoney ? '#334155' : '#92400e', border: `1px solid ${showMoney ? '#cbd5e1' : '#fcd34d'}`, borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+      >
+        金額：{showMoney ? '顯示' : '隱藏'}
       </button>
       <button
         onClick={toggleNoteMode}

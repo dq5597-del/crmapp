@@ -160,6 +160,10 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
         .note-mode-row .notes-row { display: table-row; }
         .note-mode-row .item-note-cell,
         .note-mode-row .note-col-head { display: none; }
+        /* 隱藏金額（給廠商看的版本）：單價、金額欄與整個總計區都不顯示。
+           tfoot 本身保留（只隱藏其中的列），否則分頁程式會量到錯誤座標。 */
+        .hide-money .col-money { display: none; }
+        .hide-money tfoot tr { display: none; }
         .total-row td { font-weight: 700; font-size: 15px; }
         /* 未稅／稅額／含稅合計框成一個粗框區塊 */
         .tax-row td { border-left: none; border-right: none; }
@@ -229,8 +233,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <th style={{ textAlign: 'left', width: 110 }}>規格型號</th>
               <th style={{ width: 44 }}>單位</th>
               <th style={{ width: 44 }}>數量</th>
-              <th style={{ width: 88 }}>含稅單價</th>
-              <th style={{ width: 96 }}>含稅金額</th>
+              <th className="col-money" style={{ width: 88 }}>含稅單價</th>
+              <th className="col-money" style={{ width: 96 }}>含稅金額</th>
               <th className="note-col-head" style={{ textAlign: 'left', width: 150 }}>備註</th>
             </tr>
           </thead>
@@ -248,8 +252,8 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>
                   <td className="center">{item.quantity}</td>
-                  <td className="num">{fmt(Number(item.unit_price))}</td>
-                  <td className="num">{fmt(item.quantity * Number(item.unit_price))}</td>
+                  <td className="num col-money">{fmt(Number(item.unit_price))}</td>
+                  <td className="num col-money">{fmt(item.quantity * Number(item.unit_price))}</td>
                   <td className="item-note-cell">{item.item_notes?.trim() || ''}</td>
                 </tr>
                 )}

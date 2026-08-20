@@ -327,7 +327,9 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
       }
 
       // 4) 未完頁 → 欄線補空白列填滿到頁尾，本頁小計接下一行
-      if (!r.last && hasGrid) {
+      //    金額欄被隱藏（給廠商看的版本）時沒有 .num 可加總，就不印小計，
+      //    否則會出現一行「本頁小計 NT$ 0」。
+      if (!r.last && hasGrid && amtColIdx >= 0) {
         ctx.strokeStyle = '#aaaaaa'
         ctx.lineWidth = Math.max(1, Math.round(scale * 0.6))
         // 補白列（不編號，避免與下一頁真實品項號碼衝突；僅延伸欄位格線）
@@ -367,12 +369,14 @@ export async function buildPaginatedPdfWithPages(opts?: { landscape?: boolean })
         ctx.textBaseline = 'alphabetic'
         ctx.fillText('～ 續下頁 ～', gx1, capacity - Math.round(34 * sc))
       } else if (!r.last) {
-        // 無欄位資訊時退回純文字
-        const sub = pageSubtotal(r.start, r.end)
+        // 無欄位資訊時退回純文字；金額欄被隱藏時只印「續下頁」，不印會是 0 的小計
         ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'
-        ctx.fillStyle = '#111827'; ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
-        ctx.fillText(`本頁小計　${fmtNT(sub)}`, W - Math.round(40 * sc), capacity - Math.round(46 * sc))
+        if (amtColIdx >= 0) {
+          ctx.fillStyle = '#111827'; ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
+          ctx.fillText(`本頁小計　${fmtNT(pageSubtotal(r.start, r.end))}`, W - Math.round(40 * sc), capacity - Math.round(46 * sc))
+        }
         ctx.fillStyle = '#1d4ed8'
+        ctx.font = `bold ${Math.round(22 * sc)}px ${cjkFont}`
         ctx.fillText('～ 續下頁 ～', W - Math.round(40 * sc), capacity - Math.round(16 * sc))
       }
 
