@@ -266,10 +266,6 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
               </ol>
             </div>
           )}
-          <div className="stamp-box">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/stamp.png" alt="銷貨單專用章" />
-          </div>
         </div>
 
         <div className="sign-row">
