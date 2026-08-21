@@ -28,20 +28,20 @@ export default function PrintButtons() {
     document.getElementById('print-page-content')?.classList.toggle('note-mode-row', noteMode === 'row')
   }, [noteMode])
   // 金額顯示：給廠商看時可整組隱藏（單價、金額欄與總計區）
+  // ⚠ 同樣不記住設定，每次開啟都預設顯示
   const [showMoney, setShowMoney] = useState(true)
-  useEffect(() => {
-    setShowMoney(localStorage.getItem('gh-doc-hide-money') !== '1')
-  }, [])
   useEffect(() => {
     document.getElementById('print-page-content')?.classList.toggle('hide-money', !showMoney)
   }, [showMoney])
-  const toggleMoney = () => {
-    setShowMoney(prev => {
-      const next = !prev
-      try { localStorage.setItem('gh-doc-hide-money', next ? '0' : '1') } catch { }
-      return next
-    })
-  }
+  const toggleMoney = () => setShowMoney(prev => !prev)
+
+  // 客戶資訊顯示：轉給廠商時可隱藏客戶名稱、聯絡人、電話、交貨地址
+  // ⚠ 刻意不記住設定 —— 每次開啟都預設顯示，避免上次關掉後忘了開回來
+  const [showClient, setShowClient] = useState(true)
+  useEffect(() => {
+    document.getElementById('print-page-content')?.classList.toggle('hide-client', !showClient)
+  }, [showClient])
+  const toggleClient = () => setShowClient(prev => !prev)
 
   const toggleNoteMode = () => {
     setNoteMode(prev => {
@@ -151,6 +151,13 @@ export default function PrintButtons() {
         style={{ padding: '8px 20px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
       >
         預覽列印
+      </button>
+      <button
+        onClick={toggleClient}
+        title="隱藏後客戶名稱、聯絡人、電話、交貨地址都不會出現"
+        style={{ padding: '8px 14px', background: showClient ? '#fff' : '#fef3c7', color: showClient ? '#334155' : '#92400e', border: `1px solid ${showClient ? '#cbd5e1' : '#fcd34d'}`, borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+      >
+        客戶：{showClient ? '顯示' : '隱藏'}
       </button>
       <button
         onClick={toggleMoney}

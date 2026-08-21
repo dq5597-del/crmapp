@@ -28,20 +28,12 @@ export default function PrintButtons() {
     document.getElementById('print-page-content')?.classList.toggle('note-mode-row', noteMode === 'row')
   }, [noteMode])
   // 金額顯示：給廠商看時可整組隱藏（單價、金額欄與總計區）
+  // ⚠ 刻意不記住設定 —— 每次開啟都預設顯示，避免上次關掉後忘了開回來
   const [showMoney, setShowMoney] = useState(true)
-  useEffect(() => {
-    setShowMoney(localStorage.getItem('gh-doc-hide-money') !== '1')
-  }, [])
   useEffect(() => {
     document.getElementById('print-page-content')?.classList.toggle('hide-money', !showMoney)
   }, [showMoney])
-  const toggleMoney = () => {
-    setShowMoney(prev => {
-      const next = !prev
-      try { localStorage.setItem('gh-doc-hide-money', next ? '0' : '1') } catch { }
-      return next
-    })
-  }
+  const toggleMoney = () => setShowMoney(prev => !prev)
 
   const toggleNoteMode = () => {
     setNoteMode(prev => {

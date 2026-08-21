@@ -164,6 +164,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
            tfoot 本身保留（只隱藏其中的列），否則分頁程式會量到錯誤座標。 */
         .hide-money .col-money { display: none; }
         .hide-money tfoot tr { display: none; }
+        /* 隱藏客戶名稱與聯絡資訊（轉給廠商時不透露客戶是誰）。
+           用 visibility 保留位置，右側的單據日期／單號才不會被推動。 */
+        .hide-client .client-info { visibility: hidden; }
         .total-row td { font-weight: 700; font-size: 15px; }
         /* 未稅／稅額／含稅合計框成一個粗框區塊 */
         .tax-row td { border-left: none; border-right: none; }
@@ -212,7 +215,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
 
         {/* Client + quote info (merged into 2 rows) */}
         <div className="info-row">
-          <span>
+          <span className="client-info">
             客戶名稱：<strong>{clientName}</strong>
             {quote.contact_name && `　聯絡人：${quote.contact_name}`}
             {quote.client_phone && `　電話：${quote.client_phone}`}
@@ -220,7 +223,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           <span>單據日期：{quote.created_at ? new Date(quote.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
         </div>
         <div className="info-row">
-          <span>{clientAddress && `地址：${clientAddress}`}</span>
+          <span className="client-info">{clientAddress && `地址：${clientAddress}`}</span>
           <span>單號：{quote.quote_no}</span>
         </div>
 

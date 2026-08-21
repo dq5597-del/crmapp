@@ -134,6 +134,8 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
            否則分頁程式會量到錯誤座標 */
         .hide-money .col-money { display: none; }
         .hide-money tfoot tr { display: none; }
+        /* 隱藏客戶名稱與聯絡資訊；用 visibility 保留位置，右側日期／單號才不會被推動 */
+        .hide-client .client-info { visibility: hidden; }
         .total-row td { font-weight: 700; font-size: 15px; }
         .tax-row td { border-left: none; border-right: none; }
         .tax-row td:first-child { border-left: 2.5px solid #333; }
@@ -183,7 +185,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
         </div>
 
         <div className="info-row">
-          <span>
+          <span className="client-info">
             客戶名稱：<strong>{clientName}</strong>
             {order.contact_name && `　聯絡人：${order.contact_name}`}
             {order.client_phone && `　電話：${order.client_phone}`}
@@ -191,7 +193,7 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
           <span>單據日期：{order.created_at ? new Date(order.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
         </div>
         <div className="info-row">
-          <span>{deliveryAddress && `交貨地址：${deliveryAddress}`}</span>
+          <span className="client-info">{deliveryAddress && `交貨地址：${deliveryAddress}`}</span>
           <span>單號：{order.order_no}</span>
         </div>
 
