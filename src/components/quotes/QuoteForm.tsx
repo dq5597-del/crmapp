@@ -360,6 +360,8 @@ export default function QuoteForm({
 
   const [header, setHeader] = useState({
     quote_no: initialQuote?.quote_no ?? '',
+    // 單據上顯示的日期，可補開過去日期；單號與 created_at 仍記錄真正的建檔時間
+    doc_date: (initialQuote as any)?.doc_date ?? new Date().toISOString().slice(0, 10),
     client_id: initialQuote?.client_id ?? prefillClientId ?? '',
     client_name_display: initialQuote?.client_id ? '' : (prefillClientName ?? ''),
     project_name: initialQuote?.project_name ?? prefillProjectName ?? '',
@@ -741,6 +743,7 @@ export default function QuoteForm({
 
     const quotePayload = {
       quote_no: header.quote_no,
+      doc_date: header.doc_date || null,
       client_id: header.client_id || null,
       project_name: header.project_name || null,
       project_id: projectId,
@@ -861,6 +864,18 @@ export default function QuoteForm({
           <div>
             <label className={labelClass}>報價單號</label>
             <input value={header.quote_no} readOnly className={inputClass + ' bg-gray-50 text-gray-500 cursor-default'} />
+          </div>
+          <div>
+            <label className={labelClass}>單據日期</label>
+            <input
+              type="date"
+              value={header.doc_date ?? ''}
+              onChange={e => setHeader(p => ({ ...p, doc_date: e.target.value }))}
+              className={inputClass}
+            />
+            <div className="text-[11px] text-gray-400 mt-1">
+              印在單據上的日期，可補開過去日期。單號仍記錄實際建檔日。
+            </div>
           </div>
           <div className="relative">
             <label className={labelClass}>客戶名稱 *</label>

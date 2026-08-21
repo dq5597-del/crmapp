@@ -220,7 +220,11 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             {quote.contact_name && `　聯絡人：${quote.contact_name}`}
             {quote.client_phone && `　電話：${quote.client_phone}`}
           </span>
-          <span>單據日期：{quote.created_at ? new Date(quote.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
+          {/* 優先用使用者指定的單據日期，沒有才退回建檔時間 */}
+          <span>單據日期：{(() => {
+            const d = (quote as any).doc_date ?? quote.created_at
+            return d ? new Date(d).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''
+          })()}</span>
         </div>
         <div className="info-row">
           <span className="client-info">{clientAddress && `地址：${clientAddress}`}</span>
