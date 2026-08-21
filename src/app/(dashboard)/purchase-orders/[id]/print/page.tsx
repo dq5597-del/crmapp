@@ -175,7 +175,11 @@ export default async function PurchaseOrderPrintPage({ params }: { params: { id:
             {order.vendor_contact && `　聯絡人：${order.vendor_contact}`}
             {order.vendor_phone && `　電話：${order.vendor_phone}`}
           </span>
-          <span>單據日期：{order.created_at ? new Date(order.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
+          {/* 優先用使用者指定的單據日期，沒有才退回建檔時間 */}
+          <span>單據日期：{(() => {
+            const d = (order as any).doc_date ?? order.created_at
+            return d ? new Date(d).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''
+          })()}</span>
         </div>
         <div className="info-row">
           <span>{(order as any).salesperson?.full_name && `業務員：${(order as any).salesperson.full_name}`}</span>

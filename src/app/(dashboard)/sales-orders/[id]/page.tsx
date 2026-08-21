@@ -40,6 +40,8 @@ export default function SalesOrderDetailPage() {
   // editable fields
   const [clientId, setClientId] = useState('')
   const [projectName, setProjectName] = useState('')
+  // 印在單據上的日期，可補開過去日期；單號與 created_at 仍記錄真正的建檔時間
+  const [docDate, setDocDate] = useState('')
   const [contactName, setContactName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [deliveryDate, setDeliveryDate] = useState('')
@@ -72,6 +74,7 @@ export default function SalesOrderDetailPage() {
       setOrder(o)
       setClientId(o?.client_id ?? '')
       setProjectName(o?.project_name ?? '')
+      setDocDate((o as any)?.doc_date ?? (o?.created_at ? String(o.created_at).slice(0, 10) : ''))
       setContactName(o?.contact_name ?? '')
       setClientPhone(o?.client_phone ?? '')
       setDeliveryDate(o?.delivery_date ?? '')
@@ -154,6 +157,7 @@ export default function SalesOrderDetailPage() {
       const { error: orderErr } = await supabase.from('sales_orders').update({
         client_id: clientId || null,
         project_name: projectName,
+        doc_date: docDate || null,
         contact_name: contactName,
         client_phone: clientPhone,
         delivery_date: deliveryDate || null,
@@ -302,6 +306,12 @@ export default function SalesOrderDetailPage() {
             <label className="text-xs text-gray-500 mb-1 block">案名</label>
             <input value={projectName} onChange={e => setProjectName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">單據日期</label>
+            <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+            <div className="text-[11px] text-gray-400 mt-1">印在單據上的日期，單號仍記錄建檔日</div>
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">聯絡人</label>

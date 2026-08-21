@@ -42,7 +42,7 @@ export default function PurchaseOrderDetailPage() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [form, setForm] = useState({ vendor_name: '', vendor_contact: '', vendor_phone: '', notes: '', status: '草稿', signer_name: '', signed_date: '', salesperson_id: '' })
+  const [form, setForm] = useState({ vendor_name: '', vendor_contact: '', vendor_phone: '', notes: '', status: '草稿', signer_name: '', signed_date: '', salesperson_id: '', doc_date: '' })
   const [salespeople, setSalespeople] = useState<any[]>([])
   const [discountInput, setDiscountInput] = useState<number | string>(0)
 
@@ -54,7 +54,7 @@ export default function PurchaseOrderDetailPage() {
     ]).then(([oRes, iRes, spRes]) => {
       if (oRes.data) {
         setOrder(oRes.data)
-        setForm({ vendor_name: oRes.data.vendor_name ?? '', vendor_contact: oRes.data.vendor_contact ?? '', vendor_phone: oRes.data.vendor_phone ?? '', notes: oRes.data.notes ?? '', status: oRes.data.status ?? '草稿', signer_name: oRes.data.signer_name ?? '', signed_date: oRes.data.signed_date ?? '', salesperson_id: oRes.data.salesperson_id ?? '' })
+        setForm({ vendor_name: oRes.data.vendor_name ?? '', vendor_contact: oRes.data.vendor_contact ?? '', vendor_phone: oRes.data.vendor_phone ?? '', notes: oRes.data.notes ?? '', status: oRes.data.status ?? '草稿', signer_name: oRes.data.signer_name ?? '', signed_date: oRes.data.signed_date ?? '', salesperson_id: oRes.data.salesperson_id ?? '', doc_date: oRes.data.doc_date ?? (oRes.data.created_at ? String(oRes.data.created_at).slice(0, 10) : '') })
         setDiscountInput(oRes.data.discount_amount ?? 0)
       }
       setItems(
@@ -160,6 +160,7 @@ export default function PurchaseOrderDetailPage() {
       const { error: orderErr } = await supabase.from('purchase_orders').update({
         ...form,
         signed_date: form.signed_date || null,
+        doc_date: form.doc_date || null,
         salesperson_id: form.salesperson_id || null,
         subtotal, tax_amount: taxAmount, total_amount: totalAmount, discount_amount: discAmt,
       }).eq('id', id)
@@ -259,6 +260,11 @@ export default function PurchaseOrderDetailPage() {
           <div>
             <label className="text-xs text-gray-600 mb-1 block">單位電話</label>
             <input value={form.vendor_phone} onChange={e => setForm(p => ({ ...p, vendor_phone: e.target.value }))} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">單據日期</label>
+            <input type="date" value={form.doc_date ?? ''} onChange={e => setForm(p => ({ ...p, doc_date: e.target.value }))} className={inputClass} />
+            <div className="text-[11px] text-gray-400 mt-1">印在單據上的日期，單號仍記錄建檔日</div>
           </div>
           <div>
             <label className="text-xs text-gray-600 mb-1 block">業務員</label>

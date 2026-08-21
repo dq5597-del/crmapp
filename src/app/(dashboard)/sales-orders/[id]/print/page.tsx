@@ -190,7 +190,11 @@ export default async function SalesOrderPrintPage({ params }: { params: { id: st
             {order.contact_name && `　聯絡人：${order.contact_name}`}
             {order.client_phone && `　電話：${order.client_phone}`}
           </span>
-          <span>單據日期：{order.created_at ? new Date(order.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}</span>
+          {/* 優先用使用者指定的單據日期，沒有才退回建檔時間 */}
+          <span>單據日期：{(() => {
+            const d = (order as any).doc_date ?? order.created_at
+            return d ? new Date(d).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''
+          })()}</span>
         </div>
         <div className="info-row">
           <span className="client-info">{deliveryAddress && `交貨地址：${deliveryAddress}`}</span>
