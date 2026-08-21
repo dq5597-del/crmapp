@@ -95,7 +95,9 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
     noteItems.push(`報價有效天數：${diffDays} 天`)
   }
   if (quote.delivery_days) noteItems.push(`交貨工期：${quote.delivery_days} 天`)
-  if (bankInfo) noteItems.push(`匯款帳號：${bankInfo}`)
+  // 匯款帳號不印在報價單：此階段尚未成交、客戶不會匯款，
+  // 且帳號出現的次數越少，被仿冒單據換帳號詐騙的空間越小。
+  // 收款相關文件（銷貨單／請款單）才顯示。
   if (quote.payment_terms) noteItems.push(`付款條件：${quote.payment_terms}`)
   // 動態備註條目（從系統設定新增/刪除）
   const defaultNoteItems: string[] = Array.isArray((settings as any)?.default_note_items)
