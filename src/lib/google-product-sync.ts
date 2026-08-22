@@ -52,7 +52,19 @@ export function verifyGoogleProductSync(secret: string, sheetId: string): string
   const expectedSecret = process.env.GOOGLE_PRODUCT_SYNC_SECRET ?? ''
   const expectedSheetId = process.env.GOOGLE_PRODUCT_SHEET_ID ?? ''
   if (!expectedSecret || !expectedSheetId) return 'Google 產品同步尚未完成環境設定'
-  if (!safeEqual(secret, expectedSecret) || !safeEqual(sheetId, expectedSheetId)) return 'unauthorized'
+  const secretMatches = safeEqual(secret, expectedSecret)
+  const sheetIdMatches = safeEqual(sheetId, expectedSheetId)
+  if (!secretMatches || !sheetIdMatches) {
+    console.warn('[google-product-sync] rejected credentials', {
+      secretMatches,
+      sheetIdMatches,
+      receivedSecretLength: secret.length,
+      expectedSecretLength: expectedSecret.length,
+      receivedSheetIdLength: sheetId.length,
+      expectedSheetIdLength: expectedSheetId.length,
+    })
+    return 'unauthorized'
+  }
   return null
 }
 
