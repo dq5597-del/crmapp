@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Equipment } from '@/types'
-import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX, Pencil, HardHat, Crown } from 'lucide-react'
+import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX, Pencil, HardHat, Crown, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type WarrantyKey = 'good' | 'warn' | 'danger'
@@ -156,6 +156,21 @@ export default function EquipmentPage() {
     })
   }
 
+  async function deleteDevice(d: Equipment) {
+    if (!confirm(`確定要刪除「${[d.brand, d.model].filter(Boolean).join(' ') || '這台設備'}」嗎？此動作無法復原。`)) return
+    const { error } = await supabase.from('equipment').delete().eq('id', d.id)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    setEquipment(prev => prev.filter(e => e.id !== d.id))
+  }
+
+  async function deleteBatch(b: Batch) {
+    if (!confirm(`確定要刪除「${batchLabel(b)}」這筆安裝紀錄嗎？裡面共 ${b.devices.length} 台設備會一起刪除，此動作無法復原。`)) return
+    const ids = b.devices.map(d => d.id)
+    const { error } = await supabase.from('equipment').delete().in('id', ids)
+    if (error) { alert('刪除失敗：' + error.message); return }
+    setEquipment(prev => prev.filter(e => !ids.includes(e.id)))
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -303,8 +318,18 @@ export default function EquipmentPage() {
                         <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', WARRANTY_COLOR[w.key])}>{w.label}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-700">{svcSum > 0 ? `${svcSum} 次` : '—'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <ChevronRight size={15} className={cn('text-gray-400 transition-transform', open && 'rotate-90')} />
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <button
+                            type="button"
+                            title="刪除這筆安裝紀錄"
+                            onClick={e => { e.stopPropagation(); deleteBatch(b) }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          <ChevronRight size={15} className={cn('text-gray-400 transition-transform', open && 'rotate-90')} />
+                        </div>
                       </td>
                     </tr>
                     {open && b.devices.map(d => {
@@ -349,6 +374,14 @@ export default function EquipmentPage() {
                                 <Wrench size={12} />
                                 叫修
                               </Link>
+                              <button
+                                type="button"
+                                title="刪除這台設備"
+                                onClick={e => { e.stopPropagation(); deleteDevice(d) }}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             </div>
                           </td>
                         </tr>
