@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   let printer: any = null
   if (body.printer_id) {
     const { data } = await sb.from('print_printers').select('*').eq('id', body.printer_id).eq('is_active', true).maybeSingle()
-    printer = data
+    if (data?.purpose === 'warranty_label' && (data.branch_id === null || data.branch_id === user.branch_id)) printer = data
   } else {
     let q = sb.from('print_printers').select('*').eq('purpose', 'warranty_label').eq('is_active', true).order('is_default', { ascending: false }).limit(1)
     q = user.branch_id ? q.or(`branch_id.eq.${user.branch_id},branch_id.is.null`) : q.is('branch_id', null)

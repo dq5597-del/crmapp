@@ -24,14 +24,14 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
   const printable = useMemo(() => items.filter(i => i.product_name.trim()), [items])
   const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [copies, setCopies] = useState<Record<number, number>>({})
-  const [printers, setPrinters] = useState<{ id: string; name: string; last_seen_at?: string | null }[]>([])
+  const [printers, setPrinters] = useState<{ id: string; name: string; purpose: string; label_width_mm: number; label_height_mm: number; last_seen_at?: string | null }[]>([])
   const [printerId, setPrinterId] = useState('')
   const [cloudBusy, setCloudBusy] = useState(false)
 
   useEffect(() => {
     if (!open) return
     fetch('/api/print/printers').then(r => r.ok ? r.json() : { printers: [] }).then(json => {
-      const list = json.printers ?? []
+      const list = (json.printers ?? []).filter((printer: { purpose?: string }) => printer.purpose === 'warranty_label')
       setPrinters(list)
       setPrinterId((current: string) => current || list[0]?.id || '')
     }).catch(() => setPrinters([]))
@@ -96,7 +96,7 @@ export default function WarrantyLabelModal({ open, onClose, orderNo, purchaseDat
             ))}
             {printable.length === 0 && <div className="p-6 text-center text-sm text-gray-400">這張銷貨單尚無可列印品項</div>}
           </div>
-          <p className="mt-3 text-xs text-gray-400">貼紙尺寸：80 × 40 mm。預設張數等於購買數量，可依實際設備調整。</p>
+          <p className="mt-3 text-xs text-gray-400">貼紙尺寸：{printers.find(p => p.id === printerId)?.label_width_mm ?? 60} × {printers.find(p => p.id === printerId)?.label_height_mm ?? 40} mm。預設張數等於購買數量，可依實際設備調整。</p>
           <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-medium text-blue-900"><Cloud size={15} />固定印表機</div>
