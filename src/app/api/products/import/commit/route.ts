@@ -13,6 +13,11 @@ interface CommitItem {
   features?: string[]
   main_image_url?: string
   image_urls?: string[]
+  filter_specs?: { group: string; values: string[] }[]
+}
+
+function normalizeFilterKey(value: unknown) {
+  return String(value ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US')
 }
 
 /**
@@ -38,6 +43,26 @@ export async function POST(req: Request) {
   const { data: cats } = await supabase.from('product_categories').select('id,main_category,sub_category')
   const catMap = new Map<string, string>()
   for (const c of cats ?? []) catMap.set(`${c.main_category}||${c.sub_category}`, c.id)
+
+  const [{ data: filterGroups }, { data: filterOptions }] = await Promise.all([
+    supabase.from('product_filter_groups').select('id,name,slug,input_type,unit').eq('is_active', true),
+    supabase.from('product_filter_options').select('id,group_id,name,slug,aliases').eq('is_active', true),
+  ])
+  const groupsBySlug = new Map<string, any>()
+  const groupNameBuckets = new Map<string, any[]>()
+  for (const group of filterGroups ?? []) {
+    groupsBySlug.set(normalizeFilterKey(group.slug), group)
+    const key = normalizeFilterKey(group.name)
+    groupNameBuckets.set(key, [...(groupNameBuckets.get(key) ?? []), group])
+  }
+  const groupsByUniqueName = new Map<string, any>()
+  groupNameBuckets.forEach((groups, key) => {
+    if (groups.length === 1) groupsByUniqueName.set(key, groups[0])
+  })
+  const optionsByGroup = new Map<string, any[]>()
+  for (const option of filterOptions ?? []) {
+    optionsByGroup.set(option.group_id, [...(optionsByGroup.get(option.group_id) ?? []), option])
+  }
 
   const results: { rowNo: number; ok: boolean; action: string; name: string; error?: string; note?: string }[] = []
   const imageCache = new Map<string, string>()   // 原網址 → WordPress 媒體網址（同檔只上傳一次）
@@ -128,6 +153,53 @@ export async function POST(req: Request) {
           const rows = urls.map((u, i) => ({ product_id: productId, image_url: u, sort_order: i }))
           const { error } = await supabase.from('product_images').insert(rows)
           if (error) notes.push(`圖片集寫入失敗：${error.message}`)
+        }
+      }
+
+      // ── 分類頁篩選規格：有提供此欄時才覆蓋，空白欄不動既有資料 ──
+      if ((item.filter_specs?.length ?? 0) > 0) {
+        const assignmentRows: { product_id: string; option_id: string }[] = []
+        const numberRows: { product_id: string; group_id: string; numeric_value: number }[] = []
+        const filterErrors: string[] = []
+        for (const spec of item.filter_specs ?? []) {
+          const key = normalizeFilterKey(spec.group)
+          const group = groupsBySlug.get(key) ?? groupsByUniqueName.get(key)
+          if (!group) {
+            filterErrors.push(`找不到或無法唯一辨識「${spec.group}」，請改用英文 slug`)
+            continue
+          }
+          if (group.input_type === 'number') {
+            const numeric = Number(String(spec.values[0] ?? '').replace(/[^0-9.+-]/g, ''))
+            if (!Number.isFinite(numeric)) filterErrors.push(`「${group.name}」不是有效數字：${spec.values[0] ?? ''}`)
+            else numberRows.push({ product_id: productId!, group_id: group.id, numeric_value: numeric })
+            continue
+          }
+          const candidates = optionsByGroup.get(group.id) ?? []
+          for (const value of spec.values) {
+            const wanted = normalizeFilterKey(value)
+            const option = candidates.find(candidate => [candidate.name, candidate.slug, ...(candidate.aliases ?? [])]
+              .some(alias => normalizeFilterKey(alias) === wanted))
+            if (!option) filterErrors.push(`「${group.name}」沒有選項「${value}」`)
+            else assignmentRows.push({ product_id: productId!, option_id: option.id })
+          }
+        }
+        if (filterErrors.length) {
+          notes.push(`篩選規格未更新：${filterErrors.join('、')}`)
+        } else {
+          await Promise.all([
+            supabase.from('product_filter_assignments').delete().eq('product_id', productId),
+            supabase.from('product_filter_numbers').delete().eq('product_id', productId),
+          ])
+          if (assignmentRows.length) {
+            const uniqueRows = Array.from(new Map(assignmentRows.map(row => [row.option_id, row])).values())
+            const { error } = await supabase.from('product_filter_assignments').insert(uniqueRows)
+            if (error) notes.push(`篩選選項寫入失敗：${error.message}`)
+          }
+          if (numberRows.length) {
+            const uniqueRows = Array.from(new Map(numberRows.map(row => [row.group_id, row])).values())
+            const { error } = await supabase.from('product_filter_numbers').insert(uniqueRows)
+            if (error) notes.push(`數值規格寫入失敗：${error.message}`)
+          }
         }
       }
 

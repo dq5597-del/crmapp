@@ -63,6 +63,14 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
   const md = todayStr.slice(5)
 
   const fetchAll = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setItems([])
+      setGaps([])
+      setOcc([])
+      setLoading(false)
+      return
+    }
     const [schedRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
       supabase.from('schedules')
         .select('*, clients(company_name, address), vendors(company_name)')

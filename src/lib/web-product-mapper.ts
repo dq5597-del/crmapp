@@ -36,7 +36,13 @@ export type CrmProductRow = {
   web_promo_price_to?: string | null
   web_spec_html?: string | null
   web_product_id?: string | null
+  web_variation_id?: string | null
   web_tab?: string | null // 官網首頁區塊：'none' | 'new'(最新商品) | 'hot'(熱銷商品)
+  variant_group_code?: string | null
+  variant_attribute_name?: string | null
+  variant_value?: string | null
+  variant_is_primary?: boolean | null
+  stock_qty?: number | null
 }
 
 export type CrmSubData = {
@@ -48,7 +54,7 @@ export type CrmSubData = {
 export type WooPayload = {
   name: string
   slug?: string
-  type: 'simple'
+  type: 'simple' | 'variable'
   status: 'draft' | 'publish'
   sku?: string
   regular_price?: string
@@ -61,6 +67,21 @@ export type WooPayload = {
   brands?: { id: number }[]
   images?: { src: string }[]
   tags?: { name: string }[]
+  attributes?: { id?: number; name?: string; visible: boolean; variation: boolean; options: string[] }[]
+  meta_data: { key: string; value: string }[]
+}
+
+export type WooVariationPayload = {
+  sku?: string
+  regular_price?: string
+  sale_price?: string
+  date_on_sale_from?: string | null
+  date_on_sale_to?: string | null
+  manage_stock: boolean
+  stock_quantity: number
+  backorders: 'no' | 'notify' | 'yes'
+  image?: { src: string }
+  attributes: { id?: number; name?: string; option: string }[]
   meta_data: { key: string; value: string }[]
 }
 
@@ -169,6 +190,63 @@ export function buildWooPayload(
   else if (p.web_tab === 'hot') payload.tags = [{ name: '熱銷商品' }]
   else payload.tags = []
 
+  return payload
+}
+
+/** 將系列主商品轉成 WooCommerce variable 父商品；售價、SKU、庫存由各 variation 管理。 */
+export function buildWooVariablePayload(
+  primary: CrmProductRow,
+  sub: CrmSubData,
+  categoryIds: number[],
+  attributeName: string,
+  options: string[],
+  opts: { status: 'draft' | 'publish' } = { status: 'draft' }
+): WooPayload {
+  const payload = buildWooPayload(primary, sub, categoryIds, opts)
+  payload.type = 'variable'
+  // 明確清空，才能安全地把既有 simple product 轉成 variable product，
+  // 否則父商品殘留的 SKU 會和第一個 variation 發生重複。
+  payload.sku = ''
+  payload.regular_price = ''
+  payload.sale_price = ''
+  payload.date_on_sale_from = null
+  payload.date_on_sale_to = null
+  delete payload.backorders
+  payload.attributes = [{
+    name: attributeName,
+    visible: true,
+    variation: true,
+    options: Array.from(new Set(options.map(value => value.trim()).filter(Boolean))),
+  }]
+  return payload
+}
+
+/** 每筆 CRM 商品仍保存自己的 SKU、價格、庫存與圖片，作為父商品下的可選變體。 */
+export function buildWooVariationPayload(p: CrmProductRow, attributeName: string, sub?: CrmSubData): WooVariationPayload {
+  const regular = p.web_sale_price && p.web_sale_price > 0 ? p.web_sale_price : p.list_price
+  const promoActive = !!(p.web_promo_price && p.web_promo_price > 0)
+  const fallbackImage = sub?.images
+    ? [...sub.images].sort((a, b) => a.sort_order - b.sort_order)[0]?.image_url
+    : null
+  const image = wooImageUrl(p.web_main_image_url || fallbackImage)
+  const payload: WooVariationPayload = {
+    sku: ((p.web_sku || p.model) ?? '').trim() || undefined,
+    regular_price: regular > 0 ? String(regular) : undefined,
+    manage_stock: true,
+    stock_quantity: Number(p.stock_qty ?? 0),
+    backorders: p.web_allow_backorder ? 'notify' : 'no',
+    attributes: [{ name: attributeName, option: (p.variant_value ?? '').trim() }],
+    meta_data: [
+      { key: 'av_source', value: 'crm' },
+      { key: 'av_crm_id', value: p.id },
+    ],
+  }
+  if (image) payload.image = { src: image }
+  if (promoActive) {
+    payload.sale_price = String(p.web_promo_price)
+    payload.date_on_sale_from = p.web_promo_price_from || null
+    payload.date_on_sale_to = p.web_promo_price_to || null
+  }
   return payload
 }
 

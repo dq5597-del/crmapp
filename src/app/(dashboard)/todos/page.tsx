@@ -99,6 +99,8 @@ export default function TodosPage() {
 
   async function fetchTodos() {
     setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setTodos([]); setLoading(false); return }
     const { data } = await supabase
       .from('todos')
       .select('*')
@@ -112,6 +114,8 @@ export default function TodosPage() {
   const [salesForGoals, setSalesForGoals] = useState<{ created_at: string; total_amount: number }[]>([])
 
   async function fetchGoals() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setGoals([]); setSalesForGoals([]); return }
     const [{ data }, { data: sales }] = await Promise.all([
       supabase.from('goals').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
       supabase.from('sales_orders').select('created_at, total_amount').neq('status', '取消').neq('status', '草稿'),
@@ -160,6 +164,8 @@ export default function TodosPage() {
   async function handleSaveGoal() {
     const title = goalForm.title.trim()
     if (!title) { alert('請輸入目標名稱'); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { alert('登入已失效，請重新登入'); return }
     setSavingGoal(true)
     const payload = {
       title,
@@ -170,6 +176,7 @@ export default function TodosPage() {
       current_value: goalForm.metric_type === 'number' && goalForm.current_value !== '' ? Number(goalForm.current_value) : 0,
       auto_source: goalForm.metric_type === 'number' && goalForm.auto_sales ? 'sales_orders' : 'none',
       start_date: goalForm.metric_type === 'number' && goalForm.auto_sales && goalForm.start_date ? goalForm.start_date : null,
+      created_by: user.id,
     }
     const res = editingGoalId
       ? await supabase.from('goals').update(payload).eq('id', editingGoalId)
@@ -219,6 +226,8 @@ export default function TodosPage() {
   async function handleSave() {
     const title = form.title.trim()
     if (!title) { alert('請輸入事項標題'); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { alert('登入已失效，請重新登入'); return }
     const category = (addingCat ? newCat.trim() : form.category) || '工作'
     setSaving(true)
     const payload = {
@@ -228,6 +237,7 @@ export default function TodosPage() {
       due_date: form.due_date || null,
       goal_id: form.goal_id || null,
       attachments: form.attachments,
+      created_by: user.id,
     }
     const res = editingId
       ? await supabase.from('todos').update(payload).eq('id', editingId)

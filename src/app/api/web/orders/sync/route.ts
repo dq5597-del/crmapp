@@ -70,14 +70,38 @@ export async function POST(req: NextRequest) {
 
   for (const o of orders) {
     const wcOrderId = String(o.id)
+    const lineItems = Array.isArray(o.line_items) ? o.line_items : []
+    const variationIds = Array.from(new Set(lineItems.map((li: any) => String(li.variation_id || '')).filter(Boolean)))
+    const skus = Array.from(new Set(lineItems.map((li: any) => String(li.sku || '').trim()).filter(Boolean)))
+    const productSelect = 'id,web_sku,model,web_product_id,web_variation_id'
+    const [variationMatches, skuMatches, modelMatches] = await Promise.all([
+      variationIds.length ? supabase.from('products').select(productSelect).in('web_variation_id', variationIds) : Promise.resolve({ data: [] as any[] }),
+      skus.length ? supabase.from('products').select(productSelect).in('web_sku', skus) : Promise.resolve({ data: [] as any[] }),
+      skus.length ? supabase.from('products').select(productSelect).in('model', skus) : Promise.resolve({ data: [] as any[] }),
+    ])
+    const productRows = [...(variationMatches.data ?? []), ...(skuMatches.data ?? []), ...(modelMatches.data ?? [])]
+    const byVariation = new Map(productRows.filter(p => p.web_variation_id).map(p => [String(p.web_variation_id), p]))
+    const bySku = new Map<string, any>()
+    for (const product of productRows) {
+      if (product.web_sku) bySku.set(String(product.web_sku).trim().toLocaleUpperCase('en-US'), product)
+      if (product.model) bySku.set(String(product.model).trim().toLocaleUpperCase('en-US'), product)
+    }
 
-    const items = (Array.isArray(o.line_items) ? o.line_items : []).map((li: any) => ({
-      name: li.name ?? '',
-      sku: li.sku ?? '',
-      qty: Number(li.quantity) || 0,
-      price: Number(li.price) || 0,
-      subtotal: Number(li.total) || 0,
-    }))
+    const items = lineItems.map((li: any) => {
+      const variationId = String(li.variation_id || '')
+      const sku = String(li.sku || '').trim()
+      const crmProduct = byVariation.get(variationId) ?? bySku.get(sku.toLocaleUpperCase('en-US'))
+      return {
+        name: li.name ?? '',
+        sku,
+        qty: Number(li.quantity) || 0,
+        price: Number(li.price) || 0,
+        subtotal: Number(li.total) || 0,
+        product_id: li.product_id ? String(li.product_id) : null,
+        variation_id: li.variation_id ? variationId : null,
+        crm_product_id: crmProduct?.id ?? null,
+      }
+    })
 
     const fromWeb = {
       order_no: String(o.number ?? o.id),
