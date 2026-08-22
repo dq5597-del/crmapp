@@ -23,6 +23,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'projects',         label: '專案資料夾',      group: '業務',   href: '/projects',       costLabel: '看專案成本' },
   { key: 'construction',     label: '施工追蹤',        group: '業務',   href: '/construction' },
   { key: 'work-hours',       label: '工時統計',        group: '業務',   href: '/work-hours',     costLabel: '看人工成本' },
+  { key: 'equipment',        label: '設備清單',        group: '業務',   href: '/equipment' },
   { key: 'clients',          label: '客戶資料',        group: '業務',   href: '/clients' },
   { key: 'vendors',          label: '廠商建檔',        group: '業務',   href: '/vendors',        costLabel: '看銀行帳戶' },
   { key: 'quotes',           label: '報價單',          group: '業務',   href: '/quotes',         costLabel: '看進貨成本' },

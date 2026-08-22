@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2, ShoppingBag, Clock, SlidersHorizontal
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2, ShoppingBag, Clock, SlidersHorizontal, HardDrive
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
@@ -59,6 +59,7 @@ const projectItems = [
   { href: '/projects',         label: '專案資料夾', icon: FolderKanban },
   { href: '/construction',     label: '施工追蹤',   icon: HardHat },
   { href: '/work-hours',       label: '工時統計',   icon: Clock },
+  { href: '/equipment',        label: '設備清單',   icon: HardDrive },
   { href: '/service-requests', label: '叫修管理',   icon: Wrench },
 ]
 

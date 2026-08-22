@@ -444,6 +444,7 @@ export interface ServiceRequest {
   service_no: string
   track_token: string
   client_id: string | null
+  equipment_id: string | null
   contact_name: string | null
   phone: string | null
   equipment_name: string
@@ -468,9 +469,35 @@ export interface ServiceRequest {
   updated_at: string
   // Relations
   client?: Client
+  equipment?: Equipment
   vendor_repair?: ServiceVendorRepair
   repair_quotes?: ServiceRepairQuote[]
   fees?: ServiceFee
+}
+
+// ============================================================
+// 設備清單
+// ============================================================
+export interface Equipment {
+  id: string
+  client_id: string
+  project_id: string | null
+  work_log_id: string | null
+  brand: string | null
+  model: string | null
+  serial_no: string | null
+  install_location: string | null
+  installed_date: string | null
+  warranty_expiry: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // Relations
+  client?: Client
+  project?: Project
+  service_count?: number
+  last_reported_date?: string | null
 }
 
 export interface ServiceVendorRepair {

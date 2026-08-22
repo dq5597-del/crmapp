@@ -1,26 +1,43 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Client, Contact } from '@/types'
-import { ArrowLeft, Save } from 'lucide-react'
+import { Client, Contact, Equipment } from '@/types'
+import { ArrowLeft, Save, HardDrive } from 'lucide-react'
 
 const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
 
+function warrantyStatusFromExpiry(expiry: string | null): '保固內' | '保固外' {
+  if (!expiry) return '保固外'
+  return new Date(expiry).getTime() >= Date.now() ? '保固內' : '保固外'
+}
+
 export default function NewServiceRequestPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">載入中...</div>}>
+      <NewServiceRequestForm />
+    </Suspense>
+  )
+}
+
+function NewServiceRequestForm() {
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const equipmentId = searchParams.get('equipment_id')
 
   const [clients, setClients] = useState<Client[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [saving, setSaving] = useState(false)
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
+  const [sourceEquipment, setSourceEquipment] = useState<Equipment | null>(null)
 
   const [form, setForm] = useState({
     client_id: '',
+    equipment_id: equipmentId ?? '',
     contact_name: '',
     phone: '',
     reported_date: new Date().toISOString().split('T')[0],
@@ -40,6 +57,27 @@ export default function NewServiceRequestPage() {
       setClients(data ?? [])
     })
   }, [])
+
+  // 從設備清單點「叫修」進來：帶入客戶、設備、保固狀態
+  useEffect(() => {
+    if (!equipmentId) return
+    supabase.from('equipment').select('*, client:clients(company_name)').eq('id', equipmentId).maybeSingle()
+      .then(({ data }) => {
+        if (!data) return
+        setSourceEquipment(data as Equipment)
+        setForm(f => ({
+          ...f,
+          equipment_id: data.id,
+          client_id: data.client_id,
+          equipment_name: [data.brand, data.model].filter(Boolean).join(' ') || '未命名設備',
+          equipment_model: data.model ?? '',
+          serial_no: data.serial_no ?? '',
+          warranty_status: warrantyStatusFromExpiry(data.warranty_expiry),
+          warranty_expiry: data.warranty_expiry ?? '',
+        }))
+        handleClientChange(data.client_id)
+      })
+  }, [equipmentId])
 
   async function handleClientChange(clientId: string) {
     setForm(f => ({ ...f, client_id: clientId, contact_name: '', phone: '' }))
@@ -84,6 +122,7 @@ export default function NewServiceRequestPage() {
         .insert({
           service_no: serviceNo,
           client_id: form.client_id || null,
+          equipment_id: form.equipment_id || null,
           contact_name: form.contact_name || null,
           phone: form.phone || null,
           reported_date: form.reported_date,
@@ -120,6 +159,15 @@ export default function NewServiceRequestPage() {
           <p className="text-xs text-gray-500">建立新的設備叫修記錄</p>
         </div>
       </div>
+
+      {sourceEquipment && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-sm">
+          <HardDrive size={15} className="shrink-0" />
+          <span>
+            從設備清單建立——客戶、設備、保固狀態已自動帶入，確認一下故障描述就可以送出。
+          </span>
+        </div>
+      )}
 
       {/* 客戶資訊 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">

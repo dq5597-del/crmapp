@@ -56,9 +56,11 @@ export default function ServiceRequestDetailPage() {
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  const [equipmentHistory, setEquipmentHistory] = useState<{ id: string; service_no: string; reported_date: string; issue_description: string | null; status: ServiceStatus }[]>([])
+
   const fetchAll = useCallback(async () => {
     const [{ data: r }, { data: vr }, { data: rq }] = await Promise.all([
-      supabase.from('service_requests').select('*, client:clients(company_name)').eq('id', id).single(),
+      supabase.from('service_requests').select('*, client:clients(company_name), equipment:equipment(*)').eq('id', id).single(),
       supabase.from('service_vendor_repairs').select('*').eq('service_request_id', id).maybeSingle(),
       supabase.from('service_repair_quotes').select('*, items:service_repair_quote_items(*)').eq('service_request_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
@@ -66,6 +68,20 @@ export default function ServiceRequestDetailPage() {
     setVendorRepair(vr as ServiceVendorRepair)
     setRepairQuote(rq as ServiceRepairQuote)
     setRepairItems((rq as any)?.items ?? [])
+
+    // 這台設備過去其他次的叫修紀錄（不含這一張），方便看維修履歴
+    const equipmentId = (r as any)?.equipment_id
+    if (equipmentId) {
+      const { data: history } = await supabase
+        .from('service_requests')
+        .select('id, service_no, reported_date, issue_description, status')
+        .eq('equipment_id', equipmentId)
+        .neq('id', id)
+        .order('reported_date', { ascending: false })
+      setEquipmentHistory(history ?? [])
+    } else {
+      setEquipmentHistory([])
+    }
   }, [id])
 
   const loadProducts = useCallback(async () => {
@@ -177,10 +193,46 @@ export default function ServiceRequestDetailPage() {
 
       {/* === Tab: 叫修資訊 === */}
       {tab === 'info' && (
-        <InfoTab req={req} locked={locked} onSave={async (updates) => {
-          await supabase.from('service_requests').update(updates).eq('id', id)
-          await fetchAll()
-        }} />
+        <>
+          <InfoTab req={req} locked={locked} onSave={async (updates) => {
+            await supabase.from('service_requests').update(updates).eq('id', id)
+            await fetchAll()
+          }} />
+
+          {/* 這台設備是從設備清單連結建立的，才有履歴可以看 */}
+          {req.equipment_id && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-800">這台設備的維修履歴</h2>
+                <a href={`/equipment`} className="text-xs text-blue-600 hover:underline">在設備清單查看</a>
+              </div>
+              {equipmentHistory.length === 0 ? (
+                <p className="text-sm text-gray-400">這台設備目前沒有其他叫修紀錄，這是第一次。</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {equipmentHistory.map(h => (
+                    <a
+                      key={h.id}
+                      href={`/service-requests/${h.id}`}
+                      className="flex items-start justify-between gap-3 py-2.5 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-blue-600">{h.service_no}</span>
+                          <span className="text-xs text-gray-400">{h.reported_date}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">{h.issue_description || '（沒有填寫故障描述）'}</p>
+                      </div>
+                      <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium shrink-0', STATUS_COLORS[h.status])}>
+                        {h.status}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* === Tab: 送廠維修 === */}

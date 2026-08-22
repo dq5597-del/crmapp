@@ -9,7 +9,6 @@ import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
 import ProjectTasksSection from '@/components/clients/ProjectTasksSection'
 import { formatDate } from '@/lib/utils'
-import { SPACE_TYPE_VALUES, findSpaceType, USER_TYPE_VALUES, findUserType } from '@/lib/space-types'
 import { usePermissions } from '@/lib/permissions'
 
 // 須與 sql/projects_phase1b_status6.sql 的 check 約束一致
@@ -1445,6 +1444,83 @@ function EquipmentSection({ projectId, supabase, onBeforeUpload }: {
   )
 }
 
+// ── 本專案安裝的設備（設備清單，獨立頁面的資料，這裡只是連回去看）──
+type ProjectEquipmentRow = {
+  id: string
+  brand: string | null
+  model: string | null
+  serial_no: string | null
+  install_location: string | null
+  warranty_expiry: string | null
+}
+
+function projectEquipWarranty(dateStr: string | null) {
+  if (!dateStr) return { label: '未設定', className: 'bg-gray-100 text-gray-500' }
+  const diffDays = Math.round((new Date(dateStr).getTime() - Date.now()) / 86400000)
+  if (diffDays < 0) return { label: '已過保固', className: 'bg-red-100 text-red-600' }
+  if (diffDays <= 30) return { label: '即將到期', className: 'bg-amber-100 text-amber-700' }
+  return { label: '保固內', className: 'bg-green-100 text-green-700' }
+}
+
+function ProjectEquipmentSection({ projectId, clientId, supabase }: {
+  projectId: string; clientId: string; supabase: ReturnType<typeof createClient>
+}) {
+  const [rows, setRows] = useState<ProjectEquipmentRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { fetchRows() }, [projectId])
+
+  async function fetchRows() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('equipment')
+      .select('id, brand, model, serial_no, install_location, warranty_expiry')
+      .eq('project_id', projectId)
+      .order('installed_date', { ascending: false })
+    setRows((data as ProjectEquipmentRow[]) ?? [])
+    setLoading(false)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-gray-500">這個專案裝過的設備，之後客戶叫修可以直接從設備清單建單</p>
+        <a
+          href={`/equipment/new?client_id=${encodeURIComponent(clientId)}&project_id=${encodeURIComponent(projectId)}`}
+          className="shrink-0 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          + 新增設備
+        </a>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-4 text-gray-400 text-sm">載入中...</div>
+      ) : rows.length === 0 ? (
+        <div className="text-center py-4 text-gray-400 text-sm">這個專案還沒有登記設備</div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map(r => {
+            const w = projectEquipWarranty(r.warranty_expiry)
+            return (
+              <div key={r.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{[r.brand, r.model].filter(Boolean).join(' ') || '未命名設備'}</p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {r.serial_no ? `SN ${r.serial_no}` : '無序號'}{r.install_location ? ` ・ ${r.install_location}` : ''}
+                  </p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${w.className}`}>{w.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <a href="/equipment" className="inline-block mt-3 text-xs text-purple-700 hover:underline">在設備清單看全部、搜尋或叫修 →</a>
+    </div>
+  )
+}
+
 // ── Accordion ───────────────────────────────────────────────
 // 手機操作用滑動式展開（grid-template-rows 0fr→1fr 動畫），不是瞬間開合
 function Accordion({ title, color, defaultOpen = false, children }: {
@@ -1494,42 +1570,6 @@ function AccordionGroup({ title, color, defaultOpen = false, children }: {
 
 const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400'
 const ta  = inp + ' resize-none'
-
-// 選定使用者類型後，顯示該客群的常見場景與設計／驗收重點
-function UserTypeHint({ value }: { value: string }) {
-  const ut = findUserType(value)
-  if (!ut || !ut.focus) return null
-  return (
-    <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-gray-700">
-      <div className="font-medium text-amber-800 mb-0.5">{ut.value}</div>
-      <div>常見場景：{ut.scenes}</div>
-      <div>設計重點：{ut.focus}</div>
-    </div>
-  )
-}
-
-// 選定空間類型後，顯示該類型的核心硬體設計概念與場勘重點（供現勘對照）
-function SpaceTypeHint({ value }: { value: string }) {
-  const st = findSpaceType(value)
-  if (!st || (st.hardware.length === 0 && st.survey.length === 0)) return null
-  return (
-    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-gray-700 space-y-2">
-      <div className="text-blue-800">{st.scenario}</div>
-      {st.hardware.length > 0 && (
-        <div>
-          <div className="font-medium text-blue-700 mb-0.5">核心硬體設計概念</div>
-          <ul className="list-disc pl-4 space-y-0.5">{st.hardware.map(h => <li key={h}>{h}</li>)}</ul>
-        </div>
-      )}
-      {st.survey.length > 0 && (
-        <div>
-          <div className="font-medium text-blue-700 mb-0.5">場勘重點（Site Survey）</div>
-          <ul className="list-disc pl-4 space-y-0.5">{st.survey.map(s => <li key={s}>{s}</li>)}</ul>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function Field({ label, children, span2 = false }: { label: string; children: React.ReactNode; span2?: boolean }) {
   return (
@@ -1898,26 +1938,12 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                   <Field label="專案名稱 *" span2>
                     <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
                   </Field>
-                  <Field label="空間類型">
-                    <select value={form.scene_name} onChange={setP('scene_name')} className={inp}>
-                      <option value="">請選擇空間類型</option>
-                      {SPACE_TYPE_VALUES.map(v => <option key={v} value={v}>{v}</option>)}
-                      {form.scene_name && !SPACE_TYPE_VALUES.includes(form.scene_name) && (
-                        <option value={form.scene_name}>{form.scene_name}（原資料）</option>
-                      )}
-                    </select>
+                  <Field label="場景名稱">
+                    <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
                   </Field>
                   <Field label="使用者類型">
-                    <select value={form.user_type} onChange={setP('user_type')} className={inp}>
-                      <option value="">請選擇使用者類型</option>
-                      {USER_TYPE_VALUES.map(v => <option key={v} value={v}>{v}</option>)}
-                      {form.user_type && !USER_TYPE_VALUES.includes(form.user_type) && (
-                        <option value={form.user_type}>{form.user_type}（原資料）</option>
-                      )}
-                    </select>
+                    <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
                   </Field>
-                  <UserTypeHint value={form.user_type} />
-                  <SpaceTypeHint value={form.scene_name} />
                   <Field label="專案狀態">
                     <select value={form.status} onChange={setP('status')} className={inp}>
                       {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
@@ -2095,7 +2121,15 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               onBeforeCreate={isNewProject ? ensureSaved : undefined}
             />
 
-            <AccordionGroup title="🔧 設備類 — 設備與配置圖（4 項）" color={PURPLE}>
+            <AccordionGroup title="🔧 設備類 — 設備與配置圖（5 項）" color={PURPLE}>
+              <Accordion title="🔩 已安裝設備（設備清單）" color={PURPLE}>
+                <ProjectEquipmentSection
+                  projectId={editingId as string}
+                  clientId={clientId}
+                  supabase={supabase}
+                />
+              </Accordion>
+
               <Accordion title="🔧 現場設備記錄" color={PURPLE}>
                 <EquipmentSection
                   projectId={editingId as string}
