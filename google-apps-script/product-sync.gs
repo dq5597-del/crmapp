@@ -102,7 +102,7 @@ function pullProductsFromCrm() {
     {
       method: 'get',
       muteHttpExceptions: true,
-      headers: { 'x-google-product-sync-secret': config.secret },
+      headers: { 'x-gh-product-sync-secret': config.secret },
     },
   );
   const payload = parseResponse_(response);
@@ -176,7 +176,7 @@ function pushRows_(sheet, rowNumbers) {
     method: 'post',
     contentType: 'application/json',
     muteHttpExceptions: true,
-    headers: { 'x-google-product-sync-secret': config.secret },
+    headers: { 'x-gh-product-sync-secret': config.secret },
     payload: JSON.stringify({ sheetId: spreadsheetId, rows }),
   });
   const payload = parseResponse_(response);
