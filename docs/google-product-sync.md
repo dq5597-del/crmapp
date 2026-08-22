@@ -9,7 +9,7 @@ Google 試算表是系統管理員的產品批次編輯介面；CRM 仍是正式
 - 第 1 列是固定表頭，第 2 列是欄位說明，第 3 列開始一列一個 SKU。
 - `CRM產品ID`、`CRM更新時間`、`同步狀態`、`最後同步時間`、`同步訊息` 是系統欄位，不可手動修改。
 - 同商品的變體仍以相同「系列代碼」分組；每個 SKU 的型號與官網 SKU 必須不同。
-- 圖片自動同步請使用「主圖網址／其他圖片網址」。在 Google 試算表直接貼入的圖片暫不由第一版自動傳送。
+- 商品圖片請使用「主圖網址／其他圖片網址」；產品介紹圖可在「產品介紹圖片」填網址，多張用 `|` 分隔。後端會依商品圖或內容圖尺寸轉成 WebP，再放入 WordPress 媒體庫。直接貼入 Google 儲存格的圖片物件暫不自動傳送。
 
 ## Vercel 環境變數
 
@@ -18,6 +18,7 @@ Google 試算表是系統管理員的產品批次編輯介面；CRM 仍是正式
 ```text
 GOOGLE_PRODUCT_SHEET_ID=Google 試算表 ID
 GOOGLE_PRODUCT_SYNC_SECRET=至少 24 字元的獨立隨機密鑰
+NEXT_PUBLIC_GOOGLE_PRODUCT_SHEET_URL=完整 Google 試算表網址
 SUPABASE_SERVICE_ROLE_KEY=既有的 Supabase service role key
 ```
 

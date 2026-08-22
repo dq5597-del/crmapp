@@ -18,6 +18,8 @@ import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { CATALOG_DRIVE_ROOT, encodeWebsiteCategory, parseWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
 import { buildCategoryGroupMappings, buildFilterGroups, filterGroupsForCategory, type ProductFilterGroup } from '@/lib/product-filters'
 
+const GOOGLE_PRODUCT_SHEET_URL = process.env.NEXT_PUBLIC_GOOGLE_PRODUCT_SHEET_URL ?? ''
+
 type MarketPriceRow = {
   product_id: string
   platform: 'shopee' | 'pchome' | 'momo'
@@ -460,7 +462,7 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPress
 }
 
 export default function ProductsPage() {
-  const { permOf } = usePermissions()
+  const { permOf, isAdmin } = usePermissions()
   const perm = permOf('products')
 
   const supabase = createClient()
@@ -1101,6 +1103,17 @@ export default function ProductsPage() {
           <button onClick={() => setShowBatchModal(true)} className="flex items-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 px-4 py-2.5 rounded-xl text-sm font-medium">
             <TrendingUp size={15} /> 批次調價
           </button>
+          {isAdmin && GOOGLE_PRODUCT_SHEET_URL && (
+            <a
+              href={GOOGLE_PRODUCT_SHEET_URL}
+              target="_blank"
+              rel="noreferrer"
+              title="開啟系統管理員專用的 Google 產品同步表"
+              className="flex items-center gap-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 px-4 py-2.5 rounded-xl text-sm font-medium"
+            >
+              <ExternalLink size={15} /> Google 產品表
+            </a>
+          )}
           <button onClick={batchRefreshMarket} disabled={batchMarket != null} className="flex items-center gap-2 border border-orange-200 text-orange-600 hover:bg-orange-50 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-60">
             <RefreshCw size={15} className={batchMarket ? 'animate-spin' : ''} />
             {batchMarket ? `查詢中 ${batchMarket.done}/${batchMarket.total}` : '批次查行情'}

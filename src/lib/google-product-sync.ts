@@ -1,6 +1,12 @@
 import crypto from 'crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { matchKeys, parseRow } from '@/lib/product-import'
+import { withProductDescriptionImages } from '@/lib/product-photo-import'
+import {
+  isConfiguredWordPressMediaUrl,
+  uploadWordPressMedia,
+  type WordPressImagePreset,
+} from '@/lib/wordpress-media'
 
 export const GOOGLE_SYNC_HEADERS = [
   'CRM產品ID',
@@ -187,6 +193,7 @@ export async function pushGoogleProductRows(rows: GoogleSheetSyncRow[]): Promise
   }
 
   const results: GoogleSheetSyncResult[] = []
+  const imageCache = new Map<string, string>()
 
   for (const item of rows) {
     const rowNo = Number(item.rowNo)
@@ -239,6 +246,7 @@ export async function pushGoogleProductRows(rows: GoogleSheetSyncRow[]): Promise
     }
 
     try {
+      const imageWarnings: string[] = []
       const payload: Record<string, any> = { ...parsed.product }
       const main = text(payload.main_category)
       const sub = text(payload.sub_category)
@@ -254,7 +262,32 @@ export async function pushGoogleProductRows(rows: GoogleSheetSyncRow[]): Promise
         payload.web_category = null
       }
 
-      if ('主圖網址' in values) payload.web_main_image_url = parsed.main_image_url || null
+      if ('主圖網址' in values) {
+        payload.web_main_image_url = parsed.main_image_url
+          ? await transferProductImage(parsed.main_image_url, imageCache, imageWarnings)
+          : null
+      }
+      const syncedImageUrls: string[] = []
+      for (const imageUrl of parsed.image_urls) {
+        syncedImageUrls.push(await transferProductImage(imageUrl, imageCache, imageWarnings))
+      }
+      const descriptionImageUrls = text(values['產品介紹圖片'])
+        .split(/[|｜\n]/)
+        .map(value => value.trim())
+        .filter(Boolean)
+      if (descriptionImageUrls.length) {
+        const invalidUrl = descriptionImageUrls.find(url => !/^https?:\/\//i.test(url))
+        if (invalidUrl) throw new Error(`產品介紹圖片網址須為 http(s) 開頭：${invalidUrl}`)
+        const uploadedDescriptionUrls: string[] = []
+        for (const imageUrl of descriptionImageUrls) {
+          uploadedDescriptionUrls.push(await transferProductImage(imageUrl, imageCache, imageWarnings, 'content'))
+        }
+        payload.web_description = withProductDescriptionImages(
+          payload.web_description ?? '',
+          uploadedDescriptionUrls,
+          payload.product_name,
+        )
+      }
       payload.category_id = main && sub
         ? await resolveCategory(supabase, categoryCache, main, sub)
         : null
@@ -307,7 +340,7 @@ export async function pushGoogleProductRows(rows: GoogleSheetSyncRow[]): Promise
         feature_text: feature,
         sort_order,
       }))
-      const images = parsed.image_urls.map((image_url, sort_order) => ({
+      const images = syncedImageUrls.map((image_url, sort_order) => ({
         product_id: productId,
         image_url,
         sort_order,
@@ -349,7 +382,7 @@ export async function pushGoogleProductRows(rows: GoogleSheetSyncRow[]): Promise
       if (keys.model) index.byModel.set(keys.model, saved)
       if (keys.sku) index.bySku.set(keys.sku, saved)
 
-      const warningText = [...parsed.warnings, ...childWarnings].filter(Boolean).join('；')
+      const warningText = [...parsed.warnings, ...imageWarnings, ...childWarnings].filter(Boolean).join('；')
       results.push({
         rowNo,
         ok: true,
@@ -373,6 +406,46 @@ export async function pushGoogleProductRows(rows: GoogleSheetSyncRow[]): Promise
   }
 
   return results
+}
+
+async function transferProductImage(
+  url: string,
+  cache: Map<string, string>,
+  warnings: string[],
+  preset: WordPressImagePreset = 'product',
+): Promise<string> {
+  const normalizedUrl = url.trim()
+  const cacheKey = `${preset}:${normalizedUrl}`
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+  if (isConfiguredWordPressMediaUrl(normalizedUrl)) {
+    cache.set(cacheKey, normalizedUrl)
+    return normalizedUrl
+  }
+
+  try {
+    const response = await fetch(normalizedUrl, { redirect: 'follow', cache: 'no-store' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const mimeType = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+    if (!mimeType.startsWith('image/')) throw new Error(`不是圖片（${mimeType || '未知類型'}）`)
+    const data = Buffer.from(await response.arrayBuffer())
+    if (data.length > 10 * 1024 * 1024) throw new Error('圖片超過 10MB')
+    const originalName = decodeURIComponent(normalizedUrl.split('/').pop() ?? 'product-image').split('?')[0]
+    const fileName = /\.[a-z0-9]{2,5}$/i.test(originalName) ? originalName : `${originalName || 'product-image'}.jpg`
+    const uploaded = await uploadWordPressMedia({
+      data,
+      mimeType,
+      fileName: `${Date.now()}-${fileName}`,
+      altText: fileName.replace(/\.[^.]+$/, ''),
+      preset,
+    })
+    cache.set(cacheKey, uploaded.url)
+    return uploaded.url
+  } catch (error: any) {
+    warnings.push(`圖片轉 WebP 失敗（${normalizedUrl}）：${error?.message ?? '未知錯誤'}，暫時沿用原網址`)
+    cache.set(cacheKey, normalizedUrl)
+    return normalizedUrl
+  }
 }
 
 async function readAllProducts(supabase: SupabaseAdmin): Promise<any[]> {
