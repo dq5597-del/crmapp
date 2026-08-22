@@ -497,6 +497,8 @@ export interface Equipment {
   client?: Client
   project?: Project
   work_log?: { name: string; rate_type: string; work_date: string } | null
+  /** 一台設備可能是好幾個點工一起裝的，來自 equipment_work_logs 關聯表 */
+  work_logs?: { name: string; rate_type: string; work_date: string }[]
   service_count?: number
   last_reported_date?: string | null
 }

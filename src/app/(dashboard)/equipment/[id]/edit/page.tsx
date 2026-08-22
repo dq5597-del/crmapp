@@ -35,11 +35,12 @@ export default function EditEquipmentPage() {
   const [deleting, setDeleting] = useState(false)
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
+  // 一台設備可能是好幾個點工一起裝的，所以「來源派工紀錄」可以複選
+  const [workLogIds, setWorkLogIds] = useState<string[]>([])
 
   const [form, setForm] = useState({
     client_id: '',
     project_id: '',
-    work_log_id: '',
     brand: '',
     model: '',
     serial_no: '',
@@ -57,7 +58,6 @@ export default function EditEquipmentPage() {
       setForm({
         client_id: data.client_id ?? '',
         project_id: data.project_id ?? '',
-        work_log_id: data.work_log_id ?? '',
         brand: data.brand ?? '',
         model: data.model ?? '',
         serial_no: data.serial_no ?? '',
@@ -67,6 +67,10 @@ export default function EditEquipmentPage() {
         notes: data.notes ?? '',
       })
       setLoading(false)
+    })
+    // 這台設備目前連結的點工（可能不只一個）
+    supabase.from('equipment_work_logs').select('work_log_id').eq('equipment_id', id).then(({ data }) => {
+      setWorkLogIds((data ?? []).map((r: any) => r.work_log_id))
     })
   }, [id])
 
@@ -118,11 +122,17 @@ export default function EditEquipmentPage() {
   }
 
   function onClientChange(clientId: string) {
-    setForm(f => ({ ...f, client_id: clientId, project_id: '', work_log_id: '' }))
+    setForm(f => ({ ...f, client_id: clientId, project_id: '' }))
+    setWorkLogIds([])
   }
 
   function onProjectChange(projectId: string) {
-    setForm(f => ({ ...f, project_id: projectId, work_log_id: '' }))
+    setForm(f => ({ ...f, project_id: projectId }))
+    setWorkLogIds([])
+  }
+
+  function toggleWorkLog(wid: string) {
+    setWorkLogIds(prev => prev.includes(wid) ? prev.filter(x => x !== wid) : [...prev, wid])
   }
 
   function fillFromQuoteItem(item: QuoteItemOption) {
@@ -151,7 +161,7 @@ export default function EditEquipmentPage() {
       const { error } = await supabase.from('equipment').update({
         client_id: form.client_id,
         project_id: form.project_id || null,
-        work_log_id: form.work_log_id || null,
+        work_log_id: workLogIds[0] || null, // 舊欄位相容：保留第一筆點工
         brand: form.brand || null,
         model: form.model || null,
         serial_no: form.serial_no || null,
@@ -161,6 +171,17 @@ export default function EditEquipmentPage() {
         notes: form.notes || null,
       }).eq('id', id)
       if (error) throw error
+
+      // 點工清單整批重寫：先刪舊的連結，再依目前勾選的重新建立
+      const { error: delError } = await supabase.from('equipment_work_logs').delete().eq('equipment_id', id)
+      if (delError) throw delError
+      if (workLogIds.length > 0) {
+        const { error: linkError } = await supabase.from('equipment_work_logs').insert(
+          workLogIds.map(wid => ({ equipment_id: id, work_log_id: wid }))
+        )
+        if (linkError) throw linkError
+      }
+
       router.push('/equipment')
     } catch (err: any) {
       alert('儲存失敗：' + err.message)
@@ -265,14 +286,27 @@ export default function EditEquipmentPage() {
           </div>
           {form.project_id && (
             <div className="col-span-2">
-              <label className={optionalLabelClass}>來源派工紀錄</label>
-              <select className={inputClass} value={form.work_log_id} onChange={e => set('work_log_id', e.target.value)}>
-                <option value="">— 不指定 —</option>
-                {workLogs.map(w => (
-                  <option key={w.id} value={w.id}>{w.work_date}　{w.name}{w.work_item ? `・${w.work_item}` : ''}</option>
-                ))}
-              </select>
-              {workLogs.length === 0 && <p className="text-xs text-gray-400 mt-1">這個專案目前沒有派工紀錄</p>}
+              <label className={optionalLabelClass}>來源派工紀錄（可複選，同一台設備可能是好幾個點工一起裝的）</label>
+              {workLogs.length === 0 ? (
+                <p className="text-xs text-gray-400">這個專案目前沒有派工紀錄</p>
+              ) : (
+                <div className="border border-gray-200 rounded-lg bg-white p-2 max-h-40 overflow-y-auto space-y-1">
+                  {workLogs.map(w => {
+                    const checked = workLogIds.includes(w.id)
+                    return (
+                      <label key={w.id} className={`flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg cursor-pointer ${checked ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleWorkLog(w.id)} className="w-3.5 h-3.5 rounded border-gray-300" />
+                        <span className="text-gray-400 text-xs">{w.work_date}</span>
+                        {w.name}
+                        {w.work_item && <span className="text-gray-400 text-xs">・{w.work_item}</span>}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+              {workLogIds.length > 0 && (
+                <p className="text-xs text-blue-600 mt-1">已選 {workLogIds.length} 位點工</p>
+              )}
             </div>
           )}
         </div>

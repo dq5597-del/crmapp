@@ -97,13 +97,15 @@ export default function EquipmentPage() {
     const [{ data: eq }, { data: stats }] = await Promise.all([
       supabase
         .from('equipment')
-        .select('*, client:clients(company_name), project:projects(project_name, project_code), work_log:project_work_logs(name, rate_type, work_date)')
+        .select('*, client:clients(company_name), project:projects(project_name, project_code), equipment_work_logs(work_log:project_work_logs(name, rate_type, work_date))')
         .order('installed_date', { ascending: false }),
       supabase.from('v_equipment_service_stats').select('*'),
     ])
     const statMap = new Map((stats ?? []).map((s: any) => [s.equipment_id, s]))
     const merged = (eq ?? []).map((e: any) => ({
       ...e,
+      // 一台設備可能是好幾個點工一起裝的，equipment_work_logs 是關聯表，攤平成陣列方便顯示
+      work_logs: (e.equipment_work_logs ?? []).map((r: any) => r.work_log).filter(Boolean),
       service_count: statMap.get(e.id)?.service_count ?? 0,
       last_reported_date: statMap.get(e.id)?.last_reported_date ?? null,
     }))
@@ -314,9 +316,10 @@ export default function EquipmentPage() {
                             <div className="text-xs text-gray-400">
                               {d.serial_no ? `SN ${d.serial_no}` : '無序號'}{d.install_location ? ` ・ ${d.install_location}` : ''}
                             </div>
-                            {d.work_log?.name && (
+                            {d.work_logs && d.work_logs.length > 0 && (
                               <div className="text-xs text-blue-600 flex items-center gap-1 mt-0.5">
-                                <HardHat size={11} /> 點工：{d.work_log.name}{d.work_log.rate_type ? `（${d.work_log.rate_type}）` : ''}
+                                <HardHat size={11} />
+                                點工：{d.work_logs.map((w, i) => `${w.name}${w.rate_type ? `（${w.rate_type}）` : ''}`).join('、')}
                               </div>
                             )}
                           </td>
