@@ -157,7 +157,12 @@ function NewEquipmentForm() {
         const { error: linkError } = await supabase.from('equipment_work_logs').insert(
           workLogIds.map(wid => ({ equipment_id: inserted.id, work_log_id: wid }))
         )
-        if (linkError) throw linkError
+        if (linkError) {
+          // 設備本身已經存好了，只是「點工」關聯表寫入失敗（多半是還沒在 Supabase 執行 sql/equipment_work_logs.sql）
+          // 不要整個當成失敗丟出去，不然使用者會誤以為設備沒建成功
+          console.error('equipment_work_logs 寫入失敗：', linkError)
+          alert('設備已新增，但點工紀錄關聯失敗（請確認是否已執行 sql/equipment_work_logs.sql）：' + linkError.message)
+        }
       }
 
       if (continueAdding) {

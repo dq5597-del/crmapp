@@ -172,14 +172,26 @@ export default function EditEquipmentPage() {
       }).eq('id', id)
       if (error) throw error
 
-      // 點工清單整批重寫：先刪舊的連結，再依目前勾選的重新建立
+      // 點工清單整批重寫：先刪舊的連結，再依目前勾選的重新建立。
+      // 這張關聯表如果還沒在 Supabase 執行 sql/equipment_work_logs.sql 會失敗，
+      // 但設備本身的資料已經更新成功了，不要整個當成失敗丟出去。
       const { error: delError } = await supabase.from('equipment_work_logs').delete().eq('equipment_id', id)
-      if (delError) throw delError
+      if (delError) {
+        console.error('equipment_work_logs 刪除失敗：', delError)
+        alert('設備資料已更新，但點工紀錄關聯失敗（請確認是否已執行 sql/equipment_work_logs.sql）：' + delError.message)
+        router.push('/equipment')
+        return
+      }
       if (workLogIds.length > 0) {
         const { error: linkError } = await supabase.from('equipment_work_logs').insert(
           workLogIds.map(wid => ({ equipment_id: id, work_log_id: wid }))
         )
-        if (linkError) throw linkError
+        if (linkError) {
+          console.error('equipment_work_logs 寫入失敗：', linkError)
+          alert('設備資料已更新，但點工紀錄關聯失敗（請確認是否已執行 sql/equipment_work_logs.sql）：' + linkError.message)
+          router.push('/equipment')
+          return
+        }
       }
 
       router.push('/equipment')

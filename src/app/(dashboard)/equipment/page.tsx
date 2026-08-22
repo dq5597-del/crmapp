@@ -86,6 +86,7 @@ export default function EquipmentPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [leaderMap, setLeaderMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | WarrantyKey>('all')
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
@@ -94,13 +95,34 @@ export default function EquipmentPage() {
 
   async function fetchEquipment() {
     setLoading(true)
-    const [{ data: eq }, { data: stats }] = await Promise.all([
-      supabase
+    setLoadError(null)
+
+    let eq: any[] | null = null
+    const primary = await supabase
+      .from('equipment')
+      .select('*, client:clients(company_name), project:projects(project_name, project_code), equipment_work_logs(work_log:project_work_logs(name, rate_type, work_date))')
+      .order('installed_date', { ascending: false })
+
+    if (primary.error) {
+      // 多點工那張關聯表（equipment_work_logs）如果還沒在 Supabase 執行 SQL，這個查詢會整個失敗。
+      // 先退回不含多點工資訊的查詢，資料至少能正常顯示出來，不會誤以為設備不見了。
+      console.error('equipment 查詢失敗，改用簡易版查詢：', primary.error)
+      const fallback = await supabase
         .from('equipment')
-        .select('*, client:clients(company_name), project:projects(project_name, project_code), equipment_work_logs(work_log:project_work_logs(name, rate_type, work_date))')
-        .order('installed_date', { ascending: false }),
-      supabase.from('v_equipment_service_stats').select('*'),
-    ])
+        .select('*, client:clients(company_name), project:projects(project_name, project_code)')
+        .order('installed_date', { ascending: false })
+      if (fallback.error) {
+        setLoadError('讀取設備清單失敗：' + fallback.error.message)
+        eq = []
+      } else {
+        eq = fallback.data
+        setLoadError('目前顯示簡易版資料（看不到多點工資訊）——請到 Supabase SQL Editor 執行 sql/equipment_work_logs.sql 之後重新整理。')
+      }
+    } else {
+      eq = primary.data
+    }
+
+    const { data: stats } = await supabase.from('v_equipment_service_stats').select('*')
     const statMap = new Map((stats ?? []).map((s: any) => [s.equipment_id, s]))
     const merged = (eq ?? []).map((e: any) => ({
       ...e,
@@ -187,6 +209,12 @@ export default function EquipmentPage() {
           新增設備
         </Link>
       </div>
+
+      {loadError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
+          {loadError}
+        </div>
+      )}
 
       {/* KPI */}
       <div className="grid grid-cols-3 gap-4">
