@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Client, Project } from '@/types'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, Plus } from 'lucide-react'
 
 const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
@@ -28,7 +28,8 @@ function NewEquipmentForm() {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([])
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving] = useState<'exit' | 'continue' | false>(false)
+  const [addedCount, setAddedCount] = useState(0)
 
   const [form, setForm] = useState({
     client_id: searchParams.get('client_id') ?? '',
@@ -72,13 +73,13 @@ function NewEquipmentForm() {
     setForm(f => ({ ...f, project_id: projectId, work_log_id: '' }))
   }
 
-  async function handleSave() {
+  async function handleSave(continueAdding: boolean) {
     if (!form.client_id) { alert('請選擇客戶'); return }
     if (!form.brand.trim() && !form.model.trim() && !form.serial_no.trim()) {
       alert('品牌、型號、序號至少要填一項，才能認出是哪台設備')
       return
     }
-    setSaving(true)
+    setSaving(continueAdding ? 'continue' : 'exit')
     try {
       const { error } = await supabase.from('equipment').insert({
         client_id: form.client_id,
@@ -93,7 +94,23 @@ function NewEquipmentForm() {
         notes: form.notes || null,
       })
       if (error) throw error
-      router.push('/equipment')
+
+      if (continueAdding) {
+        // 同一批安裝：客戶／專案／派工紀錄／安裝日期保留，其餘清空繼續登下一台
+        setForm(f => ({
+          ...f,
+          brand: '',
+          model: '',
+          serial_no: '',
+          install_location: '',
+          warranty_expiry: '',
+          notes: '',
+        }))
+        setAddedCount(n => n + 1)
+        setSaving(false)
+      } else {
+        router.push('/equipment')
+      }
     } catch (err: any) {
       alert('儲存失敗：' + err.message)
       setSaving(false)
@@ -112,6 +129,12 @@ function NewEquipmentForm() {
           <p className="text-xs text-gray-500">記一次，之後叫修、保固查詢都用得到</p>
         </div>
       </div>
+
+      {addedCount > 0 && (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-2.5 text-sm">
+          已新增 {addedCount} 台設備，客戶／專案／安裝日期已幫你保留，繼續填下一台的品牌型號就好。
+        </div>
+      )}
 
       {/* 客戶／專案來源 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -193,15 +216,23 @@ function NewEquipmentForm() {
       {/* Actions */}
       <div className="flex justify-end gap-3 pb-8">
         <button onClick={() => router.back()} className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
-          取消
+          {addedCount > 0 ? '完成' : '取消'}
         </button>
         <button
-          onClick={handleSave}
-          disabled={saving}
+          onClick={() => handleSave(true)}
+          disabled={!!saving}
+          className="flex items-center gap-2 px-5 py-2 border border-blue-600 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-50"
+        >
+          <Plus size={15} />
+          {saving === 'continue' ? '儲存中...' : '儲存並繼續新增'}
+        </button>
+        <button
+          onClick={() => handleSave(false)}
+          disabled={!!saving}
           className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
         >
           <Save size={15} />
-          {saving ? '儲存中...' : '儲存設備'}
+          {saving === 'exit' ? '儲存中...' : '儲存設備'}
         </button>
       </div>
     </div>
