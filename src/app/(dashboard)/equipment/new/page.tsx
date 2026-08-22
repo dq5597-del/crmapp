@@ -4,13 +4,20 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Client, Project } from '@/types'
-import { ArrowLeft, Save, Plus } from 'lucide-react'
+import { ArrowLeft, Save, Plus, PackageSearch } from 'lucide-react'
 
 const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
 const optionalLabelClass = 'block text-xs font-medium text-gray-600 mb-1 after:content-["（選填）"] after:font-normal after:text-gray-400 after:ml-1'
 
 type WorkLog = { id: string; work_date: string; name: string; work_item: string | null }
+type QuoteItemOption = {
+  id: string
+  brand: string | null
+  product_name: string
+  model: string | null
+  quote_no: string
+}
 
 export default function NewEquipmentPage() {
   return (
@@ -28,8 +35,11 @@ function NewEquipmentForm() {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([])
+  const [quoteItems, setQuoteItems] = useState<QuoteItemOption[]>([])
   const [saving, setSaving] = useState<'exit' | 'continue' | false>(false)
   const [addedCount, setAddedCount] = useState(0)
+  const [clientSearch, setClientSearch] = useState('')
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
 
   const [form, setForm] = useState({
     client_id: searchParams.get('client_id') ?? '',
@@ -61,6 +71,32 @@ function NewEquipmentForm() {
       .then(({ data }) => setWorkLogs((data as WorkLog[]) ?? []))
   }, [form.project_id])
 
+  // 選了專案之後，把該專案已確認報價單的品項抓出來，設備資訊可以直接點選帶入，不用重打
+  useEffect(() => {
+    if (!form.project_id) { setQuoteItems([]); return }
+    supabase
+      .from('quotes')
+      .select('id, quote_no')
+      .eq('project_id', form.project_id)
+      .in('status', ['已確認', '已轉銷貨單', '已轉訂購單'])
+      .then(async ({ data: quotes }) => {
+        if (!quotes || quotes.length === 0) { setQuoteItems([]); return }
+        const { data: items } = await supabase
+          .from('quote_items')
+          .select('id, quote_id, brand, product_name, model')
+          .in('quote_id', quotes.map(q => q.id))
+          .order('seq_no')
+        const quoteNoMap = new Map(quotes.map(q => [q.id, q.quote_no]))
+        setQuoteItems((items ?? []).map((it: any) => ({
+          id: it.id,
+          brand: it.brand,
+          product_name: it.product_name,
+          model: it.model,
+          quote_no: quoteNoMap.get(it.quote_id) ?? '',
+        })))
+      })
+  }, [form.project_id])
+
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }))
   }
@@ -71,6 +107,21 @@ function NewEquipmentForm() {
 
   function onProjectChange(projectId: string) {
     setForm(f => ({ ...f, project_id: projectId, work_log_id: '' }))
+  }
+
+  function fillFromQuoteItem(item: QuoteItemOption) {
+    setForm(f => ({ ...f, brand: item.brand ?? f.brand, model: item.model ?? item.product_name }))
+  }
+
+  const selectedClientName = clients.find(c => c.id === form.client_id)?.company_name ?? ''
+  const filteredClients = clientSearch
+    ? clients.filter(c => c.company_name.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients
+
+  function onClientPick(c: Client) {
+    setClientSearch('')
+    setShowClientDropdown(false)
+    onClientChange(c.id)
   }
 
   async function handleSave(continueAdding: boolean) {
@@ -140,12 +191,37 @@ function NewEquipmentForm() {
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">安裝地點</h2>
         <div className="grid grid-cols-2 gap-4">
-          <div>
+          <div className="relative">
             <label className={labelClass}>客戶 <span className="text-red-500">*</span></label>
-            <select className={inputClass} value={form.client_id} onChange={e => onClientChange(e.target.value)}>
-              <option value="">— 請選擇 —</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-            </select>
+            <input
+              className={inputClass}
+              value={clientSearch || selectedClientName}
+              onChange={e => {
+                setClientSearch(e.target.value)
+                if (form.client_id) onClientChange('')
+                setShowClientDropdown(true)
+              }}
+              onFocus={() => setShowClientDropdown(true)}
+              onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
+              placeholder="輸入搜尋客戶"
+              autoComplete="off"
+            />
+            {showClientDropdown && (
+              <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+                {filteredClients.length > 0 ? filteredClients.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onMouseDown={() => onClientPick(c)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors"
+                  >
+                    {c.company_name}
+                  </button>
+                )) : (
+                  <div className="px-3 py-2 text-sm text-gray-400">查無符合的客戶</div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className={optionalLabelClass}>來源專案</label>
@@ -172,6 +248,29 @@ function NewEquipmentForm() {
       {/* 設備資訊 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">設備資訊</h2>
+
+        {form.project_id && quoteItems.length > 0 && (
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-medium text-blue-700 flex items-center gap-1.5">
+              <PackageSearch size={13} />
+              這個專案的報價單品項，點一下直接帶入品牌／型號
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {quoteItems.map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => fillFromQuoteItem(item)}
+                  className="text-xs px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-100 transition-colors"
+                  title={`來自報價單 ${item.quote_no}`}
+                >
+                  {[item.brand, item.model || item.product_name].filter(Boolean).join(' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>品牌</label>
