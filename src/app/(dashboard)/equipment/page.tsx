@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Equipment } from '@/types'
-import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
+import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX, Pencil, HardHat, Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type WarrantyKey = 'good' | 'warn' | 'danger'
@@ -84,6 +84,7 @@ function batchWarranty(b: Batch): { key: WarrantyKey; label: string } {
 export default function EquipmentPage() {
   const supabase = createClient()
   const [equipment, setEquipment] = useState<Equipment[]>([])
+  const [leaderMap, setLeaderMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | WarrantyKey>('all')
@@ -96,7 +97,7 @@ export default function EquipmentPage() {
     const [{ data: eq }, { data: stats }] = await Promise.all([
       supabase
         .from('equipment')
-        .select('*, client:clients(company_name), project:projects(project_name, project_code)')
+        .select('*, client:clients(company_name), project:projects(project_name, project_code), work_log:project_work_logs(name, rate_type, work_date)')
         .order('installed_date', { ascending: false }),
       supabase.from('v_equipment_service_stats').select('*'),
     ])
@@ -107,6 +108,19 @@ export default function EquipmentPage() {
       last_reported_date: statMap.get(e.id)?.last_reported_date ?? null,
     }))
     setEquipment(merged)
+
+    // 工頭是專案層級的資訊（project_crew.is_leader），不是每台設備各自記錄，抓一次做成 map
+    const projectIds = Array.from(new Set(merged.map((e: any) => e.project_id).filter(Boolean)))
+    if (projectIds.length > 0) {
+      const { data: leaders } = await supabase
+        .from('project_crew')
+        .select('project_id, name')
+        .in('project_id', projectIds)
+        .eq('is_leader', true)
+      setLeaderMap(new Map((leaders ?? []).map((l: any) => [l.project_id, l.name])))
+    } else {
+      setLeaderMap(new Map())
+    }
     setLoading(false)
   }
 
@@ -276,6 +290,11 @@ export default function EquipmentPage() {
                         {b.project_id
                           ? <Link href={`/clients?tab=projects`} onClick={e => e.stopPropagation()} className="text-blue-600 hover:underline">{b.project_name}</Link>
                           : <span className="text-gray-400">未指定</span>}
+                        {b.project_id && leaderMap.get(b.project_id) && (
+                          <div className="text-xs text-amber-700 flex items-center gap-1 mt-0.5">
+                            <Crown size={11} className="text-amber-500" /> 工頭：{leaderMap.get(b.project_id)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-500">{b.installed_date ?? '—'}</td>
                       <td className="px-4 py-3">
@@ -295,6 +314,11 @@ export default function EquipmentPage() {
                             <div className="text-xs text-gray-400">
                               {d.serial_no ? `SN ${d.serial_no}` : '無序號'}{d.install_location ? ` ・ ${d.install_location}` : ''}
                             </div>
+                            {d.work_log?.name && (
+                              <div className="text-xs text-blue-600 flex items-center gap-1 mt-0.5">
+                                <HardHat size={11} /> 點工：{d.work_log.name}{d.work_log.rate_type ? `（${d.work_log.rate_type}）` : ''}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 text-gray-500 text-xs" colSpan={2}>
                             {d.service_count ? `最近叫修：${d.last_reported_date}` : ''}
@@ -304,14 +328,25 @@ export default function EquipmentPage() {
                           </td>
                           <td className="px-4 py-2.5 text-gray-700">{d.service_count ? `${d.service_count} 次` : '—'}</td>
                           <td className="px-4 py-2.5">
-                            <Link
-                              href={`/service-requests/new?equipment_id=${d.id}`}
-                              onClick={e => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
-                            >
-                              <Wrench size={12} />
-                              叫修
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/equipment/${d.id}/edit`}
+                                onClick={e => e.stopPropagation()}
+                                title="編輯設備"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
+                              >
+                                <Pencil size={12} />
+                                編輯
+                              </Link>
+                              <Link
+                                href={`/service-requests/new?equipment_id=${d.id}`}
+                                onClick={e => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
+                              >
+                                <Wrench size={12} />
+                                叫修
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       )

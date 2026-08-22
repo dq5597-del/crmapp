@@ -496,6 +496,7 @@ export interface Equipment {
   // Relations
   client?: Client
   project?: Project
+  work_log?: { name: string; rate_type: string; work_date: string } | null
   service_count?: number
   last_reported_date?: string | null
 }

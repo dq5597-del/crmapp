@@ -83,9 +83,11 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
   const [noTable, setNoTable] = useState(false)
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState<Record<string, boolean>>({})
-  const [formOpen, setFormOpen] = useState(false)
 
   const [batch, setBatch] = useState(false)
+  const [multiPerson, setMultiPerson] = useState(false)
+  const [selectedPeople, setSelectedPeople] = useState<{ key: string; name: string; member_kind: string }[]>([])
+  const [freeName, setFreeName] = useState('')
   const [form, setForm] = useState({
     person: '', name: '', member_kind: '員工',
     date_from: today(), date_to: today(),
@@ -177,29 +179,31 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
       date_from: today(), date_to: today(),
     }))
     setBatch(false)
-    setFormOpen(true)
+    setMultiPerson(false)
+    setSelectedPeople([])
   }
 
   const previewDates = batch ? dateRange(form.date_from, form.date_to) : [form.date_from]
+  const previewPeopleCount = multiPerson ? Math.max(selectedPeople.length, 1) : 1
   const previewCost = (() => {
     const r = n(form.rate), h = n(form.hours)
     const one = form.rate_type === '日薪' ? Math.round(r * h / 8)
       : form.rate_type === '時薪' ? Math.round(r * h)
       : Math.round(r)
-    return one * previewDates.length
+    return one * previewDates.length * previewPeopleCount
   })()
 
   /** 人員清單「直接從派工紀錄帶出」：登記派工時如果這個人在本專案還沒有 project_crew 資料，
    *  就自動幫他建一筆（帶預設角色），不用另外跑「加人」流程。 */
-  async function ensureCrewTarget(): Promise<{ crewId: string; memberKind: string; name: string } | null> {
-    const name = form.name.trim()
-    if (form.person.startsWith('crew|')) {
-      const id = form.person.split('|')[1]
+  /** 把「選人」解析成實際的 project_crew 目標；person 可能是本專案人員、全公司名冊，或手動輸入姓名 */
+  async function ensureCrewTargetFor(person: string, name: string, memberKind: string): Promise<{ crewId: string; memberKind: string; name: string } | null> {
+    if (person.startsWith('crew|')) {
+      const id = person.split('|')[1]
       const c = crew.find(x => x.id === id)
       if (c) return { crewId: c.id, memberKind: c.member_kind, name: c.name }
     }
-    if (form.person.startsWith('roster|')) {
-      const id = form.person.split('|')[1]
+    if (person.startsWith('roster|')) {
+      const id = person.split('|')[1]
       const p = roster.find(x => x.id === id)
       if (p) {
         const existing = crew.find(c => c.name === p.name && c.member_kind === p.kind)
@@ -215,25 +219,78 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
         return { crewId: (data as any).id, memberKind: p.kind, name: p.name }
       }
     }
-    // 手動輸入姓名：專案裡已有同名同身分的人就沿用，否則自動新建一筆
-    const existing = crew.find(c => c.name === name && c.member_kind === form.member_kind)
+    // 手動輸入姓名（含臨時加入的點工）：專案裡已有同名同身分的人就沿用，否則自動新建一筆
+    const existing = crew.find(c => c.name === name && c.member_kind === memberKind)
     if (existing) return { crewId: existing.id, memberKind: existing.member_kind, name: existing.name }
     const { data, error } = await supabase.from('project_crew').insert({
-      project_id: projectId, member_kind: form.member_kind, name,
+      project_id: projectId, member_kind: memberKind, name,
       role: '工班人員', is_leader: false, start_date: form.date_from || today(),
       daily_rate: n(form.rate) || 0,
     }).select().single()
     if (error) { alert('建立人員失敗：' + error.message); return null }
-    return { crewId: (data as any).id, memberKind: form.member_kind, name }
+    return { crewId: (data as any).id, memberKind, name }
+  }
+
+  function togglePerson(key: string, name: string, memberKind: string) {
+    setSelectedPeople(prev =>
+      prev.some(p => p.key === key) ? prev.filter(p => p.key !== key) : [...prev, { key, name, member_kind: memberKind }]
+    )
+  }
+
+  function addFreeNamePerson() {
+    const name = freeName.trim()
+    if (!name) return
+    const key = `free|${name}|${Date.now()}`
+    setSelectedPeople(prev => [...prev, { key, name, member_kind: form.member_kind }])
+    setFreeName('')
   }
 
   async function addLog() {
     if (onBeforeSave && !(await onBeforeSave())) return
-    if (!form.name.trim()) { alert('請選擇或輸入姓名'); return }
     if (previewDates.length === 0) { alert('日期區間不正確（起日不能晚於迄日）'); return }
 
+    // ── 多人模式：同一天、同樣的計價/工時/工項，一次登記好幾個人（常用於點工／臨時工）──
+    if (multiPerson) {
+      if (selectedPeople.length === 0) { alert('請至少選擇一位人員'); return }
+      setSaving(true)
+      const payload: any[] = []
+      for (const p of selectedPeople) {
+        const target = await ensureCrewTargetFor(p.key, p.name, p.member_kind)
+        if (!target) { setSaving(false); return }
+        previewDates.forEach(d => {
+          payload.push({
+            project_id: projectId,
+            crew_id: target.crewId,
+            work_date: d,
+            member_kind: target.memberKind,
+            name: target.name,
+            hours: n(form.hours),
+            rate_type: form.rate_type,
+            rate: n(form.rate),
+            work_item: form.work_item || null,
+            notes: form.notes || null,
+          })
+        })
+      }
+      const { error } = await supabase.from('project_work_logs').insert(payload)
+      setSaving(false)
+      if (error) {
+        if (error.code === '23505') alert('其中有人在該日期、該工項已經登記過了。請改工項名稱，或先刪除原本那筆。')
+        else alert('新增失敗：' + error.message)
+        return
+      }
+      setMsg(`已新增 ${payload.length} 筆`)
+      setTimeout(() => setMsg(''), 2500)
+      setSelectedPeople([])
+      setForm(f => ({ ...f, work_item: '', notes: '' }))
+      load()
+      return
+    }
+
+    // ── 單人模式（原本邏輯）──
+    if (!form.name.trim()) { alert('請選擇或輸入姓名'); return }
     setSaving(true)
-    const target = await ensureCrewTarget()
+    const target = await ensureCrewTargetFor(form.person, form.name.trim(), form.member_kind)
     if (!target) { setSaving(false); return }
 
     const payload = previewDates.map(d => ({
@@ -329,58 +386,135 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
         </div>
       </div>
 
-      {/* 登記派工：人員直接帶出，不用另外「加人」；預設收合，點「新增派工紀錄」才展開欄位 */}
+      {/* 登記派工：人員直接帶出，不用另外「加人」 */}
       <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><UserPlus size={14} /> 登記派工（沒有的人會自動加入本專案人員）</span>
           <div className="flex items-center gap-3">
-            {formOpen && (
-              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                <input type="checkbox" checked={batch} onChange={e => setBatch(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300" />
-                <CalendarRange size={13} /> 連續多天一次登記
-              </label>
-            )}
-            <button type="button" onClick={() => setFormOpen(o => !o)}
-              className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700">
-              {formOpen ? <><ChevronDown size={14} /> 收合欄位</> : <><Plus size={14} /> 新增派工紀錄</>}
-            </button>
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={multiPerson} onChange={e => { setMultiPerson(e.target.checked); setSelectedPeople([]) }} className="w-3.5 h-3.5 rounded border-gray-300" />
+              <UserPlus size={13} /> 同時登記多人
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={batch} onChange={e => setBatch(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300" />
+              <CalendarRange size={13} /> 連續多天一次登記
+            </label>
           </div>
         </div>
 
-        {formOpen && (
-        <>
         <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
-          <div className="col-span-2 md:col-span-3">
-            <label className="text-xs text-gray-500 mb-1 block">人員</label>
-            <select value={form.person} onChange={e => pickPerson(e.target.value)} className={inp}>
-              <option value="">— 手動輸入 —</option>
-              {KINDS.map(k => {
-                const list = roster.filter(p => p.kind === k)
-                if (!list.length) return null
-                return (
-                  <optgroup key={k} label={`全公司名冊－${k}`}>
-                    {list.map(p => (
-                      <option key={`roster|${p.id}`} value={`roster|${p.id}`}>
-                        {p.name}{p.skill ? `（${p.skill}）` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                )
-              })}
-            </select>
-          </div>
+          {multiPerson ? (
+            <div className="col-span-2 md:col-span-6">
+              <label className="text-xs text-gray-500 mb-1 block">
+                選擇人員 {selectedPeople.length > 0 && <span className="text-blue-600">已選 {selectedPeople.length} 人</span>}
+              </label>
+              <div className="border border-gray-200 rounded-lg bg-white p-2 max-h-40 overflow-y-auto space-y-2">
+                {crew.length > 0 && (
+                  <div>
+                    <div className="text-[11px] text-gray-400 mb-1">本專案人員</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {crew.map(c => {
+                        const key = `crew|${c.id}`
+                        const checked = selectedPeople.some(p => p.key === key)
+                        return (
+                          <label key={key} className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border cursor-pointer ${checked ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                            <input type="checkbox" checked={checked} onChange={() => togglePerson(key, c.name, c.member_kind)} className="w-3 h-3" />
+                            {c.name}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {KINDS.map(k => {
+                  const list = roster.filter(p => p.kind === k)
+                  if (!list.length) return null
+                  return (
+                    <div key={k}>
+                      <div className="text-[11px] text-gray-400 mb-1">全公司名冊－{k}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {list.map(p => {
+                          const key = `roster|${p.id}`
+                          const checked = selectedPeople.some(x => x.key === key)
+                          return (
+                            <label key={key} className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border cursor-pointer ${checked ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                              <input type="checkbox" checked={checked} onChange={() => togglePerson(key, p.name, p.kind)} className="w-3 h-3" />
+                              {p.name}{p.skill ? `（${p.skill}）` : ''}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+                <div>
+                  <div className="text-[11px] text-gray-400 mb-1">臨時加入（不在名冊上的點工）</div>
+                  <div className="flex gap-1.5">
+                    <input
+                      value={freeName}
+                      onChange={e => setFreeName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFreeNamePerson() } }}
+                      placeholder="輸入姓名後按加入"
+                      className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <button type="button" onClick={addFreeNamePerson}
+                      className="px-2.5 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg shrink-0">
+                      加入
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {selectedPeople.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {selectedPeople.map(p => (
+                    <span key={p.key} className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      {p.name}
+                      <button type="button" onClick={() => setSelectedPeople(prev => prev.filter(x => x.key !== p.key))} className="hover:text-blue-900">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="col-span-2 md:col-span-3">
+                <label className="text-xs text-gray-500 mb-1 block">人員</label>
+                <select value={form.person} onChange={e => pickPerson(e.target.value)} className={inp}>
+                  <option value="">— 手動輸入 —</option>
+                  {crew.length > 0 && (
+                    <optgroup label="本專案人員">
+                      {crew.map(c => <option key={`crew|${c.id}`} value={`crew|${c.id}`}>{c.name}（{c.member_kind}）</option>)}
+                    </optgroup>
+                  )}
+                  {KINDS.map(k => {
+                    const list = roster.filter(p => p.kind === k)
+                    if (!list.length) return null
+                    return (
+                      <optgroup key={k} label={`全公司名冊－${k}`}>
+                        {list.map(p => (
+                          <option key={`roster|${p.id}`} value={`roster|${p.id}`}>
+                            {p.name}{p.skill ? `（${p.skill}）` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )
+                  })}
+                </select>
+              </div>
 
-          <div className="col-span-1 md:col-span-2">
-            <label className="text-xs text-gray-500 mb-1 block">姓名 *</label>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value, person: '' }))} className={inp} />
-          </div>
+              <div className="col-span-1 md:col-span-2">
+                <label className="text-xs text-gray-500 mb-1 block">姓名 *</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value, person: '' }))} className={inp} />
+              </div>
 
-          <div className="col-span-1 md:col-span-1">
-            <label className="text-xs text-gray-500 mb-1 block">身分</label>
-            <select value={form.member_kind} onChange={e => setForm(f => ({ ...f, member_kind: e.target.value }))} className={inp}>
-              {KINDS.map(k => <option key={k}>{k}</option>)}
-            </select>
-          </div>
+              <div className="col-span-1 md:col-span-1">
+                <label className="text-xs text-gray-500 mb-1 block">身分</label>
+                <select value={form.member_kind} onChange={e => setForm(f => ({ ...f, member_kind: e.target.value }))} className={inp}>
+                  {KINDS.map(k => <option key={k}>{k}</option>)}
+                </select>
+              </div>
+            </>
+          )}
 
           <div className={batch ? 'col-span-1 md:col-span-2' : 'col-span-1 md:col-span-2'}>
             <label className="text-xs text-gray-500 mb-1 block">{batch ? '起日' : '施工日期'}</label>
@@ -439,13 +573,16 @@ export default function ProjectCrewSection({ projectId, onBeforeSave }: {
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-400">{RATE_HINT[form.rate_type]}</span>
           <span className="text-gray-600">
-            {previewDates.length > 1 && <span className="mr-2">將建立 <b>{previewDates.length}</b> 筆</span>}
+            {(previewDates.length > 1 || (multiPerson && selectedPeople.length > 0)) && (
+              <span className="mr-2">
+                將建立 <b>{previewDates.length * (multiPerson ? selectedPeople.length : 1)}</b> 筆
+                {multiPerson && selectedPeople.length > 0 && <>（{selectedPeople.length} 人 × {previewDates.length} 天）</>}
+              </span>
+            )}
             預計成本 <b className="text-gray-900">NT${previewCost.toLocaleString()}</b>
             {msg && <span className="ml-2 text-green-600">{msg}</span>}
           </span>
         </div>
-        </>
-        )}
       </div>
 
       {/* 人員清單：直接由派工紀錄彙整而成，依身分分三組顯示，不混在一起 */}
