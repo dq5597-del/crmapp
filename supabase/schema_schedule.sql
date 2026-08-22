@@ -40,8 +40,20 @@ create index idx_schedules_status on schedules(status);
 create index idx_schedules_gap on schedules(is_gap_task) where is_gap_task = true;
 
 alter table schedules enable row level security;
-create policy "authenticated users can do all" on schedules
-  for all to authenticated using (true) with check (true);
+-- 一般行程可供登入者協作；空檔任務則永遠只屬於建立者。
+create policy schedules_select on schedules
+  for select to authenticated
+  using (not is_gap_task or public.is_admin() or created_by = (select auth.uid()));
+create policy schedules_insert on schedules
+  for insert to authenticated
+  with check (public.is_admin() or created_by = (select auth.uid()));
+create policy schedules_update on schedules
+  for update to authenticated
+  using (not is_gap_task or public.is_admin() or created_by = (select auth.uid()))
+  with check (not is_gap_task or public.is_admin() or created_by = (select auth.uid()));
+create policy schedules_delete on schedules
+  for delete to authenticated
+  using (not is_gap_task or public.is_admin() or created_by = (select auth.uid()));
 
 create trigger t_schedules_updated before update on schedules
   for each row execute function set_updated_at();

@@ -20,6 +20,10 @@ export type ProductFilterGroup = {
   options: ProductFilterOption[]
   category_ids: string[]
   category_sort_orders?: Record<string, number>
+  woo_attribute_id?: number | null
+  woo_attribute_slug?: string | null
+  web_sync_enabled?: boolean
+  woo_synced_at?: string | null
 }
 
 export type ProductNumberMap = Record<string, Record<string, number>>

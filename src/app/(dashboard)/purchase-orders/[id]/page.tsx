@@ -296,8 +296,9 @@ export default function PurchaseOrderDetailPage() {
                 <ResizableTH col="model" widths={colW} startResize={startResize} className="text-left px-3 py-2 text-gray-500 font-medium">型號</ResizableTH>
                 <ResizableTH col="unit" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">單位</ResizableTH>
                 <ResizableTH col="qty" widths={colW} startResize={startResize} className="text-center px-2 py-2 text-gray-500 font-medium">數量</ResizableTH>
-                <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">單價</ResizableTH>
-                <ResizableTH col="total" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium">金額</ResizableTH>
+                <ResizableTH col="price" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium whitespace-nowrap">含稅單價</ResizableTH>
+                <ResizableTH col="total" widths={colW} startResize={startResize} className="text-right px-3 py-2 text-gray-500 font-medium whitespace-nowrap">含稅金額</ResizableTH>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">備註</th>
                 <th className="w-8"></th>
               </tr>
             </thead>
@@ -331,6 +332,11 @@ export default function PurchaseOrderDetailPage() {
                   <td className="px-3 py-1.5 text-right font-semibold text-gray-800">
                     {formatCurrency(item.quantity * item.unit_price)}
                   </td>
+                  <td className="px-2 py-1.5">
+                    <input value={item.item_notes ?? ''} onChange={e => updateItem(idx, 'item_notes', e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
+                      placeholder="品項備註（選填）" />
+                  </td>
                   <td className="px-1 py-1.5 text-center">
                     <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
                       <Trash2 size={13} />
@@ -339,7 +345,7 @@ export default function PurchaseOrderDetailPage() {
                 </tr>
               ))}
               {items.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-6 text-gray-400 text-xs">尚無品項，點「加一行」新增</td></tr>
+                <tr><td colSpan={9} className="text-center py-6 text-gray-400 text-xs">尚無品項，點「加一行」新增</td></tr>
               )}
             </tbody>
           </table>

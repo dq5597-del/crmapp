@@ -119,11 +119,18 @@ export interface Product {
   web_publish?: boolean | null
   web_product_id?: string | null
   web_product_url?: string | null
+  web_sync_status?: string | null
+  web_synced_at?: string | null
   web_promo_price?: number | null
   web_promo_price_from?: string | null
   web_promo_price_to?: string | null
   web_spec_table?: { headers: string[]; rows: string[][] } | null
   web_spec_html?: string | null
+  variant_group_code?: string | null
+  variant_attribute_name?: string | null
+  variant_value?: string | null
+  variant_is_primary?: boolean | null
+  web_variation_id?: string | null
   created_at: string
   updated_at: string
 }

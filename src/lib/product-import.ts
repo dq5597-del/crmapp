@@ -5,7 +5,7 @@
  * 比對鍵：型號 (model) 優先，其次 官網SKU (web_sku)，皆不分大小寫。
  */
 
-export type FieldType = 'text' | 'number' | 'bool' | 'datetime' | 'list'
+export type FieldType = 'text' | 'number' | 'bool' | 'datetime' | 'list' | 'image'
 
 export interface ImportColumn {
   header: string          // Excel 表頭（使用者看到的中文）
@@ -35,7 +35,11 @@ export const PRODUCT_COLUMNS: ImportColumn[] = [
   { header: '官網SKU', key: 'web_sku', type: 'text', width: 16, note: '第二比對鍵' },
   { header: '官網分類', key: 'web_category', type: 'text', width: 22, note: '多個分類請用逗號分隔' },
   { header: '官網售價', key: 'web_sale_price', type: 'number', width: 12 },
-  { header: '產品介紹', key: 'web_description', type: 'text', width: 40, note: '可放 HTML' },
+  { header: '官網產品介紹', key: 'web_description', type: 'text', width: 40, note: '對應官網單一商品頁的主要產品介紹；介紹圖可拖入「型號_DESC_01.jpg」' },
+  { header: '系列代碼', key: 'variant_group_code', type: 'text', width: 18, note: '同一商品不同顏色／型號請填相同代碼' },
+  { header: '變體屬性', key: 'variant_attribute_name', type: 'text', width: 12, note: '預設「顏色」' },
+  { header: '變體選項', key: 'variant_value', type: 'text', width: 14, note: '例：黑色、白色' },
+  { header: '系列主商品', key: 'variant_is_primary', type: 'bool', width: 10, note: '每個系列只能一筆填「是」；父商品圖文以此筆為準' },
   { header: '規格HTML', key: 'web_spec_html', type: 'text', width: 40, note: '可放 HTML 表格' },
   { header: 'BSMI字號', key: 'web_bsmi_no', type: 'text', width: 16 },
   { header: 'NCC字號', key: 'web_ncc_no', type: 'text', width: 16 },
@@ -45,8 +49,12 @@ export const PRODUCT_COLUMNS: ImportColumn[] = [
 /** 子表欄位（product_features / product_images） */
 export const SUB_COLUMNS: ImportColumn[] = [
   { header: '產品特色', key: 'features', type: 'list', width: 30, note: '用 | 分隔，每項最多 5 字、最多 10 項' },
-  { header: '主圖網址', key: 'main_image_url', type: 'text', width: 40, note: 'http(s) 圖片網址；自動調整為 600 × 600 px、轉成 WebP 並存入 WordPress 媒體庫' },
-  { header: '其他圖片網址', key: 'image_urls', type: 'list', width: 40, note: '多張用 | 分隔' },
+  { header: '篩選規格', key: 'filter_specs', type: 'text', width: 50, note: '格式：解析度=4K UHD｜輸入介面=HDMI,RCA｜亮度=5000；同名規格請改填英文 slug' },
+  { header: '主圖網址', key: 'main_image_url', type: 'text', width: 40, note: '選填；可改在上傳畫面拖入「型號_01.jpg」' },
+  { header: '其他圖片網址', key: 'image_urls', type: 'list', width: 40, note: '選填；多張用 | 分隔，或拖入「型號_02.jpg」之後的照片' },
+  { header: '主圖圖片', key: 'embedded_main_image', type: 'image', width: 18, note: '可直接把一張圖片貼在同列儲存格內' },
+  { header: '其他圖片', key: 'embedded_gallery_images', type: 'image', width: 24, note: '可把多張圖片貼在同列儲存格範圍內' },
+  { header: '產品介紹圖片', key: 'embedded_description_images', type: 'image', width: 24, note: '可把多張介紹圖片貼在同列儲存格範圍內' },
 ]
 
 export const ALL_COLUMNS: ImportColumn[] = [...PRODUCT_COLUMNS, ...SUB_COLUMNS]
@@ -88,6 +96,7 @@ export interface ParsedRow {
   features: string[]
   main_image_url: string
   image_urls: string[]
+  filter_specs: { group: string; values: string[] }[]
   errors: string[]
   warnings: string[]
 }
@@ -124,6 +133,7 @@ export function parseRow(rowNo: number, raw: Record<string, any>): ParsedRow {
     features: [],
     main_image_url: '',
     image_urls: [],
+    filter_specs: [],
     errors: [],
     warnings: [],
   }
@@ -145,6 +155,26 @@ export function parseRow(rowNo: number, raw: Record<string, any>): ParsedRow {
       case 'image_urls':
         out.image_urls = toList(value)
         break
+      case 'embedded_main_image':
+      case 'embedded_gallery_images':
+      case 'embedded_description_images':
+        // 內嵌圖片由瀏覽器依圖片錨點另外解析，儲存格文字不寫入產品主檔。
+        break
+      case 'filter_specs': {
+        const specs = String(value ?? '').split(/[|｜;；\n]/).map(item => item.trim()).filter(Boolean)
+        for (const spec of specs) {
+          const separator = spec.indexOf('=')
+          if (separator <= 0) {
+            out.errors.push(`篩選規格格式錯誤，應為「規格=值」：${spec}`)
+            continue
+          }
+          const group = spec.slice(0, separator).trim()
+          const values = spec.slice(separator + 1).split(/[,，]/).map(item => item.trim()).filter(Boolean)
+          if (!group || !values.length) out.errors.push(`篩選規格缺少名稱或值：${spec}`)
+          else out.filter_specs.push({ group, values })
+        }
+        break
+      }
       default: {
         if (col.type === 'number') {
           const n = toNumber(value)
@@ -166,6 +196,9 @@ export function parseRow(rowNo: number, raw: Record<string, any>): ParsedRow {
   if (!out.product.product_name) out.errors.push('產品名稱為必填')
   if (out.product.main_category && !out.product.sub_category) out.warnings.push('只有主分類、沒有次分類，將不設定分類')
   if (!out.product.model && !out.product.web_sku) out.warnings.push('沒有型號也沒有官網SKU，無法比對既有產品，只能新增')
+  if (out.product.variant_group_code && !out.product.variant_value) out.errors.push('有系列代碼時，「變體選項」為必填')
+  if (out.product.variant_value && !out.product.variant_group_code) out.errors.push('有變體選項時，「系列代碼」為必填')
+  if (out.product.variant_group_code && !out.product.variant_attribute_name) out.product.variant_attribute_name = '顏色'
 
   for (const u of [out.main_image_url, ...out.image_urls]) {
     if (u && !/^https?:\/\//i.test(u)) out.errors.push(`圖片網址須為 http(s) 開頭：${u}`)

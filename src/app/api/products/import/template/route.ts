@@ -33,6 +33,7 @@ export async function GET() {
         case 'web_sku': return 'JBL-A130'
         case 'web_publish': return '否'
         case 'features': return '高音清晰|低頻扎實|台灣公司貨'
+        case 'filter_specs': return 'speaker_type=全音域｜input_interface=XLR,RCA｜continuous_power_w=300'
         case 'main_image_url': return 'https://example.com/a130.jpg'
         default: return ''
       }
@@ -58,9 +59,16 @@ export async function GET() {
     ['4. 比對既有產品的依據：型號 → 官網SKU（不分大小寫）。兩者都沒填就一律視為新增。'],
     ['5. 「是／否」欄位可填：是、否、Y、N、TRUE、FALSE。'],
     ['6. 產品特色與其他圖片網址：多筆請用半形 | 分隔。'],
-    ['7. 圖片網址必須是可公開存取的 http(s) 連結；圖片會自動調整為 600 × 600 px、轉成 WebP，並存入 WordPress 媒體庫。'],
+    ['7. 圖片可直接和 Excel 一起拖入匯入視窗：型號_01.jpg 是主圖，型號_02.jpg 之後是其他圖片；網址欄可留空。'],
     ['8. 匯入前會出現預覽畫面，可逐筆決定「新增／更新／跳過」，確認後才會寫入。'],
     ['9. 分類：主分類＋次分類需成對填寫，系統找不到時會自動建立。'],
+    ['10. 篩選規格格式：規格名稱或英文 slug=值；多個規格用｜分隔，同一規格多個值用逗號分隔。'],
+    ['11. 數值規格只填數字，單位會由系統帶入；若規格中文名稱重複，請使用英文 slug。'],
+    ['12. 商品主圖／相簿會調整為 600 × 600；產品介紹圖保留比例並限制在 1800 × 2600 內；全部轉成 WebP，每張不可超過 4MB。'],
+    ['13. 產品介紹圖請命名為「型號_DESC_01.jpg」並依序編號；系統會保留比例、轉成 WebP，放在官網產品介紹文字後方。'],
+    ['14. 變體商品的產品介紹以系列主商品為準，因此介紹圖請使用「系列主商品」那一列的型號命名。'],
+    ['15. 也可以直接把圖片插入／貼到 Excel 的「主圖圖片、其他圖片、產品介紹圖片」欄，圖片左上角必須位於對應商品列。'],
+    ['16. 主圖圖片每列一張；其他圖片與產品介紹圖片可放多張，系統會依圖片在儲存格中的位置排序。'],
   ]
   lines.forEach(l => help.addRow(l))
   help.getRow(1).font = { bold: true, size: 14 }

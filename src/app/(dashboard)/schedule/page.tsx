@@ -157,6 +157,12 @@ export default function SchedulePage() {
   }, [view, anchor])
 
   const fetchAll = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSchedules([])
+      setGapTasks([])
+      return
+    }
     const [schedRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
       supabase.from('schedules')
         .select('*, clients(company_name, address), vendors(company_name), contacts(name)')

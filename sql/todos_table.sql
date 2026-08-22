@@ -15,7 +15,7 @@ create table if not exists public.todos (
   due_date     date,
   schedule_id  uuid references public.schedules(id) on delete set null,
   sort_order   int  not null default 0,
-  created_by   uuid references auth.users(id) on delete set null,
+  created_by   uuid references auth.users(id) on delete set null default auth.uid(),
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
@@ -34,9 +34,16 @@ create trigger todos_set_updated_at
   before update on public.todos
   for each row execute function public.set_updated_at();
 
--- RLS：登入者皆可讀寫（與本系統其他資料表一致；若貴專案採更嚴格政策，請自行調整）
+-- RLS：每個帳號只能讀寫自己建立的任務
 alter table public.todos enable row level security;
 
 drop policy if exists todos_all_authenticated on public.todos;
-create policy todos_all_authenticated on public.todos
-  for all to authenticated using (true) with check (true);
+create policy todos_select on public.todos for select to authenticated
+  using (public.is_admin() or created_by = (select auth.uid()));
+create policy todos_insert on public.todos for insert to authenticated
+  with check (public.is_admin() or created_by = (select auth.uid()));
+create policy todos_update on public.todos for update to authenticated
+  using (public.is_admin() or created_by = (select auth.uid()))
+  with check (public.is_admin() or created_by = (select auth.uid()));
+create policy todos_delete on public.todos for delete to authenticated
+  using (public.is_admin() or created_by = (select auth.uid()));

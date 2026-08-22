@@ -537,6 +537,8 @@ export default function ProductsPage() {
         web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
         web_tab: 'none' as string,
         web_spec_html: '' as string,
+        variant_group_code: '', variant_attribute_name: '顏色', variant_value: '',
+        variant_is_primary: false, web_variation_id: '',
     })
     const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
     const [showScanner, setShowScanner] = useState(false)
@@ -651,6 +653,11 @@ export default function ProductsPage() {
                 web_promo_price_to: pAny.web_promo_price_to ? String(pAny.web_promo_price_to).slice(0, 16) : '',
                 web_tab: pAny.web_tab ?? 'none',
                 web_spec_html: pAny.web_spec_html ?? '',
+                variant_group_code: pAny.variant_group_code ?? '',
+                variant_attribute_name: pAny.variant_attribute_name ?? '顏色',
+                variant_value: pAny.variant_value ?? '',
+                variant_is_primary: pAny.variant_is_primary ?? false,
+                web_variation_id: pAny.web_variation_id ?? '',
             })
             setPromoEnabled(!!pAny.web_promo_price_from)
             setEditingId(p.id)
@@ -668,6 +675,8 @@ export default function ProductsPage() {
                 web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
                 web_tab: 'none',
                 web_spec_html: '',
+                variant_group_code: '', variant_attribute_name: '顏色', variant_value: '',
+                variant_is_primary: false, web_variation_id: '',
             })
             setPromoEnabled(false)
             setEditingId('new')
@@ -724,6 +733,20 @@ export default function ProductsPage() {
                 return
             }
         }
+        const variantGroup = form.variant_group_code.trim()
+        const variantValue = form.variant_value.trim()
+        if (variantGroup && !variantValue) {
+            alert('填寫系列代碼後，也必須填寫變體選項（例如：黑色）。')
+            return
+        }
+        if (variantValue && !variantGroup) {
+            alert('填寫變體選項後，也必須填寫系列代碼。')
+            return
+        }
+        if (variantGroup && !form.variant_attribute_name.trim()) {
+            alert('請填寫變體屬性，例如「顏色」。')
+            return
+        }
         const payload = {
             ...form,
             // web_category 保留第一個分類，讓尚未更新的舊流程仍能讀取；新流程使用 web_categories。
@@ -733,6 +756,11 @@ export default function ProductsPage() {
             web_promo_price: promoEnabled ? form.web_promo_price : null,
             web_promo_price_from: promoEnabled && form.web_promo_price_from ? form.web_promo_price_from : null,
             web_promo_price_to: promoEnabled && form.web_promo_price_to ? form.web_promo_price_to : null,
+            variant_group_code: variantGroup || null,
+            variant_attribute_name: form.variant_attribute_name.trim() || '顏色',
+            variant_value: variantValue || null,
+            variant_is_primary: !!variantGroup && form.variant_is_primary,
+            web_variation_id: form.web_variation_id || null,
         }
         if (editingId === 'new') {
             const { data, error } = await supabase.from('products').insert(payload).select('id').single()
@@ -873,6 +901,13 @@ export default function ProductsPage() {
     // 料號與原廠條碼是一物一碼，不可複製 —— 留空由使用者重新產生
     clone.product_code = null
     clone.barcode = null
+    clone.web_product_id = null
+    clone.web_product_url = null
+    clone.web_variation_id = null
+    clone.web_synced_at = null
+    clone.web_sync_status = null
+    clone.variant_value = null
+    clone.variant_is_primary = false
     const { data, error } = await supabase.from('products').insert(clone).select('*').single()
     if (error) {
       alert(/duplicate|unique/i.test(error.message)
@@ -1593,9 +1628,9 @@ export default function ProductsPage() {
                                     <div className="pt-4">
                                         {activeTab === 'intro' && (
                                             <div>
-                                                <label className="text-xs text-gray-500 mb-1 block">完整商品介紹</label>
+                                                <label className="text-xs text-gray-500 mb-1 block">官網單一商品－產品介紹（主要內容）</label>
                                                 <HtmlCodeEditor value={form.web_description} onChange={v => setForm(p => ({ ...p, web_description: v }))} rows={8} placeholder="可直接貼上 HTML，例如 <p>...</p>" allowWordPressImages />
-                                                <div className="mt-1.5 text-[11px] text-gray-400">上傳圖片會自動等比例調整為 600 × 600 px，轉成 WebP，並存入 WordPress 媒體庫（單張 4MB 內）。</div>
+                                                <div className="mt-1.5 text-[11px] text-gray-400">此欄直接對應 WooCommerce 單一商品頁的主要長描述（description），不是簡短說明。上傳圖片會自動轉存 WordPress 媒體庫。</div>
                                             </div>
                                         )}
                                         {activeTab === 'spec' && (
@@ -1668,7 +1703,7 @@ export default function ProductsPage() {
                                         onClick={() => setWebExpanded(v => !v)}
                                         className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700"
                                     >
-                                        <span>進階網站設定（SKU／主圖／認證字號）</span>
+                                        <span>進階網站設定（SKU／系列變體／主圖／認證字號）</span>
                                         <ChevronRight size={16} className={`text-gray-400 transition-transform ${webExpanded ? 'rotate-90' : ''}`} />
                                     </button>
                                     {webExpanded && (
@@ -1676,6 +1711,25 @@ export default function ProductsPage() {
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">SKU</label>
                                                 <input value={form.web_sku} onChange={e => setForm(p => ({ ...p, web_sku: e.target.value }))} className={inputClass} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">系列代碼</label>
+                                                <input value={form.variant_group_code} onChange={e => setForm(p => ({ ...p, variant_group_code: e.target.value }))} className={inputClass} placeholder="同系列填相同代碼" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">變體屬性</label>
+                                                <input value={form.variant_attribute_name} onChange={e => setForm(p => ({ ...p, variant_attribute_name: e.target.value }))} className={inputClass} placeholder="顏色" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">變體選項</label>
+                                                <input value={form.variant_value} onChange={e => setForm(p => ({ ...p, variant_value: e.target.value }))} className={inputClass} placeholder="例如：黑色" />
+                                            </div>
+                                            <div className="flex items-center gap-2 pt-5">
+                                                <input type="checkbox" id="variant_is_primary" checked={form.variant_is_primary} onChange={e => setForm(p => ({ ...p, variant_is_primary: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
+                                                <label htmlFor="variant_is_primary" className="text-sm text-gray-700">系列主商品</label>
+                                            </div>
+                                            <div className="col-span-2 sm:col-span-3 text-[11px] text-gray-400 -mt-2">
+                                                同系列每個顏色／型號仍各自一筆商品；官網會合併成同一頁。每個系列只能指定一筆主商品，父商品名稱、介紹、分類與共用圖文以主商品為準。
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">主圖</label>
@@ -1711,9 +1765,9 @@ export default function ProductsPage() {
                                                 <input type="checkbox" id="web_publish" checked={form.web_publish} onChange={e => setForm(p => ({ ...p, web_publish: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
                                                 <label htmlFor="web_publish" className="text-sm text-gray-700">顯示於網站</label>
                                             </div>
-                                            {(form.web_product_id || form.web_product_url) && (
+                                            {(form.web_product_id || form.web_product_url || form.web_variation_id) && (
                                                 <div className="col-span-2 sm:col-span-3 text-xs text-gray-400">
-                                                    網站商品 ID：{form.web_product_id || '—'} 連結：{form.web_product_url || '—'}
+                                                    網站父商品 ID：{form.web_product_id || '—'}　變體 ID：{form.web_variation_id || '—'}　連結：{form.web_product_url || '—'}
                                                 </div>
                                             )}
                                         </div>
