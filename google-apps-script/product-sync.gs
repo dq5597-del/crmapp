@@ -135,24 +135,40 @@ function pullProductsFromCrm() {
   let appended = Math.max(lastRow + 1, GH_FIRST_DATA_ROW);
   let updated = 0;
   let skipped = 0;
+  const updates = [];
   remoteRows.forEach(remote => {
     const values = remote.values || {};
     const id = normalize_(values['CRM產品ID']);
     const model = normalize_(values['型號']);
     const sku = normalize_(values['官網SKU']);
     const rowNo = byId.get(id) || byModel.get(model) || bySku.get(sku) || appended++;
-    const currentStatus = String(sheet.getRange(rowNo, statusIndex + 1).getDisplayValue() || '');
+    const existingRow = rowNo >= GH_FIRST_DATA_ROW && rowNo <= lastRow
+      ? existing[rowNo - GH_FIRST_DATA_ROW]
+      : null;
+    const currentStatus = String(existingRow ? existingRow[statusIndex] || '' : '');
     if (['待同步', '衝突'].includes(currentStatus)) {
       skipped += 1;
       return;
     }
     const rowValues = headers.map(header => sheetSafeValue_(values[header] == null ? '' : values[header]));
-    sheet.getRange(rowNo, 1, 1, headers.length).setValues([rowValues]);
+    updates.push({ rowNo, rowValues });
     byId.set(id, rowNo);
     if (model) byModel.set(model, rowNo);
     if (sku) bySku.set(sku, rowNo);
     updated += 1;
   });
+
+  updates.sort((left, right) => left.rowNo - right.rowNo);
+  for (let index = 0; index < updates.length;) {
+    const startRow = updates[index].rowNo;
+    const batch = [updates[index].rowValues];
+    index += 1;
+    while (index < updates.length && updates[index].rowNo === startRow + batch.length) {
+      batch.push(updates[index].rowValues);
+      index += 1;
+    }
+    sheet.getRange(startRow, 1, batch.length, headers.length).setValues(batch);
+  }
 
   SpreadsheetApp.getUi().alert(
     'CRM 更新完成',
