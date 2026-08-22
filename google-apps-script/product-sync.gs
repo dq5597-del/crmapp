@@ -113,6 +113,8 @@ function pullProductsFromCrm() {
   const statusIndex = headerIndex['同步狀態'];
   const modelIndex = headerIndex['型號'];
   const skuIndex = headerIndex['官網SKU'];
+  const mainImageIndex = headerIndex['主圖網址'];
+  const mainImageColumn = mainImageIndex == null ? '' : columnLetter_(mainImageIndex + 1);
   if (idIndex == null || statusIndex == null) throw new Error('找不到同步系統欄位');
 
   const lastRow = Math.max(sheet.getLastRow(), GH_FIRST_DATA_ROW - 1);
@@ -150,7 +152,12 @@ function pullProductsFromCrm() {
       skipped += 1;
       return;
     }
-    const rowValues = headers.map(header => sheetSafeValue_(values[header] == null ? '' : values[header]));
+    const rowValues = headers.map(header => {
+      if (header === '主圖預覽' && mainImageColumn) {
+        return `=IFERROR(IMAGE(${mainImageColumn}${rowNo}),"")`;
+      }
+      return sheetSafeValue_(values[header] == null ? '' : values[header]);
+    });
     updates.push({ rowNo, rowValues });
     byId.set(id, rowNo);
     if (model) byModel.set(model, rowNo);
@@ -259,6 +266,17 @@ function jsonValue_(value) {
   if (value == null) return '';
   if (typeof value === 'object') return '';
   return value;
+}
+
+function columnLetter_(column) {
+  let result = '';
+  let value = column;
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    value = Math.floor((value - 1) / 26);
+  }
+  return result;
 }
 
 function sheetSafeValue_(value) {
