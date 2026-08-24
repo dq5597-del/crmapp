@@ -1279,8 +1279,8 @@ export default function ProductsPage() {
 
                 {/* 編輯 / 新增表單 — 彈跳視窗（2026-07 改版：原地彈出，不再捲到頁面頂端） */}
                 {editingId !== null && (
-                    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3 sm:p-6">
-                    <div ref={editFormRef} {...guard.formProps} className="bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl">
+                    <div className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-black/50 p-2 sm:p-4">
+                    <div ref={editFormRef} {...guard.formProps} className="flex h-full min-h-0 w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl sm:rounded-2xl">
                         <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3.5 border-b border-gray-100 shrink-0">
                             <div className="font-semibold text-blue-900">{editingId === 'new' ? '新增產品' : '編輯產品'}</div>
                             <div className="flex items-center gap-2">
@@ -1288,7 +1288,7 @@ export default function ProductsPage() {
                                     <button type="button" onClick={() => setFormMode('simple')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'simple' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>進銷存模式</button>
                                     <button type="button" onClick={() => setFormMode('full')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'full' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>官網產品模式</button>
                                 </div>
-                                <button type="button" onClick={() => guard.guardClose(() => setEditingId(null))} title="關閉" className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"><X size={18} /></button>
+                                <button type="button" onClick={() => guard.guardClose(() => setEditingId(null))} title="關閉" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X size={18} /></button>
                             </div>
                         </div>
                         <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1 min-h-0">
@@ -1902,8 +1902,8 @@ export default function ProductsPage() {
 
                         </div>
                         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-gray-100 bg-gray-50 rounded-b-2xl shrink-0">
-                            <button onClick={() => guard.guardClose(() => setEditingId(null))} className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white">取消</button>
-                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">儲存</button>
+                            <button onClick={() => guard.guardClose(() => setEditingId(null))} className="min-h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm">取消</button>
+                            <button onClick={handleSave} className="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">儲存</button>
                         </div>
                     </div>
                     </div>
