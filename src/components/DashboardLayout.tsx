@@ -1,11 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { usePermissions, FEATURES, DASHBOARD_FEATURES } from '@/lib/permissions'
 import Sidebar from './Sidebar'
 import PushInit from './PushInit'
 import { Menu } from 'lucide-react'
+import {
+  GlobalWorkspaceProvider,
+  GlobalWorkspaceSurface,
+  WORKSPACE_MODULE_KEYS,
+} from './GlobalWorkspace'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -20,6 +25,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ?? (pathname === '/' ? 'dashboard' : undefined)
   const blocked = ready && feature ? !can(feature, 'can_view') : false
   const wrongDashboard = ready && !isAdmin && feature && DASHBOARD_FEATURES.has(feature) && feature !== dashboardFeature
+  const allowedWorkspaceKeys = useMemo(() => {
+    if (!ready) return []
+    return WORKSPACE_MODULE_KEYS.filter(key => {
+      if (isAdmin) return true
+      const permissionKey = key === 'purchases' ? 'purchase-orders' : key
+      return can(permissionKey, 'can_view')
+    })
+  }, [can, isAdmin, ready])
 
   // 書籤或手動網址進到別人的戰情室時，立即送回自己的戰情室。
   useEffect(() => {
@@ -27,35 +40,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [wrongDashboard, dashboardHref, router])
 
   return (
-    <div className="app-shell flex h-screen bg-gray-50 overflow-hidden">
-      <PushInit />
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <GlobalWorkspaceProvider>
+      <div className="app-shell flex h-screen bg-gray-50 overflow-hidden">
+        <PushInit />
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile topbar */}
-        <header className="no-print lg:hidden flex items-center gap-3 px-4 h-14 bg-white border-b border-gray-200 shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <Menu size={22} />
-          </button>
-          <span className="font-semibold text-gray-900">光輝影音科技 行政系統</span>
-        </header>
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Mobile topbar */}
+          <header className="no-print lg:hidden flex items-center gap-3 px-4 h-14 bg-white border-b border-gray-200 shrink-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <Menu size={22} />
+            </button>
+            <span className="font-semibold text-gray-900">光輝影音科技 行政系統</span>
+          </header>
 
-        {/* Main content */}
-        <main className="flex-1 overflow-y-auto">
-          {wrongDashboard && dashboardHref ? (
-            <div className="p-10 text-center text-sm text-gray-400">正在返回您的戰情室…</div>
-          ) : blocked ? (
-            <div className="p-10 max-w-lg mx-auto text-center">
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-6 text-sm">
-                你沒有這個功能的使用權限。<br />如需開通請聯繫管理員。
-              </div>
-            </div>
-          ) : children}
-        </main>
+          {/* Main content */}
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <GlobalWorkspaceSurface
+              pathname={pathname}
+              allowedKeys={allowedWorkspaceKeys}
+              permissionsReady={ready}
+            >
+              {wrongDashboard && dashboardHref ? (
+                <div className="p-10 text-center text-sm text-gray-400">正在返回您的戰情室…</div>
+              ) : blocked ? (
+                <div className="p-10 max-w-lg mx-auto text-center">
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-6 text-sm">
+                    你沒有這個功能的使用權限。<br />如需開通請聯繫管理員。
+                  </div>
+                </div>
+              ) : children}
+            </GlobalWorkspaceSurface>
+          </main>
+        </div>
       </div>
-    </div>
+    </GlobalWorkspaceProvider>
   )
 }

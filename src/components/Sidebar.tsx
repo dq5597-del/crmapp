@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { MouseEvent } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -8,12 +9,13 @@ import {
   LayoutDashboard, Users, FileText, ShoppingCart, Package,
   Settings, LogOut, ChevronRight, ChevronDown, Truck, X, Building2, Warehouse, CalendarDays,
   CreditCard, Receipt, Wrench, BookOpen, Library, Calculator, Briefcase, Scale, Wallet, PiggyBank, RotateCcw,
-  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, Columns2, ShoppingBag, Clock, SlidersHorizontal, HardDrive
+  MessageSquareQuote, StickyNote, FolderKanban, UserCog, HardHat, Contact, CalendarCheck, CalendarOff, Award, GraduationCap, PackageCheck, Crown, ShieldCheck, ListTodo, MessageSquare, ClipboardList, ShoppingBag, Clock, SlidersHorizontal, HardDrive
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions, FEATURES } from '@/lib/permissions'
 import ViewModeSwitch from '@/components/ViewModeSwitch'
 import PunchClock from '@/components/PunchClock'
+import { useGlobalWorkspace, workspaceHrefFromKey, workspaceKeyFromHref } from '@/components/GlobalWorkspace'
 
 // ============================================================
 // 側邊欄結構
@@ -39,7 +41,6 @@ const navItemsTop = [
   { href: '/finance', label: '會計戰情室', icon: Calculator },
   { href: '/hr', label: '人資戰情室', icon: UserCog },
   { href: '/', label: '業務戰情室', icon: LayoutDashboard },
-  { href: '/workspace', label: '多工工作區', icon: Columns2 },
 ] // top nav
 
 // 業務日常（訊息／任務／行程／筆記）
@@ -130,10 +131,22 @@ interface SidebarProps {
 function NavLink({ href, label, icon: Icon, active, onClick, sub }: {
   href: string; label: string; icon: any; active: boolean; onClick: () => void; sub?: boolean
 }) {
+  const { openModule } = useGlobalWorkspace()
+  const workspaceKey = workspaceKeyFromHref(href)
+
+  function handleClick(event: MouseEvent<HTMLAnchorElement>) {
+    const openInBrowserTab = event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
+    if (workspaceKey && event.button === 0 && !openInBrowserTab) {
+      event.preventDefault()
+      openModule(workspaceKey)
+    }
+    onClick()
+  }
+
   return (
     <Link
       href={href}
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
         'flex items-center gap-3 rounded-lg text-sm font-medium transition-colors',
         sub ? 'px-3 py-2' : 'px-3 py-2.5',
@@ -193,6 +206,7 @@ function NavGroup({ label, icon: Icon, items, active, open, onToggle, isActive, 
 }
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
+  const { active: activeWorkspaceKey } = useGlobalWorkspace()
   const { can, isAdmin } = usePermissions()
   const featureOf = (href: string) =>
     FEATURES.filter(f => f.href && f.href !== '/' && href.startsWith(f.href))
@@ -206,8 +220,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href)
+  const activeWorkspaceHref = activeWorkspaceKey ? workspaceHrefFromKey(activeWorkspaceKey) : null
+  const isActive = (href: string) => activeWorkspaceHref
+    ? href === activeWorkspaceHref
+    : href === '/' ? pathname === '/' : pathname.startsWith(href)
 
   // 選單分組定義（順序即畫面順序）
   const groups = [
