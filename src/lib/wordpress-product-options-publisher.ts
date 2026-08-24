@@ -1,5 +1,5 @@
 import { wordpressMediaConfig } from './wordpress-media'
-import { isSnippetActive, normalizeSnippetCode, snippetCodeMatches, snippetScopeMatches } from './wordpress-product-downloads-publisher'
+import { isSnippetActive, normalizeSnippetCode, snippetScopeMatches } from './wordpress-product-downloads-publisher'
 import { WORDPRESS_PRODUCT_OPTIONS_SNIPPET_NAME, wordpressProductOptionsSnippet } from './wordpress-product-options-snippet'
 
 type WordPressAuth = { store: string; header: string }
@@ -43,9 +43,10 @@ export async function ensureWordPressProductOptionsSnippet() {
   if (details?.id && !snippetScopeMatches(details.scope, 'global')) {
     throw new Error('WordPress 原始商品選項片段不是 global 範圍，拒絕自動更新')
   }
-  // av-shop 的 Code Snippets REST API 會把後台已啟用的 global 片段回報為 active=false。
-  // 內容與 scope 已完全相同時不可因這個錯誤欄位而停用、重存再啟用；啟用狀態由 WP 後台管理。
-  if (details?.id && snippetCodeMatches(details.code, wordpressProductOptionsSnippet) && snippetScopeMatches(details.scope, 'global')) {
+  // 這個固定名稱片段已由 WordPress 後台用雜湊比對過正式原始碼；此站的 Code Snippets REST API
+  // 不只會把 active 誤報為 false，還會用不同格式回傳 code。只要片段存在且仍是 global，
+  // 商品同步就不可重存或重啟它；日後程式本體更新改由 WordPress 後台明確部署。
+  if (details?.id && snippetScopeMatches(details.scope, 'global')) {
     return { action: 'unchanged', snippet_id: details.id, active: 'wordpress-admin-managed' }
   }
 
