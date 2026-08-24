@@ -80,11 +80,12 @@ export async function ensureWordPressFilterSetSnippet() {
     throw new Error('WordPress 未回傳可驗證的原始篩選器片段，已停止更新')
   }
   if (
-    backup?.id && isSnippetActive(backup.active) &&
+    backup?.id &&
     snippetCodeMatches(backup.code, wordpressFilterSetSnippet) &&
     snippetScopeMatches(backup.scope, 'global')
   ) {
-    return { auth, action: 'unchanged', snippet_id: backup.id, active: true }
+    // av-shop 的 REST active 欄位不可靠；內容相同時保留 WordPress 後台管理的啟用狀態。
+    return { auth, action: 'unchanged', snippet_id: backup.id, active: 'wordpress-admin-managed' }
   }
 
   const payload = {

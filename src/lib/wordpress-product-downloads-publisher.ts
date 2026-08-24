@@ -115,12 +115,12 @@ export async function ensureWordPressProductDownloadsSnippet() {
   }
   if (
     backup?.id &&
-    isSnippetActive(backup.active) &&
     snippetCodeMatches(backup.code, wordpressProductDownloadsSnippet) &&
     snippetScopeMatches(backup.scope, 'global')
   ) {
-    const dedupSnippetId = await deactivateLegacyDownloadsTabDedupSnippet(auth)
-    return { action: 'unchanged', snippet_id: backup.id, dedup_snippet_id: dedupSnippetId, active: true }
+    // 此站的 REST active 欄位與 WordPress 後台狀態不一致；內容相同時保留後台啟用狀態，
+    // 也不要自動更動既有去重片段，以免一次商品同步改變官網執行中的片段組合。
+    return { action: 'unchanged', snippet_id: backup.id, dedup_snippet_id: null, active: 'wordpress-admin-managed' }
   }
 
   const payload = {
