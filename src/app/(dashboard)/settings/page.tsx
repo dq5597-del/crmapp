@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { SystemSettings, UserProfile } from '@/types'
-import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database, Tag, History, Lock, Printer } from 'lucide-react'
+import { Settings, Users, Save, Plus, Trash2, Download, Upload, AlertTriangle, CheckCircle2, Database, Tag, History, Lock, Printer, SlidersHorizontal } from 'lucide-react'
+import ProductFilterSettings from '@/components/settings/ProductFilterSettings'
 
-type TabKey = 'company' | 'users' | 'backup' | 'categories' | 'audit'
+type TabKey = 'company' | 'users' | 'backup' | 'categories' | 'product-filters' | 'audit'
 
 export default function SettingsPage() {
   const supabase = createClient()
@@ -403,7 +404,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+    <div className={`mx-auto p-4 md:p-6 ${tab === 'product-filters' ? 'max-w-6xl' : 'max-w-3xl'}`}>
       <div className="flex items-center gap-3 mb-6">
         <Settings size={20} className="text-gray-600" />
         <h1 className="text-xl font-bold text-gray-900">系統設定</h1>
@@ -413,6 +414,7 @@ export default function SettingsPage() {
         {[
           { key: 'company', label: '公司設定', icon: Settings, adminOnly: false },
           { key: 'users', label: '帳號管理', icon: Users, adminOnly: true },
+          { key: 'product-filters', label: '產品篩選器', icon: SlidersHorizontal, adminOnly: true },
           { key: 'categories', label: '支出科目', icon: Tag, adminOnly: false },
           { key: 'backup', label: '備份還原', icon: Database, adminOnly: true },
           { key: 'audit', label: '稽核紀錄', icon: History, adminOnly: true },
@@ -761,6 +763,8 @@ export default function SettingsPage() {
           </p>
         </div>
       )}
+
+      {tab === 'product-filters' ? <ProductFilterSettings /> : null}
 
       {tab === 'categories' && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">

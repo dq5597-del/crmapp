@@ -393,7 +393,8 @@ export async function POST(req: Request) {
     const payload: any = buildWooPayload(row, sub, categoryIds, { status: publish ? 'publish' : 'draft' })
     try {
       const filterPayload = await filterSync.prepareProductFilters([id])
-      if (filterPayload.attributes.length) payload.attributes = filterPayload.attributes
+      // 即使已無篩選值也要送出空陣列，才能清除官網上已刪除的舊屬性。
+      payload.attributes = filterPayload.attributes
       payload.meta_data.push(...filterPayload.metaData)
     } catch (error: any) {
       results.push({ id, name: row.product_name, ok: false, error: `官網篩選屬性同步失敗：${error?.message ?? '未知錯誤'}` })

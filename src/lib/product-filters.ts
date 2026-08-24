@@ -1,4 +1,5 @@
 export type ProductFilterInputType = 'multi_select' | 'number'
+export type ProductFilterSelectionMode = 'single' | 'multiple'
 
 export type ProductFilterOption = {
   id: string
@@ -14,6 +15,7 @@ export type ProductFilterGroup = {
   name: string
   slug: string
   input_type: ProductFilterInputType
+  selection_mode: ProductFilterSelectionMode
   unit: string | null
   sort_order: number
   is_active: boolean
@@ -29,9 +31,15 @@ export type ProductFilterGroup = {
 export type ProductNumberMap = Record<string, Record<string, number>>
 export type NumericRangePreset = { id: string; label: string; min?: number; max?: number }
 export type NumericPresetSelections = Record<string, string[]>
+export type CatalogQuotationMethod = 'online' | 'project'
+
+export type CatalogPriceSource = {
+  web_sale_price?: number | string | null
+}
 
 export type ProductFilterTemplateGroup = { template_id: string; group_id: string; sort_order?: number }
 export type ProductCategoryFilterTemplate = { category_id: string; template_id: string }
+export type ProductCategoryFilterExclusion = { category_id: string; group_id: string }
 
 export type ProductCategorySource = {
   category?: {
@@ -79,6 +87,7 @@ export function buildFilterGroups(groups: any[], options: any[], categoryMapping
     .filter(group => group.is_active !== false)
     .map(group => ({
       ...group,
+      selection_mode: group.selection_mode === 'single' ? 'single' : 'multiple',
       options: (byGroup.get(group.id) ?? [])
         .filter(option => option.is_active !== false)
         .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'zh-Hant')),
@@ -94,13 +103,36 @@ export function filterGroupsForCategory(groups: ProductFilterGroup[], categoryId
     .filter(group => group.category_ids.includes(categoryId))
     .sort((a, b) => (a.category_sort_orders?.[categoryId] ?? Number.MAX_SAFE_INTEGER) - (b.category_sort_orders?.[categoryId] ?? Number.MAX_SAFE_INTEGER)
       || a.sort_order - b.sort_order)
-    .slice(0, 5)
+}
+
+export function catalogPublicPrice(product: CatalogPriceSource): number | null {
+  const value = Number(product.web_sale_price)
+  return Number.isFinite(value) && value > 0 ? value : null
+}
+
+export function catalogQuotationMethod(product: CatalogPriceSource): CatalogQuotationMethod {
+  return catalogPublicPrice(product) == null ? 'project' : 'online'
+}
+
+export function matchesCatalogPriceRange(
+  product: CatalogPriceSource,
+  minimum: string,
+  maximum: string,
+): boolean {
+  if (!minimum && !maximum) return true
+  const price = catalogPublicPrice(product)
+  if (price == null) return false
+  if (minimum && price < Number(minimum)) return false
+  if (maximum && price > Number(maximum)) return false
+  return true
 }
 
 export function buildCategoryGroupMappings(
   templateGroups: ProductFilterTemplateGroup[],
   categoryTemplates: ProductCategoryFilterTemplate[],
+  exclusions: ProductCategoryFilterExclusion[] = [],
 ) {
+  const excludedPairs = new Set(exclusions.map(row => `${row.category_id}:${row.group_id}`))
   const groupIdsByTemplate = new Map<string, Array<{ group_id: string; sort_order?: number }>>()
   for (const row of templateGroups) {
     const groupIds = groupIdsByTemplate.get(row.template_id) ?? []
@@ -112,7 +144,7 @@ export function buildCategoryGroupMappings(
       category_id: row.category_id,
       group_id: groupId.group_id,
       sort_order: groupId.sort_order,
-    })),
+    })).filter(groupId => !excludedPairs.has(`${groupId.category_id}:${groupId.group_id}`)),
   )
 }
 

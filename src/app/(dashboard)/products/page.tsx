@@ -587,7 +587,7 @@ export default function ProductsPage() {
     }, [])
 
   async function fetchAll() {
-    const [pRes, cRes, mRes, groupRes, optionRes, templateGroupRes, categoryTemplateRes] = await Promise.all([
+    const [pRes, cRes, mRes, groupRes, optionRes, templateGroupRes, categoryTemplateRes, exclusionRes] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('product_name'),
       supabase.from('product_categories').select('*').order('main_category').order('sub_category'),
       supabase.from('market_prices').select('*'),
@@ -595,10 +595,11 @@ export default function ProductsPage() {
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_template_groups').select('template_id,group_id,sort_order'),
       supabase.from('product_category_filter_templates').select('category_id,template_id'),
+      supabase.from('product_category_filter_exclusions').select('category_id,group_id'),
     ])
     setProducts(pRes.data ?? [])
     setCategories(cRes.data ?? [])
-    const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [])
+    const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [], exclusionRes.data ?? [])
     setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings))
     const mm: Record<string, MarketPriceRow[]> = {}
     for (const r of (mRes.data ?? []) as MarketPriceRow[]) {
