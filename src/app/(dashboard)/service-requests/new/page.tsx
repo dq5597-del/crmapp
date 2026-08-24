@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Client, Contact, Equipment } from '@/types'
-import { ArrowLeft, Save, HardDrive } from 'lucide-react'
+import { ArrowLeft, Save, HardDrive, X } from 'lucide-react'
 
 const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
@@ -34,6 +34,8 @@ function NewServiceRequestForm() {
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [sourceEquipment, setSourceEquipment] = useState<Equipment | null>(null)
+  // 選了客戶之後，讓使用者可以直接從「已建檔的設備」挑一台連結，不是只能從設備清單點「叫修」進來才有
+  const [clientEquipment, setClientEquipment] = useState<Equipment[]>([])
 
   const [form, setForm] = useState({
     client_id: '',
@@ -81,7 +83,7 @@ function NewServiceRequestForm() {
 
   async function handleClientChange(clientId: string) {
     setForm(f => ({ ...f, client_id: clientId, contact_name: '', phone: '' }))
-    if (!clientId) { setContacts([]); return }
+    if (!clientId) { setContacts([]); setClientEquipment([]); return }
     const { data } = await supabase
       .from('contacts')
       .select('*')
@@ -92,6 +94,31 @@ function NewServiceRequestForm() {
     if (data && data.length > 0) {
       setForm(f => ({ ...f, contact_name: data[0].name ?? '', phone: data[0].phone ?? '' }))
     }
+    // 這個客戶名下已經建檔的設備，等一下可以直接點選連結，不用重打
+    const { data: eq } = await supabase
+      .from('equipment')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('installed_date', { ascending: false })
+    setClientEquipment(eq ?? [])
+  }
+
+  function pickEquipment(eq: Equipment) {
+    setSourceEquipment(eq)
+    setForm(f => ({
+      ...f,
+      equipment_id: eq.id,
+      equipment_name: [eq.brand, eq.model].filter(Boolean).join(' ') || '未命名設備',
+      equipment_model: eq.model ?? '',
+      serial_no: eq.serial_no ?? '',
+      warranty_status: warrantyStatusFromExpiry(eq.warranty_expiry),
+      warranty_expiry: eq.warranty_expiry ?? '',
+    }))
+  }
+
+  function unlinkEquipment() {
+    setSourceEquipment(null)
+    setForm(f => ({ ...f, equipment_id: '' }))
   }
 
   const selectedClientName = clients.find(c => c.id === form.client_id)?.company_name ?? ''
@@ -102,6 +129,8 @@ function NewServiceRequestForm() {
   function onClientPick(c: Client) {
     setClientSearch('')
     setShowClientDropdown(false)
+    setSourceEquipment(null) // 換客戶了，原本連結的設備跟著清掉，避免連錯人
+    setForm(f => ({ ...f, equipment_id: '' }))
     handleClientChange(c.id)
   }
 
@@ -163,9 +192,12 @@ function NewServiceRequestForm() {
       {sourceEquipment && (
         <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-sm">
           <HardDrive size={15} className="shrink-0" />
-          <span>
-            從設備清單建立——客戶、設備、保固狀態已自動帶入，確認一下故障描述就可以送出。
+          <span className="flex-1">
+            已連結設備清單裡的「{[sourceEquipment.brand, sourceEquipment.model].filter(Boolean).join(' ') || '未命名設備'}」——設備、保固狀態已自動帶入，確認一下故障描述就可以送出。
           </span>
+          <button type="button" onClick={unlinkEquipment} className="shrink-0 text-blue-400 hover:text-blue-700" title="取消連結">
+            <X size={15} />
+          </button>
         </div>
       )}
 
@@ -180,7 +212,11 @@ function NewServiceRequestForm() {
               value={clientSearch || selectedClientName}
               onChange={e => {
                 setClientSearch(e.target.value)
-                if (form.client_id) handleClientChange('')
+                if (form.client_id) {
+                  setSourceEquipment(null)
+                  setForm(f => ({ ...f, equipment_id: '' }))
+                  handleClientChange('')
+                }
                 setShowClientDropdown(true)
               }}
               onFocus={() => setShowClientDropdown(true)}
@@ -238,6 +274,28 @@ function NewServiceRequestForm() {
       {/* 設備資訊 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">設備資訊</h2>
+
+        {form.client_id && clientEquipment.length > 0 && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+              <HardDrive size={13} />
+              這位客戶已建檔的設備，點一下直接連結、帶入資訊（選填）
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {clientEquipment.map(eq => (
+                <button
+                  key={eq.id}
+                  type="button"
+                  onClick={() => pickEquipment(eq)}
+                  className={`text-xs px-2.5 py-1.5 border rounded-lg transition-colors ${form.equipment_id === eq.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-200'}`}
+                >
+                  {[eq.brand, eq.model].filter(Boolean).join(' ') || '未命名設備'}{eq.serial_no ? `・SN ${eq.serial_no}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>設備名稱 <span className="text-red-500">*</span></label>

@@ -6,11 +6,11 @@ import { createClient } from '@/lib/supabase'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import {
   ServiceRequest, ServiceVendorRepair, ServiceRepairQuote,
-  ServiceRepairQuoteItem, Vendor, ServiceStatus, Product
+  ServiceRepairQuoteItem, Vendor, ServiceStatus, Product, Equipment
 } from '@/types'
 import {
   ArrowLeft, Copy, ExternalLink, CheckCircle, XCircle,
-  Building2, Wrench, FileText, Lock, FileDown, Plus, Tag, X
+  Building2, Wrench, FileText, Lock, FileDown, Plus, Tag, X, HardDrive, Link2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +57,10 @@ export default function ServiceRequestDetailPage() {
   const [copied, setCopied] = useState(false)
 
   const [equipmentHistory, setEquipmentHistory] = useState<{ id: string; service_no: string; reported_date: string; issue_description: string | null; status: ServiceStatus }[]>([])
+  // 這張叫修單如果不是從設備清單連結建立的，讓使用者事後也能補連結（不是只能靠一開始點「叫修」進來）
+  const [linkableEquipment, setLinkableEquipment] = useState<Equipment[]>([])
+  const [showLinkPicker, setShowLinkPicker] = useState(false)
+  const [linking, setLinking] = useState(false)
 
   const fetchAll = useCallback(async () => {
     const [{ data: r }, { data: vr }, { data: rq }] = await Promise.all([
@@ -82,7 +86,29 @@ export default function ServiceRequestDetailPage() {
     } else {
       setEquipmentHistory([])
     }
+
+    // 這張叫修單如果還沒連結設備，先把這位客戶已建檔的設備抓出來，讓使用者可以事後補連結
+    const clientId = (r as any)?.client_id
+    if (!equipmentId && clientId) {
+      const { data: linkable } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('installed_date', { ascending: false })
+      setLinkableEquipment(linkable ?? [])
+    } else {
+      setLinkableEquipment([])
+    }
   }, [id])
+
+  async function linkEquipment(eq: Equipment) {
+    setLinking(true)
+    const { error } = await supabase.from('service_requests').update({ equipment_id: eq.id }).eq('id', id)
+    setLinking(false)
+    if (error) { alert('連結失敗：' + error.message); return }
+    setShowLinkPicker(false)
+    await fetchAll()
+  }
 
   const loadProducts = useCallback(async () => {
     const [pRes, cRes] = await Promise.all([
@@ -227,6 +253,49 @@ export default function ServiceRequestDetailPage() {
                         {h.status}
                       </span>
                     </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 這張叫修單還沒連結設備清單裡的設備：讓使用者事後也能補連結，不是只能靠一開始從設備清單點「叫修」進來 */}
+          {!req.equipment_id && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    <HardDrive size={14} className="text-gray-400" />
+                    尚未連結設備清單
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">連結後這台設備的維修履歴、叫修次數都會算進去</p>
+                </div>
+                {!locked && linkableEquipment.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLinkPicker(v => !v)}
+                    className="flex items-center gap-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50"
+                  >
+                    <Link2 size={13} />
+                    {showLinkPicker ? '取消' : '連結設備'}
+                  </button>
+                )}
+              </div>
+              {linkableEquipment.length === 0 && (
+                <p className="text-sm text-gray-400">這位客戶名下目前沒有已建檔的設備。</p>
+              )}
+              {showLinkPicker && linkableEquipment.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {linkableEquipment.map(eq => (
+                    <button
+                      key={eq.id}
+                      type="button"
+                      disabled={linking}
+                      onClick={() => linkEquipment(eq)}
+                      className="text-xs px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-700 hover:bg-blue-50 hover:border-blue-200 transition-colors disabled:opacity-50"
+                    >
+                      {[eq.brand, eq.model].filter(Boolean).join(' ') || '未命名設備'}{eq.serial_no ? `・SN ${eq.serial_no}` : ''}
+                    </button>
                   ))}
                 </div>
               )}

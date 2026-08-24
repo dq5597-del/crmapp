@@ -48,6 +48,8 @@ export default function EditEquipmentPage() {
     installed_date: '',
     warranty_expiry: '',
     notes: '',
+    next_follow_up_date: '',
+    follow_up_notes: '',
   })
 
   // 載入這台設備目前的資料
@@ -65,6 +67,8 @@ export default function EditEquipmentPage() {
         installed_date: data.installed_date ?? '',
         warranty_expiry: data.warranty_expiry ?? '',
         notes: data.notes ?? '',
+        next_follow_up_date: data.next_follow_up_date ?? '',
+        follow_up_notes: data.follow_up_notes ?? '',
       })
       setLoading(false)
     })
@@ -169,6 +173,8 @@ export default function EditEquipmentPage() {
         installed_date: form.installed_date || null,
         warranty_expiry: form.warranty_expiry || null,
         notes: form.notes || null,
+        next_follow_up_date: form.next_follow_up_date || null,
+        follow_up_notes: form.follow_up_notes || null,
       }).eq('id', id)
       if (error) throw error
 
@@ -389,6 +395,24 @@ export default function EditEquipmentPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <label className={optionalLabelClass}>備註</label>
         <textarea className={inputClass} rows={3} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="其他要記的事" />
+      </div>
+
+      {/* 後續追蹤：跟叫修單分開，這裡是「主動安排的回訪／保養」，不是已經發生的問題 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-800">後續追蹤</h2>
+          <p className="text-xs text-gray-400 mt-0.5">主動安排的回訪、保養提醒。真的故障要維修的話，請用「叫修」記錄</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={optionalLabelClass}>下次追蹤日期</label>
+            <input type="date" className={inputClass} value={form.next_follow_up_date} onChange={e => set('next_follow_up_date', e.target.value)} />
+          </div>
+          <div className="col-span-2">
+            <label className={optionalLabelClass}>追蹤備註</label>
+            <input className={inputClass} value={form.follow_up_notes} onChange={e => set('follow_up_notes', e.target.value)} placeholder="例：半年後回訪確認效果、每年 3 月保養" />
+          </div>
+        </div>
       </div>
 
       {/* Actions */}

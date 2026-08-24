@@ -490,6 +490,9 @@ export interface Equipment {
   installed_date: string | null
   warranty_expiry: string | null
   notes: string | null
+  /** 主動安排的回訪／保養提醒，跟叫修單（已發生的問題）分開追蹤 */
+  next_follow_up_date: string | null
+  follow_up_notes: string | null
   created_by: string | null
   created_at: string
   updated_at: string

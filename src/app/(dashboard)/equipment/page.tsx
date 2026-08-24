@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Equipment } from '@/types'
-import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX, Pencil, HardHat, Crown, Trash2 } from 'lucide-react'
+import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX, Pencil, HardHat, Crown, Trash2, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type WarrantyKey = 'good' | 'warn' | 'danger'
@@ -34,6 +34,31 @@ function warrantyLabel(e: Equipment): string {
     return `即將到期・剩 ${diffDays} 天`
   }
   return WARRANTY_LABEL[k]
+}
+
+type FollowUpKey = 'none' | 'overdue' | 'soon' | 'scheduled'
+
+const FOLLOWUP_COLOR: Record<Exclude<FollowUpKey, 'none'>, string> = {
+  overdue:   'bg-red-100 text-red-600',
+  soon:      'bg-amber-100 text-amber-700',
+  scheduled: 'bg-blue-100 text-blue-700',
+}
+
+/** 主動安排的回訪／保養提醒（跟保固到期不同：沒填日期就是「沒有排定」，不是問題） */
+function followUpKey(dateStr: string | null): FollowUpKey {
+  if (!dateStr) return 'none'
+  const diffDays = Math.round((new Date(dateStr).getTime() - Date.now()) / DAY)
+  if (diffDays < 0) return 'overdue'
+  if (diffDays <= 14) return 'soon'
+  return 'scheduled'
+}
+
+function followUpLabel(dateStr: string | null): string {
+  const k = followUpKey(dateStr)
+  if (k === 'none' || !dateStr) return ''
+  if (k === 'overdue') return `已逾期・${dateStr}`
+  if (k === 'soon') return `即將到期・${dateStr}`
+  return `已排定・${dateStr}`
 }
 
 type Batch = {
@@ -73,12 +98,29 @@ function batchLabel(b: Batch) {
   return b.devices.map(d => [d.brand, d.model].filter(Boolean).join(' ')).filter(Boolean).join('、') || '未命名設備'
 }
 
+function batchInstallers(b: Batch): string[] {
+  const names = b.devices.flatMap(d => (d.work_logs ?? []).map(w => w.name)).filter(Boolean)
+  return Array.from(new Set(names))
+}
+
 function batchWarranty(b: Batch): { key: WarrantyKey; label: string } {
   if (b.devices.length === 1) return { key: warrantyKey(b.devices[0].warranty_expiry), label: warrantyLabel(b.devices[0]) }
   const counts: Record<WarrantyKey, number> = { good: 0, warn: 0, danger: 0 }
   b.devices.forEach(d => { counts[warrantyKey(d.warranty_expiry)]++ })
   const priority: WarrantyKey = counts.danger > 0 ? 'danger' : counts.warn > 0 ? 'warn' : 'good'
   return { key: priority, label: `${WARRANTY_LABEL[priority]}（${counts[priority]}/${b.devices.length}）` }
+}
+
+/** 這批安裝裡最急的追蹤提醒（逾期優先，其次即將到期），沒有任何設備排定就回傳 null */
+function batchFollowUp(b: Batch): { key: Exclude<FollowUpKey, 'none'>; label: string } | null {
+  const withDate = b.devices.filter(d => followUpKey(d.next_follow_up_date) !== 'none')
+  if (withDate.length === 0) return null
+  const priority: Exclude<FollowUpKey, 'none'> =
+    withDate.some(d => followUpKey(d.next_follow_up_date) === 'overdue') ? 'overdue'
+    : withDate.some(d => followUpKey(d.next_follow_up_date) === 'soon') ? 'soon'
+    : 'scheduled'
+  const soonest = withDate.map(d => d.next_follow_up_date!).sort()[0] // 日期由小到大排序，取最早的（最急）
+  return { key: priority, label: followUpLabel(soonest) }
 }
 
 export default function EquipmentPage() {
@@ -88,7 +130,7 @@ export default function EquipmentPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | WarrantyKey>('all')
+  const [filter, setFilter] = useState<'all' | WarrantyKey | 'followup'>('all')
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
 
   useEffect(() => { fetchEquipment() }, [])
@@ -153,7 +195,9 @@ export default function EquipmentPage() {
   const matched = useMemo(() => {
     const q = search.trim().toLowerCase()
     return equipment.filter(e => {
-      const matchesFilter = filter === 'all' || warrantyKey(e.warranty_expiry) === filter
+      const matchesFilter = filter === 'all'
+        || (filter === 'followup' ? followUpKey(e.next_follow_up_date) === 'overdue' || followUpKey(e.next_follow_up_date) === 'soon'
+          : warrantyKey(e.warranty_expiry) === filter)
       const hay = [
         (e.client as any)?.company_name, e.brand, e.model, e.serial_no, (e.project as any)?.project_name,
       ].filter(Boolean).join(' ').toLowerCase()
@@ -166,8 +210,13 @@ export default function EquipmentPage() {
 
   const counts = useMemo(() => {
     const c: Record<WarrantyKey, number> = { good: 0, warn: 0, danger: 0 }
-    equipment.forEach(e => { c[warrantyKey(e.warranty_expiry)]++ })
-    return c
+    let followup = 0
+    equipment.forEach(e => {
+      c[warrantyKey(e.warranty_expiry)]++
+      const fk = followUpKey(e.next_follow_up_date)
+      if (fk === 'overdue' || fk === 'soon') followup++
+    })
+    return { ...c, followup }
   }, [equipment])
 
   function toggle(key: string) {
@@ -217,7 +266,7 @@ export default function EquipmentPage() {
       )}
 
       {/* KPI */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
@@ -248,6 +297,17 @@ export default function EquipmentPage() {
             <div>
               <p className="text-2xl font-bold text-gray-900">{counts.danger}</p>
               <p className="text-xs text-gray-500">已過保固</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+              <Bell size={20} className="text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{counts.followup}</p>
+              <p className="text-xs text-gray-500">待追蹤（含逾期）</p>
             </div>
           </div>
         </div>
@@ -283,6 +343,13 @@ export default function EquipmentPage() {
               {WARRANTY_LABEL[k]}（{counts[k]}）
             </button>
           ))}
+          <button
+            onClick={() => setFilter('followup')}
+            className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+              filter === 'followup' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:border-gray-300')}
+          >
+            待追蹤（{counts.followup}）
+          </button>
         </div>
         <p className="text-xs text-gray-400">
           {filtering
@@ -330,10 +397,15 @@ export default function EquipmentPage() {
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-800">{batchLabel(b)}</div>
                         {b.devices.length > 1 && <div className="text-xs text-gray-400">{b.devices.length} 台設備</div>}
+                        {batchInstallers(b).length > 0 && (
+                          <div className="text-xs text-blue-600 flex items-center gap-1 mt-0.5">
+                            <HardHat size={11} /> 點工：{batchInstallers(b).join('、')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {b.project_id
-                          ? <Link href={`/clients?tab=projects`} onClick={e => e.stopPropagation()} className="text-blue-600 hover:underline">{b.project_name}</Link>
+                          ? <Link href={`/clients/${b.client_id}?tab=projects&edit=${b.project_id}`} onClick={e => e.stopPropagation()} className="text-blue-600 hover:underline">{b.project_name}</Link>
                           : <span className="text-gray-400">未指定</span>}
                         {b.project_id && leaderMap.get(b.project_id) && (
                           <div className="text-xs text-amber-700 flex items-center gap-1 mt-0.5">
@@ -344,6 +416,13 @@ export default function EquipmentPage() {
                       <td className="px-4 py-3 text-gray-500">{b.installed_date ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', WARRANTY_COLOR[w.key])}>{w.label}</span>
+                        {batchFollowUp(b) && (
+                          <div className="mt-1">
+                            <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1', FOLLOWUP_COLOR[batchFollowUp(b)!.key])}>
+                              <Bell size={10} /> {batchFollowUp(b)!.label}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-700">{svcSum > 0 ? `${svcSum} 次` : '—'}</td>
                       <td className="px-4 py-3">
@@ -375,12 +454,22 @@ export default function EquipmentPage() {
                                 點工：{d.work_logs.map((w, i) => `${w.name}${w.rate_type ? `（${w.rate_type}）` : ''}`).join('、')}
                               </div>
                             )}
+                            {d.follow_up_notes && (
+                              <div className="text-xs text-gray-500 mt-0.5">追蹤備註：{d.follow_up_notes}</div>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 text-gray-500 text-xs" colSpan={2}>
                             {d.service_count ? `最近叫修：${d.last_reported_date}` : ''}
                           </td>
                           <td className="px-4 py-2.5">
                             <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', WARRANTY_COLOR[dw])}>{warrantyLabel(d)}</span>
+                            {followUpKey(d.next_follow_up_date) !== 'none' && (
+                              <div className="mt-1">
+                                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1', FOLLOWUP_COLOR[followUpKey(d.next_follow_up_date) as Exclude<FollowUpKey, 'none'>])}>
+                                  <Bell size={10} /> {followUpLabel(d.next_follow_up_date)}
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 text-gray-700">{d.service_count ? `${d.service_count} 次` : '—'}</td>
                           <td className="px-4 py-2.5">

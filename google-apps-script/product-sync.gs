@@ -102,7 +102,7 @@ function pullProductsFromCrm() {
     {
       method: 'get',
       muteHttpExceptions: true,
-      headers: { 'x-gh-product-sync-secret': config.secret },
+      headers: { 'x-google-product-sync-secret': config.secret },
     },
   );
   const payload = parseResponse_(response);
@@ -113,8 +113,6 @@ function pullProductsFromCrm() {
   const statusIndex = headerIndex['同步狀態'];
   const modelIndex = headerIndex['型號'];
   const skuIndex = headerIndex['官網SKU'];
-  const mainImageIndex = headerIndex['主圖網址'];
-  const mainImageColumn = mainImageIndex == null ? '' : columnLetter_(mainImageIndex + 1);
   if (idIndex == null || statusIndex == null) throw new Error('找不到同步系統欄位');
 
   const lastRow = Math.max(sheet.getLastRow(), GH_FIRST_DATA_ROW - 1);
@@ -137,45 +135,24 @@ function pullProductsFromCrm() {
   let appended = Math.max(lastRow + 1, GH_FIRST_DATA_ROW);
   let updated = 0;
   let skipped = 0;
-  const updates = [];
   remoteRows.forEach(remote => {
     const values = remote.values || {};
     const id = normalize_(values['CRM產品ID']);
     const model = normalize_(values['型號']);
     const sku = normalize_(values['官網SKU']);
     const rowNo = byId.get(id) || byModel.get(model) || bySku.get(sku) || appended++;
-    const existingRow = rowNo >= GH_FIRST_DATA_ROW && rowNo <= lastRow
-      ? existing[rowNo - GH_FIRST_DATA_ROW]
-      : null;
-    const currentStatus = String(existingRow ? existingRow[statusIndex] || '' : '');
+    const currentStatus = String(sheet.getRange(rowNo, statusIndex + 1).getDisplayValue() || '');
     if (['待同步', '衝突'].includes(currentStatus)) {
       skipped += 1;
       return;
     }
-    const rowValues = headers.map(header => {
-      if (header === '主圖預覽' && mainImageColumn) {
-        return `=IFERROR(IMAGE(${mainImageColumn}${rowNo}),"")`;
-      }
-      return sheetSafeValue_(values[header] == null ? '' : values[header]);
-    });
-    updates.push({ rowNo, rowValues });
+    const rowValues = headers.map(header => sheetSafeValue_(values[header] == null ? '' : values[header]));
+    sheet.getRange(rowNo, 1, 1, headers.length).setValues([rowValues]);
     byId.set(id, rowNo);
     if (model) byModel.set(model, rowNo);
     if (sku) bySku.set(sku, rowNo);
     updated += 1;
   });
-
-  updates.sort((left, right) => left.rowNo - right.rowNo);
-  for (let index = 0; index < updates.length;) {
-    const startRow = updates[index].rowNo;
-    const batch = [updates[index].rowValues];
-    index += 1;
-    while (index < updates.length && updates[index].rowNo === startRow + batch.length) {
-      batch.push(updates[index].rowValues);
-      index += 1;
-    }
-    sheet.getRange(startRow, 1, batch.length, headers.length).setValues(batch);
-  }
 
   SpreadsheetApp.getUi().alert(
     'CRM 更新完成',
@@ -199,7 +176,7 @@ function pushRows_(sheet, rowNumbers) {
     method: 'post',
     contentType: 'application/json',
     muteHttpExceptions: true,
-    headers: { 'x-gh-product-sync-secret': config.secret },
+    headers: { 'x-google-product-sync-secret': config.secret },
     payload: JSON.stringify({ sheetId: spreadsheetId, rows }),
   });
   const payload = parseResponse_(response);
@@ -266,17 +243,6 @@ function jsonValue_(value) {
   if (value == null) return '';
   if (typeof value === 'object') return '';
   return value;
-}
-
-function columnLetter_(column) {
-  let result = '';
-  let value = column;
-  while (value > 0) {
-    const remainder = (value - 1) % 26;
-    result = String.fromCharCode(65 + remainder) + result;
-    value = Math.floor((value - 1) / 26);
-  }
-  return result;
 }
 
 function sheetSafeValue_(value) {

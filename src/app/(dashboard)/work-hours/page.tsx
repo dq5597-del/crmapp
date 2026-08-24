@@ -369,7 +369,7 @@ export default function WorkHoursPage() {
                         </span>
                       </td>
                       <td className={tdR + ' font-semibold'}>{hf(r.hours)}</td>
-                      <td className={tdR + ' text-gray-500'}>{r.days}</td>
+                      <td className={tdR + ' text-gray-500'}>{r.people}</td>
                       <td className={tdR}>NT${nf(r.labor)}</td>
                       <td className={tdR + ' text-gray-500'}>{r.outsource > 0 ? `NT$${nf(r.outsource)}` : '—'}</td>
                       <td className={tdR}>
@@ -385,7 +385,7 @@ export default function WorkHoursPage() {
                   <tr className="bg-gray-50 font-semibold text-gray-800">
                     <td className={td} colSpan={4}>合計（{byProject.length} 個專案）</td>
                     <td className={tdR}>{hf(kpi.hours)}</td>
-                    <td className={tdR}>{kpi.manDays}</td>
+                    <td className={tdR}>{kpi.people}</td>
                     <td className={tdR}>NT${nf(kpi.labor)}</td>
                     <td className={tdR}>NT${nf(kpi.outsource)}</td>
                     <td />
