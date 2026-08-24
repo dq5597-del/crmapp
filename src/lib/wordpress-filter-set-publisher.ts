@@ -27,7 +27,13 @@ function wordpressAuth(): WordPressAuth | null {
 async function requestJson(url: string, auth: WordPressAuth, init?: RequestInit) {
   const response = await fetch(url, {
     ...init,
-    headers: { Authorization: auth.header, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'Guanghui-CRM/1.0 (+https://crmapp-topaz.vercel.app)',
+      Authorization: auth.header,
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
     cache: 'no-store',
   })
   const text = await response.text()

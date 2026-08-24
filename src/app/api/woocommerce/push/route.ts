@@ -13,6 +13,11 @@ import { ensureWordPressProductDownloadsSnippet } from '@/lib/wordpress-product-
 import { ensureWordPressProductOptionsSnippet } from '@/lib/wordpress-product-options-publisher'
 import { WooFilterSync } from '@/lib/woocommerce-filter-sync'
 
+const CRM_REQUEST_HEADERS = {
+  Accept: 'application/json',
+  'User-Agent': 'Guanghui-CRM/1.0 (+https://crmapp-topaz.vercel.app)',
+}
+
 /**
  * POST /api/woocommerce/push
  * body: { product_ids: string[], publish?: boolean }
@@ -48,7 +53,7 @@ async function findCategoryId(name: string, auth: string): Promise<number | null
   try {
     const res = await fetch(
       `${storeBase()}/wp-json/wc/v3/products/categories?search=${encodeURIComponent(name.trim())}&per_page=20`,
-      { headers: { Authorization: auth }, cache: 'no-store' }
+      { headers: { ...CRM_REQUEST_HEADERS, Authorization: auth }, cache: 'no-store' }
     )
     if (!res.ok) return null
     const list = await res.json()
@@ -67,7 +72,7 @@ async function findOrCreateCategoryId(name: string, auth: string): Promise<numbe
   try {
     const res = await fetch(`${storeBase()}/wp-json/wc/v3/products/categories`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: auth },
+      headers: { ...CRM_REQUEST_HEADERS, 'Content-Type': 'application/json', Authorization: auth },
       body: JSON.stringify({ name: name.trim() }),
     })
     if (!res.ok) return null
@@ -94,7 +99,7 @@ async function findBrandId(name: string, auth: string): Promise<number | null> {
 
   const res = await fetch(
     `${storeBase()}/wp-json/wc/v3/products/brands?search=${encodeURIComponent(name.trim())}&per_page=100`,
-    { headers: { Authorization: auth }, cache: 'no-store' }
+    { headers: { ...CRM_REQUEST_HEADERS, Authorization: auth }, cache: 'no-store' }
   )
   if (!res.ok) {
     throw new Error(`讀取官網品牌失敗（HTTP ${res.status}）`)
@@ -127,7 +132,7 @@ async function findOrCreateBrandId(
 
   const res = await fetch(`${storeBase()}/wp-json/wc/v3/products/brands`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    headers: { ...CRM_REQUEST_HEADERS, 'Content-Type': 'application/json', Authorization: auth },
     body: JSON.stringify({ name: displayName }),
   })
   const data = await res.json().catch(() => null)
@@ -231,7 +236,7 @@ export async function POST(req: Request) {
   async function sendWoo(url: string, method: 'POST' | 'PUT', payload: any) {
     const response = await fetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      headers: { ...CRM_REQUEST_HEADERS, 'Content-Type': 'application/json', Authorization: authHeader },
       body: JSON.stringify(payload),
     })
     const data = await response.json().catch(() => null)
@@ -493,7 +498,7 @@ export async function GET() {
   }
   try {
     const res = await fetch(`${store}/wp-json/wc/v3/products?per_page=1`, {
-      headers: { Authorization: auth },
+      headers: { ...CRM_REQUEST_HEADERS, Authorization: auth },
     })
     if (!res.ok) {
       const t = await res.text()

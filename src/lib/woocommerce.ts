@@ -28,6 +28,8 @@ async function wcFetch(path: string, init?: RequestInit): Promise<any> {
   const res = await fetch(url, {
     ...init,
     headers: {
+      Accept: 'application/json',
+      'User-Agent': 'Guanghui-CRM/1.0 (+https://crmapp-topaz.vercel.app)',
       'Content-Type': 'application/json',
       Authorization: authHeader(),
       ...(init?.headers ?? {}),

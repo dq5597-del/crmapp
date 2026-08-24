@@ -16,7 +16,13 @@ function wordpressAuth(): WordPressAuth | null {
 async function snippetRequest(path: string, auth: WordPressAuth, init?: RequestInit) {
   const response = await fetch(`${auth.store}/wp-json/code-snippets/v1${path}`, {
     ...init,
-    headers: { Authorization: auth.header, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'Guanghui-CRM/1.0 (+https://crmapp-topaz.vercel.app)',
+      Authorization: auth.header,
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
     cache: 'no-store',
   })
   const text = await response.text()

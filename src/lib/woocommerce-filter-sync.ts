@@ -111,7 +111,12 @@ export class WooFilterSync {
   private async request(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET', body?: unknown) {
     const response = await fetch(`${this.store}/wp-json/wc/v3${path}`, {
       method,
-      headers: { Authorization: this.authHeader, 'Content-Type': 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Guanghui-CRM/1.0 (+https://crmapp-topaz.vercel.app)',
+        Authorization: this.authHeader,
+        'Content-Type': 'application/json',
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: 'no-store',
     })
