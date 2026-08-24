@@ -1,14 +1,15 @@
 type SupabaseLike = any
 
-type FilterGroupRow = {
+export type FilterGroupRow = {
   id: string
   name: string
   slug: string
   input_type: 'multi_select' | 'number'
+  selection_mode?: 'single' | 'multiple'
   unit: string | null
-  woo_attribute_id: number | null
-  woo_attribute_slug: string | null
-  web_sync_enabled: boolean
+  woo_attribute_id?: number | null
+  woo_attribute_slug?: string | null
+  web_sync_enabled?: boolean
 }
 
 type ProductFilterValue = {
@@ -20,6 +21,16 @@ type ProductFilterValue = {
 
 type WooAttribute = { id: number; name: string; slug: string }
 type WooTerm = { id: number; name: string; slug: string }
+
+export type WooFilterDefinition = {
+  crm_group_id: string
+  name: string
+  slug: string
+  input_type: 'multi_select' | 'number'
+  selection_mode: 'single' | 'multiple'
+  woo_attribute_id: number
+  woo_attribute_slug: string
+}
 
 // av-shop.com 既有全域屬性的語意對照。以 slug 尋找，不綁死資料庫 ID。
 // 多個 CRM 規格可以匯入同一個官網篩選維度，例如輸入／輸出端子都歸到「接孔類型」。
@@ -97,7 +108,7 @@ export class WooFilterSync {
     private authHeader: string,
   ) {}
 
-  private async request(path: string, method: 'GET' | 'POST' = 'GET', body?: unknown) {
+  private async request(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET', body?: unknown) {
     const response = await fetch(`${this.store}/wp-json/wc/v3${path}`, {
       method,
       headers: { Authorization: this.authHeader, 'Content-Type': 'application/json' },
@@ -132,8 +143,9 @@ export class WooFilterSync {
     if (!found && group.woo_attribute_slug) {
       found = attributes.find(attribute => attribute.slug === group.woo_attribute_slug)
     }
-    if (!found && EXISTING_ATTRIBUTE_SLUG_BY_GROUP[group.slug]) {
-      found = attributes.find(attribute => attribute.slug === EXISTING_ATTRIBUTE_SLUG_BY_GROUP[group.slug])
+    const sharedAttributeSlug = EXISTING_ATTRIBUTE_SLUG_BY_GROUP[group.slug]
+    if (!found && sharedAttributeSlug) {
+      found = attributes.find(attribute => attribute.slug === sharedAttributeSlug)
     }
     if (!found) {
       const sameName = attributes.filter(attribute => normalize(attribute.name) === normalize(group.name))
@@ -149,6 +161,14 @@ export class WooFilterSync {
       })
       found = { id: Number(created.id), name: String(created.name), slug: String(created.slug) }
       attributes.push(found)
+    }
+    // 既有語意對照可能由多個 CRM 群組共用，不能因單一群組改名而改掉全站屬性名稱。
+    // Filter Everything 顯示名稱仍會使用 CRM 群組名稱；只有專屬屬性才同步改名。
+    if (!sharedAttributeSlug && normalize(found.name) !== normalize(group.name)) {
+      const updated = await this.request(`/products/attributes/${found.id}`, 'PUT', { name: group.name })
+      found = { id: Number(updated.id), name: String(updated.name), slug: String(updated.slug) }
+      const index = attributes.findIndex(attribute => attribute.id === found!.id)
+      if (index >= 0) attributes[index] = found
     }
     this.attributeByGroup.set(group.id, found)
     await this.supabase.from('product_filter_groups').update({
@@ -198,6 +218,59 @@ export class WooFilterSync {
         if (!terms.some(term => normalize(term.name) === normalize(name))) throw error
       }
     }
+  }
+
+  private async ensureOptionTerms(
+    attribute: WooAttribute,
+    options: Array<{ name: string; aliases?: string[] }>,
+    allowRename: boolean,
+  ) {
+    let terms = this.termsByAttribute.get(attribute.id)
+    if (!terms) {
+      const rows = await this.request(`/products/attributes/${attribute.id}/terms?per_page=100`)
+      terms = (Array.isArray(rows) ? rows : []).map((row: any) => ({
+        id: Number(row.id), name: String(row.name ?? ''), slug: String(row.slug ?? ''),
+      }))
+      this.termsByAttribute.set(attribute.id, terms)
+    }
+
+    for (const option of options) {
+      const name = option.name.trim()
+      if (!name || terms.some(term => normalize(term.name) === normalize(name))) continue
+      const aliases = (option.aliases ?? []).map(normalize).filter(Boolean)
+      const renamed = allowRename ? terms.find(term => aliases.includes(normalize(term.name))) : undefined
+      if (renamed) {
+        const updated = await this.request(`/products/attributes/${attribute.id}/terms/${renamed.id}`, 'PUT', { name })
+        const replacement = { id: Number(updated.id), name: String(updated.name), slug: String(updated.slug) }
+        terms.splice(terms.indexOf(renamed), 1, replacement)
+        continue
+      }
+      await this.ensureTerms(attribute, [name])
+      terms = this.termsByAttribute.get(attribute.id) ?? terms
+    }
+  }
+
+  /** 建立分類篩選器本身需要的 Woo 全域屬性與選項，並回傳 WordPress Filter Set 對應資料。 */
+  async prepareFilterDefinitions(
+    groups: Array<FilterGroupRow & { options?: Array<{ name: string; aliases?: string[] }> }>,
+  ): Promise<WooFilterDefinition[]> {
+    const definitions: WooFilterDefinition[] = []
+    for (const group of groups.filter(row => row.web_sync_enabled !== false)) {
+      const attribute = await this.ensureAttribute(group)
+      if (group.input_type === 'multi_select') {
+        await this.ensureOptionTerms(attribute, group.options ?? [], !EXISTING_ATTRIBUTE_SLUG_BY_GROUP[group.slug])
+      }
+      definitions.push({
+        crm_group_id: group.id,
+        name: group.name,
+        slug: group.slug,
+        input_type: group.input_type,
+        selection_mode: group.selection_mode === 'single' ? 'single' : 'multiple',
+        woo_attribute_id: attribute.id,
+        woo_attribute_slug: attribute.slug,
+      })
+    }
+    return definitions
   }
 
   async prepareVariantAttribute(name: string, options: string[]): Promise<WooProductAttribute> {

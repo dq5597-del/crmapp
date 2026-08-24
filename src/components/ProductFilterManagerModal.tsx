@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Loader2, Plus, Save, Settings2, Trash2, X } from 'lucide-react'
+import { Check, Loader2, Plus, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react'
 import type { ProductFilterGroup, ProductFilterInputType, ProductFilterSelectionMode } from '@/lib/product-filters'
 
 type Props = {
@@ -58,14 +58,48 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
 
   if (!open) return null
 
-  async function run(key: string, action: () => Promise<void>, success: string) {
+  async function syncWebsite(groupId?: string) {
+    const response = await fetch('/api/wordpress/filter-sets/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category_id: categoryId, group_id: groupId }),
+    })
+    const result = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(result?.error ?? `官網同步失敗（HTTP ${response.status}）`)
+    const warning = Array.isArray(result?.warnings) && result.warnings.length
+      ? `；注意：${result.warnings.join('、')}`
+      : ''
+    const unresolved = Array.isArray(result?.unresolved) && result.unresolved.length
+      ? `；找不到同名官網分類：${result.unresolved.map((row: any) => row.name).join('、')}`
+      : ''
+    return `官網已同步 ${result?.categories ?? 0} 個分類${warning}${unresolved}`
+  }
+
+  async function run(key: string, action: () => Promise<string>, success: string) {
     setSaving(key); setError(''); setNotice('')
+    let stored = false
     try {
-      await action()
+      const groupId = await action()
+      stored = true
       await onSaved()
-      setNotice(success)
+      const webResult = await syncWebsite(groupId)
+      setNotice(`${success}，${webResult}`)
     } catch (cause: any) {
-      setError(cause?.message ?? '儲存失敗，請稍後再試')
+      const message = cause?.message ?? '儲存失敗，請稍後再試'
+      setError(stored ? `${success}，但${message}` : message)
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function syncNow() {
+    setSaving('sync'); setError(''); setNotice('')
+    try {
+      const result = await syncWebsite(selectedGroup?.id)
+      await onSaved()
+      setNotice(result)
+    } catch (cause: any) {
+      setError(cause?.message ?? '官網同步失敗')
     } finally {
       setSaving('')
     }
@@ -82,6 +116,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
         updated_at: new Date().toISOString(),
       }).eq('id', selectedGroup.id)
       if (updateError) throw updateError
+      return selectedGroup.id
     }, '篩選條件已更新')
   }
 
@@ -89,8 +124,12 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
     const value = optionDrafts[optionId]?.trim()
     if (!value) return setError('選項名稱不可空白')
     await run(`option-${optionId}`, async () => {
-      const { error: updateError } = await supabase.from('product_filter_options').update({ name: value }).eq('id', optionId)
+      const option = selectedGroup?.options.find(row => row.id === optionId)
+      if (!selectedGroup || !option) throw new Error('找不到要更新的選項')
+      const aliases = Array.from(new Set([...(option.aliases ?? []), option.name].map(row => row.trim()).filter(Boolean)))
+      const { error: updateError } = await supabase.from('product_filter_options').update({ name: value, aliases }).eq('id', optionId)
       if (updateError) throw updateError
+      return selectedGroup.id
     }, '選項已更新')
   }
 
@@ -108,6 +147,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
       })
       if (insertError) throw insertError
       setNewOption('')
+      return selectedGroup.id
     }, '新選項已加入')
   }
 
@@ -118,6 +158,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
       if (assignmentError) throw assignmentError
       const { error: optionError } = await supabase.from('product_filter_options').update({ is_active: false }).eq('id', optionId)
       if (optionError) throw optionError
+      return selectedGroup.id
     }, '選項已刪除')
   }
 
@@ -151,6 +192,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
         if (numberError) throw numberError
       }
       setSelectedGroupId('')
+      return selectedGroup.id
     }, '篩選條件已從此分類刪除')
   }
 
@@ -190,6 +232,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
       )
       if (mappingError) throw mappingError
       setNewName(''); setNewUnit(''); setSelectedGroupId(created.id)
+      return created.id as string
     }, '新篩選條件已建立')
   }
 
@@ -198,7 +241,8 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
       <header className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
         <div className="rounded-xl bg-violet-100 p-2 text-violet-700"><Settings2 size={18} /></div>
         <div><h2 className="font-bold text-gray-900">管理「{categoryName}」篩選條件</h2><p className="text-xs text-gray-500">新增、修改條件與選項，並指定顧客可單選或多選</p></div>
-        <button type="button" onClick={onClose} className="ml-auto rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="關閉"><X size={18} /></button>
+        <button type="button" disabled={!!saving} onClick={syncNow} className="ml-auto flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">{saving === 'sync' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}立即同步官網</button>
+        <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="關閉"><X size={18} /></button>
       </header>
 
       <div className="grid min-h-0 flex-1 md:grid-cols-[240px_minmax(0,1fr)]">

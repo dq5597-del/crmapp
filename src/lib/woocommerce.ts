@@ -65,6 +65,18 @@ export async function findCategoryIdByName(name: string): Promise<number | null>
   return (exact ?? list[0]).id ?? null
 }
 
+/** 僅接受正規化後完全同名的商品分類，供 Filter Set 使用，避免模糊搜尋綁錯分類。 */
+export async function findExactCategoryByName(name: string): Promise<{ id: number; name: string } | null> {
+  const wanted = name?.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('zh-Hant')
+  if (!wanted) return null
+  const list = await wc.get(`/products/categories?search=${encodeURIComponent(name.trim())}&per_page=100`)
+  if (!Array.isArray(list)) return null
+  const exact = list.find((category: any) =>
+    String(category?.name ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('zh-Hant') === wanted
+  )
+  return exact?.id ? { id: Number(exact.id), name: String(exact.name) } : null
+}
+
 /** 依 SKU 找既有商品（避免重複建立） */
 export async function findProductBySku(sku: string): Promise<any | null> {
   if (!sku?.trim()) return null
