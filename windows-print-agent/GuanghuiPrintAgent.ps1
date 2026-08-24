@@ -126,7 +126,48 @@ function Convert-BitmapToTsplBytes([System.Drawing.Bitmap]$Bitmap) {
   } finally {
     $Bitmap.UnlockBits($bitmapData)
   }
+  # TSC BITMAP mode 0 uses cleared bits for printed dots on this printer.
+  # The renderer above marks black pixels as 1, so invert the completed buffer.
+  for ($index = 0; $index -lt $result.Length; $index++) {
+    $result[$index] = $result[$index] -bxor 0xFF
+  }
   return ,$result
+}
+
+function Draw-FittedWrappedText(
+  [System.Drawing.Graphics]$Graphics,
+  [string]$Text,
+  [System.Drawing.RectangleF]$Bounds,
+  [single]$StartSize,
+  [single]$MinSize,
+  [System.Drawing.FontStyle]$Style,
+  [System.Drawing.Brush]$Brush
+) {
+  if ([string]::IsNullOrWhiteSpace($Text)) { return }
+
+  $format = New-Object System.Drawing.StringFormat
+  $format.FormatFlags = [System.Drawing.StringFormatFlags]::LineLimit
+  $format.Trimming = [System.Drawing.StringTrimming]::None
+  $measureArea = New-Object System.Drawing.SizeF($Bounds.Width, 2000)
+  $font = $null
+  try {
+    for ($fontSize = $StartSize; $fontSize -ge $MinSize; $fontSize -= 0.5) {
+      $candidate = New-Object System.Drawing.Font('Microsoft JhengHei', $fontSize, $Style)
+      $measured = $Graphics.MeasureString($Text, $candidate, $measureArea, $format)
+      if ($measured.Height -le ($Bounds.Height + 1)) {
+        $font = $candidate
+        break
+      }
+      $candidate.Dispose()
+    }
+    if ($null -eq $font) {
+      $font = New-Object System.Drawing.Font('Microsoft JhengHei', $MinSize, $Style)
+    }
+    $Graphics.DrawString($Text, $font, $Brush, $Bounds, $format)
+  } finally {
+    if ($null -ne $font) { $font.Dispose() }
+    $format.Dispose()
+  }
 }
 
 function Print-WarrantyLabel($PrinterName, $Payload, $Label) {
@@ -140,11 +181,17 @@ function Print-WarrantyLabel($PrinterName, $Payload, $Label) {
   $bitmap.SetResolution(300, 300)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   $titleFont = New-Object System.Drawing.Font('Microsoft JhengHei', 9, [System.Drawing.FontStyle]::Bold)
-  $badgeFont = New-Object System.Drawing.Font('Microsoft JhengHei', 6.5, [System.Drawing.FontStyle]::Bold)
-  $productFont = New-Object System.Drawing.Font('Microsoft JhengHei', 11, [System.Drawing.FontStyle]::Bold)
-  $detailFont = New-Object System.Drawing.Font('Microsoft JhengHei', 8)
-  $footerFont = New-Object System.Drawing.Font('Microsoft JhengHei', 7.5)
+  $logoFont = New-Object System.Drawing.Font('Microsoft JhengHei', 8, [System.Drawing.FontStyle]::Bold)
+  $badgeFont = New-Object System.Drawing.Font('Microsoft JhengHei', 7, [System.Drawing.FontStyle]::Bold)
+  $sectionLabelFont = New-Object System.Drawing.Font('Microsoft JhengHei', 6.5)
+  $detailFont = New-Object System.Drawing.Font('Microsoft JhengHei', 7.5)
+  $serviceFont = New-Object System.Drawing.Font('Microsoft JhengHei', 8, [System.Drawing.FontStyle]::Bold)
+  $footerFont = New-Object System.Drawing.Font('Microsoft JhengHei', 8, [System.Drawing.FontStyle]::Bold)
   $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 3)
+  $thinPen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)
+  $centerFormat = New-Object System.Drawing.StringFormat
+  $centerFormat.Alignment = [System.Drawing.StringAlignment]::Center
+  $centerFormat.LineAlignment = [System.Drawing.StringAlignment]::Center
   try {
     $graphics.Clear([System.Drawing.Color]::White)
     $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
@@ -153,40 +200,71 @@ function Print-WarrantyLabel($PrinterName, $Payload, $Label) {
     $margin = 20
     $contentWidth = $labelWidthDots - (2 * $margin)
 
-    $brand = 'GH ' + (New-UnicodeText @(0x5149,0x8F1D,0x5F71,0x97F3,0x79D1,0x6280))
+    $company = New-UnicodeText @(0x5149,0x8F1D,0x5F71,0x97F3,0x79D1,0x6280)
     $badge = New-UnicodeText @(0x4FDD,0x56FA,0x8CBC,0x7D19)
+    $clientNameLabel = New-UnicodeText @(0x5BA2,0x6236,0x540D,0x7A31)
+    $productNameLabel = New-UnicodeText @(0x7522,0x54C1,0x540D,0x7A31)
     $modelLabel = New-UnicodeText @(0x578B,0x865F,0xFF1A)
     $purchaseLabel = New-UnicodeText @(0x8CFC,0x8CB7,0xFF1A)
     $orderLabel = New-UnicodeText @(0x55AE,0x865F,0xFF1A)
-    $clientLabel = New-UnicodeText @(0x5BA2,0x6236,0xFF1A)
     $serviceLabel = New-UnicodeText @(0x4FDD,0x56FA,0x670D,0x52D9)
-    $keepLabel = New-UnicodeText @(0x8ACB,0x4FDD,0x7559,0x672C,0x8CBC,0x7D19)
+    $phoneLabel = New-UnicodeText @(0x96FB,0x8A71,0xFF1A)
+    $keepLabel = New-UnicodeText @(0x8ACB,0x4FDD,0x7559,0x6B64,0x8CBC,0x4EE5,0x5229,0x60A8,0x4FDD,0x56FA,0x6B0A,0x76CA)
 
-    $graphics.DrawString($brand, $titleFont, $brush, 20, 16)
-    $badgeBox = New-Object System.Drawing.RectangleF(345, 22, 115, 40)
-    $badgeFormat = New-Object System.Drawing.StringFormat
-    $badgeFormat.Alignment = [System.Drawing.StringAlignment]::Far
-    $graphics.DrawString($badge, $badgeFont, $brush, $badgeBox, $badgeFormat)
-    $badgeFormat.Dispose()
-    $graphics.DrawLine($pen, $margin, 72, $labelWidthDots - $margin, 72)
+    # Center the rounded GH mark and company name as one header group.
+    $logoWidth = 72; $logoHeight = 48; $logoRadius = 10; $logoDiameter = $logoRadius * 2; $headerGap = 12
+    $companySize = $graphics.MeasureString($company, $titleFont)
+    $headerGroupWidth = $logoWidth + $headerGap + [int][Math]::Ceiling($companySize.Width)
+    $headerGroupX = [int][Math]::Floor(($labelWidthDots - $headerGroupWidth) / 2)
+    $logoX = $headerGroupX; $logoY = 12
+    $logoPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $logoPath.AddArc($logoX, $logoY, $logoDiameter, $logoDiameter, 180, 90)
+    $logoPath.AddArc($logoX + $logoWidth - $logoDiameter, $logoY, $logoDiameter, $logoDiameter, 270, 90)
+    $logoPath.AddArc($logoX + $logoWidth - $logoDiameter, $logoY + $logoHeight - $logoDiameter, $logoDiameter, $logoDiameter, 0, 90)
+    $logoPath.AddArc($logoX, $logoY + $logoHeight - $logoDiameter, $logoDiameter, $logoDiameter, 90, 90)
+    $logoPath.CloseFigure()
+    $graphics.DrawPath($pen, $logoPath)
+    $logoBox = New-Object System.Drawing.RectangleF($logoX, $logoY, $logoWidth, $logoHeight)
+    $graphics.DrawString('GH', $logoFont, $brush, $logoBox, $centerFormat)
+    $companyX = $logoX + $logoWidth + $headerGap
+    $companyBoxWidth = [single][Math]::Ceiling($companySize.Width)
+    $companyBox = New-Object System.Drawing.RectangleF($companyX, $logoY, $companyBoxWidth, $logoHeight)
+    $graphics.DrawString($company, $titleFont, $brush, $companyBox, $centerFormat)
+    $logoPath.Dispose()
 
-    $productBox = New-Object System.Drawing.RectangleF($margin, 88, $contentWidth, 132)
-    $graphics.DrawString([string]$Label.product_name, $productFont, $brush, $productBox)
-    if ([string]$Label.model) { $graphics.DrawString($modelLabel + [string]$Label.model, $detailFont, $brush, $margin, 230) }
-    $graphics.DrawString($purchaseLabel + [string]$Payload.purchase_date, $detailFont, $brush, $margin, 286)
-    $graphics.DrawString($orderLabel + [string]$Payload.order_no, $detailFont, $brush, $margin, 342)
-    if ([string]$Payload.client_name) { $graphics.DrawString($clientLabel + [string]$Payload.client_name, $detailFont, $brush, $margin, 398) }
+    $badgeBox = New-Object System.Drawing.RectangleF($margin, 65, $contentWidth, 38)
+    $graphics.DrawString($badge, $badgeFont, $brush, $badgeBox, $centerFormat)
+    $graphics.DrawLine($pen, $margin, 112, $labelWidthDots - $margin, 112)
 
-    $graphics.DrawLine($pen, $margin, 476, $labelWidthDots - $margin, 476)
-    $footer = $serviceLabel + " 03-8321087`n" + $keepLabel
-    $footerBox = New-Object System.Drawing.RectangleF($margin, 500, $contentWidth, 120)
-    $graphics.DrawString($footer, $footerFont, $brush, $footerBox)
+    # Client and product names wrap freely and shrink only as much as needed to keep all text visible.
+    $graphics.DrawString($clientNameLabel, $sectionLabelFont, $brush, $margin, 126)
+    $clientBox = New-Object System.Drawing.RectangleF($margin, 151, $contentWidth, 86)
+    Draw-FittedWrappedText $graphics ([string]$Payload.client_name) $clientBox 8 5.5 ([System.Drawing.FontStyle]::Bold) $brush
+    $graphics.DrawLine($thinPen, $margin, 249, $labelWidthDots - $margin, 249)
+
+    $graphics.DrawString($productNameLabel, $sectionLabelFont, $brush, $margin, 263)
+    $productBox = New-Object System.Drawing.RectangleF($margin, 290, $contentWidth, 105)
+    Draw-FittedWrappedText $graphics ([string]$Label.product_name) $productBox 9 5.5 ([System.Drawing.FontStyle]::Bold) $brush
+
+    if ([string]$Label.model) { $graphics.DrawString($modelLabel + [string]$Label.model, $detailFont, $brush, $margin, 414) }
+    $graphics.DrawString($purchaseLabel + [string]$Payload.purchase_date, $detailFont, $brush, $margin, 458)
+    $graphics.DrawString($orderLabel + [string]$Payload.order_no, $detailFont, $brush, $margin, 502)
+
+    $graphics.DrawLine($pen, $margin, 552, $labelWidthDots - $margin, 552)
+    $serviceLine = $serviceLabel + $phoneLabel + '03-8321087'
+    $graphics.DrawString($serviceLine, $serviceFont, $brush, $margin, 570)
+    $keepBox = New-Object System.Drawing.RectangleF($margin, 618, $contentWidth, 46)
+    $graphics.DrawString($keepLabel, $footerFont, $brush, $keepBox, $centerFormat)
   } finally {
     $pen.Dispose()
+    $thinPen.Dispose()
+    $centerFormat.Dispose()
     $titleFont.Dispose()
+    $logoFont.Dispose()
     $badgeFont.Dispose()
-    $productFont.Dispose()
+    $sectionLabelFont.Dispose()
     $detailFont.Dispose()
+    $serviceFont.Dispose()
     $footerFont.Dispose()
     $graphics.Dispose()
   }
