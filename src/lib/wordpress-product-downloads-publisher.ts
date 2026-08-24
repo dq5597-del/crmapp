@@ -150,7 +150,7 @@ export async function ensureWordPressProductDownloadsSnippet() {
       !snippetScopeMatches(verified?.scope, 'global') ||
       !isSnippetActive(verified?.active)
     ) {
-      throw new Error('官網下載片段回讀驗證失敗')
+      throw new Error(`官網下載片段回讀驗證失敗（active=${isSnippetActive(verified?.active)}、scope=${JSON.stringify(verified?.scope)}、code_match=${snippetCodeMatches(verified?.code, wordpressProductDownloadsSnippet)}、code_length=${normalizeSnippetCode(verified?.code).length}/${normalizeSnippetCode(wordpressProductDownloadsSnippet).length}）`)
     }
   } catch (error) {
     if (backup?.id) {

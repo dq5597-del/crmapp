@@ -1,5 +1,5 @@
 import { wordpressMediaConfig } from './wordpress-media'
-import { isSnippetActive, snippetCodeMatches, snippetScopeMatches } from './wordpress-product-downloads-publisher'
+import { isSnippetActive, normalizeSnippetCode, snippetCodeMatches, snippetScopeMatches } from './wordpress-product-downloads-publisher'
 import { WORDPRESS_PRODUCT_OPTIONS_SNIPPET_NAME, wordpressProductOptionsSnippet } from './wordpress-product-options-snippet'
 
 type WordPressAuth = { store: string; header: string }
@@ -66,7 +66,9 @@ export async function ensureWordPressProductOptionsSnippet() {
     const verifiedResponse = await request(`/snippets/${snippetId}`, auth)
     const verified = verifiedResponse?.snippet ?? verifiedResponse
     if (verified?.code_error || !isSnippetActive(verified?.active) || !snippetCodeMatches(verified?.code, wordpressProductOptionsSnippet) || !snippetScopeMatches(verified?.scope, 'global')) {
-      throw new Error(verified?.code_error ? `官網 PHP 語法檢查失敗：${verified.code_error}` : '官網商品選項片段回讀驗證失敗')
+      throw new Error(verified?.code_error
+        ? `官網 PHP 語法檢查失敗：${verified.code_error}`
+        : `官網商品選項片段回讀驗證失敗（active=${isSnippetActive(verified?.active)}、scope=${JSON.stringify(verified?.scope)}、code_match=${snippetCodeMatches(verified?.code, wordpressProductOptionsSnippet)}、code_length=${normalizeSnippetCode(verified?.code).length}/${normalizeSnippetCode(wordpressProductOptionsSnippet).length}）`)
     }
   } catch (error) {
     if (details?.id) {
