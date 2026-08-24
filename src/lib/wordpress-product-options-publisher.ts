@@ -1,5 +1,5 @@
 import { wordpressMediaConfig } from './wordpress-media'
-import { isSnippetActive, normalizeSnippetCode, snippetScopeMatches } from './wordpress-product-downloads-publisher'
+import { isSnippetActive, normalizeSnippetCode, snippetCodeMatches, snippetScopeMatches } from './wordpress-product-downloads-publisher'
 import { WORDPRESS_PRODUCT_OPTIONS_SNIPPET_NAME, wordpressProductOptionsSnippet } from './wordpress-product-options-snippet'
 
 type WordPressAuth = { store: string; header: string }

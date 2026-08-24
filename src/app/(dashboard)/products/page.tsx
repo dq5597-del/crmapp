@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
@@ -13,6 +13,7 @@ import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
 import ProductFilterFields from '@/components/products/ProductFilterFields'
 import ProductPurchaseOptionFields from '@/components/products/ProductPurchaseOptionFields'
+import ProductHierarchyFields from '@/components/products/ProductHierarchyFields'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
@@ -118,6 +119,10 @@ interface ProductCategory {
   mid_category: string | null
   sub_category: string
   sort_order: number
+}
+
+function productLabelForList(product: Product): string {
+  return [product.brand, product.product_name, product.model ? `(${product.model})` : ''].filter(Boolean).join(' ')
 }
 
 // ============================================================
@@ -531,6 +536,7 @@ export default function ProductsPage() {
   const [webCategoryInput, setWebCategoryInput] = useState('')
     const [form, setForm] = useState({
         category_id: null as string | null,
+        product_type: 'main' as 'main' | 'child', parent_product_id: null as string | null,
         brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
         list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
@@ -676,6 +682,7 @@ export default function ProductsPage() {
             setInventoryMainCategory(inventoryCategory?.main_category ?? '')
             setForm({
                 category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '', product_code: pAny.product_code ?? '', safe_stock: pAny.safe_stock ?? 0,
+                product_type: pAny.product_type === 'child' ? 'child' : 'main', parent_product_id: pAny.parent_product_id ?? null,
                 list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
                 width_cm: pAny.width_cm ?? 0, depth_cm: pAny.depth_cm ?? 0, height_cm: pAny.height_cm ?? 0,
                 web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
@@ -705,6 +712,7 @@ export default function ProductsPage() {
             setInventoryMainCategory('')
             setForm({
                 category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
+                product_type: 'main', parent_product_id: null,
                 list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
                 web_sku: '', web_category: '', web_categories: [], web_description: '',
@@ -804,11 +812,36 @@ export default function ProductsPage() {
         }
         const variantGroup = form.variant_group_code.trim()
         const variantValue = form.variant_value.trim()
+        const productType = form.product_type === 'child' ? 'child' : 'main'
+        const parentProductId = productType === 'child' ? form.parent_product_id : null
+        if (productType === 'child') {
+            if (!parentProductId) {
+                alert('請搜尋並選擇此子商品所屬的主商品。')
+                return
+            }
+            const parent = products.find(product => product.id === parentProductId)
+            if (!parent || (parent.product_type ?? 'main') !== 'main') {
+                alert('選取的主商品不存在或已不是主商品，請重新選擇。')
+                return
+            }
+            if (!variantValue) {
+                alert('請填寫此子商品的區分選項，例如「紅色」或「白色」。')
+                return
+            }
+            if (!form.variant_attribute_name.trim()) {
+                alert('請填寫子商品區分欄位，例如「顏色」。')
+                return
+            }
+        }
+        if (productType === 'child' && editingId !== 'new' && products.some(product => product.parent_product_id === editingId)) {
+            alert('此商品底下已有子商品，必須先移除子商品關聯，才能改成子商品。')
+            return
+        }
         if (variantGroup && !variantValue) {
             alert('填寫系列代碼後，也必須填寫變體選項（例如：黑色）。')
             return
         }
-        if (variantValue && !variantGroup) {
+        if (variantValue && !variantGroup && productType !== 'child') {
             alert('填寫變體選項後，也必須填寫系列代碼。')
             return
         }
@@ -822,6 +855,8 @@ export default function ProductsPage() {
             web_category: form.web_categories[0] ? websiteCategoryLeaf(form.web_categories[0]) : null,
             // 空字串會撞到料號的唯一索引（'' 不算 null），一律轉 null
             product_code: form.product_code.trim() || null,
+            product_type: productType,
+            parent_product_id: parentProductId,
             web_promo_price: promoEnabled ? form.web_promo_price : null,
             web_promo_price_from: promoEnabled && form.web_promo_price_from ? form.web_promo_price_from : null,
             web_promo_price_to: promoEnabled && form.web_promo_price_to ? form.web_promo_price_to : null,
@@ -866,7 +901,13 @@ export default function ProductsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('確定刪除此產品？')) return
-    await supabase.from('products').delete().eq('id', id)
+    const { error } = await supabase.from('products').delete().eq('id', id)
+    if (error) {
+      alert(/foreign key|constraint|reference/i.test(error.message)
+        ? '此主商品仍有子商品，請先將子商品改掛其他主商品或改回主商品後再刪除。'
+        : `刪除失敗：${error.message}`)
+      return
+    }
     fetchAll()
   }
 
@@ -1055,14 +1096,29 @@ export default function ProductsPage() {
       })
     : allBrands
 
+  const productById = useMemo(
+    () => new Map(products.map(product => [product.id, product])),
+    [products],
+  )
+  const childCountByParent = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const product of products) {
+      if (!product.parent_product_id) continue
+      counts.set(product.parent_product_id, (counts.get(product.parent_product_id) ?? 0) + 1)
+    }
+    return counts
+  }, [products])
   const searchTerms = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
   const filtered = products.filter(p => {
+    const parentProduct = p.parent_product_id ? productById.get(p.parent_product_id) : null
     const searchText = [
       p.product_name,
       p.brand,
       p.model,
       (p as any).product_code,
       (p as any).barcode,
+      parentProduct?.product_name,
+      parentProduct?.model,
     ].filter(Boolean).join(' ').toLocaleLowerCase()
     const matchSearch = searchTerms.every(term => searchText.includes(term))
     if (!matchSearch) return false
@@ -1267,6 +1323,18 @@ export default function ProductsPage() {
                             </div>
                         </div>
                         <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1 min-h-0">
+
+                        <ProductHierarchyFields
+                            products={products}
+                            editingId={editingId}
+                            value={{
+                                product_type: form.product_type,
+                                parent_product_id: form.parent_product_id,
+                                variant_attribute_name: form.variant_attribute_name,
+                                variant_value: form.variant_value,
+                            }}
+                            onChange={patch => setForm(current => ({ ...current, ...patch }))}
+                        />
 
                         {formMode === 'simple' ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -1904,6 +1972,9 @@ export default function ProductsPage() {
               ) : (
                 paged.map(p => {
                   const catLabel = getCategoryLabel(p.category_id)
+                  const productType = p.product_type === 'child' ? 'child' : 'main'
+                  const parentProduct = p.parent_product_id ? productById.get(p.parent_product_id) : null
+                  const childCount = productType === 'main' ? (childCountByParent.get(p.id) ?? 0) : 0
                   return (
                     <tr key={p.id} className={`border-b border-gray-50 hover:bg-blue-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
                       {cols.cat && <td className="px-3 py-3">
@@ -1922,7 +1993,25 @@ export default function ProductsPage() {
                         </span>
                       </td>}
                       <td className="px-4 py-3 font-medium text-gray-900">
-                        {p.product_name}
+                        <div className="flex items-center gap-2">
+                          <span>{p.product_name}</span>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${productType === 'child'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'}`}>
+                            {productType === 'child' ? '子商品' : '主商品'}
+                          </span>
+                          {productType === 'child' && p.variant_value && (
+                            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-600">{p.variant_value}</span>
+                          )}
+                        </div>
+                        {productType === 'child' && (
+                          <div className="mt-0.5 text-[11px] font-normal text-purple-600">
+                            所屬主商品：{parentProduct ? productLabelForList(parentProduct) : '主商品資料異常'}
+                          </div>
+                        )}
+                        {productType === 'main' && childCount > 0 && (
+                          <div className="mt-0.5 text-[11px] font-normal text-blue-600">{childCount} 個子商品</div>
+                        )}
                         {(p as any).product_code && (
                           <div className="text-[11px] font-mono text-gray-400 mt-0.5">{(p as any).product_code}</div>
                         )}

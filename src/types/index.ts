@@ -107,6 +107,9 @@ export interface Product {
   manual_url: string | null
   is_active: boolean
   notes: string | null
+  product_code?: string | null
+  product_type?: 'main' | 'child' | null
+  parent_product_id?: string | null
   web_sku?: string | null
   web_category?: string | null
   web_categories?: string[] | null
