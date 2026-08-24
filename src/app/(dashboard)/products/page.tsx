@@ -12,11 +12,13 @@ import BarcodePreview from '@/components/products/BarcodePreview'
 import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
 import ProductFilterFields from '@/components/products/ProductFilterFields'
+import ProductPurchaseOptionFields from '@/components/products/ProductPurchaseOptionFields'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
 import { CATALOG_DRIVE_ROOT, encodeWebsiteCategory, parseWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
 import { buildCategoryGroupMappings, buildFilterGroups, filterGroupsForCategory, type ProductFilterGroup } from '@/lib/product-filters'
+import { normalizedPurchaseOptionGroups, validatePurchaseOptionGroups, type ProductPurchaseOptionGroup } from '@/lib/product-purchase-options'
 
 const GOOGLE_PRODUCT_SHEET_URL = process.env.NEXT_PUBLIC_GOOGLE_PRODUCT_SHEET_URL ?? ''
 
@@ -569,6 +571,7 @@ export default function ProductsPage() {
     const [filterGroups, setFilterGroups] = useState<ProductFilterGroup[]>([])
     const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
     const [numericFilterValues, setNumericFilterValues] = useState<Record<string, string>>({})
+    const [purchaseOptionGroups, setPurchaseOptionGroups] = useState<ProductPurchaseOptionGroup[]>([])
 
     useEffect(() => { fetchAll() }, [])
 
@@ -610,6 +613,18 @@ export default function ProductsPage() {
     setLoading(false)
   }
 
+  async function refreshFilterCatalog() {
+    const [groupRes, optionRes, templateGroupRes, categoryTemplateRes, exclusionRes] = await Promise.all([
+      supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('product_filter_template_groups').select('template_id,group_id,sort_order'),
+      supabase.from('product_category_filter_templates').select('category_id,template_id'),
+      supabase.from('product_category_filter_exclusions').select('category_id,group_id'),
+    ])
+    const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [], exclusionRes.data ?? [])
+    setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings))
+  }
+
   function getCategoryLabel(catId: string | null) {
     if (!catId) return null
     const c = categories.find(c => c.id === catId)
@@ -617,23 +632,44 @@ export default function ProductsPage() {
   }
 
     async function loadWebSubData(productId: string) {
-        const [imgRes, dlRes, featRes, vendRes, assignmentRes, numberRes] = await Promise.all([
+        const [imgRes, dlRes, featRes, vendRes, assignmentRes, numberRes, purchaseGroupRes] = await Promise.all([
             supabase.from('product_images').select('id,image_url').eq('product_id', productId).order('sort_order'),
             supabase.from('product_downloads').select('id,file_name,file_url').eq('product_id', productId).order('sort_order'),
             supabase.from('product_features').select('id,feature_text').eq('product_id', productId).order('sort_order'),
             supabase.from('product_vendors').select('id,vendor_id,cost,is_primary').eq('product_id', productId).order('sort_order'),
             supabase.from('product_filter_assignments').select('option_id').eq('product_id', productId),
             supabase.from('product_filter_numbers').select('group_id,numeric_value').eq('product_id', productId),
+            supabase.from('product_purchase_option_groups').select('*').eq('product_id', productId).order('sort_order'),
         ])
+        const purchaseGroups = purchaseGroupRes.data ?? []
+        const purchaseGroupIds = purchaseGroups.map(group => group.id)
+        const purchaseValueRes = purchaseGroupIds.length
+            ? await supabase.from('product_purchase_option_values').select('*').in('group_id', purchaseGroupIds).order('sort_order')
+            : { data: [] as any[] }
         setWebImages(imgRes.data ?? [])
         setWebDownloads(dlRes.data ?? [])
         setWebFeatures(featRes.data ?? [])
         setWebVendors(vendRes.data ?? [])
         setSelectedOptionIds((assignmentRes.data ?? []).map(row => row.option_id))
         setNumericFilterValues(Object.fromEntries((numberRes.data ?? []).map(row => [row.group_id, String(row.numeric_value)])))
+        setPurchaseOptionGroups(purchaseGroups.map(group => ({
+            id: group.id,
+            name: group.name,
+            description: group.description ?? '',
+            selection_mode: group.selection_mode === 'multiple' ? 'multiple' : 'single',
+            is_required: group.is_required !== false,
+            options: (purchaseValueRes.data ?? []).filter(option => option.group_id === group.id).map(option => ({
+                id: option.id,
+                label: option.label,
+                price_adjustment: Number(option.price_adjustment ?? 0),
+                is_default: option.is_default === true,
+            })),
+        })))
     }
 
     function startEdit(p?: Product) {
+        // 若使用者剛在另一分頁修改篩選器，開啟商品時立即重讀同一套設定。
+        void refreshFilterCatalog()
         if (p) {
             const pAny = p as any
             const inventoryCategory = categories.find(category => category.id === p.category_id)
@@ -689,6 +725,7 @@ export default function ProductsPage() {
             setWebVendors([])
             setSelectedOptionIds([])
             setNumericFilterValues({})
+            setPurchaseOptionGroups([])
         }
         setWebMainCategory('')
         setWebCategoryInput('')
@@ -706,11 +743,14 @@ export default function ProductsPage() {
             supabase.from('product_filter_assignments').delete().eq('product_id', productId),
             supabase.from('product_filter_numbers').delete().eq('product_id', productId),
         ])
+        const { error: purchaseDeleteError } = await supabase.from('product_purchase_option_groups').delete().eq('product_id', productId)
+        if (purchaseDeleteError) throw new Error(`無法更新購買選項：${purchaseDeleteError.message}`)
         const imgRows = webImages.filter(r => r.image_url.trim()).map((r, i) => ({ product_id: productId, image_url: r.image_url.trim(), sort_order: i }))
         const dlRows = webDownloads.filter(r => r.file_name.trim() && r.file_url.trim()).map((r, i) => ({ product_id: productId, file_name: r.file_name.trim(), file_url: r.file_url.trim(), sort_order: i }))
         const featRows = webFeatures.filter(r => r.feature_text.trim()).slice(0, 10).map((r, i) => ({ product_id: productId, feature_text: r.feature_text.trim().slice(0, 5), sort_order: i }))
         const vendRows = webVendors.filter(r => r.vendor_id).map((r, i) => ({ product_id: productId, vendor_id: r.vendor_id, cost: r.cost, is_primary: r.is_primary, sort_order: i }))
-        const tagRows = selectedOptionIds.slice(0, 20).map(optionId => ({ product_id: productId, option_id: optionId }))
+        const validOptionIds = new Set(filterGroups.flatMap(group => group.options.map(option => option.id)))
+        const tagRows = selectedOptionIds.filter(optionId => validOptionIds.has(optionId)).map(optionId => ({ product_id: productId, option_id: optionId }))
         const numberRows = Object.entries(numericFilterValues)
             .filter(([, value]) => value !== '' && Number.isFinite(Number(value)))
             .map(([groupId, value]) => ({ product_id: productId, group_id: groupId, numeric_value: Number(value) }))
@@ -722,11 +762,37 @@ export default function ProductsPage() {
             tagRows.length > 0 ? supabase.from('product_filter_assignments').insert(tagRows) : Promise.resolve(),
             numberRows.length > 0 ? supabase.from('product_filter_numbers').insert(numberRows) : Promise.resolve(),
         ])
+        const normalizedGroups = normalizedPurchaseOptionGroups(purchaseOptionGroups)
+        for (const [groupIndex, group] of normalizedGroups.entries()) {
+            const { data: createdGroup, error: groupError } = await supabase.from('product_purchase_option_groups').insert({
+                product_id: productId,
+                name: group.name,
+                description: group.description || null,
+                selection_mode: group.selection_mode,
+                is_required: group.is_required,
+                sort_order: groupIndex,
+            }).select('id').single()
+            if (groupError || !createdGroup?.id) throw new Error(groupError?.message ?? `無法儲存購買選項「${group.name}」`)
+            const valueRows = group.options.map((option, optionIndex) => ({
+                group_id: createdGroup.id,
+                label: option.label,
+                price_adjustment: option.price_adjustment,
+                is_default: option.is_default,
+                sort_order: optionIndex,
+            }))
+            const { error: valueError } = await supabase.from('product_purchase_option_values').insert(valueRows)
+            if (valueError) throw new Error(valueError.message)
+        }
     }
 
 
     async function handleSave() {
         if (!form.product_name.trim()) return
+        const purchaseOptionError = validatePurchaseOptionGroups(purchaseOptionGroups)
+        if (purchaseOptionError) {
+            alert(purchaseOptionError)
+            return
+        }
         // 型號不可重複（不分大小寫；排除自己）
         const modelVal = (form.model ?? '').trim().toUpperCase()
         if (modelVal) {
@@ -772,7 +838,10 @@ export default function ProductsPage() {
                 alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
                 return
             }
-            if (data?.id) await syncWebSubData(data.id)
+            if (data?.id) {
+                try { await syncWebSubData(data.id) }
+                catch (error: any) { alert(`產品已建立，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
+            }
         } else {
             const { error } = await supabase.from('products').update(payload).eq('id', editingId)
             if (error) {
@@ -780,7 +849,8 @@ export default function ProductsPage() {
                 alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
                 return
             }
-            await syncWebSubData(editingId as string)
+            try { await syncWebSubData(editingId as string) }
+            catch (error: any) { alert(`產品已更新，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
         }
         let catalogWarning = ''
         try {
@@ -1552,6 +1622,13 @@ export default function ProductsPage() {
                                                     numericValues={numericFilterValues}
                                                     onSelectedOptionIdsChange={setSelectedOptionIds}
                                                     onNumericValuesChange={setNumericFilterValues}
+                                                />
+                                            </div>
+
+                                            <div className="mb-3">
+                                                <ProductPurchaseOptionFields
+                                                    groups={purchaseOptionGroups}
+                                                    onChange={setPurchaseOptionGroups}
                                                 />
                                             </div>
 

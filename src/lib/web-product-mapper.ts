@@ -49,6 +49,13 @@ export type CrmSubData = {
   images: { image_url: string; sort_order: number }[]
   downloads: { file_name: string; file_url: string; sort_order: number }[]
   features: { feature_text: string; sort_order: number }[]
+  purchaseOptions?: {
+    name: string
+    description: string
+    selection_mode: 'single' | 'multiple'
+    required: boolean
+    options: { label: string; price_adjustment: number; default: boolean }[]
+  }[]
 }
 
 export type WooPayload = {
@@ -154,6 +161,9 @@ export function buildWooPayload(
     downloadFiles.push({ name: '使用說明書', url: p.manual_url })
   }
   metaPush(meta, 'av_download_files', JSON.stringify(downloadFiles))
+
+  // 客戶在加入購物車前必須選擇的配件／規格，由官網 CRM 商品購買選項片段呈現。
+  metaPush(meta, 'gh_purchase_options', JSON.stringify(sub.purchaseOptions ?? []))
 
   // 分頁內容
   metaPush(meta, 'av_tab_specs', p.web_spec_html ?? '')

@@ -22,19 +22,25 @@ export default function ProductFilterFields({
   const multiGroups = groups.filter(group => group.input_type === 'multi_select')
   const numberGroups = groups.filter(group => group.input_type === 'number')
 
-  function toggleOption(optionId: string) {
-    onSelectedOptionIdsChange(selected.has(optionId)
-      ? selectedOptionIds.filter(id => id !== optionId)
-      : [...selectedOptionIds, optionId].slice(0, 20))
+  function toggleOption(group: ProductFilterGroup, optionId: string) {
+    if (selected.has(optionId)) {
+      onSelectedOptionIdsChange(selectedOptionIds.filter(id => id !== optionId))
+      return
+    }
+    const groupOptionIds = new Set(group.options.map(option => option.id))
+    const retained = group.selection_mode === 'single'
+      ? selectedOptionIds.filter(id => !groupOptionIds.has(id))
+      : selectedOptionIds
+    onSelectedOptionIdsChange([...retained, optionId])
   }
 
   return (
     <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-3 space-y-4">
       <div>
         <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-800">
-          <Tag size={13} /> 產品 Tags 與篩選規格
+          <Tag size={13} /> 光輝產品篩選器（與官網同步）
         </div>
-        <p className="mt-1 text-[11px] text-violet-600">同一商品可選多個 Tags；型錄會同步建立「_篩選器／群組／Tag」捷徑。</p>
+        <p className="mt-1 text-[11px] text-violet-600">欄位與選項由「系統設定 → 官網產品分類篩選器」統一管理；推送商品時同步為官網篩選屬性。</p>
       </div>
 
       {groups.length === 0 ? (
@@ -46,7 +52,7 @@ export default function ProductFilterFields({
       <div className="grid gap-3 sm:grid-cols-2">
         {multiGroups.map(group => (
           <fieldset key={group.id} className="rounded-lg border border-violet-100 bg-white p-2.5">
-            <legend className="px-1 text-[11px] font-medium text-gray-600">{group.name}</legend>
+            <legend className="px-1 text-[11px] font-medium text-gray-600">{group.name} <span className="font-normal text-gray-400">（{group.selection_mode === 'single' ? '單選' : '可複選'}）</span></legend>
             <div className="flex flex-wrap gap-1.5">
               {group.options.map(option => {
                 const active = selected.has(option.id)
@@ -55,7 +61,7 @@ export default function ProductFilterFields({
                     key={option.id}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => toggleOption(option.id)}
+                    onClick={() => toggleOption(group, option.id)}
                     className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${active
                       ? 'border-violet-600 bg-violet-600 text-white'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-violet-300'}`}

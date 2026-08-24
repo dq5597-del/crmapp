@@ -10,6 +10,7 @@ import {
 } from '@/lib/web-product-mapper'
 import { websiteCategoryLeaf } from '@/lib/catalog-drive'
 import { ensureWordPressProductDownloadsSnippet } from '@/lib/wordpress-product-downloads-publisher'
+import { ensureWordPressProductOptionsSnippet } from '@/lib/wordpress-product-options-publisher'
 import { WooFilterSync } from '@/lib/woocommerce-filter-sync'
 
 /**
@@ -24,6 +25,7 @@ import { WooFilterSync } from '@/lib/woocommerce-filter-sync'
  *   product_features  → feature_1~10（特色標章）+ av_feature_item_1~8（產品特色列表）
  *   web_spec_html     → av_tab_specs（詳細規格分頁）
  *   catalog/manual/CAD→ av_download_*（檔案下載分頁）
+ *   product_purchase_option_* → gh_purchase_options（商品頁選配、購物車與訂單）
  *
  * 需要的環境變數（設在 Vercel，勿寫進程式碼）：
  *   WC_STORE_URL / WC_CONSUMER_KEY / WC_CONSUMER_SECRET
@@ -176,14 +178,38 @@ export async function POST(req: Request) {
   } catch (error: any) {
     downloadTab = { error: error?.message ?? '官網產品資料下載片段安裝失敗' }
   }
+  let purchaseOptionsBridge: any = null
+  try {
+    purchaseOptionsBridge = await ensureWordPressProductOptionsSnippet()
+  } catch (error: any) {
+    purchaseOptionsBridge = { error: error?.message ?? '官網商品購買選項片段安裝失敗' }
+  }
 
   async function loadSubData(productId: string): Promise<CrmSubData> {
-    const [{ data: feats }, { data: imgs }, { data: dls }] = await Promise.all([
+    const [{ data: feats }, { data: imgs }, { data: dls }, { data: purchaseGroups, error: purchaseGroupError }] = await Promise.all([
       supabase.from('product_features').select('feature_text, sort_order').eq('product_id', productId).order('sort_order'),
       supabase.from('product_images').select('image_url, sort_order').eq('product_id', productId).order('sort_order'),
       supabase.from('product_downloads').select('file_name, file_url, sort_order').eq('product_id', productId).order('sort_order'),
+      supabase.from('product_purchase_option_groups').select('*').eq('product_id', productId).order('sort_order'),
     ])
-    return { features: (feats ?? []) as any, images: (imgs ?? []) as any, downloads: (dls ?? []) as any }
+    if (purchaseGroupError) throw new Error(`讀取商品購買選項失敗：${purchaseGroupError.message}`)
+    const groupIds = (purchaseGroups ?? []).map(group => group.id)
+    const { data: purchaseValues, error: purchaseValueError } = groupIds.length
+      ? await supabase.from('product_purchase_option_values').select('*').in('group_id', groupIds).order('sort_order')
+      : { data: [], error: null }
+    if (purchaseValueError) throw new Error(`讀取商品購買選項內容失敗：${purchaseValueError.message}`)
+    const purchaseOptions = (purchaseGroups ?? []).map(group => ({
+      name: group.name,
+      description: group.description ?? '',
+      selection_mode: group.selection_mode === 'multiple' ? 'multiple' as const : 'single' as const,
+      required: group.is_required !== false,
+      options: (purchaseValues ?? []).filter(option => option.group_id === group.id).map(option => ({
+        label: option.label,
+        price_adjustment: Math.max(0, Number(option.price_adjustment ?? 0)),
+        default: option.is_default === true,
+      })),
+    })).filter(group => group.options.length >= 2)
+    return { features: (feats ?? []) as any, images: (imgs ?? []) as any, downloads: (dls ?? []) as any, purchaseOptions }
   }
 
   async function resolveCategories(row: CrmProductRow) {
@@ -262,6 +288,10 @@ export async function POST(req: Request) {
       }
 
       const primarySub = await loadSubData(primary.id)
+      if (primarySub.purchaseOptions?.length && purchaseOptionsBridge?.error) {
+        failGroup(`商品有購買選項，但官網選項功能未啟用：${purchaseOptionsBridge.error}`)
+        continue
+      }
       const missing = validateForWeb(primary, primarySub)
       const { resolved, ids: categoryIds } = await resolveCategories(primary)
       const attributeName = attributeNames[0]
@@ -388,6 +418,10 @@ export async function POST(req: Request) {
     }
 
     const sub = await loadSubData(id)
+    if (sub.purchaseOptions?.length && purchaseOptionsBridge?.error) {
+      results.push({ id, name: row.product_name, ok: false, error: `商品有購買選項，但官網選項功能未啟用：${purchaseOptionsBridge.error}` })
+      continue
+    }
     const missing = validateForWeb(row, sub)
     const { resolved, ids: categoryIds } = await resolveCategories(row)
     const payload: any = buildWooPayload(row, sub, categoryIds, { status: publish ? 'publish' : 'draft' })
@@ -447,7 +481,7 @@ export async function POST(req: Request) {
   }
 
   const okCount = results.filter(r => r.ok).length
-  return NextResponse.json({ ok: okCount, failed: results.length - okCount, download_tab: downloadTab, results })
+  return NextResponse.json({ ok: okCount, failed: results.length - okCount, download_tab: downloadTab, purchase_options: purchaseOptionsBridge, results })
 }
 
 /** GET /api/woocommerce/push → 測試連線 */
