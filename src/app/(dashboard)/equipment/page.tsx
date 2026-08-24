@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Equipment } from '@/types'
-import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX, Pencil, HardHat, Crown, Trash2, Bell } from 'lucide-react'
+import { Plus, Search, HardDrive, ChevronRight, Wrench, ShieldCheck, ShieldAlert, ShieldX, Pencil, HardHat, Crown, Trash2, Bell, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type WarrantyKey = 'good' | 'warn' | 'danger'
@@ -59,6 +59,16 @@ function followUpLabel(dateStr: string | null): string {
   if (k === 'overdue') return `已逾期・${dateStr}`
   if (k === 'soon') return `即將到期・${dateStr}`
   return `已排定・${dateStr}`
+}
+
+type FollowUpLogEntry = {
+  id: string
+  old_date: string | null
+  new_date: string | null
+  old_notes: string | null
+  new_notes: string | null
+  changed_by: string | null
+  changed_at: string
 }
 
 type Batch = {
@@ -132,6 +142,12 @@ export default function EquipmentPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | WarrantyKey | 'followup'>('all')
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
+  const [editingFollowUpId, setEditingFollowUpId] = useState<string | null>(null)
+  const [followUpDraft, setFollowUpDraft] = useState<{ date: string; notes: string }>({ date: '', notes: '' })
+  const [savingFollowUp, setSavingFollowUp] = useState(false)
+  const [historyOpenId, setHistoryOpenId] = useState<string | null>(null)
+  const [historyMap, setHistoryMap] = useState<Map<string, FollowUpLogEntry[]>>(new Map())
+  const [historyLoading, setHistoryLoading] = useState<string | null>(null)
 
   useEffect(() => { fetchEquipment() }, [])
 
@@ -240,6 +256,76 @@ export default function EquipmentPage() {
     const { error } = await supabase.from('equipment').delete().in('id', ids)
     if (error) { alert('刪除失敗：' + error.message); return }
     setEquipment(prev => prev.filter(e => !ids.includes(e.id)))
+  }
+
+  function startEditFollowUp(d: Equipment) {
+    setEditingFollowUpId(d.id)
+    setFollowUpDraft({ date: d.next_follow_up_date ?? '', notes: d.follow_up_notes ?? '' })
+  }
+
+  function cancelEditFollowUp() {
+    setEditingFollowUpId(null)
+  }
+
+  async function saveFollowUp(d: Equipment) {
+    const oldDate = d.next_follow_up_date ?? null
+    const oldNotes = d.follow_up_notes ?? null
+    const newDate = followUpDraft.date || null
+    const newNotes = followUpDraft.notes.trim() || null
+
+    if (oldDate === newDate && oldNotes === newNotes) {
+      setEditingFollowUpId(null)
+      return
+    }
+
+    setSavingFollowUp(true)
+    const { error } = await supabase
+      .from('equipment')
+      .update({ next_follow_up_date: newDate, follow_up_notes: newNotes })
+      .eq('id', d.id)
+
+    if (error) {
+      alert('儲存失敗：' + error.message)
+      setSavingFollowUp(false)
+      return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error: logError } = await supabase.from('equipment_followup_log').insert({
+      equipment_id: d.id,
+      old_date: oldDate,
+      new_date: newDate,
+      old_notes: oldNotes,
+      new_notes: newNotes,
+      changed_by: user?.email ?? null,
+    })
+    if (logError) {
+      // 編輯紀錄寫入失敗不影響主要資料已經存檔成功，只在 console 留意即可
+      console.error('寫入後續追蹤編輯紀錄失敗：', logError)
+    }
+
+    setEquipment(prev => prev.map(e => e.id === d.id ? { ...e, next_follow_up_date: newDate, follow_up_notes: newNotes } : e))
+    // 這筆的歷史紀錄快取已經過期，清掉讓下次展開時重新抓
+    setHistoryMap(prev => { const next = new Map(prev); next.delete(d.id); return next })
+    setSavingFollowUp(false)
+    setEditingFollowUpId(null)
+  }
+
+  async function toggleHistory(d: Equipment) {
+    if (historyOpenId === d.id) { setHistoryOpenId(null); return }
+    setHistoryOpenId(d.id)
+    if (!historyMap.has(d.id)) {
+      setHistoryLoading(d.id)
+      const { data, error } = await supabase
+        .from('equipment_followup_log')
+        .select('*')
+        .eq('equipment_id', d.id)
+        .order('changed_at', { ascending: false })
+      if (!error) {
+        setHistoryMap(prev => new Map(prev).set(d.id, data ?? []))
+      }
+      setHistoryLoading(null)
+    }
   }
 
   return (
@@ -377,6 +463,7 @@ export default function EquipmentPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">安裝日期</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">保固狀態</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">叫修次數</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">後續追蹤</th>
                 <th className="px-4 py-3 w-8"></th>
               </tr>
             </thead>
@@ -416,15 +503,17 @@ export default function EquipmentPage() {
                       <td className="px-4 py-3 text-gray-500">{b.installed_date ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', WARRANTY_COLOR[w.key])}>{w.label}</span>
-                        {batchFollowUp(b) && (
-                          <div className="mt-1">
-                            <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1', FOLLOWUP_COLOR[batchFollowUp(b)!.key])}>
-                              <Bell size={10} /> {batchFollowUp(b)!.label}
-                            </span>
-                          </div>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-700">{svcSum > 0 ? `${svcSum} 次` : '—'}</td>
+                      <td className="px-4 py-3">
+                        {batchFollowUp(b) ? (
+                          <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1', FOLLOWUP_COLOR[batchFollowUp(b)!.key])}>
+                            <Bell size={10} /> {batchFollowUp(b)!.label}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5 justify-end">
                           <button
@@ -441,8 +530,10 @@ export default function EquipmentPage() {
                     </tr>
                     {open && b.devices.map(d => {
                       const dw = warrantyKey(d.warranty_expiry)
+                      const history = historyMap.get(d.id) ?? []
                       return (
-                        <tr key={d.id} className="bg-gray-50/60">
+                        <Fragment key={d.id}>
+                        <tr className="bg-gray-50/60">
                           <td className="px-4 py-2.5 pl-8" colSpan={2}>
                             <div className="font-medium text-gray-700">{[d.brand, d.model].filter(Boolean).join(' ') || '未命名設備'}</div>
                             <div className="text-xs text-gray-400">
@@ -454,24 +545,79 @@ export default function EquipmentPage() {
                                 點工：{d.work_logs.map((w, i) => `${w.name}${w.rate_type ? `（${w.rate_type}）` : ''}`).join('、')}
                               </div>
                             )}
-                            {d.follow_up_notes && (
-                              <div className="text-xs text-gray-500 mt-0.5">追蹤備註：{d.follow_up_notes}</div>
-                            )}
                           </td>
                           <td className="px-4 py-2.5 text-gray-500 text-xs" colSpan={2}>
                             {d.service_count ? `最近叫修：${d.last_reported_date}` : ''}
                           </td>
                           <td className="px-4 py-2.5">
                             <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', WARRANTY_COLOR[dw])}>{warrantyLabel(d)}</span>
-                            {followUpKey(d.next_follow_up_date) !== 'none' && (
-                              <div className="mt-1">
-                                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1', FOLLOWUP_COLOR[followUpKey(d.next_follow_up_date) as Exclude<FollowUpKey, 'none'>])}>
-                                  <Bell size={10} /> {followUpLabel(d.next_follow_up_date)}
-                                </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-700">{d.service_count ? `${d.service_count} 次` : '—'}</td>
+                          <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+                            {editingFollowUpId === d.id ? (
+                              <div className="flex flex-col gap-1 w-40">
+                                <input
+                                  type="date"
+                                  value={followUpDraft.date}
+                                  onChange={e => setFollowUpDraft(v => ({ ...v, date: e.target.value }))}
+                                  className="text-xs border border-gray-200 rounded px-1.5 py-1 w-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="備註（選填）"
+                                  value={followUpDraft.notes}
+                                  onChange={e => setFollowUpDraft(v => ({ ...v, notes: e.target.value }))}
+                                  className="text-xs border border-gray-200 rounded px-1.5 py-1 w-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={savingFollowUp}
+                                    onClick={() => saveFollowUp(d)}
+                                    className="text-xs px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                  >
+                                    {savingFollowUp ? '儲存中…' : '儲存'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditFollowUp}
+                                    className="text-xs px-2 py-1 border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50"
+                                  >
+                                    取消
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start gap-1">
+                                <div>
+                                  {followUpKey(d.next_follow_up_date) !== 'none' ? (
+                                    <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1', FOLLOWUP_COLOR[followUpKey(d.next_follow_up_date) as Exclude<FollowUpKey, 'none'>])}>
+                                      <Bell size={10} /> {followUpLabel(d.next_follow_up_date)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-gray-300">未設定</span>
+                                  )}
+                                  {d.follow_up_notes && <div className="text-xs text-gray-500 mt-0.5">{d.follow_up_notes}</div>}
+                                </div>
+                                <button
+                                  type="button"
+                                  title="編輯後續追蹤"
+                                  onClick={() => startEditFollowUp(d)}
+                                  className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+                                >
+                                  <Pencil size={11} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="編輯紀錄"
+                                  onClick={() => toggleHistory(d)}
+                                  className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+                                >
+                                  <Clock size={11} />
+                                </button>
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-2.5 text-gray-700">{d.service_count ? `${d.service_count} 次` : '—'}</td>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-1.5">
                               <Link
@@ -502,6 +648,34 @@ export default function EquipmentPage() {
                             </div>
                           </td>
                         </tr>
+                        {historyOpenId === d.id && (
+                          <tr className="bg-blue-50/40">
+                            <td colSpan={7} className="px-4 py-2.5 pl-8">
+                              {historyLoading === d.id ? (
+                                <p className="text-xs text-gray-400">載入編輯紀錄中…</p>
+                              ) : history.length === 0 ? (
+                                <p className="text-xs text-gray-400">目前還沒有編輯紀錄</p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {history.map(h => (
+                                    <div key={h.id} className="text-xs text-gray-600 flex flex-wrap items-center gap-x-2">
+                                      <Clock size={11} className="text-gray-400 shrink-0" />
+                                      <span className="text-gray-400">{new Date(h.changed_at).toLocaleString('zh-TW', { hour12: false })}</span>
+                                      {h.changed_by && <span className="text-gray-400">・{h.changed_by}</span>}
+                                      <span>
+                                        追蹤日期：{h.old_date ?? '未設定'} → {h.new_date ?? '未設定'}
+                                      </span>
+                                      {(h.old_notes ?? '') !== (h.new_notes ?? '') && (
+                                        <span>備註：{h.old_notes || '（空）'} → {h.new_notes || '（空）'}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       )
                     })}
                   </Fragment>
