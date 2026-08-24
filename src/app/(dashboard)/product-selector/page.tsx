@@ -44,11 +44,12 @@ type ProductRow = {
   product_downloads: { file_name: string; file_url: string; sort_order: number }[]
 }
 
-function primaryCatalogPdf(downloads: ProductRow['product_downloads']) {
+function primaryCatalogFile(downloads: ProductRow['product_downloads']) {
   const sorted = [...(downloads ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   const isPdf = (download: ProductRow['product_downloads'][number]) => /\.pdf(?:$|[?#])/i.test(download.file_url) || /\.pdf$/i.test(download.file_name)
-  return sorted.find(download => isPdf(download) && /型錄|catalog/i.test(download.file_name))
+  return sorted.find(download => /型錄|catalog/i.test(download.file_name))
     ?? sorted.find(isPdf)
+    ?? sorted[0]
 }
 
 export default function ProductSelectorPage() {
@@ -373,13 +374,13 @@ export default function ProductSelectorPage() {
           {loading ? <div className="rounded-2xl bg-white p-16 text-center text-sm text-gray-400">載入產品中…</div> : loadError ? <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-sm text-red-700">產品資料載入失敗：{loadError}</div> : filtered.length === 0 ? <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-16 text-center text-sm text-gray-400">沒有符合條件的產品</div> : <><div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{visibleProducts.map(product => {
             const active = selectedProducts.includes(product.id)
             const values = numberMap[product.id] ?? {}
-            const catalogPdf = primaryCatalogPdf(product.product_downloads)
+            const catalogFile = primaryCatalogFile(product.product_downloads)
             const publicPrice = catalogPublicPrice(product)
             return <article key={product.id} className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition ${active ? 'border-violet-500 ring-2 ring-violet-100' : 'border-gray-100 hover:border-violet-200'}`}>
               <button type="button" aria-label={`${active ? '取消' : '選取'} ${product.product_name}`} onClick={() => setSelectedProducts(current => active ? current.filter(id => id !== product.id) : [...current, product.id])} className={`absolute right-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-full border ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 bg-white text-gray-300'}`}>{active ? <Check size={15} /> : null}</button>
-              <a href={catalogPdf?.file_url} target={catalogPdf ? '_blank' : undefined} rel={catalogPdf ? 'noreferrer' : undefined} aria-label={catalogPdf ? `開啟 ${product.product_name} 產品型錄 PDF` : undefined} className={`block ${catalogPdf ? 'group cursor-pointer' : ''}`}>
+              <a href={catalogFile?.file_url} target={catalogFile ? '_blank' : undefined} rel={catalogFile ? 'noreferrer' : undefined} aria-label={catalogFile ? `開啟 ${product.product_name} 產品型錄` : undefined} className={`block ${catalogFile ? 'group cursor-pointer' : ''}`}>
                 <div className="grid h-44 place-items-center bg-gray-50 p-4">{product.web_main_image_url ? <img src={driveImageUrl(product.web_main_image_url, 600)} alt={product.product_name} loading="lazy" className="h-full w-full object-contain" /> : <Package size={36} className="text-gray-200" />}</div>
-                <div className="p-4"><div className="flex items-center justify-between gap-2"><div className="text-xs font-semibold text-violet-700">{product.brand || '未設定品牌'}</div><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${publicPrice == null ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{publicPrice == null ? '專案報價' : '網路標價'}</span></div><h2 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-900">{product.model ? `${product.model} ` : ''}{product.product_name}</h2>{publicPrice != null ? <p className="mt-2 text-sm font-bold text-gray-900">{currency.format(publicPrice)}</p> : <p className="mt-2 text-xs font-medium text-amber-700">請洽專案人員報價</p>}<div className="mt-2 flex flex-wrap gap-1">{populatedGroups.filter(group => group.input_type === 'number' && values[group.id] != null).map(group => <span key={group.id} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{group.name} {values[group.id]}{group.unit}</span>)}</div>{catalogPdf ? <p className="mt-3 flex items-center gap-1 text-xs font-medium text-violet-700 group-hover:underline">開啟產品型錄 PDF <ExternalLink size={12} /></p> : <p className="mt-3 text-xs text-gray-400">目前沒有 PDF 型錄</p>}</div>
+                <div className="p-4"><div className="flex items-center justify-between gap-2"><div className="text-xs font-semibold text-violet-700">{product.brand || '未設定品牌'}</div><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${publicPrice == null ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{publicPrice == null ? '專案報價' : '網路標價'}</span></div><h2 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-900">{product.model ? `${product.model} ` : ''}{product.product_name}</h2>{publicPrice != null ? <p className="mt-2 text-sm font-bold text-gray-900">{currency.format(publicPrice)}</p> : <p className="mt-2 text-xs font-medium text-amber-700">請洽專案人員報價</p>}<div className="mt-2 flex flex-wrap gap-1">{populatedGroups.filter(group => group.input_type === 'number' && values[group.id] != null).map(group => <span key={group.id} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{group.name} {values[group.id]}{group.unit}</span>)}</div>{catalogFile ? <p className="mt-3 flex items-center gap-1 text-xs font-medium text-violet-700 group-hover:underline">開啟產品型錄 <ExternalLink size={12} /></p> : <p className="mt-3 text-xs text-gray-400">目前沒有產品型錄</p>}</div>
               </a>
             </article>
           })}</div>{visibleProducts.length < filtered.length ? <button type="button" onClick={() => setResultLimit(current => current + 60)} className="mt-4 w-full rounded-xl border border-violet-200 bg-white py-3 text-sm font-medium text-violet-700 hover:bg-violet-50">顯示更多（尚有 {filtered.length - visibleProducts.length} 項）</button> : null}</>}

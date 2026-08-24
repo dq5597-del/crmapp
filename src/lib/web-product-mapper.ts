@@ -113,6 +113,29 @@ function metaPush(meta: { key: string; value: string }[], key: string, value: un
   meta.push({ key, value: v })
 }
 
+export function buildWooDownloadMeta(
+  p: Pick<CrmProductRow, 'catalog_url' | 'manual_url'>,
+  downloads: CrmSubData['downloads']
+) {
+  const sortedDownloads = [...downloads].sort((a, b) => a.sort_order - b.sort_order)
+  const meta: { key: string; value: string }[] = []
+  const cad = sortedDownloads.find(d => /cad|規格書|圖面/i.test(d.file_name))
+  metaPush(meta, 'av_download_catalog', p.catalog_url ?? sortedDownloads.find(d => /型錄|catalog/i.test(d.file_name))?.file_url ?? '')
+  metaPush(meta, 'av_download_manual', p.manual_url ?? sortedDownloads.find(d => /說明書|manual/i.test(d.file_name))?.file_url ?? '')
+  metaPush(meta, 'av_download_cad', cad?.file_url ?? '')
+  const downloadFiles = sortedDownloads
+    .filter(d => d.file_name.trim() && d.file_url.trim())
+    .map(d => ({ name: d.file_name.trim(), url: d.file_url.trim() }))
+  if (p.catalog_url && !downloadFiles.some(d => d.url === p.catalog_url)) {
+    downloadFiles.unshift({ name: '產品型錄', url: p.catalog_url })
+  }
+  if (p.manual_url && !downloadFiles.some(d => d.url === p.manual_url)) {
+    downloadFiles.push({ name: '使用說明書', url: p.manual_url })
+  }
+  metaPush(meta, 'av_download_files', JSON.stringify(downloadFiles))
+  return meta
+}
+
 export function buildWooPayload(
   p: CrmProductRow,
   sub: CrmSubData,
@@ -147,20 +170,7 @@ export function buildWooPayload(
   }
 
   // 檔案下載
-  const cad = downloads.find(d => /cad|規格書|圖面/i.test(d.file_name))
-  metaPush(meta, 'av_download_catalog', p.catalog_url ?? downloads.find(d => /型錄|catalog/i.test(d.file_name))?.file_url ?? '')
-  metaPush(meta, 'av_download_manual', p.manual_url ?? downloads.find(d => /說明書|manual/i.test(d.file_name))?.file_url ?? '')
-  metaPush(meta, 'av_download_cad', cad?.file_url ?? '')
-  const downloadFiles = downloads
-    .filter(d => d.file_name.trim() && d.file_url.trim())
-    .map(d => ({ name: d.file_name.trim(), url: d.file_url.trim() }))
-  if (p.catalog_url && !downloadFiles.some(d => d.url === p.catalog_url)) {
-    downloadFiles.unshift({ name: '產品型錄', url: p.catalog_url })
-  }
-  if (p.manual_url && !downloadFiles.some(d => d.url === p.manual_url)) {
-    downloadFiles.push({ name: '使用說明書', url: p.manual_url })
-  }
-  metaPush(meta, 'av_download_files', JSON.stringify(downloadFiles))
+  meta.push(...buildWooDownloadMeta(p, downloads))
 
   // 客戶在加入購物車前必須選擇的配件／規格，由官網 CRM 商品購買選項片段呈現。
   metaPush(meta, 'gh_purchase_options', JSON.stringify(sub.purchaseOptions ?? []))

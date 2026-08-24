@@ -17,7 +17,7 @@ import ProductHierarchyFields from '@/components/products/ProductHierarchyFields
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
-import { CATALOG_DRIVE_ROOT, encodeWebsiteCategory, parseWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
+import { encodeWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
 import { buildCategoryGroupMappings, buildFilterGroups, filterGroupsForCategory, type ProductFilterGroup } from '@/lib/product-filters'
 import { normalizedPurchaseOptionGroups, validatePurchaseOptionGroups, type ProductPurchaseOptionGroup } from '@/lib/product-purchase-options'
 
@@ -793,6 +793,17 @@ export default function ProductsPage() {
         }
     }
 
+    async function syncWebsiteDownloads(productId: string) {
+        if (!form.web_product_id?.trim()) return
+        const response = await fetch('/api/woocommerce/product-downloads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: productId }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error ?? '官網型錄資料同步失敗')
+    }
+
 
     async function handleSave() {
         if (!form.product_name.trim()) return
@@ -866,6 +877,7 @@ export default function ProductsPage() {
             variant_is_primary: !!variantGroup && form.variant_is_primary,
             web_variation_id: form.web_variation_id || null,
         }
+        let savedProductId: string | null = null
         if (editingId === 'new') {
             const { data, error } = await supabase.from('products').insert(payload).select('id').single()
             if (error) {
@@ -874,10 +886,12 @@ export default function ProductsPage() {
                 return
             }
             if (data?.id) {
+                savedProductId = data.id
                 try { await syncWebSubData(data.id) }
                 catch (error: any) { alert(`產品已建立，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
             }
         } else {
+            savedProductId = editingId as string
             const { error } = await supabase.from('products').update(payload).eq('id', editingId)
             if (error) {
                 console.error('更新產品失敗：', error)
@@ -887,15 +901,14 @@ export default function ProductsPage() {
             try { await syncWebSubData(editingId as string) }
             catch (error: any) { alert(`產品已更新，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
         }
-        let catalogWarning = ''
-        try {
-            await organizeCatalogDownloads()
-        } catch (error: any) {
-            catalogWarning = error?.message ?? 'Google Drive 型錄分類失敗'
+        let websiteDownloadWarning = ''
+        if (savedProductId) {
+            try { await syncWebsiteDownloads(savedProductId) }
+            catch (error: any) { websiteDownloadWarning = error?.message ?? '官網型錄資料同步失敗' }
         }
         setEditingId(null)
         fetchAll()
-        if (catalogWarning) alert(`產品已儲存，但型錄資料夾整理失敗：\n${catalogWarning}`)
+        if (websiteDownloadWarning) alert(`產品與篩選器資料已儲存，但官網商品型錄同步失敗：\n${websiteDownloadWarning}`)
     }
 
 
@@ -940,41 +953,28 @@ export default function ProductsPage() {
 
   async function uploadProductDownload(file: File, index: number) {
     if (file.size > 4 * 1024 * 1024) {
-      alert('單一檔案不可超過 4MB；較大的檔案請先上傳到 Google Drive，將權限設為「知道連結的人」，再貼上共用連結。')
+      alert('單一檔案不可超過 4MB；請先壓縮檔案後再上傳到 av-shop.com。')
       return
     }
     setDownloadUploading(index)
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('folder', CATALOG_DRIVE_ROOT)
-      fd.append('folder_paths', JSON.stringify(getCatalogFolderPaths()))
-      fd.append('public', '1')
-      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      fd.append('title', webDownloads[index]?.file_name.trim() || file.name.replace(/\.[^.]+$/, ''))
+      if (form.web_product_id?.trim()) fd.append('product_id', form.web_product_id.trim())
+      const res = await fetch('/api/wordpress/catalog', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '上傳失敗')
-      if (!data.public_url) throw new Error('Google Drive 沒有回傳公開下載連結')
+      if (!data.url) throw new Error('WordPress 沒有回傳產品資料網址')
       setWebDownloads(current => current.map((row, rowIndex) => rowIndex === index
-        ? { ...row, file_name: row.file_name.trim() || data.file_name || file.name, file_url: data.public_url }
+        ? { ...row, file_name: row.file_name.trim() || data.file_name || file.name, file_url: data.url }
         : row))
+      if (data.warning) alert(`型錄已存入 av-shop.com，但商品附件資料需要稍後同步：\n${data.warning}`)
     } catch (error: any) {
       alert('產品資料上傳失敗：' + (error?.message ?? '未知錯誤'))
     } finally {
       setDownloadUploading(null)
     }
-  }
-
-  async function organizeCatalogDownloads() {
-    const downloads = webDownloads.filter(row => row.file_name.trim() && row.file_url.trim())
-    if (downloads.length === 0) return
-
-    const res = await fetch('/api/drive/catalog-classify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ downloads, folder_paths: getCatalogFolderPaths() }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? 'Google Drive 型錄分類失敗')
   }
 
   // ── 官網（av-shop.com）同步 ──
@@ -1144,37 +1144,6 @@ export default function ProductsPage() {
     acc[c.main_category].push(c)
     return acc
   }, {})
-
-  function getCatalogFolderPaths(): string[][] {
-    const paths: string[][] = []
-    const categoryPaths: string[][] = []
-    const brandFolder = form.brand.trim() || '未設定品牌'
-    for (const selectedCategory of form.web_categories) {
-      const { mainCategory: selectedMainCategory, subCategory: selectedSubCategory } = parseWebsiteCategory(selectedCategory)
-      const matches = categories.filter(category =>
-        category.sub_category.trim().toLocaleLowerCase() === selectedSubCategory.trim().toLocaleLowerCase()
-        && (!selectedMainCategory || category.main_category.trim().toLocaleLowerCase() === selectedMainCategory.toLocaleLowerCase())
-      )
-      if (matches.length === 0) {
-        categoryPaths.push([CATALOG_DRIVE_ROOT, selectedMainCategory || '其他分類', selectedSubCategory.trim()])
-        continue
-      }
-      for (const category of matches) {
-        categoryPaths.push([CATALOG_DRIVE_ROOT, category.main_category.trim(), category.sub_category.trim()])
-      }
-    }
-
-    if (categoryPaths.length === 0) categoryPaths.push([CATALOG_DRIVE_ROOT, '未分類', '未分類'])
-    for (const categoryPath of categoryPaths) {
-      paths.push([...categoryPath, brandFolder])
-      for (const group of filterGroups.filter(item => item.input_type === 'multi_select')) {
-        for (const option of group.options.filter(item => selectedOptionIds.includes(item.id))) {
-          paths.push([...categoryPath, '_篩選器', group.name, option.name])
-        }
-      }
-    }
-    return Array.from(new Map(paths.map(path => [JSON.stringify(path), path])).values()).slice(0, 100)
-  }
 
   function addWebCategory() {
     const subCategory = webCategoryInput.trim()
@@ -1803,30 +1772,26 @@ export default function ProductsPage() {
                                                 <div className="flex items-start justify-between gap-3 mb-3">
                                                     <div>
                                                         <div className="text-xs font-medium text-gray-700">產品資料下載</div>
-                                                        <div className="text-[11px] text-gray-400 mt-0.5">檔案會存入 Google Drive，並同步顯示在官網單一商品頁。</div>
+                                                        <div className="text-[11px] text-gray-400 mt-0.5">檔案會直接存入 av-shop.com WordPress 媒體庫，並連結至官網商品資料與產品篩選器。</div>
                                                     </div>
                                                     <span className="text-[11px] text-gray-400 whitespace-nowrap">{webDownloads.length} 個檔案</span>
                                                 </div>
-                                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-3">
-                                                    <div className="text-[11px] font-medium text-amber-800 mb-1">Google Drive 型錄分類位置</div>
-                                                    <div className="space-y-0.5">
-                                                        {getCatalogFolderPaths().map(path => (
-                                                            <div key={path.join('\u0000')} className="text-[11px] text-amber-700">{path.join(' / ')}</div>
-                                                        ))}
-                                                    </div>
-                                                    <div className="text-[10px] text-amber-600 mt-1">路徑依序為大類／小類／品牌。同一份型錄只占一份空間；其他分類會建立捷徑。貼上 Google Drive 連結後，儲存產品也會自動整理。</div>
+                                                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 mb-3">
+                                                    <div className="text-[11px] font-medium text-emerald-800 mb-1">av-shop.com 商品型錄</div>
+                                                    <div className="text-[10px] leading-5 text-emerald-700">檔案上傳後會取得官網媒體網址；若商品已同步至 WooCommerce，也會掛到該商品附件。儲存後，產品篩選器會直接顯示型錄連結。</div>
                                                 </div>
                                                 <div className="text-[11px] text-gray-400 border-t border-gray-100 pt-3 mb-2">支援 PDF、ZIP、Word、Excel、PowerPoint 等格式；單檔 4MB 內可直接上傳。</div>
                                                 <div className="space-y-2 mb-3">
                                                     {webDownloads.map((dl, i) => (
                                                         <div key={dl.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto_auto] gap-2 items-center">
                                                             <input value={dl.file_name} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_name: e.target.value } : r))} placeholder="檔名（如：使用手冊）" className={inputClass + ' text-xs py-1.5'} />
-                                                            <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="Google Drive 下載連結" className={inputClass + ' text-xs py-1.5'} />
+                                                            <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="av-shop.com 媒體網址" className={inputClass + ' text-xs py-1.5'} />
                                                             <label className="inline-flex items-center justify-center gap-1 px-2.5 py-2 border border-blue-200 rounded-lg text-xs text-blue-700 hover:bg-blue-50 cursor-pointer whitespace-nowrap">
                                                                 {downloadUploading === i ? <Loader2 size={12} className="animate-spin" /> : <FileUp size={12} />}
-                                                                {downloadUploading === i ? '上傳中' : '上傳 Drive'}
+                                                                {downloadUploading === i ? '上傳中' : '上傳官網'}
                                                                 <input
                                                                     type="file"
+                                                                    accept=".pdf,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
                                                                     className="hidden"
                                                                     disabled={downloadUploading != null}
                                                                     onChange={async e => {
