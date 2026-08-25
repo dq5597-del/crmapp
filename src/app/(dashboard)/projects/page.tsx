@@ -279,7 +279,11 @@ export default function ProjectsFolderPage() {
                 {filtered.map(p => (
                   <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50/60">
                     <td className="py-2.5 px-4 whitespace-nowrap font-mono text-xs text-gray-500">{p.project_code ?? '—'}</td>
-                    <td className="py-2.5 px-4 font-medium text-gray-900">
+                    <td
+                      className="py-2.5 px-4 font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline"
+                      onClick={() => router.push(`/clients/${p.client_id}?tab=projects&edit=${p.id}`)}
+                      title="點案名進入編輯"
+                    >
                       {p.project_name}
                       {p.scene_name && <span className="text-gray-400 font-normal"> · {p.scene_name}</span>}
                     </td>

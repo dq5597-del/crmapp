@@ -12,6 +12,9 @@ function onOpen() {
     .addItem('同步目前選取列', 'syncSelectedRows')
     .addItem('同步全部待處理資料', 'syncPendingRows')
     .addItem('從 CRM 更新試算表', 'pullProductsFromCrm')
+    .addSeparator()
+    .addItem('依品牌排序（品牌→型號）', 'sortProductsByBrand')
+    .addItem('資料健檢（只提報不修改）', 'checkProductData')
     .addToUi();
 }
 
