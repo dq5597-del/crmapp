@@ -10,6 +10,7 @@ export type ProductFilterOption = {
   sort_order: number
   is_active: boolean
 }
+export type NumericRangePreset = { id: string; label: string; min?: number; max?: number }
 export type ProductFilterGroup = {
   id: string
   name: string
@@ -26,10 +27,10 @@ export type ProductFilterGroup = {
   woo_attribute_slug?: string | null
   web_sync_enabled?: boolean
   woo_synced_at?: string | null
+  numeric_range_presets: NumericRangePreset[]
 }
 
 export type ProductNumberMap = Record<string, Record<string, number>>
-export type NumericRangePreset = { id: string; label: string; min?: number; max?: number }
 export type NumericPresetSelections = Record<string, string[]>
 export type CatalogQuotationMethod = 'online' | 'project'
 
@@ -85,15 +86,33 @@ export function buildFilterGroups(groups: any[], options: any[], categoryMapping
   }
   return groups
     .filter(group => group.is_active !== false)
-    .map(group => ({
-      ...group,
-      selection_mode: group.selection_mode === 'single' ? 'single' : 'multiple',
-      options: (byGroup.get(group.id) ?? [])
-        .filter(option => option.is_active !== false)
-        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'zh-Hant')),
-      category_ids: categoriesByGroup.get(group.id) ?? [],
-      category_sort_orders: categorySortOrdersByGroup.get(group.id) ?? {},
-    }))
+    .map(group => {
+      const numericRangePresets = Array.isArray(group.numeric_range_presets)
+        ? group.numeric_range_presets.flatMap((preset: any, index: number) => {
+          const min = preset?.min == null || preset.min === '' ? undefined : Number(preset.min)
+          const max = preset?.max == null || preset.max === '' ? undefined : Number(preset.max)
+          if ((min === undefined && max === undefined)
+            || (min !== undefined && !Number.isFinite(min))
+            || (max !== undefined && !Number.isFinite(max))) return []
+          return [{
+            id: String(preset?.id || `custom_${index}`),
+            label: String(preset?.label || '').trim(),
+            ...(min === undefined ? {} : { min }),
+            ...(max === undefined ? {} : { max }),
+          }]
+        })
+        : []
+      return {
+        ...group,
+        selection_mode: group.selection_mode === 'single' ? 'single' : 'multiple',
+        numeric_range_presets: numericRangePresets,
+        options: (byGroup.get(group.id) ?? [])
+          .filter(option => option.is_active !== false)
+          .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'zh-Hant')),
+        category_ids: categoriesByGroup.get(group.id) ?? [],
+        category_sort_orders: categorySortOrdersByGroup.get(group.id) ?? {},
+      }
+    })
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'zh-Hant'))
 }
 
@@ -210,8 +229,9 @@ function exactPresets(values: number[], unit: string | null): NumericRangePreset
   return values.map(value => ({ id: `exact_${value}`, label: `${value}${suffix}`, min: value, max: value }))
 }
 
-export function numericRangePresets(group: Pick<ProductFilterGroup, 'slug' | 'unit'>): NumericRangePreset[] {
+export function numericRangePresets(group: Pick<ProductFilterGroup, 'slug' | 'unit' | 'numeric_range_presets'>): NumericRangePreset[] {
   const { slug, unit } = group
+  if (group.numeric_range_presets.length > 0) return group.numeric_range_presets
   if (slug.includes('impedance') || slug === 'rated_load_ohm') return exactPresets([2, 4, 8, 16], unit)
   if (slug.includes('brightness_ansi')) return rangePresets([3000, 5000, 8000, 12000], unit)
   if (slug.includes('brightness_nit')) return rangePresets([350, 500, 700, 1000], unit)

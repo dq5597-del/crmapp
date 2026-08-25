@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Loader2, Plus, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react'
-import type { ProductFilterGroup, ProductFilterInputType, ProductFilterSelectionMode } from '@/lib/product-filters'
+import {
+  numericRangePresets,
+  type NumericRangePreset,
+  type ProductFilterGroup,
+  type ProductFilterInputType,
+  type ProductFilterSelectionMode,
+} from '@/lib/product-filters'
 
 type Props = {
   open: boolean
@@ -18,6 +24,47 @@ function uniqueSlug(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 }
 
+type NumericRangeDraft = { id: string; label: string; min: string; max: string }
+
+function rangeDraft(preset: NumericRangePreset): NumericRangeDraft {
+  return {
+    id: preset.id,
+    label: preset.label,
+    min: preset.min == null ? '' : String(preset.min),
+    max: preset.max == null ? '' : String(preset.max),
+  }
+}
+
+function rangeLabel(min: number | undefined, max: number | undefined, unit: string) {
+  const suffix = unit.trim() ? ` ${unit.trim()}` : ''
+  if (min !== undefined && max !== undefined && min === max) return `${min}${suffix}`
+  if (min !== undefined && max !== undefined) return `${min}–${max}${suffix}`
+  if (min !== undefined) return `${min}${suffix} 以上`
+  return `${max}${suffix} 以下`
+}
+
+function normalizeRangeDrafts(drafts: NumericRangeDraft[], unit: string): NumericRangePreset[] {
+  return drafts.map((draft, index) => {
+    const minText = draft.min.trim()
+    const maxText = draft.max.trim()
+    if (!minText && !maxText) throw new Error(`第 ${index + 1} 個區間至少要填最小值或最大值`)
+    const min = minText ? Number(minText) : undefined
+    const max = maxText ? Number(maxText) : undefined
+    if ((min !== undefined && !Number.isFinite(min)) || (max !== undefined && !Number.isFinite(max))) {
+      throw new Error(`第 ${index + 1} 個區間的數值格式不正確`)
+    }
+    if (min !== undefined && max !== undefined && min > max) {
+      throw new Error(`第 ${index + 1} 個區間的最小值不可大於最大值`)
+    }
+    return {
+      id: draft.id || uniqueSlug('custom_range'),
+      label: draft.label.trim() || rangeLabel(min, max, unit),
+      ...(min === undefined ? {} : { min }),
+      ...(max === undefined ? {} : { max }),
+    }
+  })
+}
+
 export default function ProductFilterManagerModal({ open, categoryId, categoryName, groups, supabase, onClose, onSaved }: Props) {
   const categoryGroups = useMemo(
     () => groups.filter(group => group.category_ids.includes(categoryId)),
@@ -30,6 +77,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
   const [selectionMode, setSelectionMode] = useState<ProductFilterSelectionMode>('multiple')
   const [webSyncEnabled, setWebSyncEnabled] = useState(true)
   const [optionDrafts, setOptionDrafts] = useState<Record<string, string>>({})
+  const [rangeDrafts, setRangeDrafts] = useState<NumericRangeDraft[]>([])
   const [newOption, setNewOption] = useState('')
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<ProductFilterInputType>('multi_select')
@@ -54,10 +102,11 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
     setSelectionMode(selectedGroup.selection_mode)
     setWebSyncEnabled(selectedGroup.web_sync_enabled !== false)
     setOptionDrafts(Object.fromEntries(selectedGroup.options.map(option => [option.id, option.name])))
+    setRangeDrafts(selectedGroup.numeric_range_presets.map(rangeDraft))
     setNewOption('')
     setError('')
     setNotice('')
-  }, [selectedGroup?.id, selectedGroup?.name, selectedGroup?.unit, selectedGroup?.selection_mode, selectedGroup?.web_sync_enabled, selectedGroup?.options])
+  }, [selectedGroup?.id, selectedGroup?.name, selectedGroup?.unit, selectedGroup?.selection_mode, selectedGroup?.web_sync_enabled, selectedGroup?.options, selectedGroup?.numeric_range_presets])
 
   if (!open) return null
 
@@ -122,10 +171,17 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
 
   async function saveGroup() {
     if (!selectedGroup || !name.trim()) return setError('請輸入篩選條件名稱')
+    let savedRanges: NumericRangePreset[] = []
+    try {
+      savedRanges = selectedGroup.input_type === 'number' ? normalizeRangeDrafts(rangeDrafts, unit) : []
+    } catch (cause: any) {
+      return setError(cause?.message ?? '請檢查數值區間設定')
+    }
     await run('group', async () => {
       const { error: updateError } = await supabase.from('product_filter_groups').update({
         name: name.trim(),
         unit: selectedGroup.input_type === 'number' ? unit.trim() || null : null,
+        numeric_range_presets: savedRanges,
         selection_mode: selectionMode,
         web_sync_enabled: webSyncEnabled,
         updated_at: new Date().toISOString(),
@@ -326,7 +382,32 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
               <h4 className="text-sm font-semibold text-gray-900">選項設定</h4>
               <div className="mt-3 space-y-2">{selectedGroup.options.map(option => <div key={option.id} className="flex gap-2"><input value={optionDrafts[option.id] ?? ''} onChange={event => setOptionDrafts(current => ({ ...current, [option.id]: event.target.value }))} className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm" /><button type="button" disabled={!!saving || optionDrafts[option.id]?.trim() === option.name} onClick={() => saveOption(option.id)} className="rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-35">{saving === `option-${option.id}` ? '儲存中' : '更新'}</button><button type="button" disabled={!!saving} onClick={() => deleteOption(option.id, option.name)} className="rounded-lg border border-red-100 px-2.5 text-red-500 hover:bg-red-50 disabled:opacity-35" aria-label={`刪除選項 ${option.name}`}>{saving === `delete-option-${option.id}` ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}</button></div>)}</div>
               <div className="mt-3 flex gap-2"><input value={newOption} onChange={event => setNewOption(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addOption() } }} placeholder="輸入新選項" className="min-w-0 flex-1 rounded-lg border border-violet-200 px-3 py-2 text-sm" /><button type="button" disabled={!!saving || !newOption.trim()} onClick={addOption} className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 text-sm font-medium text-white disabled:opacity-50"><Plus size={14} />新增選項</button></div>
-            </div> : <div className="mt-5 rounded-lg bg-gray-50 p-3 text-xs leading-5 text-gray-600">數值型條件會依單位自動產生區間選項；商品的實際數值仍在商品規格資料中維護。</div>}
+            </div> : <div className="mt-5 border-t border-gray-100 pt-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900">區間設定</h4>
+                  <p className="mt-1 text-xs leading-5 text-gray-500">最小值留空代表「以下」，最大值留空代表「以上」；顯示名稱留空會自動產生。</p>
+                </div>
+                {rangeDrafts.length > 0 ? <button type="button" disabled={!!saving} onClick={() => setRangeDrafts([])} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">改回系統預設</button> : null}
+              </div>
+
+              {rangeDrafts.length === 0 ? <div className="mt-3 rounded-lg border border-dashed border-violet-200 bg-violet-50/40 p-3">
+                <p className="text-xs font-medium text-gray-700">目前使用系統預設區間</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">{numericRangePresets({ ...selectedGroup, unit: unit.trim() || null, numeric_range_presets: [] }).map(preset => <span key={preset.id} className="rounded-full border border-violet-100 bg-white px-2.5 py-1 text-[11px] text-violet-700">{preset.label}</span>)}</div>
+                <button type="button" disabled={!!saving} onClick={() => setRangeDrafts(numericRangePresets({ ...selectedGroup, unit: unit.trim() || null, numeric_range_presets: [] }).map(rangeDraft))} className="mt-3 flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"><Plus size={13} />自訂這些區間</button>
+              </div> : <div className="mt-3 space-y-2">
+                {rangeDrafts.map((draft, index) => <div key={draft.id} className="grid gap-2 rounded-lg border border-gray-100 bg-gray-50/70 p-2 sm:grid-cols-[minmax(140px,1.4fr)_minmax(90px,1fr)_auto_minmax(90px,1fr)_auto] sm:items-end">
+                  <label className="text-[11px] font-medium text-gray-500">顯示名稱<input value={draft.label} onChange={event => setRangeDrafts(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, label: event.target.value } : row))} placeholder="自動產生" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" /></label>
+                  <label className="text-[11px] font-medium text-gray-500">最小值<input type="number" step="any" value={draft.min} onChange={event => setRangeDrafts(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, min: event.target.value } : row))} placeholder="不設下限" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" /></label>
+                  <span className="hidden pb-2 text-xs text-gray-400 sm:block">至</span>
+                  <label className="text-[11px] font-medium text-gray-500">最大值<input type="number" step="any" value={draft.max} onChange={event => setRangeDrafts(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, max: event.target.value } : row))} placeholder="不設上限" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" /></label>
+                  <button type="button" disabled={!!saving} onClick={() => setRangeDrafts(current => current.filter((_, rowIndex) => rowIndex !== index))} className="h-9 rounded-lg border border-red-100 px-2.5 text-red-500 hover:bg-red-50 disabled:opacity-35" aria-label={`刪除第 ${index + 1} 個區間`}><Trash2 size={14} /></button>
+                </div>)}
+                <button type="button" disabled={!!saving} onClick={() => setRangeDrafts(current => [...current, { id: uniqueSlug('custom_range'), label: '', min: '', max: '' }])} className="flex items-center gap-1 rounded-lg border border-violet-200 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-50 disabled:opacity-50"><Plus size={13} />新增區間</button>
+              </div>}
+              <p className="mt-3 text-[11px] text-gray-400">區間儲存後會套用到產品篩選器；商品的實際數值仍在商品規格資料中維護。</p>
+              <button type="button" disabled={!!saving} onClick={saveGroup} className="mt-3 flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50">{saving === 'group' ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}儲存區間設定</button>
+            </div>}
           </section> : <div className="mt-5 rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-400">此分類尚無篩選條件，請先建立第一個條件。</div>}
         </main>
       </div>
