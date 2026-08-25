@@ -11,6 +11,8 @@ import { findExactCategoryByName } from '@/lib/woocommerce'
 import { WooFilterSync } from '@/lib/woocommerce-filter-sync'
 import { syncWordPressFilterSets, type WordPressCategoryFilter } from '@/lib/wordpress-filter-set-publisher'
 
+export const maxDuration = 300
+
 type ProductCategory = {
   id: string
   main_category: string

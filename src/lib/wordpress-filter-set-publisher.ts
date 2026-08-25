@@ -4,6 +4,17 @@ import { WORDPRESS_FILTER_SET_SNIPPET_NAME, wordpressFilterSetSnippet } from './
 
 type WordPressAuth = { store: string; header: string }
 
+class WordPressRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | null,
+  ) {
+    super(message)
+    this.name = 'WordPressRequestError'
+  }
+}
+
 export type WordPressCategoryFilter = {
   crm_category_id: string
   woo_category_id: number
@@ -40,9 +51,21 @@ async function requestJson(url: string, auth: WordPressAuth, init?: RequestInit)
   let data: any = null
   try { data = text ? JSON.parse(text) : null } catch { /* handled below */ }
   if (!response.ok) {
-    throw new Error(data?.message ?? `WordPress HTTP ${response.status}`)
+    throw new WordPressRequestError(
+      data?.message ?? `WordPress HTTP ${response.status}`,
+      response.status,
+      typeof data?.code === 'string' ? data.code : null,
+    )
   }
   return data
+}
+
+function isMissingSyncRoute(error: unknown) {
+  if (!(error instanceof Error)) return false
+  if (error instanceof WordPressRequestError && (error.code === 'rest_no_route' || error.status === 404)) return true
+  const message = error.message.toLocaleLowerCase()
+  return message.includes('找不到與網址及要求方法相符的路由')
+    || message.includes('no route was found matching the url and request method')
 }
 
 async function snippetRequest(path: string, auth: WordPressAuth, init?: RequestInit) {
@@ -68,7 +91,7 @@ function writableSnippet(snippet: any) {
   }
 }
 
-export async function ensureWordPressFilterSetSnippet() {
+export async function ensureWordPressFilterSetSnippet(forceRefresh = false) {
   const auth = wordpressAuth()
   if (!auth) throw new Error('WordPress 管理帳號尚未設定（WP_MEDIA_USERNAME / WP_MEDIA_APPLICATION_PASSWORD）')
   const list = await snippetRequest(`/snippets?search=${encodeURIComponent(WORDPRESS_FILTER_SET_SNIPPET_NAME)}&per_page=100`, auth)
@@ -80,7 +103,7 @@ export async function ensureWordPressFilterSetSnippet() {
     throw new Error('WordPress 未回傳可驗證的原始篩選器片段，已停止更新')
   }
   if (
-    backup?.id &&
+    !forceRefresh && backup?.id &&
     snippetCodeMatches(backup.code, wordpressFilterSetSnippet) &&
     snippetScopeMatches(backup.scope, 'global')
   ) {
@@ -97,8 +120,14 @@ export async function ensureWordPressFilterSetSnippet() {
   }
   let snippetId = current?.id ?? null
   try {
-    if (current?.id && isSnippetActive(backup?.active ?? current.active)) {
-      await snippetRequest(`/snippets/${current.id}/deactivate`, auth, { method: 'PUT' })
+    if (current?.id && (forceRefresh || isSnippetActive(backup?.active ?? current.active))) {
+      await snippetRequest(`/snippets/${current.id}/deactivate`, auth, { method: 'PUT' }).catch(error => {
+        if (!forceRefresh) throw error
+        console.warn('[wordpress/filter-sets] inactive bridge did not require deactivation', {
+          snippetId: current.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      })
     }
     const savedResponse = current
       ? await snippetRequest(`/snippets/${current.id}`, auth, { method: 'PUT', body: JSON.stringify(payload) })
@@ -129,7 +158,7 @@ export async function ensureWordPressFilterSetSnippet() {
         await snippetRequest(`/snippets/${backup.id}`, auth, {
           method: 'PUT', body: JSON.stringify(writableSnippet(backup)),
         })
-        if (isSnippetActive(backup.active)) {
+        if (forceRefresh || isSnippetActive(backup.active)) {
           await snippetRequest(`/snippets/${backup.id}/activate`, auth, { method: 'PUT' })
         }
       } catch (rollbackError) {
@@ -144,12 +173,30 @@ export async function ensureWordPressFilterSetSnippet() {
 }
 
 export async function syncWordPressFilterSets(categories: WordPressCategoryFilter[]) {
-  const snippet = await ensureWordPressFilterSetSnippet()
-  const result = await requestJson(`${snippet.auth.store}/wp-json/gh-crm/v1/filter-sets/sync`, snippet.auth, {
+  let snippet = await ensureWordPressFilterSetSnippet()
+  const sync = () => requestJson(`${snippet.auth.store}/wp-json/gh-crm/v1/filter-sets/sync`, snippet.auth, {
     method: 'POST', body: JSON.stringify({ categories }),
   })
+  let result: any
+  let recovered = false
+  try {
+    result = await sync()
+  } catch (error) {
+    if (!isMissingSyncRoute(error)) throw error
+    console.warn('[wordpress/filter-sets] sync route missing; refreshing bridge and retrying', {
+      snippetId: snippet.snippet_id,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    snippet = await ensureWordPressFilterSetSnippet(true)
+    result = await sync()
+    recovered = true
+  }
   return {
-    snippet: { action: snippet.action, snippet_id: snippet.snippet_id, active: snippet.active },
+    snippet: {
+      action: recovered ? 'recovered' : snippet.action,
+      snippet_id: snippet.snippet_id,
+      active: snippet.active,
+    },
     ...result,
   }
 }
