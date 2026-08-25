@@ -487,6 +487,8 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1)
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const editFormRef = useRef<HTMLDivElement>(null)
+  const productSaveInProgressRef = useRef(false)
+  const [productSaving, setProductSaving] = useState(false)
   // 未存檔提醒
   const guard = useDirtyGuard()
   // 彈跳視窗開啟時：鎖定背景捲動 + 按 ESC 關閉（點背景不關，避免誤觸掉資料）
@@ -877,38 +879,46 @@ export default function ProductsPage() {
             variant_is_primary: !!variantGroup && form.variant_is_primary,
             web_variation_id: form.web_variation_id || null,
         }
-        let savedProductId: string | null = null
-        if (editingId === 'new') {
-            const { data, error } = await supabase.from('products').insert(payload).select('id').single()
-            if (error) {
-                console.error('新增產品失敗：', error)
-                alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
-                return
+        if (productSaveInProgressRef.current) return
+        productSaveInProgressRef.current = true
+        setProductSaving(true)
+        try {
+            let savedProductId: string | null = null
+            if (editingId === 'new') {
+                const { data, error } = await supabase.from('products').insert(payload).select('id').single()
+                if (error) {
+                    console.error('新增產品失敗：', error)
+                    alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
+                    return
+                }
+                if (data?.id) {
+                    savedProductId = data.id
+                    try { await syncWebSubData(data.id) }
+                    catch (error: any) { alert(`產品已建立，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
+                }
+            } else {
+                savedProductId = editingId as string
+                const { error } = await supabase.from('products').update(payload).eq('id', editingId)
+                if (error) {
+                    console.error('更新產品失敗：', error)
+                    alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
+                    return
+                }
+                try { await syncWebSubData(editingId as string) }
+                catch (error: any) { alert(`產品已更新，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
             }
-            if (data?.id) {
-                savedProductId = data.id
-                try { await syncWebSubData(data.id) }
-                catch (error: any) { alert(`產品已建立，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
+            let websiteDownloadWarning = ''
+            if (savedProductId) {
+                try { await syncWebsiteDownloads(savedProductId) }
+                catch (error: any) { websiteDownloadWarning = error?.message ?? '官網型錄資料同步失敗' }
             }
-        } else {
-            savedProductId = editingId as string
-            const { error } = await supabase.from('products').update(payload).eq('id', editingId)
-            if (error) {
-                console.error('更新產品失敗：', error)
-                alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
-                return
-            }
-            try { await syncWebSubData(editingId as string) }
-            catch (error: any) { alert(`產品已更新，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
+            setEditingId(null)
+            fetchAll()
+            if (websiteDownloadWarning) alert(`產品與篩選器資料已儲存，但官網商品型錄同步失敗：\n${websiteDownloadWarning}`)
+        } finally {
+            productSaveInProgressRef.current = false
+            setProductSaving(false)
         }
-        let websiteDownloadWarning = ''
-        if (savedProductId) {
-            try { await syncWebsiteDownloads(savedProductId) }
-            catch (error: any) { websiteDownloadWarning = error?.message ?? '官網型錄資料同步失敗' }
-        }
-        setEditingId(null)
-        fetchAll()
-        if (websiteDownloadWarning) alert(`產品與篩選器資料已儲存，但官網商品型錄同步失敗：\n${websiteDownloadWarning}`)
     }
 
 
@@ -1902,8 +1912,10 @@ export default function ProductsPage() {
 
                         </div>
                         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-gray-100 bg-gray-50 rounded-b-2xl shrink-0">
-                            <button onClick={() => guard.guardClose(() => setEditingId(null))} className="min-h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm">取消</button>
-                            <button onClick={handleSave} className="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">儲存</button>
+                            <button type="button" disabled={productSaving} onClick={() => guard.guardClose(() => setEditingId(null))} className="min-h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">取消</button>
+                            <button type="button" disabled={productSaving} onClick={handleSave} className="flex min-h-11 min-w-24 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-blue-400">
+                                {productSaving ? <><Loader2 size={15} className="animate-spin" /> 儲存中…</> : '儲存'}
+                            </button>
                         </div>
                     </div>
                     </div>
