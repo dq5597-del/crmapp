@@ -38,6 +38,8 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
   const [saving, setSaving] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [pendingGroupIds, setPendingGroupIds] = useState<string[]>([])
+  const hasPendingSync = pendingGroupIds.length > 0
 
   useEffect(() => {
     if (!open) return
@@ -58,11 +60,11 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
 
   if (!open) return null
 
-  async function syncWebsite(groupId?: string) {
+  async function syncWebsite(groupIds: string[] = []) {
     const response = await fetch('/api/wordpress/filter-sets/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category_id: categoryId, group_id: groupId }),
+      body: JSON.stringify({ category_id: categoryId, group_ids: groupIds }),
     })
     const result = await response.json().catch(() => null)
     if (!response.ok) throw new Error(result?.error ?? `官網同步失敗（HTTP ${response.status}）`)
@@ -81,12 +83,12 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
     try {
       const groupId = await action()
       stored = true
+      setPendingGroupIds(current => Array.from(new Set([...current, groupId])))
       await onSaved()
-      const webResult = await syncWebsite(groupId)
-      setNotice(`${success}，${webResult}`)
+      setNotice(`${success}，可繼續調整；完成後再按「同步變更至官網」`)
     } catch (cause: any) {
       const message = cause?.message ?? '儲存失敗，請稍後再試'
-      setError(stored ? `${success}，但${message}` : message)
+      setError(stored ? `${success}，但畫面重新整理失敗：${message}` : message)
     } finally {
       setSaving('')
     }
@@ -95,14 +97,23 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
   async function syncNow() {
     setSaving('sync'); setError(''); setNotice('')
     try {
-      const result = await syncWebsite(selectedGroup?.id)
+      const groupIds = pendingGroupIds.length
+        ? pendingGroupIds
+        : selectedGroup?.id ? [selectedGroup.id] : []
+      const result = await syncWebsite(groupIds)
       await onSaved()
+      setPendingGroupIds([])
       setNotice(result)
     } catch (cause: any) {
       setError(cause?.message ?? '官網同步失敗')
     } finally {
       setSaving('')
     }
+  }
+
+  function closeModal() {
+    if (hasPendingSync && !confirm('目前有尚未同步到官網的變更，確定先關閉嗎？')) return
+    onClose()
   }
 
   async function saveGroup() {
@@ -240,9 +251,9 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
     <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
       <header className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
         <div className="rounded-xl bg-violet-100 p-2 text-violet-700"><Settings2 size={18} /></div>
-        <div><h2 className="font-bold text-gray-900">管理「{categoryName}」篩選條件</h2><p className="text-xs text-gray-500">新增、修改條件與選項，並指定顧客可單選或多選</p></div>
-        <button type="button" disabled={!!saving} onClick={syncNow} className="ml-auto flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">{saving === 'sync' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}立即同步官網</button>
-        <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="關閉"><X size={18} /></button>
+        <div><h2 className="font-bold text-gray-900">管理「{categoryName}」篩選條件</h2><p className="text-xs text-gray-500">可連續新增、修改或刪除，完成後再一次同步官網</p></div>
+        <button type="button" disabled={!!saving} onClick={syncNow} className={`ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-50 ${hasPendingSync ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}>{saving === 'sync' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}{hasPendingSync ? '同步變更至官網' : '立即同步官網'}</button>
+        <button type="button" onClick={closeModal} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="關閉"><X size={18} /></button>
       </header>
 
       <div className="grid min-h-0 flex-1 md:grid-cols-[240px_minmax(0,1fr)]">
@@ -254,6 +265,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
         <main className="overflow-y-auto p-5">
           {error ? <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
           {notice ? <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"><Check size={14} />{notice}</div> : null}
+          {hasPendingSync ? <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"><RefreshCw size={14} />變更已儲存於系統，尚未同步到官網；可繼續調整，最後同步一次即可。</div> : null}
 
           <section className="rounded-xl border border-violet-100 bg-violet-50/30 p-4">
             <h3 className="mb-3 text-sm font-bold text-gray-900"><Plus size={15} className="mr-1 inline" />新增篩選條件</h3>

@@ -38,6 +38,7 @@ function categoryWebsiteNames(category: ProductCategory, products: any[]) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now()
   const supabase = createServerSupabaseClient()
   const { data: authData, error: authError } = await supabase.auth.getUser()
   if (authError || !authData.user) {
@@ -51,7 +52,11 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}))
   const categoryId = typeof body?.category_id === 'string' ? body.category_id : ''
-  const groupId = typeof body?.group_id === 'string' ? body.group_id : ''
+  const legacyGroupId = typeof body?.group_id === 'string' ? body.group_id : ''
+  const groupIds = Array.from(new Set([
+    legacyGroupId,
+    ...(Array.isArray(body?.group_ids) ? body.group_ids.filter((id: unknown): id is string => typeof id === 'string') : []),
+  ].map(id => id.trim()).filter(Boolean)))
   if (!categoryId) {
     return NextResponse.json({ error: '缺少產品分類 ID' }, { status: 400 })
   }
@@ -75,9 +80,10 @@ export async function POST(request: Request) {
     )
     const groups = buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings)
     const affectedIds = new Set<string>([categoryId])
-    if (groupId) {
+    if (groupIds.length) {
+      const requestedGroups = new Set(groupIds)
       for (const group of groups) {
-        if (group.id === groupId) group.category_ids.forEach(id => affectedIds.add(id))
+        if (requestedGroups.has(group.id)) group.category_ids.forEach(id => affectedIds.add(id))
       }
     }
     const affectedCategories = categories.filter(category => affectedIds.has(category.id))
@@ -151,6 +157,12 @@ export async function POST(request: Request) {
     for (let index = 0; index < payloads.length; index += 80) batches.push(payloads.slice(index, index + 80))
     const synced = []
     for (const batch of batches) synced.push(await syncWordPressFilterSets(batch))
+    console.info('[wordpress/filter-sets/sync] completed', {
+      categoryId,
+      groupCount: groupIds.length,
+      categoryCount: payloads.length,
+      durationMs: Date.now() - startedAt,
+    })
     return NextResponse.json({
       ok: true,
       categories: payloads.length,
@@ -161,6 +173,12 @@ export async function POST(request: Request) {
       snippet: synced[0]?.snippet ?? null,
     })
   } catch (error: any) {
+    console.error('[wordpress/filter-sets/sync] failed', {
+      categoryId,
+      groupCount: groupIds.length,
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return NextResponse.json({ error: error?.message ?? '官網篩選器同步失敗' }, { status: 500 })
   }
 }
