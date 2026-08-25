@@ -1,8 +1,21 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Loader2, Plus, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react'
 import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { Check, ChevronDown, ChevronUp, GripVertical, Loader2, Plus, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react'
+import {
+  filterGroupsForCategory,
   numericRangePresets,
   type NumericRangePreset,
   type ProductFilterGroup,
@@ -65,11 +78,47 @@ function normalizeRangeDrafts(drafts: NumericRangeDraft[], unit: string): Numeri
   })
 }
 
+type SortableGroupRowProps = {
+  group: ProductFilterGroup
+  selected: boolean
+  disabled: boolean
+  index: number
+  count: number
+  onSelect: () => void
+  onMove: (offset: number) => void
+}
+
+function SortableGroupRow({ group, selected, disabled, index, count, onSelect, onMove }: SortableGroupRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: group.id,
+    disabled,
+  })
+  return <div
+    ref={setNodeRef}
+    style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 20 : undefined }}
+    className={`flex items-stretch gap-1 rounded-lg border border-transparent ${isDragging ? 'bg-white opacity-90 shadow-lg ring-2 ring-violet-300' : ''}`}
+  >
+    <button type="button" disabled={disabled} {...attributes} {...listeners} className="touch-none flex cursor-grab items-center px-1 text-gray-300 hover:text-violet-500 active:cursor-grabbing disabled:cursor-default" aria-label={`拖曳調整${group.name}順序`} title="按住拖曳調整順序"><GripVertical size={15} /></button>
+    <button type="button" onClick={onSelect} className={`min-w-0 flex-1 rounded-lg px-2 py-2 text-left text-sm ${selected ? 'bg-violet-600 text-white' : 'text-gray-700 hover:bg-white'}`}><span className="block truncate font-medium">{group.name}</span><span className={`text-[11px] ${selected ? 'text-violet-100' : 'text-gray-400'}`}>{group.selection_mode === 'single' ? '單一選' : '多選'} · {group.input_type === 'number' ? '數值區間' : `${group.options.length} 個選項`}</span></button>
+    <span className="flex flex-col justify-center">
+      <button type="button" disabled={disabled || index === 0} onClick={() => onMove(-1)} className="rounded p-0.5 text-gray-400 hover:bg-white hover:text-violet-600 disabled:opacity-20" aria-label={`將${group.name}上移`}><ChevronUp size={13} /></button>
+      <button type="button" disabled={disabled || index === count - 1} onClick={() => onMove(1)} className="rounded p-0.5 text-gray-400 hover:bg-white hover:text-violet-600 disabled:opacity-20" aria-label={`將${group.name}下移`}><ChevronDown size={13} /></button>
+    </span>
+  </div>
+}
+
 export default function ProductFilterManagerModal({ open, categoryId, categoryName, groups, supabase, onClose, onSaved }: Props) {
   const categoryGroups = useMemo(
-    () => groups.filter(group => group.category_ids.includes(categoryId)),
+    () => filterGroupsForCategory(groups, categoryId),
     [groups, categoryId],
   )
+  const [orderedGroupIds, setOrderedGroupIds] = useState<string[]>([])
+  const orderedGroups = useMemo(() => {
+    const byId = new Map(categoryGroups.map(group => [group.id, group]))
+    const ordered = orderedGroupIds.flatMap(id => byId.get(id) ?? [])
+    const included = new Set(ordered.map(group => group.id))
+    return [...ordered, ...categoryGroups.filter(group => !included.has(group.id))]
+  }, [categoryGroups, orderedGroupIds])
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const selectedGroup = categoryGroups.find(group => group.id === selectedGroupId) ?? categoryGroups[0]
   const [name, setName] = useState('')
@@ -89,11 +138,20 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
   const [newGroupError, setNewGroupError] = useState('')
   const [pendingGroupIds, setPendingGroupIds] = useState<string[]>([])
   const hasPendingSync = pendingGroupIds.length > 0
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   useEffect(() => {
     if (!open) return
     if (!selectedGroupId && categoryGroups[0]) setSelectedGroupId(categoryGroups[0].id)
   }, [open, categoryGroups, selectedGroupId])
+
+  useEffect(() => {
+    if (!open) return
+    setOrderedGroupIds(categoryGroups.map(group => group.id))
+  }, [open, categoryId, categoryGroups])
 
   useEffect(() => {
     if (!selectedGroup) return
@@ -137,11 +195,13 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
       setPendingGroupIds(current => Array.from(new Set([...current, groupId])))
       await onSaved()
       setNotice(`${success}，可繼續調整；完成後再按「同步變更至官網」`)
+      return true
     } catch (cause: any) {
       const message = cause?.message ?? '儲存失敗，請稍後再試'
       const displayMessage = stored ? `${success}，但畫面重新整理失敗：${message}` : message
       setError(displayMessage)
       if (key === 'new-group') setNewGroupError(displayMessage)
+      return false
     } finally {
       setSaving('')
     }
@@ -329,6 +389,70 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
     }, '新篩選條件已建立')
   }
 
+  async function saveGroupOrder(nextIds: string[], previousIds: string[]) {
+    const saved = await run('group-order', async () => {
+      const templateSlug = `custom_category_${categoryId.replaceAll('-', '')}`
+      let { data: template, error: templateLookupError } = await supabase
+        .from('product_filter_templates')
+        .select('id')
+        .eq('slug', templateSlug)
+        .maybeSingle()
+      if (templateLookupError) throw templateLookupError
+      if (!template) {
+        const result = await supabase.from('product_filter_templates').insert({
+          name: `${categoryName}－自訂篩選`, slug: templateSlug, sort_order: 9990, is_active: true,
+        }).select('id').single()
+        if (result.error) throw result.error
+        template = result.data
+      }
+
+      const rows = nextIds.map((groupId, index) => ({
+        template_id: template.id,
+        group_id: groupId,
+        sort_order: (index + 1) * 10,
+        is_required: false,
+      }))
+      const { error: mappingError } = await supabase.from('product_filter_template_groups').upsert(
+        rows,
+        { onConflict: 'template_id,group_id' },
+      )
+      if (mappingError) throw mappingError
+
+      const { error: categoryError } = await supabase.from('product_category_filter_templates').upsert(
+        { category_id: categoryId, template_id: template.id },
+        { onConflict: 'category_id' },
+      )
+      if (categoryError) throw categoryError
+      return '__category_order__'
+    }, '篩選器順序已更新')
+    if (!saved) setOrderedGroupIds(previousIds)
+  }
+
+  function moveGroup(draggedId: string, targetId: string) {
+    if (!draggedId || draggedId === targetId || saving) return
+    const previousIds = orderedGroups.map(group => group.id)
+    const fromIndex = previousIds.indexOf(draggedId)
+    const targetIndex = previousIds.indexOf(targetId)
+    if (fromIndex < 0 || targetIndex < 0) return
+    const nextIds = [...previousIds]
+    nextIds.splice(fromIndex, 1)
+    nextIds.splice(targetIndex, 0, draggedId)
+    setOrderedGroupIds(nextIds)
+    void saveGroupOrder(nextIds, previousIds)
+  }
+
+  function handleGroupDragEnd(event: DragEndEvent) {
+    if (!event.over) return
+    moveGroup(String(event.active.id), String(event.over.id))
+  }
+
+  function moveGroupBy(groupId: string, offset: number) {
+    const currentIds = orderedGroups.map(group => group.id)
+    const currentIndex = currentIds.indexOf(groupId)
+    const targetId = currentIds[currentIndex + offset]
+    if (targetId) moveGroup(groupId, targetId)
+  }
+
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/45 p-4" role="dialog" aria-modal="true" aria-label="管理篩選條件">
     <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
       <header className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
@@ -340,8 +464,25 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
 
       <div className="grid min-h-0 flex-1 md:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="overflow-y-auto border-r border-gray-100 bg-gray-50 p-3">
-          <p className="mb-2 px-2 text-xs font-semibold text-gray-500">現有條件（{categoryGroups.length}）</p>
-          <div className="space-y-1">{categoryGroups.map(group => <button key={group.id} type="button" onClick={() => setSelectedGroupId(group.id)} className={`w-full rounded-lg px-3 py-2 text-left text-sm ${selectedGroup?.id === group.id ? 'bg-violet-600 text-white' : 'text-gray-700 hover:bg-white'}`}><span className="block font-medium">{group.name}</span><span className={`text-[11px] ${selectedGroup?.id === group.id ? 'text-violet-100' : 'text-gray-400'}`}>{group.selection_mode === 'single' ? '單一選' : '多選'} · {group.input_type === 'number' ? '數值區間' : `${group.options.length} 個選項`}</span></button>)}</div>
+          <div className="mb-2 flex items-center justify-between gap-2 px-2">
+            <p className="text-xs font-semibold text-gray-500">現有條件（{categoryGroups.length}）</p>
+            {saving === 'group-order' ? <span className="flex items-center gap-1 text-[10px] text-violet-600"><Loader2 size={11} className="animate-spin" />儲存中</span> : null}
+          </div>
+          <p className="mb-2 px-2 text-[10px] text-gray-400">拖曳左側把手，或用箭頭調整網站順序</p>
+          <DndContext sensors={dragSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
+            <SortableContext items={orderedGroups.map(group => group.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">{orderedGroups.map((group, index) => <SortableGroupRow
+                key={group.id}
+                group={group}
+                selected={selectedGroup?.id === group.id}
+                disabled={!!saving}
+                index={index}
+                count={orderedGroups.length}
+                onSelect={() => setSelectedGroupId(group.id)}
+                onMove={offset => moveGroupBy(group.id, offset)}
+              />)}</div>
+            </SortableContext>
+          </DndContext>
         </aside>
 
         <main className="overflow-y-auto p-5">
