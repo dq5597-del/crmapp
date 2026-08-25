@@ -38,6 +38,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
   const [saving, setSaving] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [newGroupError, setNewGroupError] = useState('')
   const [pendingGroupIds, setPendingGroupIds] = useState<string[]>([])
   const hasPendingSync = pendingGroupIds.length > 0
 
@@ -79,6 +80,7 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
 
   async function run(key: string, action: () => Promise<string>, success: string) {
     setSaving(key); setError(''); setNotice('')
+    if (key === 'new-group') setNewGroupError('')
     let stored = false
     try {
       const groupId = await action()
@@ -88,7 +90,9 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
       setNotice(`${success}，可繼續調整；完成後再按「同步變更至官網」`)
     } catch (cause: any) {
       const message = cause?.message ?? '儲存失敗，請稍後再試'
-      setError(stored ? `${success}，但畫面重新整理失敗：${message}` : message)
+      const displayMessage = stored ? `${success}，但畫面重新整理失敗：${message}` : message
+      setError(displayMessage)
+      if (key === 'new-group') setNewGroupError(displayMessage)
     } finally {
       setSaving('')
     }
@@ -208,9 +212,43 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
   }
 
   async function addGroup() {
-    if (!newName.trim()) return setError('請輸入新篩選條件名稱')
+    if (!newName.trim()) {
+      setNewGroupError('請輸入新篩選條件名稱')
+      return setError('請輸入新篩選條件名稱')
+    }
     await run('new-group', async () => {
       const maxSort = categoryGroups.reduce((max, group) => Math.max(max, group.category_sort_orders?.[categoryId] ?? group.sort_order), 0)
+      const templateSlug = `custom_category_${categoryId.replaceAll('-', '')}`
+      let { data: template, error: templateLookupError } = await supabase.from('product_filter_templates').select('id').eq('slug', templateSlug).maybeSingle()
+      if (templateLookupError) throw templateLookupError
+      if (!template) {
+        const result = await supabase.from('product_filter_templates').insert({
+          name: `${categoryName}－自訂篩選`, slug: templateSlug, sort_order: 9990, is_active: true,
+        }).select('id').single()
+        if (result.error) throw result.error
+        template = result.data
+      }
+
+      const existingMappings = categoryGroups.map(group => ({
+        template_id: template.id,
+        group_id: group.id,
+        sort_order: group.category_sort_orders?.[categoryId] ?? group.sort_order,
+        is_required: false,
+      }))
+      if (existingMappings.length > 0) {
+        const { error: cloneError } = await supabase.from('product_filter_template_groups').upsert(
+          existingMappings,
+          { onConflict: 'template_id,group_id' },
+        )
+        if (cloneError) throw cloneError
+      }
+
+      const { error: categoryError } = await supabase.from('product_category_filter_templates').upsert(
+        { category_id: categoryId, template_id: template.id },
+        { onConflict: 'category_id' },
+      )
+      if (categoryError) throw categoryError
+
       const { data: created, error: groupError } = await supabase.from('product_filter_groups').insert({
         name: newName.trim(),
         slug: uniqueSlug('custom_filter'),
@@ -222,27 +260,15 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
       }).select('id').single()
       if (groupError) throw groupError
 
-      const templateSlug = `custom_category_${categoryId.replaceAll('-', '')}`
-      let { data: template, error: templateLookupError } = await supabase.from('product_filter_templates').select('id').eq('slug', templateSlug).maybeSingle()
-      if (templateLookupError) throw templateLookupError
-      if (!template) {
-        const result = await supabase.from('product_filter_templates').insert({
-          name: `${categoryName}－自訂篩選`, slug: templateSlug, sort_order: 9990, is_active: true,
-        }).select('id').single()
-        if (result.error) throw result.error
-        template = result.data
-      }
-      const { error: categoryError } = await supabase.from('product_category_filter_templates').upsert(
-        { category_id: categoryId, template_id: template.id },
-        { onConflict: 'category_id,template_id' },
-      )
-      if (categoryError) throw categoryError
       const { error: mappingError } = await supabase.from('product_filter_template_groups').upsert(
         { template_id: template.id, group_id: created.id, sort_order: maxSort + 10, is_required: false },
         { onConflict: 'template_id,group_id' },
       )
-      if (mappingError) throw mappingError
-      setNewName(''); setNewUnit(''); setSelectedGroupId(created.id)
+      if (mappingError) {
+        await supabase.from('product_filter_groups').delete().eq('id', created.id)
+        throw mappingError
+      }
+      setNewName(''); setNewUnit(''); setNewGroupError(''); setSelectedGroupId(created.id)
       return created.id as string
     }, '新篩選條件已建立')
   }
@@ -270,12 +296,13 @@ export default function ProductFilterManagerModal({ open, categoryId, categoryNa
           <section className="rounded-xl border border-violet-100 bg-violet-50/30 p-4">
             <h3 className="mb-3 text-sm font-bold text-gray-900"><Plus size={15} className="mr-1 inline" />新增篩選條件</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="text-xs font-medium text-gray-600 sm:col-span-2">條件名稱<input value={newName} onChange={event => setNewName(event.target.value)} placeholder="例如：安裝方式" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" /></label>
+              <label className="text-xs font-medium text-gray-600 sm:col-span-2">條件名稱<input value={newName} onChange={event => { setNewName(event.target.value); setNewGroupError('') }} placeholder="例如：安裝方式" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" /></label>
               <label className="text-xs font-medium text-gray-600">資料型態<select value={newType} onChange={event => setNewType(event.target.value as ProductFilterInputType)} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"><option value="multi_select">文字選項</option><option value="number">數值區間</option></select></label>
               <label className="text-xs font-medium text-gray-600">選取方式<select value={newMode} onChange={event => setNewMode(event.target.value as ProductFilterSelectionMode)} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"><option value="multiple">多選</option><option value="single">單一選</option></select></label>
               {newType === 'number' ? <label className="text-xs font-medium text-gray-600">單位<input value={newUnit} onChange={event => setNewUnit(event.target.value)} placeholder="例如 W、吋" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" /></label> : null}
             </div>
             <button type="button" disabled={!!saving} onClick={addGroup} className="mt-3 flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50">{saving === 'new-group' ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}建立條件</button>
+            {newGroupError ? <p role="alert" className="mt-2 text-xs font-medium text-red-600">建立失敗：{newGroupError}</p> : null}
           </section>
 
           {selectedGroup ? <section className="mt-5">
