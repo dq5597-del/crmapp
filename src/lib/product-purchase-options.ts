@@ -29,6 +29,20 @@ export function blankPurchaseOptionGroup(): ProductPurchaseOptionGroup {
   }
 }
 
+export function copyPurchaseOptionGroup(group: ProductPurchaseOptionGroup): ProductPurchaseOptionGroup {
+  return {
+    name: group.name,
+    description: group.description,
+    selection_mode: group.selection_mode,
+    is_required: group.is_required,
+    options: group.options.map(option => ({
+      label: option.label,
+      price_adjustment: option.price_adjustment,
+      is_default: option.is_default,
+    })),
+  }
+}
+
 export function normalizedPurchaseOptionGroups(groups: ProductPurchaseOptionGroup[]) {
   return groups.map(group => ({
     ...group,

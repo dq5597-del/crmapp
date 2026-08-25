@@ -1,7 +1,7 @@
 'use client'
 
-import { CircleDollarSign, Plus, ShoppingCart, Trash2 } from 'lucide-react'
-import { blankPurchaseOptionGroup, type ProductPurchaseOptionGroup } from '@/lib/product-purchase-options'
+import { CircleDollarSign, Copy, Plus, ShoppingCart, Trash2 } from 'lucide-react'
+import { blankPurchaseOptionGroup, copyPurchaseOptionGroup, type ProductPurchaseOptionGroup } from '@/lib/product-purchase-options'
 
 type Props = {
   groups: ProductPurchaseOptionGroup[]
@@ -20,6 +20,15 @@ export default function ProductPurchaseOptionFields({ groups, onChange }: Props)
       options = options.map((option, index) => ({ ...option, is_default: index === optionIndex }))
     }
     updateGroup(groupIndex, { options })
+  }
+
+  function copyGroupToNext(groupIndex: number) {
+    const copiedGroup = copyPurchaseOptionGroup(groups[groupIndex])
+    onChange([
+      ...groups.slice(0, groupIndex + 1),
+      copiedGroup,
+      ...groups.slice(groupIndex + 1),
+    ])
   }
 
   return (
@@ -73,9 +82,14 @@ export default function ProductPurchaseOptionFields({ groups, onChange }: Props)
               <option value="single">單選</option>
               <option value="multiple">可複選</option>
             </select>
-            <button type="button" onClick={() => onChange(groups.filter((_, index) => index !== groupIndex))} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600" aria-label="刪除購買選項群組">
-              <Trash2 size={15} />
-            </button>
+            <div className="flex items-center justify-end gap-1">
+              <button type="button" onClick={() => copyGroupToNext(groupIndex)} className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-amber-200 px-2 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-50" aria-label={`複製${group.name || '此欄位'}到下一筆`} title="複製完整欄位到下一筆">
+                <Copy size={13} /> 複製到下一筆
+              </button>
+              <button type="button" onClick={() => onChange(groups.filter((_, index) => index !== groupIndex))} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600" aria-label="刪除購買選項群組">
+                <Trash2 size={15} />
+              </button>
+            </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-1.5 text-[11px] text-gray-600">
