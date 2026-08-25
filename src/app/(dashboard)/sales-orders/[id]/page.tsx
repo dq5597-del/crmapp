@@ -223,7 +223,7 @@ export default function SalesOrderDetailPage() {
     <div {...guard.formProps} className="p-4 md:p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-900">
+        <button onClick={() => router.push('/sales-orders')} className="text-gray-500 hover:text-gray-900">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-xl font-bold text-gray-900">{order.order_no}</h1>
