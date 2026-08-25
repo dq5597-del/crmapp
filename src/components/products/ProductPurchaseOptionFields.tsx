@@ -8,6 +8,26 @@ type Props = {
   onChange: (groups: ProductPurchaseOptionGroup[]) => void
 }
 
+const nextChineseGroupNumber: Record<string, string> = {
+  一: '二',
+  二: '三',
+  三: '四',
+  四: '五',
+  五: '六',
+  六: '七',
+  七: '八',
+  八: '九',
+  九: '十',
+}
+
+function nextCopiedGroupName(name: string) {
+  return name.replace(/^第([一二三四五六七八九十]|\d+)組/, (prefix, number: string) => {
+    if (/^\d+$/.test(number)) return `第${Number(number) + 1}組`
+    const nextNumber = nextChineseGroupNumber[number]
+    return nextNumber ? `第${nextNumber}組` : prefix
+  })
+}
+
 export default function ProductPurchaseOptionFields({ groups, onChange }: Props) {
   function updateGroup(index: number, patch: Partial<ProductPurchaseOptionGroup>) {
     onChange(groups.map((group, groupIndex) => groupIndex === index ? { ...group, ...patch } : group))
@@ -24,6 +44,7 @@ export default function ProductPurchaseOptionFields({ groups, onChange }: Props)
 
   function copyGroupToNext(groupIndex: number) {
     const copiedGroup = copyPurchaseOptionGroup(groups[groupIndex])
+    copiedGroup.name = nextCopiedGroupName(copiedGroup.name)
     onChange([
       ...groups.slice(0, groupIndex + 1),
       copiedGroup,
