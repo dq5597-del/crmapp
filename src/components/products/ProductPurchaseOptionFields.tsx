@@ -83,9 +83,6 @@ export default function ProductPurchaseOptionFields({ groups, onChange }: Props)
               <option value="multiple">可複選</option>
             </select>
             <div className="flex items-center justify-end gap-1">
-              <button type="button" onClick={() => copyGroupToNext(groupIndex)} className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-amber-200 px-2 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-50" aria-label={`複製${group.name || '此欄位'}到下一筆`} title="複製完整欄位到下一筆">
-                <Copy size={13} /> 複製到下一筆
-              </button>
               <button type="button" onClick={() => onChange(groups.filter((_, index) => index !== groupIndex))} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600" aria-label="刪除購買選項群組">
                 <Trash2 size={15} />
               </button>
@@ -126,9 +123,20 @@ export default function ProductPurchaseOptionFields({ groups, onChange }: Props)
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => updateGroup(groupIndex, { options: [...group.options, { label: '', price_adjustment: 0, is_default: false }] })} className="mt-2 flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:text-amber-900">
-            <Plus size={12} /> 新增選項
-          </button>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-amber-100 pt-3">
+            <button type="button" onClick={() => updateGroup(groupIndex, { options: [...group.options, { label: '', price_adjustment: 0, is_default: false }] })} className="flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:text-amber-900">
+              <Plus size={12} /> 新增選項
+            </button>
+            <button
+              type="button"
+              onClick={() => copyGroupToNext(groupIndex)}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-100"
+              aria-label={`複製${group.name || '本組'}為下一組`}
+              title="完整複製本組的名稱、選項與加價，並新增在下方"
+            >
+              <Copy size={14} /> 複製本組為下一組
+            </button>
+          </div>
         </section>
       ))}
     </div>
