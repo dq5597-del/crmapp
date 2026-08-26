@@ -1918,27 +1918,8 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
   const setSB = (k: keyof SurveyForm) => (v: boolean) =>
     setSurvey(p => ({ ...p, [k]: v }))
 
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-500">共 {projects.length} 個專案</span>
-        {projects.length === 0 && (
-          <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
-            <Plus size={14} /> 新增專案
-          </button>
-        )}
-      </div>
-
-      {editingId !== null && (
-        <div className="border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
-            <span className="font-semibold text-gray-800 text-sm">{isNewProject ? '新增專案' : '編輯專案'}</span>
-            {projects.length === 0 && (
-              <button onClick={() => setEditingId(null)}><X size={16} className="text-gray-400" /></button>
-            )}
-          </div>
-          <div className="p-4 space-y-3">
-
+  const projectFormFields = (
+    <>
             <AccordionGroup title="📋 基本資訊和需求" color={BLUE} defaultOpen>
               <Accordion title="① 基本資訊" color={BLUE} defaultOpen>
                 <div className="grid grid-cols-2 gap-3">
@@ -2196,17 +2177,28 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
+    </>
+  )
 
-          </div>
-
-          <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
+  const projectFormActions = (
+    <>
             <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-white">取消</button>
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
               {saving ? '儲存中...' : '儲存專案'}
             </button>
-          </div>
-        </div>
-      )}
+    </>
+  )
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-gray-500">共 {projects.length} 個專案</span>
+        {projects.length === 0 && (
+          <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
+            <Plus size={14} /> 新增專案
+          </button>
+        )}
+      </div>
 
       {loading ? (
         <div className="text-center py-8 text-gray-400 text-sm">載入中...</div>
@@ -2256,9 +2248,33 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               {p.budget && <span>預算：NT${Number(p.budget).toLocaleString()}</span>}
               {p.main_function && <span>功能：{p.main_function}</span>}
             </div>
+          {editingId === p.id && (
+            <div className="border-t border-gray-100">
+              <div className="p-4 space-y-3">
+                {projectFormFields}
+              </div>
+              <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
+                {projectFormActions}
+              </div>
+            </div>
+          )}
           </div>
         ))
       )}
+      {isNewProject && editingId !== null && (
+        <div className="border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b">
+            <span className="font-semibold text-gray-800 text-sm">新增專案</span>
+          </div>
+          <div className="p-4 space-y-3">
+            {projectFormFields}
+          </div>
+          <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
+            {projectFormActions}
+          </div>
+        </div>
+      )}
+
 
     </div>
   )
