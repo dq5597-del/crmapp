@@ -1872,10 +1872,12 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
         end_date: form.end_date || null,
       }
       if (isNewProject) {
-        await supabase.from('projects').insert({ id: editingId, ...projectPayload, client_id: clientId })
+        const { error } = await supabase.from('projects').insert({ id: editingId, ...projectPayload, client_id: clientId })
+        if (error) { alert('建立專案失敗：' + error.message); return }
         setIsNewProject(false)
       } else {
-        await supabase.from('projects').update(projectPayload).eq('id', editingId)
+        const { error } = await supabase.from('projects').update(projectPayload).eq('id', editingId)
+        if (error) { alert('儲存專案失敗：' + error.message); return }
       }
       if (editingId) {
         const surveyPayload = {
@@ -1895,9 +1897,10 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
           await fetch('/api/site-surveys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(surveyPayload) })
         }
       }
+      // 成功才關閉編輯面板；失敗時停留在原畫面並顯示錯誤，避免看起來像「存了但沒變」
+      setEditingId(null)
     } finally {
       setSaving(false)
-      setEditingId(null)
       fetchProjects()
     }
   }
