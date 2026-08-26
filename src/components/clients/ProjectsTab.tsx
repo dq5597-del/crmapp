@@ -1919,16 +1919,20 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <span className="text-sm text-gray-500">共 {projects.length} 個專案</span>
-        <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
-          <Plus size={14} /> 新增專案
-        </button>
+        {projects.length === 0 && (
+          <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
+            <Plus size={14} /> 新增專案
+          </button>
+        )}
       </div>
 
       {editingId !== null && (
         <div className="border border-gray-200 rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
             <span className="font-semibold text-gray-800 text-sm">{isNewProject ? '新增專案' : '編輯專案'}</span>
-            <button onClick={() => setEditingId(null)}><X size={16} className="text-gray-400" /></button>
+            {projects.length === 0 && (
+              <button onClick={() => setEditingId(null)}><X size={16} className="text-gray-400" /></button>
+            )}
           </div>
           <div className="p-4 space-y-3">
 
