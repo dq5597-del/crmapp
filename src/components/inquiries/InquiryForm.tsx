@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { Inquiry, InquiryItem, InquiryStatus, Vendor, Product } from '@/types'
 import {
   Plus, Trash2, Link2, Mail, Copy, Send, CheckCircle, Sparkles,
-  RotateCcw, Lock, AlertTriangle, X, DownloadCloud, FileText,
+  RotateCcw, Lock, AlertTriangle, X, DownloadCloud, FileText, FileOutput,
 } from 'lucide-react'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
@@ -48,11 +48,15 @@ type AiParsedRow = {
 }
 
 interface InquiryFormProps {
-  initialInquiry?: Inquiry
+  initialInquiry?: Partial<Inquiry>
   initialItems?: InquiryItem[]
+  sourceDocument?: {
+    label: string
+    href: string
+  }
 }
 
-export default function InquiryForm({ initialInquiry, initialItems }: InquiryFormProps) {
+export default function InquiryForm({ initialInquiry, initialItems, sourceDocument }: InquiryFormProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -191,7 +195,7 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
     if (!v) return
     // 換廠商：清掉不符合新廠商條件的品項
     const hasFilter = (v.sales_categories?.length ?? 0) > 0 || (v.brand_names?.length ?? 0) > 0
-    if (items.length > 0 && hasFilter) {
+    if (header.vendor_id && items.length > 0 && hasFilter) {
       const kept = items.filter(it => {
         const p = products.find(p => p.id === it.product_id)
         return p ? productMatchesVendor(p, v) : true
@@ -559,6 +563,19 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
         <Link href="/inquiries" className="text-sm text-gray-500 hover:text-gray-700">← 返回列表</Link>
       </div>
 
+      {sourceDocument ? (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700">
+          <span className="flex items-center gap-2"><FileOutput size={15} /> {sourceDocument.label}</span>
+          <button
+            type="button"
+            onClick={() => guard.guardClose(() => router.push(sourceDocument.href))}
+            className="shrink-0 text-xs font-medium hover:underline"
+          >
+            查看來源
+          </button>
+        </div>
+      ) : null}
+
       {/* 列印分享（比照估價單，已存檔的詢價單才可用） */}
       {inquiryId && (
         <div className="mb-4">
@@ -900,6 +917,16 @@ export default function InquiryForm({ initialInquiry, initialItems }: InquiryFor
       {/* Action bar */}
       <div className="fixed bottom-0 left-0 right-0 lg:left-60 bg-white border-t border-gray-200 px-4 py-3 z-30">
         <div className="max-w-6xl mx-auto flex items-center justify-end gap-2 flex-wrap">
+          {inquiryId ? (
+            <button
+              type="button"
+              onClick={() => guard.guardClose(() => router.push(`/quotes/new?from_inquiry=${inquiryId}`))}
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+            >
+              <FileOutput size={14} /> 轉報價單
+            </button>
+          ) : null}
           {status === '草稿' && (
             <>
               <button onClick={handleSaveDraft} disabled={saving} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm disabled:opacity-50">儲存草稿</button>

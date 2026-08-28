@@ -408,7 +408,7 @@ export default function QuoteForm({
     if (settings && !initialQuote?.valid_until && !header.valid_until) {
       const d = new Date()
       d.setDate(d.getDate() + (settings.valid_days ?? 30))
-      setHeader(p => ({ ...p, valid_until: d.toISOString().split('T')[0], payment_terms: settings.payment_terms ?? '', bank_account: settings.bank_account ?? '', delivery_days: settings.delivery_days ?? 14, notes: settings.quote_notes ?? '' }))
+      setHeader(p => ({ ...p, valid_until: d.toISOString().split('T')[0], payment_terms: settings.payment_terms ?? '', bank_account: settings.bank_account ?? '', delivery_days: settings.delivery_days ?? 14, notes: p.notes || settings.quote_notes || '' }))
     }
   }, [settings])
 

@@ -9,7 +9,7 @@ import { Quote, QuoteItem } from '@/types'
 import { QUOTE_STATUS_COLORS, formatDate, formatCurrency } from '@/lib/utils'
 import QuoteForm from '@/components/quotes/QuoteForm'
 import {
-  ArrowLeft, Edit2, Send, Copy, ShoppingCart, Truck, FileDown, CheckCircle, XCircle, FileText, Sheet, Eye
+  ArrowLeft, Edit2, Send, Copy, ShoppingCart, Truck, FileDown, CheckCircle, XCircle, FileText, Sheet, Eye, MessageSquareQuote
 } from 'lucide-react'
 
 export default function QuoteDetailPage() {
@@ -325,6 +325,12 @@ export default function QuoteDetailPage() {
         </button>
         <button onClick={handleCopy} disabled={actionLoading === 'copy'} className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm font-medium text-gray-700">
           <Copy size={14} /> {actionLoading === 'copy' ? '複製中...' : '複製報價單'}
+        </button>
+        <button
+          onClick={() => router.push(`/inquiries/new?from_quote=${quote.id}`)}
+          className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+        >
+          <MessageSquareQuote size={14} /> 轉廠商詢價單
         </button>
         {quote.status === '已確認' && (
           <button onClick={handleToSalesOrder} disabled={actionLoading === 'sales'} className="flex items-center gap-1.5 border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-xl text-sm font-medium">
