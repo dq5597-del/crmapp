@@ -424,18 +424,6 @@ export default function SettingsPage() {
             <Icon size={14} />{label}
           </button>
         ))}
-        <a href="/clients"
-          className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">
-          <Users size={14} />客戶資料
-        </a>
-        <a href="/vendors"
-          className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">
-          <Users size={14} />廠商建檔
-        </a>
-        <a href="/products"
-          className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">
-          <Tag size={14} />產品資料
-        </a>
         {isAdmin && (
           <a href="/settings/printers"
             className="flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-900 whitespace-nowrap">

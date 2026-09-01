@@ -58,7 +58,7 @@ const MODULES = {
     Comp: dynamic(() => import('@/app/(dashboard)/inventory/page'), { ssr: false, loading: spinner }),
   },
   products: {
-    label: '產品管理', href: '/products', icon: Package,
+    label: '產品資料', href: '/products', icon: Package,
     Comp: dynamic(() => import('@/app/(dashboard)/products/page'), { ssr: false, loading: spinner }),
   },
   clients: {
@@ -358,4 +358,3 @@ export function GlobalWorkspaceSurface({
     </div>
   )
 }
-

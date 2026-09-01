@@ -146,7 +146,7 @@ export default function VendorsPage() {
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">廠商建檔</h1>
+          <h1 className="text-xl font-bold text-gray-900">廠商資料</h1>
           <p className="text-sm text-gray-500 mt-0.5">共 {filtered.length} 家廠商</p>
         </div>
         <button onClick={() => startEdit()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium">

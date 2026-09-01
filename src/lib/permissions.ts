@@ -25,7 +25,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'work-hours',       label: '工時統計',        group: '業務',   href: '/work-hours',     costLabel: '看人工成本' },
   { key: 'equipment',        label: '設備清單',        group: '業務',   href: '/equipment' },
   { key: 'clients',          label: '客戶資料',        group: '業務',   href: '/clients' },
-  { key: 'vendors',          label: '廠商建檔',        group: '業務',   href: '/vendors',        costLabel: '看銀行帳戶' },
+  { key: 'vendors',          label: '廠商資料',        group: '業務',   href: '/vendors',        costLabel: '看銀行帳戶' },
   { key: 'quotes',           label: '報價單',          group: '業務',   href: '/quotes',         costLabel: '看進貨成本' },
   { key: 'notes',            label: '業務筆記',        group: '業務',   href: '/notes' },
   { key: 'todos',            label: '任務清單',        group: '業務',   href: '/todos' },
@@ -38,7 +38,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'shipments',        label: '出貨管理',        group: '進銷存', href: '/shipments' },
   { key: 'inventory',        label: '庫存管理',        group: '進銷存', href: '/inventory',      costLabel: '看庫存價值' },
   { key: 'returns',          label: '退貨管理',        group: '進銷存', href: '/returns' },
-  { key: 'products',         label: '產品管理',        group: '進銷存', href: '/products',       costLabel: '看成本價' },
+  { key: 'products',         label: '產品資料',        group: '進銷存', href: '/products',       costLabel: '看成本價' },
 
   { key: 'receivables',      label: '應收帳款',        group: '財務',   href: '/receivables' },
   { key: 'payables',         label: '應付帳款',        group: '財務',   href: '/payables' },

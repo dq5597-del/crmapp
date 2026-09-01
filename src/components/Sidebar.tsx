@@ -67,6 +67,8 @@ const projectItems = [
 /** 2. 銷售項目（業務接單） */
 const salesItems = [
   { href: '/clients',      label: '客戶資料', icon: Building2 },
+  { href: '/vendors',      label: '廠商資料', icon: Building2 },
+  { href: '/products',     label: '產品資料', icon: Package },
   { href: '/quotes',       label: '報價單',   icon: FileText },
   { href: '/sales-orders', label: '銷貨單',   icon: ShoppingCart },
   { href: '/web-orders',   label: '網路訂單', icon: ShoppingBag },
@@ -75,7 +77,6 @@ const salesItems = [
 
 /** 3. 進貨與採購（依需求採購進貨） */
 const purchasingItems = [
-  { href: '/vendors',         label: '廠商建檔',   icon: Building2 },
   { href: '/inquiries',       label: '廠商詢價單', icon: MessageSquareQuote },
   { href: '/purchase-orders', label: '訂購單',     icon: Truck },
   { href: '/purchases',       label: '進貨單',     icon: PackageCheck },
@@ -83,7 +84,6 @@ const purchasingItems = [
 
 /** 4. 庫存（物料管理／領料） */
 const inventoryItems = [
-  { href: '/products',  label: '產品管理', icon: Package },
   { href: '/inventory', label: '庫存管理', icon: Warehouse },
   { href: '/returns',   label: '退貨管理', icon: RotateCcw },
 ]

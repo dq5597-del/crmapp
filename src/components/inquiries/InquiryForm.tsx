@@ -658,7 +658,7 @@ export default function InquiryForm({ initialInquiry, initialItems, sourceDocume
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
             <div>
               此廠商尚未設定「銷售類別」或「代理品牌」，目前顯示全部產品。
-              建議先至 <Link href="/vendors" className="underline font-medium">廠商建檔</Link> 補齊，詢價選品會更精準。
+              建議先至 <Link href="/vendors" className="underline font-medium">廠商資料</Link> 補齊，詢價選品會更精準。
             </div>
           </div>
         )}
