@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ensureClientDriveFolder } from '@/lib/client-drive-folder'
 import {
-  ChevronLeft, ChevronRight, Plus, X, Clock, Building2, Truck,
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, X, Clock, Building2, Truck,
   Cake, ShieldCheck, Sparkles, Pencil, Trash2, Check, AlarmClock, CalendarDays, Navigation,
   GripVertical
 } from 'lucide-react'
@@ -181,6 +181,7 @@ export default function SchedulePage() {
   const [gapSaving, setGapSaving] = useState(false)
   // 資料庫是否已有 sort_order 欄位（未執行 sql/schedules_sort_order.sql 時為 false，拖曳功能自動隱藏）
   const [sortReady, setSortReady] = useState(true)
+  const [orderError, setOrderError] = useState<string | null>(null)
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -347,6 +348,21 @@ export default function SchedulePage() {
     fetchAll()
   }
 
+  // 把目前順序寫回資料庫（sort_order 欄位不存在時顯示提示，畫面順序仍暫時保留）
+  async function persistGapOrder(list: Schedule[]) {
+    const results = await Promise.all(
+      list.map((t, i) => supabase.from('schedules').update({ sort_order: (i + 1) * 10 }).eq('id', t.id))
+    )
+    const failed = results.find(r => r.error)
+    if (failed?.error) {
+      setSortReady(false)
+      setOrderError(failed.error.message)
+    } else {
+      setSortReady(true)
+      setOrderError(null)
+    }
+  }
+
   // 空檔任務上下拖曳排序
   async function handleGapDragEnd(e: DragEndEvent) {
     const { active, over } = e
@@ -357,16 +373,16 @@ export default function SchedulePage() {
 
     const next = arrayMove(gapTasks, oldIndex, newIndex)
     setGapTasks(next)   // 先反映在畫面，再寫回資料庫
+    await persistGapOrder(next)
+  }
 
-    const results = await Promise.all(
-      next.map((t, i) => supabase.from('schedules').update({ sort_order: (i + 1) * 10 }).eq('id', t.id))
-    )
-    const failed = results.find(r => r.error)
-    if (failed?.error) {
-      setSortReady(false)
-      alert('排序沒有存檔：' + failed.error.message + '\n\n請先到 Supabase → SQL Editor 執行 sql/schedules_sort_order.sql')
-      fetchAll()
-    }
+  // 空檔任務上下移動一格（不靠拖曳，手機／觸控板也能用）
+  async function moveGap(index: number, dir: -1 | 1) {
+    const target = index + dir
+    if (target < 0 || target >= gapTasks.length) return
+    const next = arrayMove(gapTasks, index, target)
+    setGapTasks(next)
+    await persistGapOrder(next)
   }
 
   const daySchedules = useMemo(
@@ -661,8 +677,17 @@ export default function SchedulePage() {
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-900 flex items-center gap-1.5"><Clock size={16} className="text-gray-400" />空檔任務（有空就做）</h2>
-                {sortReady && gapTasks.length > 1 && <span className="text-xs text-gray-400">可上下拖曳調整順序</span>}
+                {sortReady && gapTasks.length > 1 && <span className="text-xs text-gray-400">可拖曳或用 ▲▼ 調整順序</span>}
               </div>
+
+              {orderError && (
+                <div className="mb-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+                  順序沒有存檔（重新整理後會回復原順序）。請到 Supabase → SQL Editor 執行
+                  <span className="font-mono"> sql/schedules_sort_order.sql</span> 建立 sort_order 欄位。
+                  <div className="text-red-500 mt-1 break-all">{orderError}</div>
+                </div>
+              )}
+
               {gapTasks.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-4">尚無空檔任務</p>
               ) : (
@@ -674,7 +699,7 @@ export default function SchedulePage() {
                 >
                 <SortableContext items={gapTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
-                  {gapTasks.map(t => (
+                  {gapTasks.map((t, idx) => (
                     editGap?.id === t.id ? (
                       // 個別編輯
                       <div key={t.id} className="flex flex-wrap items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg p-2">
@@ -706,6 +731,12 @@ export default function SchedulePage() {
                         {t.gap_due_date && (
                           <span className={`text-xs shrink-0 ${t.gap_due_date < todayStr && t.status !== '已完成' ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{t.gap_due_date.slice(5).replace('-', '/')}</span>
                         )}
+                        <div className="flex flex-col shrink-0 -my-1">
+                          <button onClick={() => moveGap(idx, -1)} disabled={idx === 0} title="上移一格"
+                            className="px-1 text-gray-300 hover:text-blue-600 disabled:opacity-25 disabled:hover:text-gray-300 leading-none"><ChevronUp size={14} /></button>
+                          <button onClick={() => moveGap(idx, 1)} disabled={idx === gapTasks.length - 1} title="下移一格"
+                            className="px-1 text-gray-300 hover:text-blue-600 disabled:opacity-25 disabled:hover:text-gray-300 leading-none"><ChevronDown size={14} /></button>
+                        </div>
                         <button onClick={() => startEditGap(t)} title="編輯" className="p-1 text-gray-300 hover:text-blue-600 shrink-0"><Pencil size={13} /></button>
                         <button onClick={() => deleteSchedule(t.id)} title="刪除" className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={13} /></button>
                       </SortableGapRow>
