@@ -1,0 +1,112 @@
+{
+  "verified_at": "2026-08-28T04:18:34.594Z",
+  "supplied_catalogs": 18,
+  "converted_webp": 18,
+  "uploaded_catalogs": 15,
+  "target_products": 22,
+  "unmatched_catalogs": [
+    "TS-680_TS-780",
+    "AD-100",
+    "TR-5700"
+  ],
+  "remote_checked": 15,
+  "remote_failed": 0,
+  "remote_checks": [
+    {
+      "label": "TR-389",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-389_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TR-7500",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-7500_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TR-101",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-101_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TR-5100",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-5100_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TR-102",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-102_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TA-220DL",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-220DL_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TR-7100",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-7100_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TM-600_TM-700_TM-800_TM-999",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-600_TM-700_TM-800_TM-999_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TM-326_TM-621_TM-933_TOP-II",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-326_TM-621_TM-933_TOP-II_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TA-380",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-380_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TR-9100",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-9100_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TR-8100",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-8100_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TA-780D",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-780D_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TA-680iD",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680iD_catalog.webp",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "label": "TA-680D",
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680D_catalog.webp",
+      "ok": true,
+      "status": 200
+    }
+  ],
+  "database_updated": true,
+  "database_expected_products": 22,
+  "database_matched_products": 22,
+  "database_single_marker": 22,
+  "database_correct_catalog_url": 22,
+  "database_mismatches": []
+}

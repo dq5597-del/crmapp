@@ -1,0 +1,496 @@
+[
+  {
+    "model": "ST-220",
+    "status": "updated",
+    "source": {
+      "model": "ST-220",
+      "page_url": "https://www.tev.com.tw/st-220",
+      "image_url": "https://www.tev.com.tw/images/472011?stamp=1750225367",
+      "title": "移動式無線播放器配件 喇叭立架 ST-220"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_ST-220_main.webp",
+    "wordpress": {
+      "id": 12505,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_ST-220_main.webp",
+      "alt_text": "TEV ST-220 ST-220",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "ST-380",
+    "status": "updated",
+    "source": {
+      "model": "ST-380",
+      "page_url": "https://www.tev.com.tw/st-380",
+      "image_url": "https://www.tev.com.tw/images/472010?stamp=1750225303",
+      "title": "移動式無線播放器配件 喇叭立架 ST-380"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_ST-380_main.webp",
+    "wordpress": {
+      "id": 12506,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_ST-380_main.webp",
+      "alt_text": "TEV ST-380 ST-380",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "ST-780",
+    "status": "updated",
+    "source": {
+      "model": "ST-780",
+      "page_url": "https://www.tev.com.tw/st-780",
+      "image_url": "https://www.tev.com.tw/images/472001?stamp=1750225164",
+      "title": "移動式無線播放器配件 喇叭立架 ST-780"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_ST-780_main.webp",
+    "wordpress": {
+      "id": 12507,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_ST-780_main.webp",
+      "alt_text": "TEV ST-780 ST-780",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TA-220DL",
+    "status": "updated",
+    "source": {
+      "model": "TA-220DL",
+      "page_url": "https://www.tev.com.tw/ta-220dl",
+      "image_url": "https://www.tev.com.tw/images/453843?stamp=1748241571",
+      "title": "6.5\" 50W 肩背式行動播放器"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-220DL_main.webp",
+    "wordpress": {
+      "id": 12508,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-220DL_main.webp",
+      "alt_text": "TEV TA-220DL TA-220DL",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TA-300雙頻",
+    "status": "updated",
+    "source": {
+      "model": "TA-380D",
+      "page_url": "https://www.tev.com.tw/ta-380d",
+      "image_url": "https://www.tev.com.tw/images/453761?stamp=1748240257",
+      "title": "6.5\" 80W 手提式行動播放器"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-300-_main.webp",
+    "wordpress": {
+      "id": 12509,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-300-_main.webp",
+      "alt_text": "TEV TA-300雙頻 TA-300雙頻",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TA-380單頻",
+    "status": "updated",
+    "source": {
+      "model": "TA-380D",
+      "page_url": "https://www.tev.com.tw/ta-380d",
+      "image_url": "https://www.tev.com.tw/images/453761?stamp=1748240257",
+      "title": "6.5\" 80W 手提式行動播放器"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-380-_main.webp",
+    "wordpress": {
+      "id": 12510,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-380-_main.webp",
+      "alt_text": "TEV TA-380單頻 TA-380單頻",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TA-680D",
+    "status": "updated",
+    "source": {
+      "model": "TA-680D",
+      "page_url": "https://www.tev.com.tw/ta-680d",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1748239448",
+      "title": "8\" 220W 手拉式豪華型移動式播放器"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680D_main.webp",
+    "wordpress": {
+      "id": 12511,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680D_main.webp",
+      "alt_text": "TEV TA-680D TA-680D",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TA-680iD",
+    "status": "updated",
+    "source": {
+      "model": "TA-680iD",
+      "page_url": "https://www.tev.com.tw/data-309989",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1755246791",
+      "title": "8\" 180W 手拉式超值型移動式播放器"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680iD_main.webp",
+    "wordpress": {
+      "id": 12512,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680iD_main.webp",
+      "alt_text": "TEV TA-680iD TA-680iD",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TA-780D",
+    "status": "updated",
+    "source": {
+      "model": "TA-780D",
+      "page_url": "https://www.tev.com.tw/ta-780d",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1750399910",
+      "title": "10\" 300W 手拉式旗艦型移動式播放器"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-780D_main.webp",
+    "wordpress": {
+      "id": 12513,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-780D_main.webp",
+      "alt_text": "TEV TA-780D TA-780D",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TM-326",
+    "status": "updated",
+    "source": {
+      "model": "TM-326",
+      "page_url": "https://www.tev.com.tw/tm-326",
+      "image_url": "https://www.tev.com.tw/images/454237?stamp=1748315888",
+      "title": "一般演說系列 TM-326"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TM-326_main.webp",
+    "wordpress": {
+      "id": 12514,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-326_main.webp",
+      "alt_text": "TEV TM-326 TM-326",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TM-600",
+    "status": "updated",
+    "source": {
+      "model": "TM-600",
+      "page_url": "https://www.tev.com.tw/tm-600",
+      "image_url": "https://www.tev.com.tw/images/454210?stamp=1748315410",
+      "title": "卡拉OK專用系列 TM-600"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TM-600_main.webp",
+    "wordpress": {
+      "id": 12515,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-600_main.webp",
+      "alt_text": "TEV TM-600 TM-600",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TM-621",
+    "status": "updated",
+    "source": {
+      "model": "TM-621",
+      "page_url": "https://www.tev.com.tw/tm-621",
+      "image_url": "https://www.tev.com.tw/images/454232?stamp=1748315805",
+      "title": "一般演說系列 TM-621"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TM-621_main.webp",
+    "wordpress": {
+      "id": 12516,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-621_main.webp",
+      "alt_text": "TEV TM-621 TM-621",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TM-700",
+    "status": "updated",
+    "source": {
+      "model": "TM-700",
+      "page_url": "https://www.tev.com.tw/tm-700",
+      "image_url": "https://www.tev.com.tw/images/454208?stamp=1748315318",
+      "title": "卡拉OK專用系列 TM-700"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TM-700_main.webp",
+    "wordpress": {
+      "id": 12517,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-700_main.webp",
+      "alt_text": "TEV TM-700 TM-700",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TM-800",
+    "status": "updated",
+    "source": {
+      "model": "TM-800",
+      "page_url": "https://www.tev.com.tw/tm-800",
+      "image_url": "https://www.tev.com.tw/images/454206?stamp=1748315210",
+      "title": "卡拉OK專用系列 TM-800"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TM-800_main.webp",
+    "wordpress": {
+      "id": 12518,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-800_main.webp",
+      "alt_text": "TEV TM-800 TM-800",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TM-933",
+    "status": "updated",
+    "source": {
+      "model": "TM-933",
+      "page_url": "https://www.tev.com.tw/tm-933",
+      "image_url": "https://www.tev.com.tw/images/454227?stamp=1748315568",
+      "title": "卡拉OK專用系列 TM-933"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TM-933_main.webp",
+    "wordpress": {
+      "id": 12519,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-933_main.webp",
+      "alt_text": "TEV TM-933 TM-933",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TM-999",
+    "status": "updated",
+    "source": {
+      "model": "TM-999",
+      "page_url": "https://www.tev.com.tw/tm-999",
+      "image_url": "https://www.tev.com.tw/images/454226?stamp=1748315489",
+      "title": "卡拉OK專用系列 TM-999"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TM-999_main.webp",
+    "wordpress": {
+      "id": 12520,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-999_main.webp",
+      "alt_text": "TEV TM-999 TM-999",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TOP-II",
+    "status": "updated",
+    "source": {
+      "model": "TOP-II",
+      "page_url": "https://www.tev.com.tw/top-ii",
+      "image_url": "https://www.tev.com.tw/images/454205?stamp=1748314831",
+      "title": "演出用系列 TOP-II"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TOP-II_main.webp",
+    "wordpress": {
+      "id": 12521,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TOP-II_main.webp",
+      "alt_text": "TEV TOP-II TOP-II",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-101",
+    "status": "updated",
+    "source": {
+      "model": "TR-101",
+      "page_url": "https://www.tev.com.tw/tr-101",
+      "image_url": "https://www.tev.com.tw/images/454162?stamp=1748312336",
+      "title": "一對一攜帶式無線麥克風 TR-101"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-101_main.webp",
+    "wordpress": {
+      "id": 12522,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-101_main.webp",
+      "alt_text": "TEV TR-101 TR-101",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-102",
+    "status": "updated",
+    "source": {
+      "model": "TR-102",
+      "page_url": "https://www.tev.com.tw/tr-102",
+      "image_url": "https://www.tev.com.tw/images/454161?stamp=1748311940",
+      "title": "一對二攜帶式無線麥克風 TR-102"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-102_main.webp",
+    "wordpress": {
+      "id": 12523,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-102_main.webp",
+      "alt_text": "TEV TR-102 TR-102",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-310",
+    "status": "updated",
+    "source": {
+      "model": "TR-310",
+      "page_url": "https://www.tev.com.tw/tr-310",
+      "image_url": "https://www.tev.com.tw/images/472086?stamp=1750228027",
+      "title": "移動式無線播放器配件 無線麥克風模組"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-310_main.webp",
+    "wordpress": {
+      "id": 12524,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-310_main.webp",
+      "alt_text": "TEV TR-310 TR-310",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-389",
+    "status": "updated",
+    "source": {
+      "model": "TR-389",
+      "page_url": "https://www.tev.com.tw/vhf",
+      "image_url": "https://www.tev.com.tw/images/454176?stamp=1748312911",
+      "title": "超值VHF固定頻系列麥克風"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-389_main.webp",
+    "wordpress": {
+      "id": 12525,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-389_main.webp",
+      "alt_text": "TEV TR-389 TR-389",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-5100",
+    "status": "updated",
+    "source": {
+      "model": "TR-5100",
+      "page_url": "https://www.tev.com.tw/tr-5100",
+      "image_url": "https://www.tev.com.tw/images/454151?stamp=1748310986",
+      "title": "歡唱專業級UHF PLL 100頻道可選"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-5100_main.webp",
+    "wordpress": {
+      "id": 12526,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-5100_main.webp",
+      "alt_text": "TEV TR-5100 TR-5100",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-7100",
+    "status": "updated",
+    "source": {
+      "model": "TR-7100",
+      "page_url": "https://www.tev.com.tw/tr-7100",
+      "image_url": "https://www.tev.com.tw/images/453973?stamp=1748245514",
+      "title": "長距離工程用專業級UHF PLL 100頻道可選"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-7100_main.webp",
+    "wordpress": {
+      "id": 12527,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-7100_main.webp",
+      "alt_text": "TEV TR-7100 TR-7100",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-7500",
+    "status": "updated",
+    "source": {
+      "model": "TR-7500",
+      "page_url": "https://www.tev.com.tw/tr-7500",
+      "image_url": "https://www.tev.com.tw/images/732600?stamp=1786413115",
+      "title": "UHF 100CH 四頻道無線麥克風"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-7500_main.webp",
+    "wordpress": {
+      "id": 12528,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-7500_main.webp",
+      "alt_text": "TEV TR-7500 TR-7500",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-8100TD",
+    "status": "updated",
+    "source": {
+      "model": "TR-8100TD/TR-8100",
+      "page_url": "https://www.tev.com.tw/tr-8100td-tr-8100",
+      "image_url": "https://www.tev.com.tw/images/453965?stamp=1748245005",
+      "title": "長距離工程用專業級UHF PLL 100頻道可選"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-8100TD_main.webp",
+    "wordpress": {
+      "id": 12529,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-8100TD_main.webp",
+      "alt_text": "TEV TR-8100TD TR-8100TD",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  },
+  {
+    "model": "TR-9100",
+    "status": "updated",
+    "source": {
+      "model": "TR-9100",
+      "page_url": "https://www.tev.com.tw/tr-9100",
+      "image_url": "https://www.tev.com.tw/images/453943?stamp=1748244339",
+      "title": "真分集接收長距離工程用專業級UHF PLL 100頻道可選"
+    },
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-9100_main.webp",
+    "wordpress": {
+      "id": 12530,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-9100_main.webp",
+      "alt_text": "TEV TR-9100 TR-9100",
+      "width": 600,
+      "height": 600
+    },
+    "updated": null
+  }
+]

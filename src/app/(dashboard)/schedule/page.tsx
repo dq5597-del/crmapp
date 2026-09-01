@@ -5,8 +5,19 @@ import { createClient } from '@/lib/supabase'
 import { ensureClientDriveFolder } from '@/lib/client-drive-folder'
 import {
   ChevronLeft, ChevronRight, Plus, X, Clock, Building2, Truck,
-  Cake, ShieldCheck, Sparkles, Pencil, Trash2, Check, AlarmClock, CalendarDays, Navigation
+  Cake, ShieldCheck, Sparkles, Pencil, Trash2, Check, AlarmClock, CalendarDays, Navigation,
+  GripVertical
 } from 'lucide-react'
+import {
+  DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // ============ 型別 ============
 interface Schedule {
@@ -22,6 +33,7 @@ interface Schedule {
   vendor_id: string | null
   is_gap_task: boolean
   gap_due_date: string | null
+  sort_order?: number | null
   is_adhoc: boolean
   actual_start: string | null
   actual_end: string | null
@@ -123,6 +135,32 @@ function downloadIcs(s: Schedule) {
   URL.revokeObjectURL(url)
 }
 
+// ============ 空檔任務單列（可上下拖曳） ============
+function SortableGapRow({ id, enabled, children }: { id: string; enabled: boolean; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: !enabled })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 20 : undefined }}
+      className={`flex items-center gap-1.5 text-sm rounded-lg ${isDragging ? 'bg-blue-50 ring-2 ring-blue-300 shadow-sm' : ''}`}
+    >
+      {enabled && (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label="拖曳調整順序"
+          title="按住上下拖曳可調整順序"
+          className="touch-none shrink-0 p-1 -ml-1 text-gray-300 hover:text-gray-500 active:text-blue-500 cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
+      {children}
+    </div>
+  )
+}
+
 // ============ 主頁面 ============
 export default function SchedulePage() {
   const supabase = createClient()
@@ -141,6 +179,13 @@ export default function SchedulePage() {
   const [editGap, setEditGap] = useState<{ id: string; title: string; gap_due_date: string } | null>(null)
   const [newGap, setNewGap] = useState('')
   const [gapSaving, setGapSaving] = useState(false)
+  // 資料庫是否已有 sort_order 欄位（未執行 sql/schedules_sort_order.sql 時為 false，拖曳功能自動隱藏）
+  const [sortReady, setSortReady] = useState(true)
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   const todayStr = fmt(new Date())
 
@@ -156,30 +201,39 @@ export default function SchedulePage() {
     return { start: fmt(gridStart), end: fmt(addDays(gridStart, 41)) }
   }, [view, anchor])
 
-  const fetchAll = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setSchedules([])
-      setGapTasks([])
-      return
+  // 空檔任務：優先照手動排序（sort_order），欄位不存在時退回依期限排序
+  const fetchGapTasks = useCallback(async (): Promise<Schedule[]> => {
+    const base = () => supabase.from('schedules')
+      .select('*, clients(company_name), vendors(company_name), contacts(name)')
+      .eq('is_gap_task', true)
+      .not('status', 'in', '("取消")')
+
+    const sorted = await base()
+      .order('sort_order', { ascending: true })
+      .order('gap_due_date', { ascending: true })
+    if (!sorted.error) {
+      setSortReady(true)
+      return (sorted.data ?? []) as Schedule[]
     }
-    const [schedRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
+    setSortReady(false)
+    const fallback = await base().order('gap_due_date', { ascending: true })
+    return (fallback.data ?? []) as Schedule[]
+  }, [])
+
+  const fetchAll = useCallback(async () => {
+    const [schedRes, gapRows, impRes, cbRes, clbRes] = await Promise.all([
       supabase.from('schedules')
         .select('*, clients(company_name, address), vendors(company_name), contacts(name)')
         .eq('is_gap_task', false)
         .gte('schedule_date', range.start).lte('schedule_date', range.end)
         .order('plan_start', { ascending: true }),
-      supabase.from('schedules')
-        .select('*, clients(company_name), vendors(company_name), contacts(name)')
-        .eq('is_gap_task', true)
-        .not('status', 'in', '("取消")')
-        .order('gap_due_date', { ascending: true }),
+      fetchGapTasks(),
       supabase.from('important_dates').select('*, clients(company_name)').eq('is_active', true),
       supabase.from('contacts').select('id, name, client_id, birthday, clients(company_name)').not('birthday', 'is', null),
       supabase.from('clients').select('id, company_name, contact_name, birthday').not('birthday', 'is', null),
     ])
     setSchedules((schedRes.data ?? []) as Schedule[])
-    setGapTasks((gapRes.data ?? []) as Schedule[])
+    setGapTasks(gapRows)
 
     // 計算範圍內的重要日子出現日（含每年重複）
     const occ: DateOccurrence[] = []
@@ -202,7 +256,7 @@ export default function SchedulePage() {
       pushRecurring(`clb-${c.id}`, c.birthday, `${c.contact_name ?? c.company_name} 生日`, '生日', c.company_name)
     occ.sort((a, b) => a.date.localeCompare(b.date))
     setOccurrences(occ)
-  }, [range.start, range.end])
+  }, [range.start, range.end, fetchGapTasks])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -260,11 +314,14 @@ export default function SchedulePage() {
     const title = newGap.trim()
     if (!title) return
     setGapSaving(true)
-    const { error } = await supabase.from('schedules').insert({
+    const row: Record<string, any> = {
       schedule_date: fmt(anchor), title, type: '內部作業',
       is_gap_task: true, is_adhoc: false, status: '未開始',
       remind_email: false, remind_days_before: 0,
-    })
+    }
+    // 新任務排到清單最後
+    if (sortReady) row.sort_order = (gapTasks.length + 1) * 10
+    const { error } = await supabase.from('schedules').insert(row)
     setGapSaving(false)
     if (error) { alert('新增失敗：' + error.message); return }
     setNewGap('')
@@ -288,6 +345,28 @@ export default function SchedulePage() {
     if (error) { alert('儲存失敗：' + error.message); return }
     setEditGap(null)
     fetchAll()
+  }
+
+  // 空檔任務上下拖曳排序
+  async function handleGapDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const oldIndex = gapTasks.findIndex(t => t.id === active.id)
+    const newIndex = gapTasks.findIndex(t => t.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+
+    const next = arrayMove(gapTasks, oldIndex, newIndex)
+    setGapTasks(next)   // 先反映在畫面，再寫回資料庫
+
+    const results = await Promise.all(
+      next.map((t, i) => supabase.from('schedules').update({ sort_order: (i + 1) * 10 }).eq('id', t.id))
+    )
+    const failed = results.find(r => r.error)
+    if (failed?.error) {
+      setSortReady(false)
+      alert('排序沒有存檔：' + failed.error.message + '\n\n請先到 Supabase → SQL Editor 執行 sql/schedules_sort_order.sql')
+      fetchAll()
+    }
   }
 
   const daySchedules = useMemo(
@@ -582,10 +661,18 @@ export default function SchedulePage() {
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-900 flex items-center gap-1.5"><Clock size={16} className="text-gray-400" />空檔任務（有空就做）</h2>
+                {sortReady && gapTasks.length > 1 && <span className="text-xs text-gray-400">可上下拖曳調整順序</span>}
               </div>
               {gapTasks.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-4">尚無空檔任務</p>
               ) : (
+                <DndContext
+                  sensors={dndSensors}
+                  collisionDetection={closestCenter}
+                  modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                  onDragEnd={handleGapDragEnd}
+                >
+                <SortableContext items={gapTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {gapTasks.map(t => (
                     editGap?.id === t.id ? (
@@ -611,7 +698,7 @@ export default function SchedulePage() {
                         <button onClick={() => setEditGap(null)} title="取消" className="p-1.5 text-gray-400 hover:text-gray-700"><X size={14} /></button>
                       </div>
                     ) : (
-                      <div key={t.id} className="flex items-center gap-2.5 text-sm">
+                      <SortableGapRow key={t.id} id={t.id} enabled={sortReady}>
                         <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
                           <input type="checkbox" checked={t.status === '已完成'} onChange={() => toggleGapDone(t)} className="w-4 h-4 rounded shrink-0" />
                           <span className={`flex-1 min-w-0 ${t.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.title}</span>
@@ -621,10 +708,12 @@ export default function SchedulePage() {
                         )}
                         <button onClick={() => startEditGap(t)} title="編輯" className="p-1 text-gray-300 hover:text-blue-600 shrink-0"><Pencil size={13} /></button>
                         <button onClick={() => deleteSchedule(t.id)} title="刪除" className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={13} /></button>
-                      </div>
+                      </SortableGapRow>
                     )
                   ))}
                 </div>
+                </SortableContext>
+                </DndContext>
               )}
 
               {/* 行內新增空檔任務 */}

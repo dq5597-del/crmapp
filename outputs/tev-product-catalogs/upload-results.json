@@ -1,0 +1,398 @@
+[
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916119147.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-389_catalog.webp",
+    "label": "TR-389",
+    "requested_models": [
+      "TR-389"
+    ],
+    "matched_models": [
+      "TR-389"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1076,
+    "height": 1522,
+    "bytes": 131326,
+    "wordpress": {
+      "id": 12566,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-389_catalog.webp",
+      "alt_text": "TEV TR-389 產品型錄",
+      "width": 1076,
+      "height": 1522
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916077311.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-7500_catalog.webp",
+    "label": "TR-7500",
+    "requested_models": [
+      "TR-7500"
+    ],
+    "matched_models": [
+      "TR-7500"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 158014,
+    "wordpress": {
+      "id": 12567,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-7500_catalog.webp",
+      "alt_text": "TEV TR-7500 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916118917.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TS-680_TS-780_catalog.webp",
+    "label": "TS-680_TS-780",
+    "requested_models": [],
+    "matched_models": [],
+    "missing_models": [],
+    "status": "converted-only",
+    "width": 1076,
+    "height": 1522,
+    "bytes": 148286,
+    "wordpress": null
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916078518.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-101_catalog.webp",
+    "label": "TR-101",
+    "requested_models": [
+      "TR-101"
+    ],
+    "matched_models": [
+      "TR-101"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1080,
+    "height": 1516,
+    "bytes": 123780,
+    "wordpress": {
+      "id": 12568,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-101_catalog.webp",
+      "alt_text": "TEV TR-101 產品型錄",
+      "width": 1080,
+      "height": 1516
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916078742.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_AD-100_catalog.webp",
+    "label": "AD-100",
+    "requested_models": [],
+    "matched_models": [],
+    "missing_models": [],
+    "status": "converted-only",
+    "width": 1076,
+    "height": 1521,
+    "bytes": 101296,
+    "wordpress": null
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916079628.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-5700_catalog.webp",
+    "label": "TR-5700",
+    "requested_models": [],
+    "matched_models": [],
+    "missing_models": [],
+    "status": "converted-only",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 138100,
+    "wordpress": null
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916079370.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-5100_catalog.webp",
+    "label": "TR-5100",
+    "requested_models": [
+      "TR-5100"
+    ],
+    "matched_models": [
+      "TR-5100"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 137110,
+    "wordpress": {
+      "id": 12569,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-5100_catalog.webp",
+      "alt_text": "TEV TR-5100 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916118375.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-102_catalog.webp",
+    "label": "TR-102",
+    "requested_models": [
+      "TR-102"
+    ],
+    "matched_models": [
+      "TR-102"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1076,
+    "height": 1522,
+    "bytes": 134016,
+    "wordpress": {
+      "id": 12570,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-102_catalog.webp",
+      "alt_text": "TEV TR-102 產品型錄",
+      "width": 1076,
+      "height": 1522
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916077956.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TA-220DL_catalog.webp",
+    "label": "TA-220DL",
+    "requested_models": [
+      "TA-220DL"
+    ],
+    "matched_models": [
+      "TA-220DL"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 165364,
+    "wordpress": {
+      "id": 12571,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-220DL_catalog.webp",
+      "alt_text": "TEV TA-220DL 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916078224.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-7100_catalog.webp",
+    "label": "TR-7100",
+    "requested_models": [
+      "TR-7100"
+    ],
+    "matched_models": [
+      "TR-7100"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 179336,
+    "wordpress": {
+      "id": 12572,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-7100_catalog.webp",
+      "alt_text": "TEV TR-7100 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916079163.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TM-600_TM-700_TM-800_TM-999_catalog.webp",
+    "label": "TM-600_TM-700_TM-800_TM-999",
+    "requested_models": [
+      "TM-600",
+      "TM-700",
+      "TM-800",
+      "TM-999"
+    ],
+    "matched_models": [
+      "TM-600",
+      "TM-700",
+      "TM-800",
+      "TM-999"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 167612,
+    "wordpress": {
+      "id": 12573,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-600_TM-700_TM-800_TM-999_catalog.webp",
+      "alt_text": "TEV TM-600 / TM-700 / TM-800 / TM-999 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916078928.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TM-326_TM-621_TM-933_TOP-II_catalog.webp",
+    "label": "TM-326_TM-621_TM-933_TOP-II",
+    "requested_models": [
+      "TM-326",
+      "TM-621",
+      "TM-933",
+      "TOP-II"
+    ],
+    "matched_models": [
+      "TM-326",
+      "TM-621",
+      "TM-933",
+      "TOP-II"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 159866,
+    "wordpress": {
+      "id": 12574,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TM-326_TM-621_TM-933_TOP-II_catalog.webp",
+      "alt_text": "TEV TM-326 / TM-621 / TM-933 / TOP-II 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916118141.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TA-380_catalog.webp",
+    "label": "TA-380",
+    "requested_models": [
+      "TA-380單頻"
+    ],
+    "matched_models": [
+      "TA-380單頻"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1076,
+    "height": 1522,
+    "bytes": 196000,
+    "wordpress": {
+      "id": 12575,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-380_catalog.webp",
+      "alt_text": "TEV TA-380 產品型錄",
+      "width": 1076,
+      "height": 1522
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916118531.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-9100_catalog.webp",
+    "label": "TR-9100",
+    "requested_models": [
+      "TR-9100"
+    ],
+    "matched_models": [
+      "TR-9100"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 180126,
+    "wordpress": {
+      "id": 12576,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-9100_catalog.webp",
+      "alt_text": "TEV TR-9100 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916118751.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TR-8100_catalog.webp",
+    "label": "TR-8100",
+    "requested_models": [
+      "TR-8100TD"
+    ],
+    "matched_models": [
+      "TR-8100TD"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1076,
+    "height": 1522,
+    "bytes": 158608,
+    "wordpress": {
+      "id": 12577,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-8100_catalog.webp",
+      "alt_text": "TEV TR-8100 產品型錄",
+      "width": 1076,
+      "height": 1522
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916077642.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TA-780D_catalog.webp",
+    "label": "TA-780D",
+    "requested_models": [
+      "TA-780D"
+    ],
+    "matched_models": [
+      "TA-780D"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 210968,
+    "wordpress": {
+      "id": 12578,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-780D_catalog.webp",
+      "alt_text": "TEV TA-780D 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916117863.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TA-680iD_catalog.webp",
+    "label": "TA-680iD",
+    "requested_models": [
+      "TA-680iD"
+    ],
+    "matched_models": [
+      "TA-680iD"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 203652,
+    "wordpress": {
+      "id": 12579,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680iD_catalog.webp",
+      "alt_text": "TEV TA-680iD 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  },
+  {
+    "source_file": "G:\\我的雲端硬碟\\網站資料\\Tev\\1785916117595.jpg",
+    "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-catalogs\\images\\TEV_TA-680D_catalog.webp",
+    "label": "TA-680D",
+    "requested_models": [
+      "TA-680D"
+    ],
+    "matched_models": [
+      "TA-680D"
+    ],
+    "missing_models": [],
+    "status": "uploaded",
+    "width": 1077,
+    "height": 1519,
+    "bytes": 204202,
+    "wordpress": {
+      "id": 12580,
+      "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680D_catalog.webp",
+      "alt_text": "TEV TA-680D 產品型錄",
+      "width": 1077,
+      "height": 1519
+    }
+  }
+]

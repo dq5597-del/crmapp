@@ -1,0 +1,471 @@
+[
+  {
+    "model": "ST-220",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/st-220",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "ST-380",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/st-380",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "ST-780",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/st-780",
+    "source_image_count": 2,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/472002?stamp=1750225164",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_ST-780_gallery_01.webp",
+        "wordpress": {
+          "id": 12531,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_ST-780_gallery_01.webp",
+          "alt_text": "TEV ST-780 ST-780 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TA-220DL",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/ta-220dl",
+    "source_image_count": 4,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453846?stamp=1748241571",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-220DL_gallery_01.webp",
+        "wordpress": {
+          "id": 12532,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-220DL_gallery_01.webp",
+          "alt_text": "TEV TA-220DL TA-220DL 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453847?stamp=1748241571",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-220DL_gallery_02.webp",
+        "wordpress": {
+          "id": 12533,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-220DL_gallery_02.webp",
+          "alt_text": "TEV TA-220DL TA-220DL 圖片 3",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453849?stamp=1748241571",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-220DL_gallery_03.webp",
+        "wordpress": {
+          "id": 12534,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-220DL_gallery_03.webp",
+          "alt_text": "TEV TA-220DL TA-220DL 圖片 4",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TA-300雙頻",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/ta-380d",
+    "source_image_count": 3,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453762?stamp=1748240257",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-300-_gallery_01.webp",
+        "wordpress": {
+          "id": 12535,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-300-_gallery_01.webp",
+          "alt_text": "TEV TA-300雙頻 TA-300雙頻 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453763?stamp=1748240257",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-300-_gallery_02.webp",
+        "wordpress": {
+          "id": 12536,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-300-_gallery_02.webp",
+          "alt_text": "TEV TA-300雙頻 TA-300雙頻 圖片 3",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TA-380單頻",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/ta-380d",
+    "source_image_count": 3,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453762?stamp=1748240257",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-380-_gallery_01.webp",
+        "wordpress": {
+          "id": 12537,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-380-_gallery_01.webp",
+          "alt_text": "TEV TA-380單頻 TA-380單頻 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453763?stamp=1748240257",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-380-_gallery_02.webp",
+        "wordpress": {
+          "id": 12538,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-380-_gallery_02.webp",
+          "alt_text": "TEV TA-380單頻 TA-380單頻 圖片 3",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TA-680D",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/ta-680d",
+    "source_image_count": 4,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453729?stamp=1748239448",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680D_gallery_01.webp",
+        "wordpress": {
+          "id": 12539,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680D_gallery_01.webp",
+          "alt_text": "TEV TA-680D TA-680D 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453730?stamp=1748239448",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680D_gallery_02.webp",
+        "wordpress": {
+          "id": 12540,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680D_gallery_02.webp",
+          "alt_text": "TEV TA-680D TA-680D 圖片 3",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453727?stamp=1748239448",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680D_gallery_03.webp",
+        "wordpress": {
+          "id": 12541,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680D_gallery_03.webp",
+          "alt_text": "TEV TA-680D TA-680D 圖片 4",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TA-680iD",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/data-309989",
+    "source_image_count": 5,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453729?stamp=1755246791",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680iD_gallery_01.webp",
+        "wordpress": {
+          "id": 12542,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680iD_gallery_01.webp",
+          "alt_text": "TEV TA-680iD TA-680iD 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453730?stamp=1755246791",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680iD_gallery_02.webp",
+        "wordpress": {
+          "id": 12543,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680iD_gallery_02.webp",
+          "alt_text": "TEV TA-680iD TA-680iD 圖片 3",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453727?stamp=1755246791",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680iD_gallery_03.webp",
+        "wordpress": {
+          "id": 12544,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680iD_gallery_03.webp",
+          "alt_text": "TEV TA-680iD TA-680iD 圖片 4",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453698?stamp=1755246988",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-680iD_gallery_04.webp",
+        "wordpress": {
+          "id": 12545,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-680iD_gallery_04.webp",
+          "alt_text": "TEV TA-680iD TA-680iD 圖片 5",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TA-780D",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/ta-780d",
+    "source_image_count": 5,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453729?stamp=1750399911",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-780D_gallery_01.webp",
+        "wordpress": {
+          "id": 12546,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-780D_gallery_01.webp",
+          "alt_text": "TEV TA-780D TA-780D 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453730?stamp=1750399911",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-780D_gallery_02.webp",
+        "wordpress": {
+          "id": 12547,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-780D_gallery_02.webp",
+          "alt_text": "TEV TA-780D TA-780D 圖片 3",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453698?stamp=1750399911",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-780D_gallery_03.webp",
+        "wordpress": {
+          "id": 12548,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-780D_gallery_03.webp",
+          "alt_text": "TEV TA-780D TA-780D 圖片 4",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453708?stamp=1750399911",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TA-780D_gallery_04.webp",
+        "wordpress": {
+          "id": 12549,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TA-780D_gallery_04.webp",
+          "alt_text": "TEV TA-780D TA-780D 圖片 5",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TM-326",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tm-326",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TM-600",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tm-600",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TM-621",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tm-621",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TM-700",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tm-700",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TM-800",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tm-800",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TM-933",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tm-933",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TM-999",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tm-999",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TOP-II",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/top-ii",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TR-101",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-101",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TR-102",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-102",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TR-310",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-310",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TR-389",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/vhf",
+    "source_image_count": 2,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/454175?stamp=1748312911",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-389_gallery_01.webp",
+        "wordpress": {
+          "id": 12550,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-389_gallery_01.webp",
+          "alt_text": "TEV TR-389 TR-389 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TR-5100",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-5100",
+    "source_image_count": 2,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/454150?stamp=1748310986",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-5100_gallery_01.webp",
+        "wordpress": {
+          "id": 12551,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-5100_gallery_01.webp",
+          "alt_text": "TEV TR-5100 TR-5100 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TR-7100",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-7100",
+    "source_image_count": 2,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453972?stamp=1748245514",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-7100_gallery_01.webp",
+        "wordpress": {
+          "id": 12552,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-7100_gallery_01.webp",
+          "alt_text": "TEV TR-7100 TR-7100 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TR-7500",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-7500",
+    "source_image_count": 1,
+    "gallery": []
+  },
+  {
+    "model": "TR-8100TD",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-8100td-tr-8100",
+    "source_image_count": 2,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453964?stamp=1748245005",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-8100TD_gallery_01.webp",
+        "wordpress": {
+          "id": 12553,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-8100TD_gallery_01.webp",
+          "alt_text": "TEV TR-8100TD TR-8100TD 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  },
+  {
+    "model": "TR-9100",
+    "status": "updated",
+    "source_page": "https://www.tev.com.tw/tr-9100",
+    "source_image_count": 3,
+    "gallery": [
+      {
+        "source_url": "https://www.tev.com.tw/images/453942?stamp=1748244339",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-9100_gallery_01.webp",
+        "wordpress": {
+          "id": 12554,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-9100_gallery_01.webp",
+          "alt_text": "TEV TR-9100 TR-9100 圖片 2",
+          "width": 600,
+          "height": 600
+        }
+      },
+      {
+        "source_url": "https://www.tev.com.tw/images/453944?stamp=1748244339",
+        "local_file": "G:\\我的雲端硬碟\\CRMAPP\\outputs\\tev-product-images\\images\\TEV_TR-9100_gallery_02.webp",
+        "wordpress": {
+          "id": 12555,
+          "url": "https://av-shop.com/wp-content/uploads/2026/08/TEV_TR-9100_gallery_02.webp",
+          "alt_text": "TEV TR-9100 TR-9100 圖片 3",
+          "width": 600,
+          "height": 600
+        }
+      }
+    ]
+  }
+]

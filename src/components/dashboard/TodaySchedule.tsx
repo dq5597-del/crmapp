@@ -63,14 +63,6 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
   const md = todayStr.slice(5)
 
   const fetchAll = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setItems([])
-      setGaps([])
-      setOcc([])
-      setLoading(false)
-      return
-    }
     const [schedRes, gapRes, impRes, cbRes, clbRes] = await Promise.all([
       supabase.from('schedules')
         .select('*, clients(company_name, address), vendors(company_name)')
@@ -79,13 +71,22 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
       supabase.from('schedules')
         .select('*')
         .eq('is_gap_task', true).eq('room', room).neq('status', '取消').neq('status', '已完成')
-        .order('gap_due_date', { ascending: true }).limit(6),
+        .order('sort_order', { ascending: true }).order('gap_due_date', { ascending: true }).limit(6),
       supabase.from('important_dates').select('*, clients(company_name)').eq('is_active', true),
       supabase.from('contacts').select('id, name, birthday, clients(company_name)').not('birthday', 'is', null),
       supabase.from('clients').select('id, company_name, contact_name, birthday').not('birthday', 'is', null),
     ])
     setItems((schedRes.data ?? []) as Sched[])
-    setGaps((gapRes.data ?? []) as Sched[])
+    // sort_order 欄位尚未建立時（未執行 sql/schedules_sort_order.sql）退回依期限排序
+    if (gapRes.error) {
+      const retry = await supabase.from('schedules')
+        .select('*')
+        .eq('is_gap_task', true).eq('room', room).neq('status', '取消').neq('status', '已完成')
+        .order('gap_due_date', { ascending: true }).limit(6)
+      setGaps((retry.data ?? []) as Sched[])
+    } else {
+      setGaps((gapRes.data ?? []) as Sched[])
+    }
 
     const out: Occ[] = []
     for (const r of (impRes.data ?? []) as any[]) {
@@ -117,10 +118,13 @@ export default function TodaySchedule({ room = 'sales' }: { room?: string }) {
     const title = newGap.trim()
     if (!title) return
     setSaving(true)
-    const { error } = await supabase.from('schedules').insert({
+    const base = {
       schedule_date: todayStr, title, type: '內部作業', room,
       is_gap_task: true, is_adhoc: false, remind_email: false, remind_days_before: 0,
-    })
+    }
+    // 新任務排到清單最後；sort_order 欄位不存在時退回不帶此欄位
+    let { error } = await supabase.from('schedules').insert({ ...base, sort_order: (gaps.length + 1) * 10 })
+    if (error) ({ error } = await supabase.from('schedules').insert(base))
     setSaving(false)
     if (error) { alert('新增失敗：' + error.message); return }
     setNewGap(''); fetchAll()

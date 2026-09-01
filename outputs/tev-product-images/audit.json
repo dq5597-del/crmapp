@@ -1,0 +1,1150 @@
+{
+  "generated_at": "2026-08-28T03:42:41.402Z",
+  "mode": "upload-gallery-only",
+  "overwrite": false,
+  "crm_product_count": 26,
+  "tev_pages_scanned": 71,
+  "tev_pages_discovered": 69,
+  "tev_discovered_products": [
+    {
+      "model": "#507",
+      "page_url": "https://www.tev.com.tw/507",
+      "image_url": "https://www.tev.com.tw/images/474281?stamp=1750407712",
+      "image_urls": [
+        "https://www.tev.com.tw/images/474281?stamp=1750407712"
+      ],
+      "title": "其他配件 音頭 #507"
+    },
+    {
+      "model": "#540",
+      "page_url": "https://www.tev.com.tw/540",
+      "image_url": "https://www.tev.com.tw/images/472121?stamp=1750229201",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472121?stamp=1750229201"
+      ],
+      "title": "其他配件 音頭 #540"
+    },
+    {
+      "model": "#58A2",
+      "page_url": "https://www.tev.com.tw/58a2",
+      "image_url": "https://www.tev.com.tw/images/474270?stamp=1750407584",
+      "image_urls": [
+        "https://www.tev.com.tw/images/474270?stamp=1750407584"
+      ],
+      "title": "其他配件 音頭 #58A2"
+    },
+    {
+      "model": "5.5 C-J",
+      "page_url": "https://www.tev.com.tw/55-c-j",
+      "image_url": "https://www.tev.com.tw/images/472096?stamp=1750228416",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472096?stamp=1750228416"
+      ],
+      "title": "其他配件 5.5mm C-J導線"
+    },
+    {
+      "model": "6.5 C-C",
+      "page_url": "https://www.tev.com.tw/65-c-c",
+      "image_url": "https://www.tev.com.tw/images/472098?stamp=1750228495",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472098?stamp=1750228495"
+      ],
+      "title": "其他配件 6.5mm C-C導線"
+    },
+    {
+      "model": "6.5 C-J",
+      "page_url": "https://www.tev.com.tw/65-c-j",
+      "image_url": "https://www.tev.com.tw/images/472103?stamp=1750228613",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472103?stamp=1750228613"
+      ],
+      "title": "其他配件 6.5mm C-J導線"
+    },
+    {
+      "model": "7.0 C-C",
+      "page_url": "https://www.tev.com.tw/data-273343",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "其他配件"
+    },
+    {
+      "model": "7.0 C-C",
+      "page_url": "https://www.tev.com.tw/70-c-c",
+      "image_url": "https://www.tev.com.tw/images/472104?stamp=1750228830",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472104?stamp=1750228830"
+      ],
+      "title": "其他配件 7.0mm C-C導線"
+    },
+    {
+      "model": "7.0 C-J",
+      "page_url": "https://www.tev.com.tw/70-c-j",
+      "image_url": "https://www.tev.com.tw/images/472107?stamp=1750228930",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472107?stamp=1750228930"
+      ],
+      "title": "其他配件 7.0mm C-J導線"
+    },
+    {
+      "model": "AD-100",
+      "page_url": "https://www.tev.com.tw/data-273337",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "專業配件"
+    },
+    {
+      "model": "AD-100",
+      "page_url": "https://www.tev.com.tw/data-273341",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "無線麥克風配件"
+    },
+    {
+      "model": "AD-100",
+      "page_url": "https://www.tev.com.tw/ad-100",
+      "image_url": "https://www.tev.com.tw/images/474129?stamp=1750407068",
+      "image_urls": [
+        "https://www.tev.com.tw/images/474129?stamp=1750407068",
+        "https://www.tev.com.tw/images/474128?stamp=1750407068",
+        "https://www.tev.com.tw/images/474130?stamp=1750407068"
+      ],
+      "title": "無線麥克風配件 天線分配器"
+    },
+    {
+      "model": "ANT-100",
+      "page_url": "https://www.tev.com.tw/ant-100",
+      "image_url": "https://www.tev.com.tw/images/472037?stamp=1750226918",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472037?stamp=1750226918"
+      ],
+      "title": "無線麥克風配件 指向性天線"
+    },
+    {
+      "model": "PRO-II",
+      "page_url": "https://www.tev.com.tw/data-273336",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "有線麥克風"
+    },
+    {
+      "model": "PRO-II",
+      "page_url": "https://www.tev.com.tw/data-273338",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "表演用有線麥克風"
+    },
+    {
+      "model": "PRO-II",
+      "page_url": "https://www.tev.com.tw/pro-ii",
+      "image_url": "https://www.tev.com.tw/images/454204?stamp=1748314604",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454204?stamp=1748314604"
+      ],
+      "title": "演出用系列 PRO-II"
+    },
+    {
+      "model": "RF-100",
+      "page_url": "https://www.tev.com.tw/rf-100",
+      "image_url": "https://www.tev.com.tw/images/472019?stamp=1750226206",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472019?stamp=1750226206"
+      ],
+      "title": "無線麥克風配件 天線強波器"
+    },
+    {
+      "model": "ST-220",
+      "page_url": "https://www.tev.com.tw/st-220",
+      "image_url": "https://www.tev.com.tw/images/472011?stamp=1750225367",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472011?stamp=1750225367"
+      ],
+      "title": "移動式無線播放器配件 喇叭立架 ST-220"
+    },
+    {
+      "model": "ST-380",
+      "page_url": "https://www.tev.com.tw/st-380",
+      "image_url": "https://www.tev.com.tw/images/472010?stamp=1750225303",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472010?stamp=1750225303"
+      ],
+      "title": "移動式無線播放器配件 喇叭立架 ST-380"
+    },
+    {
+      "model": "ST-780",
+      "page_url": "https://www.tev.com.tw/st-780",
+      "image_url": "https://www.tev.com.tw/images/472001?stamp=1750225164",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472001?stamp=1750225164",
+        "https://www.tev.com.tw/images/472002?stamp=1750225164"
+      ],
+      "title": "移動式無線播放器配件 喇叭立架 ST-780"
+    },
+    {
+      "model": "SV-CD3SUP",
+      "page_url": "https://www.tev.com.tw/sv-cd3sup",
+      "image_url": "https://www.tev.com.tw/images/472090?stamp=1750228112",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472090?stamp=1750228112"
+      ],
+      "title": "移動式無線播放器配件CD播放器"
+    },
+    {
+      "model": "TA-220DL",
+      "page_url": "https://www.tev.com.tw/data-273227",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "肩背式行動播放器"
+    },
+    {
+      "model": "TA-220DL",
+      "page_url": "https://www.tev.com.tw/ta-220dl",
+      "image_url": "https://www.tev.com.tw/images/453843?stamp=1748241571",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453843?stamp=1748241571",
+        "https://www.tev.com.tw/images/453846?stamp=1748241571",
+        "https://www.tev.com.tw/images/453847?stamp=1748241571",
+        "https://www.tev.com.tw/images/453849?stamp=1748241571"
+      ],
+      "title": "6.5\" 50W 肩背式行動播放器"
+    },
+    {
+      "model": "TA-250UL",
+      "page_url": "https://www.tev.com.tw/data-310000",
+      "image_url": "https://www.tev.com.tw/images/453843?stamp=1755247724",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453843?stamp=1755247724",
+        "https://www.tev.com.tw/images/453847?stamp=1755247724",
+        "https://www.tev.com.tw/images/453849?stamp=1755247724"
+      ],
+      "title": "特約通路專售 6.5\" 50W 肩背式行動播放器"
+    },
+    {
+      "model": "TA-380D",
+      "page_url": "https://www.tev.com.tw/data-273192",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "手提式無線播放器"
+    },
+    {
+      "model": "TA-380D",
+      "page_url": "https://www.tev.com.tw/ta-380d",
+      "image_url": "https://www.tev.com.tw/images/453761?stamp=1748240257",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453761?stamp=1748240257",
+        "https://www.tev.com.tw/images/453762?stamp=1748240257",
+        "https://www.tev.com.tw/images/453763?stamp=1748240257"
+      ],
+      "title": "6.5\" 80W 手提式行動播放器"
+    },
+    {
+      "model": "TA-390D",
+      "page_url": "https://www.tev.com.tw/data-309996",
+      "image_url": "https://www.tev.com.tw/images/453761?stamp=1755247538",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453761?stamp=1755247538",
+        "https://www.tev.com.tw/images/453762?stamp=1755247538",
+        "https://www.tev.com.tw/images/453763?stamp=1755247538"
+      ],
+      "title": "特約通路專售 6.5\" 80W 手提式行動播放器"
+    },
+    {
+      "model": "TA-680D",
+      "page_url": "https://www.tev.com.tw/ta-680d",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1748239448",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453728?stamp=1748239448",
+        "https://www.tev.com.tw/images/453729?stamp=1748239448",
+        "https://www.tev.com.tw/images/453730?stamp=1748239448",
+        "https://www.tev.com.tw/images/453727?stamp=1748239448"
+      ],
+      "title": "8\" 220W 手拉式豪華型移動式播放器"
+    },
+    {
+      "model": "TA-680iD",
+      "page_url": "https://www.tev.com.tw/data-309989",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1755246791",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453728?stamp=1755246791",
+        "https://www.tev.com.tw/images/453729?stamp=1755246791",
+        "https://www.tev.com.tw/images/453730?stamp=1755246791",
+        "https://www.tev.com.tw/images/453727?stamp=1755246791",
+        "https://www.tev.com.tw/images/453698?stamp=1755246988"
+      ],
+      "title": "8\" 180W 手拉式超值型移動式播放器"
+    },
+    {
+      "model": "TA-6900",
+      "page_url": "https://www.tev.com.tw/data-309985",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1755246298",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453728?stamp=1755246298",
+        "https://www.tev.com.tw/images/453729?stamp=1755246298",
+        "https://www.tev.com.tw/images/453730?stamp=1755246298",
+        "https://www.tev.com.tw/images/453727?stamp=1755246298"
+      ],
+      "title": "特約通路專售 8\" 180W 行動式播放器"
+    },
+    {
+      "model": "TA-780D",
+      "page_url": "https://www.tev.com.tw/ta-780d",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1750399910",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453728?stamp=1750399910",
+        "https://www.tev.com.tw/images/453729?stamp=1750399911",
+        "https://www.tev.com.tw/images/453730?stamp=1750399911",
+        "https://www.tev.com.tw/images/453698?stamp=1750399911",
+        "https://www.tev.com.tw/images/453708?stamp=1750399911"
+      ],
+      "title": "10\" 300W 手拉式旗艦型移動式播放器"
+    },
+    {
+      "model": "TA-7900",
+      "page_url": "https://www.tev.com.tw/data-309993",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1755247170",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453728?stamp=1755247170",
+        "https://www.tev.com.tw/images/453729?stamp=1755247170",
+        "https://www.tev.com.tw/images/453730?stamp=1755247170",
+        "https://www.tev.com.tw/images/453727?stamp=1755247170"
+      ],
+      "title": "特約通路專售 8\" 220W 手拉式移動式播放器"
+    },
+    {
+      "model": "TA-8900",
+      "page_url": "https://www.tev.com.tw/data-309981",
+      "image_url": "https://www.tev.com.tw/images/453728?stamp=1755245811",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453728?stamp=1755245811",
+        "https://www.tev.com.tw/images/453729?stamp=1755245811",
+        "https://www.tev.com.tw/images/453730?stamp=1755245811",
+        "https://www.tev.com.tw/images/453708?stamp=1755245811"
+      ],
+      "title": "特約通路專售 10\" 300W行動式播放器"
+    },
+    {
+      "model": "TB-100",
+      "page_url": "https://www.tev.com.tw/tb-100",
+      "image_url": "https://www.tev.com.tw/images/472027?stamp=1750226612",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472027?stamp=1750226612"
+      ],
+      "title": "無線麥克風配件 手握式充電麥克風 TB-100"
+    },
+    {
+      "model": "TH-68",
+      "page_url": "https://www.tev.com.tw/th-68",
+      "image_url": "https://www.tev.com.tw/images/472063?stamp=1750227658",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472063?stamp=1750227658"
+      ],
+      "title": "無線麥克風配件 手握式麥克風 TH-68"
+    },
+    {
+      "model": "TL-38",
+      "page_url": "https://www.tev.com.tw/tl-38",
+      "image_url": "https://www.tev.com.tw/images/472050?stamp=1750227554",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472050?stamp=1750227554"
+      ],
+      "title": "無線麥克風配件 領夾式麥克風"
+    },
+    {
+      "model": "TM-326",
+      "page_url": "https://www.tev.com.tw/tm-326",
+      "image_url": "https://www.tev.com.tw/images/454237?stamp=1748315888",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454237?stamp=1748315888"
+      ],
+      "title": "一般演說系列 TM-326"
+    },
+    {
+      "model": "TM-5100",
+      "page_url": "https://www.tev.com.tw/tm-5100",
+      "image_url": "https://www.tev.com.tw/images/472032?stamp=1750226698",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472032?stamp=1750226698"
+      ],
+      "title": "無線麥克風配件 手握式麥克風 TM-5100"
+    },
+    {
+      "model": "TM-600",
+      "page_url": "https://www.tev.com.tw/tm-600",
+      "image_url": "https://www.tev.com.tw/images/454210?stamp=1748315410",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454210?stamp=1748315410"
+      ],
+      "title": "卡拉OK專用系列 TM-600"
+    },
+    {
+      "model": "TM-621",
+      "page_url": "https://www.tev.com.tw/data-273340",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "演說有線麥克風"
+    },
+    {
+      "model": "TM-621",
+      "page_url": "https://www.tev.com.tw/tm-621",
+      "image_url": "https://www.tev.com.tw/images/454232?stamp=1748315805",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454232?stamp=1748315805"
+      ],
+      "title": "一般演說系列 TM-621"
+    },
+    {
+      "model": "TM-700",
+      "page_url": "https://www.tev.com.tw/tm-700",
+      "image_url": "https://www.tev.com.tw/images/454208?stamp=1748315318",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454208?stamp=1748315318"
+      ],
+      "title": "卡拉OK專用系列 TM-700"
+    },
+    {
+      "model": "TM-7100",
+      "page_url": "https://www.tev.com.tw/tm-7100",
+      "image_url": "https://www.tev.com.tw/images/472035?stamp=1750226817",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472035?stamp=1750226817"
+      ],
+      "title": "無線麥克風配件 充電式手握麥克風 TM-7100"
+    },
+    {
+      "model": "TM-800",
+      "page_url": "https://www.tev.com.tw/data-273339",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "卡拉OK有線麥克風"
+    },
+    {
+      "model": "TM-800",
+      "page_url": "https://www.tev.com.tw/tm-800",
+      "image_url": "https://www.tev.com.tw/images/454206?stamp=1748315210",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454206?stamp=1748315210"
+      ],
+      "title": "卡拉OK專用系列 TM-800"
+    },
+    {
+      "model": "TM-8100",
+      "page_url": "https://www.tev.com.tw/tm-8100",
+      "image_url": "https://www.tev.com.tw/images/472033?stamp=1750226756",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472033?stamp=1750226756"
+      ],
+      "title": "無線麥克風配件 手握式麥克風 TM-8100"
+    },
+    {
+      "model": "TM-933",
+      "page_url": "https://www.tev.com.tw/tm-933",
+      "image_url": "https://www.tev.com.tw/images/454227?stamp=1748315568",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454227?stamp=1748315568"
+      ],
+      "title": "卡拉OK專用系列 TM-933"
+    },
+    {
+      "model": "TM-999",
+      "page_url": "https://www.tev.com.tw/tm-999",
+      "image_url": "https://www.tev.com.tw/images/454226?stamp=1748315489",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454226?stamp=1748315489"
+      ],
+      "title": "卡拉OK專用系列 TM-999"
+    },
+    {
+      "model": "TOP-II",
+      "page_url": "https://www.tev.com.tw/top-ii",
+      "image_url": "https://www.tev.com.tw/images/454205?stamp=1748314831",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454205?stamp=1748314831"
+      ],
+      "title": "演出用系列 TOP-II"
+    },
+    {
+      "model": "TR-101",
+      "page_url": "https://www.tev.com.tw/tr-101",
+      "image_url": "https://www.tev.com.tw/images/454162?stamp=1748312336",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454162?stamp=1748312336"
+      ],
+      "title": "一對一攜帶式無線麥克風 TR-101"
+    },
+    {
+      "model": "TR-102",
+      "page_url": "https://www.tev.com.tw/tr-102",
+      "image_url": "https://www.tev.com.tw/images/454161?stamp=1748311940",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454161?stamp=1748311940"
+      ],
+      "title": "一對二攜帶式無線麥克風 TR-102"
+    },
+    {
+      "model": "TR-310",
+      "page_url": "https://www.tev.com.tw/data-273342",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "移動式無線播放器配件"
+    },
+    {
+      "model": "TR-310",
+      "page_url": "https://www.tev.com.tw/tr-310",
+      "image_url": "https://www.tev.com.tw/images/472086?stamp=1750228027",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472086?stamp=1750228027"
+      ],
+      "title": "移動式無線播放器配件 無線麥克風模組"
+    },
+    {
+      "model": "TR-386",
+      "page_url": "https://www.tev.com.tw/data-310003",
+      "image_url": "https://www.tev.com.tw/images/454176?stamp=1755248074",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454176?stamp=1755248074",
+        "https://www.tev.com.tw/images/454175?stamp=1755248074"
+      ],
+      "title": "超值VHF固定頻系列麥克風"
+    },
+    {
+      "model": "TR-389",
+      "page_url": "https://www.tev.com.tw/data-273250",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "VHF 無線麥克風"
+    },
+    {
+      "model": "TR-389",
+      "page_url": "https://www.tev.com.tw/vhf",
+      "image_url": "https://www.tev.com.tw/images/454176?stamp=1748312911",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454176?stamp=1748312911",
+        "https://www.tev.com.tw/images/454175?stamp=1748312911"
+      ],
+      "title": "超值VHF固定頻系列麥克風"
+    },
+    {
+      "model": "TR-396",
+      "page_url": "https://www.tev.com.tw/data-310004",
+      "image_url": "https://www.tev.com.tw/images/454176?stamp=1755248086",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454176?stamp=1755248086",
+        "https://www.tev.com.tw/images/454175?stamp=1755248086"
+      ],
+      "title": "超值VHF固定頻系列麥克風"
+    },
+    {
+      "model": "TR-5100",
+      "page_url": "https://www.tev.com.tw/tr-5100",
+      "image_url": "https://www.tev.com.tw/images/454151?stamp=1748310986",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454151?stamp=1748310986",
+        "https://www.tev.com.tw/images/454150?stamp=1748310986"
+      ],
+      "title": "歡唱專業級UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-5600",
+      "page_url": "https://www.tev.com.tw/data-310007",
+      "image_url": "https://www.tev.com.tw/images/454151?stamp=1755248672",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454151?stamp=1755248672",
+        "https://www.tev.com.tw/images/454150?stamp=1755248672"
+      ],
+      "title": "特約通路專售 歡唱專業級UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-5700",
+      "page_url": "https://www.tev.com.tw/tr-5700",
+      "image_url": "https://www.tev.com.tw/images/454108?stamp=1748309371",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454108?stamp=1748309371",
+        "https://www.tev.com.tw/images/454107?stamp=1748309371"
+      ],
+      "title": "歡唱專業級UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-5800",
+      "page_url": "https://www.tev.com.tw/tr-5800",
+      "image_url": "https://www.tev.com.tw/images/454075?stamp=1748307934",
+      "image_urls": [
+        "https://www.tev.com.tw/images/454075?stamp=1748307934",
+        "https://www.tev.com.tw/images/454074?stamp=1748307934"
+      ],
+      "title": "歡唱專業級UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-7100",
+      "page_url": "https://www.tev.com.tw/tr-7100",
+      "image_url": "https://www.tev.com.tw/images/453973?stamp=1748245514",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453973?stamp=1748245514",
+        "https://www.tev.com.tw/images/453972?stamp=1748245514"
+      ],
+      "title": "長距離工程用專業級UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-7500",
+      "page_url": "https://www.tev.com.tw/data-273248",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "無線麥克風"
+    },
+    {
+      "model": "TR-7500",
+      "page_url": "https://www.tev.com.tw/data-273249",
+      "image_url": "https://www.tev.com.tw/images/430560",
+      "image_urls": [
+        "https://www.tev.com.tw/images/430560"
+      ],
+      "title": "UHF 無線麥克風"
+    },
+    {
+      "model": "TR-7500",
+      "page_url": "https://www.tev.com.tw/tr-7500",
+      "image_url": "https://www.tev.com.tw/images/732600?stamp=1786413115",
+      "image_urls": [
+        "https://www.tev.com.tw/images/732600?stamp=1786413115"
+      ],
+      "title": "UHF 100CH 四頻道無線麥克風"
+    },
+    {
+      "model": "TR-8100TD/TR-8100",
+      "page_url": "https://www.tev.com.tw/tr-8100td-tr-8100",
+      "image_url": "https://www.tev.com.tw/images/453965?stamp=1748245005",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453965?stamp=1748245005",
+        "https://www.tev.com.tw/images/453964?stamp=1748245005"
+      ],
+      "title": "長距離工程用專業級UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-9100",
+      "page_url": "https://www.tev.com.tw/tr-9100",
+      "image_url": "https://www.tev.com.tw/images/453943?stamp=1748244339",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453943?stamp=1748244339",
+        "https://www.tev.com.tw/images/453942?stamp=1748244339",
+        "https://www.tev.com.tw/images/453944?stamp=1748244339"
+      ],
+      "title": "真分集接收長距離工程用專業級UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-9988",
+      "page_url": "https://www.tev.com.tw/data-310005",
+      "image_url": "https://www.tev.com.tw/images/453973?stamp=1755248229",
+      "image_urls": [
+        "https://www.tev.com.tw/images/453973?stamp=1755248229",
+        "https://www.tev.com.tw/images/453972?stamp=1755248229"
+      ],
+      "title": "特約通路專售 UHF PLL 100頻道可選"
+    },
+    {
+      "model": "TR-MP3",
+      "page_url": "https://www.tev.com.tw/tr-mp3",
+      "image_url": "https://www.tev.com.tw/images/472091?stamp=1750228181",
+      "image_urls": [
+        "https://www.tev.com.tw/images/472091?stamp=1750228181"
+      ],
+      "title": "移動式無線播放器配件USB播放器"
+    }
+  ],
+  "crawl_failures": [],
+  "counts": {
+    "ready": 26,
+    "existing": 0,
+    "unmatched": 0
+  },
+  "products": [
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "ST-220",
+      "product_name": "ST-220",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "ST-220",
+        "page_url": "https://www.tev.com.tw/st-220",
+        "image_url": "https://www.tev.com.tw/images/472011?stamp=1750225367",
+        "image_urls": [
+          "https://www.tev.com.tw/images/472011?stamp=1750225367"
+        ],
+        "title": "移動式無線播放器配件 喇叭立架 ST-220"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "ST-380",
+      "product_name": "ST-380",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "ST-380",
+        "page_url": "https://www.tev.com.tw/st-380",
+        "image_url": "https://www.tev.com.tw/images/472010?stamp=1750225303",
+        "image_urls": [
+          "https://www.tev.com.tw/images/472010?stamp=1750225303"
+        ],
+        "title": "移動式無線播放器配件 喇叭立架 ST-380"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "ST-780",
+      "product_name": "ST-780",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "ST-780",
+        "page_url": "https://www.tev.com.tw/st-780",
+        "image_url": "https://www.tev.com.tw/images/472001?stamp=1750225164",
+        "image_urls": [
+          "https://www.tev.com.tw/images/472001?stamp=1750225164",
+          "https://www.tev.com.tw/images/472002?stamp=1750225164"
+        ],
+        "title": "移動式無線播放器配件 喇叭立架 ST-780"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TA-220DL",
+      "product_name": "TA-220DL",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TA-220DL",
+        "page_url": "https://www.tev.com.tw/ta-220dl",
+        "image_url": "https://www.tev.com.tw/images/453843?stamp=1748241571",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453843?stamp=1748241571",
+          "https://www.tev.com.tw/images/453846?stamp=1748241571",
+          "https://www.tev.com.tw/images/453847?stamp=1748241571",
+          "https://www.tev.com.tw/images/453849?stamp=1748241571"
+        ],
+        "title": "6.5\" 50W 肩背式行動播放器"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TA-300雙頻",
+      "product_name": "TA-300雙頻",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TA-380D",
+        "page_url": "https://www.tev.com.tw/ta-380d",
+        "image_url": "https://www.tev.com.tw/images/453761?stamp=1748240257",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453761?stamp=1748240257",
+          "https://www.tev.com.tw/images/453762?stamp=1748240257",
+          "https://www.tev.com.tw/images/453763?stamp=1748240257"
+        ],
+        "title": "6.5\" 80W 手提式行動播放器"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TA-380單頻",
+      "product_name": "TA-380單頻",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TA-380D",
+        "page_url": "https://www.tev.com.tw/ta-380d",
+        "image_url": "https://www.tev.com.tw/images/453761?stamp=1748240257",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453761?stamp=1748240257",
+          "https://www.tev.com.tw/images/453762?stamp=1748240257",
+          "https://www.tev.com.tw/images/453763?stamp=1748240257"
+        ],
+        "title": "6.5\" 80W 手提式行動播放器"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TA-680D",
+      "product_name": "TA-680D",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TA-680D",
+        "page_url": "https://www.tev.com.tw/ta-680d",
+        "image_url": "https://www.tev.com.tw/images/453728?stamp=1748239448",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453728?stamp=1748239448",
+          "https://www.tev.com.tw/images/453729?stamp=1748239448",
+          "https://www.tev.com.tw/images/453730?stamp=1748239448",
+          "https://www.tev.com.tw/images/453727?stamp=1748239448"
+        ],
+        "title": "8\" 220W 手拉式豪華型移動式播放器"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TA-680iD",
+      "product_name": "TA-680iD",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TA-680iD",
+        "page_url": "https://www.tev.com.tw/data-309989",
+        "image_url": "https://www.tev.com.tw/images/453728?stamp=1755246791",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453728?stamp=1755246791",
+          "https://www.tev.com.tw/images/453729?stamp=1755246791",
+          "https://www.tev.com.tw/images/453730?stamp=1755246791",
+          "https://www.tev.com.tw/images/453727?stamp=1755246791",
+          "https://www.tev.com.tw/images/453698?stamp=1755246988"
+        ],
+        "title": "8\" 180W 手拉式超值型移動式播放器"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TA-780D",
+      "product_name": "TA-780D",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TA-780D",
+        "page_url": "https://www.tev.com.tw/ta-780d",
+        "image_url": "https://www.tev.com.tw/images/453728?stamp=1750399910",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453728?stamp=1750399910",
+          "https://www.tev.com.tw/images/453729?stamp=1750399911",
+          "https://www.tev.com.tw/images/453730?stamp=1750399911",
+          "https://www.tev.com.tw/images/453698?stamp=1750399911",
+          "https://www.tev.com.tw/images/453708?stamp=1750399911"
+        ],
+        "title": "10\" 300W 手拉式旗艦型移動式播放器"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TM-326",
+      "product_name": "TM-326",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TM-326",
+        "page_url": "https://www.tev.com.tw/tm-326",
+        "image_url": "https://www.tev.com.tw/images/454237?stamp=1748315888",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454237?stamp=1748315888"
+        ],
+        "title": "一般演說系列 TM-326"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TM-600",
+      "product_name": "TM-600",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TM-600",
+        "page_url": "https://www.tev.com.tw/tm-600",
+        "image_url": "https://www.tev.com.tw/images/454210?stamp=1748315410",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454210?stamp=1748315410"
+        ],
+        "title": "卡拉OK專用系列 TM-600"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TM-621",
+      "product_name": "TM-621",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TM-621",
+        "page_url": "https://www.tev.com.tw/tm-621",
+        "image_url": "https://www.tev.com.tw/images/454232?stamp=1748315805",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454232?stamp=1748315805"
+        ],
+        "title": "一般演說系列 TM-621"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TM-700",
+      "product_name": "TM-700",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TM-700",
+        "page_url": "https://www.tev.com.tw/tm-700",
+        "image_url": "https://www.tev.com.tw/images/454208?stamp=1748315318",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454208?stamp=1748315318"
+        ],
+        "title": "卡拉OK專用系列 TM-700"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TM-800",
+      "product_name": "TM-800",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TM-800",
+        "page_url": "https://www.tev.com.tw/tm-800",
+        "image_url": "https://www.tev.com.tw/images/454206?stamp=1748315210",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454206?stamp=1748315210"
+        ],
+        "title": "卡拉OK專用系列 TM-800"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TM-933",
+      "product_name": "TM-933",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TM-933",
+        "page_url": "https://www.tev.com.tw/tm-933",
+        "image_url": "https://www.tev.com.tw/images/454227?stamp=1748315568",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454227?stamp=1748315568"
+        ],
+        "title": "卡拉OK專用系列 TM-933"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TM-999",
+      "product_name": "TM-999",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TM-999",
+        "page_url": "https://www.tev.com.tw/tm-999",
+        "image_url": "https://www.tev.com.tw/images/454226?stamp=1748315489",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454226?stamp=1748315489"
+        ],
+        "title": "卡拉OK專用系列 TM-999"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TOP-II",
+      "product_name": "TOP-II",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TOP-II",
+        "page_url": "https://www.tev.com.tw/top-ii",
+        "image_url": "https://www.tev.com.tw/images/454205?stamp=1748314831",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454205?stamp=1748314831"
+        ],
+        "title": "演出用系列 TOP-II"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-101",
+      "product_name": "TR-101",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-101",
+        "page_url": "https://www.tev.com.tw/tr-101",
+        "image_url": "https://www.tev.com.tw/images/454162?stamp=1748312336",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454162?stamp=1748312336"
+        ],
+        "title": "一對一攜帶式無線麥克風 TR-101"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-102",
+      "product_name": "TR-102",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-102",
+        "page_url": "https://www.tev.com.tw/tr-102",
+        "image_url": "https://www.tev.com.tw/images/454161?stamp=1748311940",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454161?stamp=1748311940"
+        ],
+        "title": "一對二攜帶式無線麥克風 TR-102"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-310",
+      "product_name": "TR-310",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-310",
+        "page_url": "https://www.tev.com.tw/tr-310",
+        "image_url": "https://www.tev.com.tw/images/472086?stamp=1750228027",
+        "image_urls": [
+          "https://www.tev.com.tw/images/472086?stamp=1750228027"
+        ],
+        "title": "移動式無線播放器配件 無線麥克風模組"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-389",
+      "product_name": "TR-389",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-389",
+        "page_url": "https://www.tev.com.tw/vhf",
+        "image_url": "https://www.tev.com.tw/images/454176?stamp=1748312911",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454176?stamp=1748312911",
+          "https://www.tev.com.tw/images/454175?stamp=1748312911"
+        ],
+        "title": "超值VHF固定頻系列麥克風"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-5100",
+      "product_name": "TR-5100",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-5100",
+        "page_url": "https://www.tev.com.tw/tr-5100",
+        "image_url": "https://www.tev.com.tw/images/454151?stamp=1748310986",
+        "image_urls": [
+          "https://www.tev.com.tw/images/454151?stamp=1748310986",
+          "https://www.tev.com.tw/images/454150?stamp=1748310986"
+        ],
+        "title": "歡唱專業級UHF PLL 100頻道可選"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-7100",
+      "product_name": "TR-7100",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-7100",
+        "page_url": "https://www.tev.com.tw/tr-7100",
+        "image_url": "https://www.tev.com.tw/images/453973?stamp=1748245514",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453973?stamp=1748245514",
+          "https://www.tev.com.tw/images/453972?stamp=1748245514"
+        ],
+        "title": "長距離工程用專業級UHF PLL 100頻道可選"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-7500",
+      "product_name": "TR-7500",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-7500",
+        "page_url": "https://www.tev.com.tw/tr-7500",
+        "image_url": "https://www.tev.com.tw/images/732600?stamp=1786413115",
+        "image_urls": [
+          "https://www.tev.com.tw/images/732600?stamp=1786413115"
+        ],
+        "title": "UHF 100CH 四頻道無線麥克風"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-8100TD",
+      "product_name": "TR-8100TD",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-8100TD/TR-8100",
+        "page_url": "https://www.tev.com.tw/tr-8100td-tr-8100",
+        "image_url": "https://www.tev.com.tw/images/453965?stamp=1748245005",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453965?stamp=1748245005",
+          "https://www.tev.com.tw/images/453964?stamp=1748245005"
+        ],
+        "title": "長距離工程用專業級UHF PLL 100頻道可選"
+      }
+    },
+    {
+      "id": null,
+      "brand": "TEV",
+      "model": "TR-9100",
+      "product_name": "TR-9100",
+      "before_main_image_url": null,
+      "status": "ready",
+      "source": {
+        "model": "TR-9100",
+        "page_url": "https://www.tev.com.tw/tr-9100",
+        "image_url": "https://www.tev.com.tw/images/453943?stamp=1748244339",
+        "image_urls": [
+          "https://www.tev.com.tw/images/453943?stamp=1748244339",
+          "https://www.tev.com.tw/images/453942?stamp=1748244339",
+          "https://www.tev.com.tw/images/453944?stamp=1748244339"
+        ],
+        "title": "真分集接收長距離工程用專業級UHF PLL 100頻道可選"
+      }
+    }
+  ]
+}

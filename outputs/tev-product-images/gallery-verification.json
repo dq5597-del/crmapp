@@ -1,0 +1,14 @@
+{
+  "verified_at": "2026-08-28T03:47:10.515Z",
+  "products": 26,
+  "source_images": 51,
+  "gallery_uploaded": 25,
+  "failed_products": 0,
+  "database_updated": true,
+  "database_main_images": 26,
+  "database_gallery_images": 25,
+  "database_total_images": 51,
+  "per_model_count_mismatches": 0,
+  "remote_checked": 25,
+  "remote_failed": 0
+}
