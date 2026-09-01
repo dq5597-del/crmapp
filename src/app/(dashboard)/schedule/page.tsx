@@ -8,16 +8,6 @@ import {
   Cake, ShieldCheck, Sparkles, Pencil, Trash2, Check, AlarmClock, CalendarDays, Navigation,
   GripVertical
 } from 'lucide-react'
-import {
-  DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
-import {
-  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
-  sortableKeyboardCoordinates,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 
 // ============ 型別 ============
 interface Schedule {
@@ -135,30 +125,12 @@ function downloadIcs(s: Schedule) {
   URL.revokeObjectURL(url)
 }
 
-// ============ 空檔任務單列（可上下拖曳） ============
-function SortableGapRow({ id, enabled, children }: { id: string; enabled: boolean; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: !enabled })
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 20 : undefined }}
-      className={`flex items-center gap-1.5 text-sm rounded-lg ${isDragging ? 'bg-blue-50 ring-2 ring-blue-300 shadow-sm' : ''}`}
-    >
-      {enabled && (
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label="拖曳調整順序"
-          title="按住上下拖曳可調整順序"
-          className="touch-none shrink-0 p-1 -ml-1 text-gray-300 hover:text-gray-500 active:text-blue-500 cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical size={14} />
-        </button>
-      )}
-      {children}
-    </div>
-  )
+// 陣列搬移（取代 @dnd-kit 的 arrayMove，不外掛任何套件）
+function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const out = list.slice()
+  const [item] = out.splice(from, 1)
+  out.splice(to, 0, item)
+  return out
 }
 
 // ============ 主頁面 ============
@@ -182,11 +154,7 @@ export default function SchedulePage() {
   // 資料庫是否已有 sort_order 欄位（未執行 sql/schedules_sort_order.sql 時為 false，拖曳功能自動隱藏）
   const [sortReady, setSortReady] = useState(true)
   const [orderError, setOrderError] = useState<string | null>(null)
-
-  const dndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
+  const [dragId, setDragId] = useState<string | null>(null)
 
   const todayStr = fmt(new Date())
 
@@ -363,15 +331,16 @@ export default function SchedulePage() {
     }
   }
 
-  // 空檔任務上下拖曳排序
-  async function handleGapDragEnd(e: DragEndEvent) {
-    const { active, over } = e
-    if (!over || active.id === over.id) return
-    const oldIndex = gapTasks.findIndex(t => t.id === active.id)
-    const newIndex = gapTasks.findIndex(t => t.id === over.id)
-    if (oldIndex < 0 || newIndex < 0) return
+  // 空檔任務拖放排序（瀏覽器原生 HTML5 drag and drop，不依賴外部套件）
+  async function handleGapDrop(targetId: string) {
+    const sourceId = dragId
+    setDragId(null)
+    if (!sourceId || sourceId === targetId) return
+    const from = gapTasks.findIndex(t => t.id === sourceId)
+    const to = gapTasks.findIndex(t => t.id === targetId)
+    if (from < 0 || to < 0) return
 
-    const next = arrayMove(gapTasks, oldIndex, newIndex)
+    const next = moveItem(gapTasks, from, to)
     setGapTasks(next)   // 先反映在畫面，再寫回資料庫
     await persistGapOrder(next)
   }
@@ -380,7 +349,7 @@ export default function SchedulePage() {
   async function moveGap(index: number, dir: -1 | 1) {
     const target = index + dir
     if (target < 0 || target >= gapTasks.length) return
-    const next = arrayMove(gapTasks, index, target)
+    const next = moveItem(gapTasks, index, target)
     setGapTasks(next)
     await persistGapOrder(next)
   }
@@ -677,7 +646,7 @@ export default function SchedulePage() {
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-900 flex items-center gap-1.5"><Clock size={16} className="text-gray-400" />空檔任務（有空就做）</h2>
-                {sortReady && gapTasks.length > 1 && <span className="text-xs text-gray-400">可拖曳或用 ▲▼ 調整順序</span>}
+                {gapTasks.length > 1 && <span className="text-xs text-gray-400">可拖曳或用 ▲▼ 調整順序</span>}
               </div>
 
               {orderError && (
@@ -691,13 +660,6 @@ export default function SchedulePage() {
               {gapTasks.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-4">尚無空檔任務</p>
               ) : (
-                <DndContext
-                  sensors={dndSensors}
-                  collisionDetection={closestCenter}
-                  modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-                  onDragEnd={handleGapDragEnd}
-                >
-                <SortableContext items={gapTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {gapTasks.map((t, idx) => (
                     editGap?.id === t.id ? (
@@ -723,7 +685,17 @@ export default function SchedulePage() {
                         <button onClick={() => setEditGap(null)} title="取消" className="p-1.5 text-gray-400 hover:text-gray-700"><X size={14} /></button>
                       </div>
                     ) : (
-                      <SortableGapRow key={t.id} id={t.id} enabled={sortReady}>
+                      <div
+                        key={t.id}
+                        draggable
+                        onDragStart={e => { setDragId(t.id); e.dataTransfer.effectAllowed = 'move' }}
+                        onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                        onDrop={e => { e.preventDefault(); handleGapDrop(t.id) }}
+                        onDragEnd={() => setDragId(null)}
+                        className={`flex items-center gap-1.5 text-sm rounded-lg px-1 -mx-1 ${dragId === t.id ? 'opacity-40' : ''} ${dragId && dragId !== t.id ? 'hover:bg-blue-50' : ''}`}
+                      >
+                        <span title="按住這裡上下拖曳，或用右邊 ▲▼ 調整順序"
+                          className="shrink-0 text-gray-300 cursor-grab active:cursor-grabbing"><GripVertical size={14} /></span>
                         <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
                           <input type="checkbox" checked={t.status === '已完成'} onChange={() => toggleGapDone(t)} className="w-4 h-4 rounded shrink-0" />
                           <span className={`flex-1 min-w-0 ${t.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.title}</span>
@@ -739,12 +711,10 @@ export default function SchedulePage() {
                         </div>
                         <button onClick={() => startEditGap(t)} title="編輯" className="p-1 text-gray-300 hover:text-blue-600 shrink-0"><Pencil size={13} /></button>
                         <button onClick={() => deleteSchedule(t.id)} title="刪除" className="p-1 text-gray-300 hover:text-red-500 shrink-0"><Trash2 size={13} /></button>
-                      </SortableGapRow>
+                      </div>
                     )
                   ))}
                 </div>
-                </SortableContext>
-                </DndContext>
               )}
 
               {/* 行內新增空檔任務 */}
