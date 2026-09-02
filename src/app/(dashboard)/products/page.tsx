@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer, ListChecks, ImagePlus, Loader2 } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer, ListChecks, ImagePlus, Loader2, Images } from 'lucide-react'
 import Link from 'next/link'
 import ProductImportModal from '@/components/products/ProductImportModal'
 import BarcodePreview from '@/components/products/BarcodePreview'
@@ -109,6 +109,102 @@ function InquiryHistoryModal({ product, onClose }: { product: Product; onClose: 
           </table>
         )}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// 產品圖片 Modal（列表主圖 → 同一產品的全部圖片）
+// ============================================================
+function ProductImageGalleryModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const supabase = createClient()
+  const onCloseRef = useRef(onClose)
+  const [images, setImages] = useState<string[]>(() => product.web_main_image_url ? [product.web_main_image_url] : [])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  useEffect(() => {
+    let cancelled = false
+    document.body.style.overflow = 'hidden'
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+
+    ;(async () => {
+      const { data, error: queryError } = await supabase
+        .from('product_images')
+        .select('image_url')
+        .eq('product_id', product.id)
+        .order('sort_order')
+      if (cancelled) return
+      if (queryError) {
+        setError(queryError.message)
+      } else {
+        const urls = [product.web_main_image_url, ...(data ?? []).map(row => row.image_url)]
+          .filter((url): url is string => typeof url === 'string' && !!url.trim())
+        setImages(Array.from(new Set(urls)))
+      }
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [product.id, product.web_main_image_url])
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 font-semibold text-gray-900">
+              <Images size={18} className="shrink-0 text-blue-600" />
+              <span className="truncate">產品圖片 — {product.product_name}</span>
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-400">{product.model || '未填型號'} · 共 {images.length} 張</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="關閉產品圖片" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X size={20} /></button>
+        </div>
+
+        <div className="overflow-y-auto p-5">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-400"><Loader2 size={18} className="animate-spin" />載入圖片中…</div>
+          ) : error ? (
+            <div role="alert" className="rounded-xl bg-red-50 px-4 py-10 text-center text-sm text-red-600">圖片載入失敗：{error}</div>
+          ) : images.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center text-sm text-gray-400">此產品尚未建立圖片</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+              {images.map((url, index) => (
+                <button key={url} type="button" onClick={() => setPreviewUrl(driveImageUrl(url, 1600))} className="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 text-left transition hover:border-blue-300 hover:shadow-md">
+                  <div className="aspect-square overflow-hidden bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={driveImageUrl(url, 400)} alt={`${product.product_name} 圖片 ${index + 1}`} className="h-full w-full object-contain transition duration-200 group-hover:scale-[1.03]" />
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500">
+                    <span>{index === 0 && url === product.web_main_image_url ? '主圖' : `圖片 ${index + 1}`}</span>
+                    <span className="text-gray-300">點擊放大</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {previewUrl && (
+        <div className="fixed inset-0 z-[70] flex cursor-zoom-out items-center justify-center bg-black/85 p-6" onClick={event => { event.stopPropagation(); setPreviewUrl(null) }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={previewUrl} alt={`${product.product_name} 放大圖片`} className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" />
+          <button type="button" onClick={() => setPreviewUrl(null)} aria-label="關閉放大圖片" className="absolute right-4 top-4 rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white"><X size={28} /></button>
+        </div>
+      )}
     </div>
   )
 }
@@ -507,12 +603,14 @@ export default function ProductsPage() {
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null)
 
   // 欄位顯示設定（產品名稱與操作固定顯示，其餘可自選）
   const COLUMN_DEFS: { key: string; label: string }[] = [
-    { key: 'cat', label: '分類' }, { key: 'brand', label: '品牌' }, { key: 'model', label: '型號' },
+    { key: 'image', label: '主圖' }, { key: 'cat', label: '分類' }, { key: 'brand', label: '品牌' }, { key: 'model', label: '型號' },
     { key: 'price', label: '定價' }, { key: 'cost', label: '成本' }, { key: 'margin', label: '利潤率' },
-    { key: 'market', label: '市場行情' }, { key: 'stock', label: '庫存' }, { key: 'web', label: '官網' }, { key: 'status', label: '狀態' },
+    { key: 'market', label: '市場行情' }, { key: 'stock', label: '庫存' }, { key: 'web', label: '官網' },
+    { key: 'created', label: '檔案建檔日期' }, { key: 'status', label: '狀態' },
   ]
   const [cols, setCols] = useState<Record<string, boolean>>(() => {
     const def = Object.fromEntries(COLUMN_DEFS.map(c => [c.key, true]))
@@ -1173,6 +1271,7 @@ export default function ProductsPage() {
       {showBatchModal && <BatchPriceModal onClose={() => setShowBatchModal(false)} onDone={() => { setShowBatchModal(false); fetchAll() }} />}
       {showCatModal && <CategoryManagerModal onClose={() => setShowCatModal(false)} onDone={() => fetchAll()} />}
       {historyProduct && <InquiryHistoryModal product={historyProduct} onClose={() => setHistoryProduct(null)} />}
+      {galleryProduct && <ProductImageGalleryModal product={galleryProduct} onClose={() => setGalleryProduct(null)} />}
       {showImportModal && <ProductImportModal products={products} onClose={() => setShowImportModal(false)} onDone={() => fetchAll()} />}
 
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -1927,6 +2026,7 @@ export default function ProductsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
+                {cols.image && <th className="w-20 px-3 py-3 text-center font-medium text-gray-600">主圖</th>}
                 {cols.cat && <th className="text-left px-3 py-3 text-gray-600 font-medium">分類</th>}
                 {cols.brand && <th className="text-left px-4 py-3 text-gray-600 font-medium">品牌</th>}
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">產品名稱</th>
@@ -1937,15 +2037,16 @@ export default function ProductsPage() {
                 {cols.market && <th className="text-right px-3 py-3 text-gray-600 font-medium">市場行情</th>}
                 {cols.stock && <th className="text-center px-3 py-3 text-gray-600 font-medium">庫存</th>}
                 {cols.web && <th className="text-center px-3 py-3 text-gray-600 font-medium">官網</th>}
+                {cols.created && <th className="px-3 py-3 text-center font-medium text-gray-600 whitespace-nowrap">檔案建檔日期</th>}
                 {cols.status && <th className="text-center px-3 py-3 text-gray-600 font-medium">狀態</th>}
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={12} className="text-center py-12 text-gray-400">載入中...</td></tr>
+                <tr><td colSpan={14} className="text-center py-12 text-gray-400">載入中...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={12} className="text-center py-12 text-gray-400">沒有產品，請先新增</td></tr>
+                <tr><td colSpan={14} className="text-center py-12 text-gray-400">沒有產品，請先新增</td></tr>
               ) : (
                 paged.map(p => {
                   const catLabel = getCategoryLabel(p.category_id)
@@ -1954,6 +2055,16 @@ export default function ProductsPage() {
                   const childCount = productType === 'main' ? (childCountByParent.get(p.id) ?? 0) : 0
                   return (
                     <tr key={p.id} className={`border-b border-gray-50 hover:bg-blue-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+                      {cols.image && <td className="px-3 py-2 text-center">
+                        {p.web_main_image_url ? (
+                          <button type="button" onClick={() => setGalleryProduct(p)} title="查看此產品的所有圖片" aria-label={`查看 ${p.product_name} 的所有圖片`} className="group relative inline-flex h-12 w-12 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm hover:border-blue-400 hover:ring-2 hover:ring-blue-100">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={driveImageUrl(p.web_main_image_url, 160)} alt={`${p.product_name} 主圖`} className="h-full w-full object-contain transition group-hover:scale-105" />
+                          </button>
+                        ) : (
+                          <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-gray-300" title="尚未建立主圖"><Images size={18} /></span>
+                        )}
+                      </td>}
                       {cols.cat && <td className="px-3 py-3">
                         {catLabel
                           ? <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full whitespace-nowrap">{catLabel}</span>
@@ -2050,6 +2161,9 @@ export default function ProductsPage() {
                             <ExternalLink size={10} />
                           </a>
                         ) : <span className="text-xs text-gray-300">未上架</span>}
+                      </td>}
+                      {cols.created && <td className="px-3 py-3 text-center text-xs text-gray-500 whitespace-nowrap" title={p.created_at ? new Date(p.created_at).toLocaleString('zh-TW') : undefined}>
+                        {p.created_at ? new Date(p.created_at).toLocaleDateString('zh-TW') : '—'}
                       </td>}
                       {cols.status && <td className="px-3 py-3 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
