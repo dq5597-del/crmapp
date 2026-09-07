@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { fetchAllRows } from '@/lib/fetch-all-rows'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -696,8 +697,9 @@ export default function ProductsPage() {
     }, [])
 
   async function fetchAll() {
+    try {
     const [pRes, cRes, mRes, groupRes, optionRes, templateGroupRes, categoryTemplateRes, exclusionRes] = await Promise.all([
-      supabase.from('products').select('*').order('brand').order('product_name'),
+      fetchAllRows<Product>((from, to) => supabase.from('products').select('*').order('brand').order('product_name').order('id').range(from, to)),
       supabase.from('product_categories').select('*').order('main_category').order('sub_category'),
       supabase.from('market_prices').select('*'),
       supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
@@ -717,6 +719,10 @@ export default function ProductsPage() {
     }
     setMarketMap(mm)
     setLoading(false)
+    } catch (error) {
+      setLoading(false)
+      alert(`產品資料載入失敗，請重新整理後重試：${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   async function refreshFilterCatalog() {
