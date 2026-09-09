@@ -1,12 +1,9 @@
 'use client'
 
-
 import { useEffect, useMemo, useState } from 'react'
 import { X, Search, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 
-
 const PAGE_SIZE = 10
-
 
 /**
  * 選擇產品彈出視窗（多選）。
@@ -29,16 +26,15 @@ export default function ProductPickerModal({
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-
   const catOf = (p: any) => p.product_categories?.main_category ?? '未分類'
   const subOf = (p: any) => p.product_categories?.sub_category ?? '未分類'
-
 
   const mainCats = useMemo(() => Array.from(new Set(products.map(catOf))), [products])
   const subCats = useMemo(() => {
     const list = mainCat ? products.filter(p => catOf(p) === mainCat) : products
     return Array.from(new Set(list.map(subOf)))
   }, [products, mainCat])
+
   const brands = useMemo(() => {
     const seen = new Map<string, string>()
     for (const product of products) {
@@ -64,17 +60,170 @@ export default function ProductPickerModal({
     return list
   }, [products, mainCat, subCat, brand, search])
 
-
   // 分頁：一頁 10 筆。勾選狀態存在 selected(Set<id>) 且 handleConfirm 從 products
   // 全集取回，因此翻頁不會掉勾選。
   const [page, setPage] = useState(1)
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-
 
   // 搜尋／分類一變動就回第 1 頁，否則會停在已不存在的頁碼變成空白
   useEffect(() => { setPage(1) }, [mainCat, subCat, brand, search])
   // 防呆：篩選後總頁數變少時把 page 拉回範圍內
   useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
 
-
   const paged = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  )
+
+  const pageBtn = 'h-8 px-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent'
+
+  function toggle(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function handleConfirm() {
+    const picked = products.filter(p => selected.has(p.id))
+    if (picked.length === 0) return
+    onConfirm(picked)
+  }
+
+  const fmt = (n: number) => Number(n || 0).toLocaleString('zh-TW')
+
+  const catBtn = (active: boolean) =>
+    `w-full text-left px-3 py-2 rounded-lg text-sm transition ${active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`
+  const chip = (active: boolean) =>
+    `shrink-0 px-3 py-1.5 rounded-full text-xs border transition ${active ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`
+
+  const ProductRow = ({ p }: { p: any }) => (
+    <label className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 cursor-pointer ${selected.has(p.id) ? 'bg-blue-50/70' : 'hover:bg-gray-50'}`}>
+      <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} className="accent-blue-600 w-4 h-4 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] font-medium text-gray-900 truncate">{p.product_name}</div>
+        <div className="text-[11px] text-gray-400 truncate">
+          {p.product_code && <span className="font-mono text-gray-500 mr-2">{p.product_code}</span>}
+          {[p.brand, p.model].filter(Boolean).join('　') || '—'}
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-[13px] font-medium text-gray-900">{fmt(p.list_price)}</div>
+        <div className={`text-[11px] ${Number(p.stock_qty) <= 0 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>庫存 {p.stock_qty ?? 0}</div>
+      </div>
+    </label>
+  )
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-2 sm:p-4">
+      {/* max-h 必須除以 --gh-ui-scale：<html> 套了 CSS zoom，
+          vh 會先以未縮放視窗計算再被放大，直接寫 92vh 會超出畫面把頭尾切掉。 */}
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col"
+        style={{ maxHeight: 'calc(92svh / var(--gh-ui-scale, 1))' }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 shrink-0">
+          <h3 className="font-semibold text-gray-900 whitespace-nowrap text-sm sm:text-base">選擇產品<span className="hidden sm:inline">（可多選）</span></h3>
+          <div className="relative flex-1 min-w-0">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋料號／品名／型號／品牌…"
+              className="w-full pl-8 pr-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
+          </div>
+          <select value={brand} onChange={e => setBrand(e.target.value)} aria-label="品牌篩選"
+            className="shrink-0 max-w-28 px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">全部品牌</option>
+            {brands.map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+          {onQuickAdd && (
+            <button onClick={() => onQuickAdd(search.trim())}
+              className="shrink-0 flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-2.5 py-2 rounded-lg whitespace-nowrap">
+              <Plus size={13} /> 新增<span className="hidden sm:inline">產品</span>
+            </button>
+          )}
+          <button onClick={onClose} className="shrink-0 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+
+        {/* 手機版分類（橫向膠囊，lg 隱藏） */}
+        <div className="lg:hidden shrink-0 border-b border-gray-100">
+          <div className="flex gap-1.5 px-3 pt-2.5 pb-1 overflow-x-auto">
+            <button onClick={() => { setMainCat(''); setSubCat('') }} className={chip(!mainCat)}>全部</button>
+            {mainCats.map(m => (
+              <button key={m} onClick={() => { setMainCat(m === mainCat ? '' : m); setSubCat('') }} className={chip(mainCat === m)}>{m}</button>
+            ))}
+          </div>
+          <div className="flex gap-1.5 px-3 pt-1 pb-2.5 overflow-x-auto">
+            <button onClick={() => setSubCat('')} className={chip(!subCat)}>全部小類</button>
+            {subCats.map(s => (
+              <button key={s} onClick={() => setSubCat(s === subCat ? '' : s)} className={chip(subCat === s)}>{s}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* 內容區 */}
+        <div className="flex-1 min-h-0 flex">
+          {/* 桌機左：大分類 */}
+          <div className="hidden lg:block w-36 border-r border-gray-100 overflow-y-auto p-2 shrink-0">
+            <div className="text-[11px] text-gray-400 px-2 py-1">大分類</div>
+            <button onClick={() => { setMainCat(''); setSubCat('') }} className={catBtn(!mainCat)}>全部</button>
+            {mainCats.map(m => (
+              <button key={m} onClick={() => { setMainCat(m === mainCat ? '' : m); setSubCat('') }} className={catBtn(mainCat === m)}>{m}</button>
+            ))}
+          </div>
+          {/* 桌機中：小分類 */}
+          <div className="hidden lg:block w-36 border-r border-gray-100 overflow-y-auto p-2 shrink-0">
+            <div className="text-[11px] text-gray-400 px-2 py-1">小分類</div>
+            <button onClick={() => setSubCat('')} className={catBtn(!subCat)}>全部</button>
+            {subCats.map(s => (
+              <button key={s} onClick={() => setSubCat(s === subCat ? '' : s)} className={catBtn(subCat === s)}>{s}</button>
+            ))}
+          </div>
+          {/* 產品清單 */}
+          <div className="flex-1 min-w-0 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="text-center text-sm text-gray-400 py-12">
+                找不到符合的產品
+                {onQuickAdd && search.trim() && (
+                  <div className="mt-2">
+                    <button onClick={() => onQuickAdd(search.trim())} className="text-blue-600 hover:underline text-sm">
+                      ＋ 新增「{search.trim()}」到產品資料庫
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              paged.map(p => <ProductRow key={p.id} p={p} />)
+            )}
+          </div>
+        </div>
+
+        {/* 分頁列 */}
+        {filtered.length > 0 && (
+          <div className="flex items-center gap-1 px-4 py-2 border-t border-gray-100 shrink-0">
+            <span className="text-[11px] text-gray-400 whitespace-nowrap">共 {filtered.length} 項</span>
+            <div className="ml-auto flex items-center gap-1">
+              <button onClick={() => setPage(1)} disabled={page === 1} className={pageBtn} aria-label="第一頁"><ChevronsLeft size={15} /></button>
+              <button onClick={() => setPage(p => p - 1)} disabled={page === 1} className={pageBtn} aria-label="上一頁"><ChevronLeft size={15} /></button>
+              <span className="px-2 text-xs text-gray-600 tabular-nums whitespace-nowrap">{page} / {totalPages}</span>
+              <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages} className={pageBtn} aria-label="下一頁"><ChevronRight size={15} /></button>
+              <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className={pageBtn} aria-label="最後一頁"><ChevronsRight size={15} /></button>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-200 shrink-0">
+          <span className="text-sm text-blue-700 font-medium">{selected.size > 0 ? `已選 ${selected.size} 項` : '尚未選取'}</span>
+          <div className="ml-auto flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm">取消</button>
+            <button onClick={handleConfirm} disabled={selected.size === 0}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
+              {confirmLabel}（{selected.size}）
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
