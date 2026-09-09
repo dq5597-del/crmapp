@@ -442,12 +442,38 @@ export default function QuoteForm({
   }
 
   async function loadProducts() {
-    const [pRes, cRes] = await Promise.all([
-      supabase.from('products').select('*, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name'),
-      supabase.from('product_categories').select('id, main_category, sub_category').order('main_category').order('sub_category'),
-    ])
-    setProducts(pRes.data ?? [])
-    setCategories(cRes.data ?? [])
+    // Supabase 單次回傳最多 1,000 筆；報價選品必須完整取回，否則排序較後的產品會消失。
+    const pageSize = 1000
+    const allProducts: Product[] = []
+    let from = 0
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, product_categories(main_category, sub_category)')
+        .eq('is_active', true)
+        .order('product_name')
+        .range(from, from + pageSize - 1)
+
+      if (error) {
+        console.error('載入報價選品失敗：', error)
+        break
+      }
+
+      const page = (data ?? []) as Product[]
+      allProducts.push(...page)
+      if (page.length < pageSize) break
+      from += pageSize
+    }
+
+    const { data: categories } = await supabase
+      .from('product_categories')
+      .select('id, main_category, sub_category')
+      .order('main_category')
+      .order('sub_category')
+
+    setProducts(allProducts)
+    setCategories(categories ?? [])
   }
 
   async function generateQuoteNo() {
