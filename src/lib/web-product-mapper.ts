@@ -12,7 +12,6 @@
  */
 
 import { wooImageUrl } from './drive-url'
-import { extractGoogleDriveFileId } from './catalog-drive'
 
 export type CrmProductRow = {
   id: string
@@ -37,19 +36,32 @@ export type CrmProductRow = {
   web_promo_price_to?: string | null
   web_spec_html?: string | null
   web_product_id?: string | null
+  web_variation_id?: string | null
   web_tab?: string | null // 官網首頁區塊：'none' | 'new'(最新商品) | 'hot'(熱銷商品)
+  variant_group_code?: string | null
+  variant_attribute_name?: string | null
+  variant_value?: string | null
+  variant_is_primary?: boolean | null
+  stock_qty?: number | null
 }
 
 export type CrmSubData = {
   images: { image_url: string; sort_order: number }[]
   downloads: { file_name: string; file_url: string; sort_order: number }[]
   features: { feature_text: string; sort_order: number }[]
+  purchaseOptions?: {
+    name: string
+    description: string
+    selection_mode: 'single' | 'multiple'
+    required: boolean
+    options: { label: string; price_adjustment: number; default: boolean }[]
+  }[]
 }
 
 export type WooPayload = {
   name: string
   slug?: string
-  type: 'simple'
+  type: 'simple' | 'variable'
   status: 'draft' | 'publish'
   sku?: string
   regular_price?: string
@@ -59,16 +71,24 @@ export type WooPayload = {
   description?: string
   backorders?: 'no' | 'notify' | 'yes'
   categories?: { id?: number; name?: string }[]
+  brands?: { id: number }[]
   images?: { src: string }[]
   tags?: { name: string }[]
-  attributes?: {
-    id: number
-    name?: string
-    position: number
-    visible: boolean
-    variation: boolean
-    options: string[]
-  }[]
+  attributes?: { id?: number; name?: string; visible: boolean; variation: boolean; options: string[] }[]
+  meta_data: { key: string; value: string }[]
+}
+
+export type WooVariationPayload = {
+  sku?: string
+  regular_price?: string
+  sale_price?: string
+  date_on_sale_from?: string | null
+  date_on_sale_to?: string | null
+  manage_stock: boolean
+  stock_quantity: number
+  backorders: 'no' | 'notify' | 'yes'
+  image?: { src: string }
+  attributes: { id?: number; name?: string; option: string }[]
   meta_data: { key: string; value: string }[]
 }
 
@@ -88,38 +108,32 @@ export function makeSlug(p: CrmProductRow): string {
   return slug || `product-${p.id.slice(0, 8)}`
 }
 
-/**
- * CRM 的 product_name 永遠只保存品名；官網標題才組合品牌、型號與品名。
- * 例如：【EPSON】EB-L210SW 雷射短焦投影機。
- */
-export function makeWebProductName(p: CrmProductRow): string {
-  const brand = p.brand?.trim()
-  const model = p.model?.trim()
-  const productName = p.product_name.trim()
-  return [brand ? `【${brand}】` : '', model ?? '', productName].filter(Boolean).join(' ')
-}
-
-function directDownloadUrl(url: string | null | undefined) {
-  const value = url?.trim() ?? ''
-  const driveId = extractGoogleDriveFileId(value)
-  return driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : value
-}
-
-function fullWidthCatalogImages(html: string | null | undefined) {
-  return (html ?? '')
-    .replace(
-      /<figure class="wp-block-image size-(?:large|full)"(?: style="[^"]*")?>/g,
-      '<figure class="wp-block-image size-full" style="display:block;width:100%;max-width:none;margin:0 0 24px;">',
-    )
-    .replace(
-      /(<img\b(?=[^>]*\balt="[^"]*產品型錄[^"]*")[^>]*?)(?:\sstyle="[^"]*")?>/g,
-      '$1 style="display:block;width:100%;max-width:none;height:auto;">',
-    )
-}
-
 function metaPush(meta: { key: string; value: string }[], key: string, value: unknown) {
   const v = value === null || value === undefined ? '' : String(value)
   meta.push({ key, value: v })
+}
+
+export function buildWooDownloadMeta(
+  p: Pick<CrmProductRow, 'catalog_url' | 'manual_url'>,
+  downloads: CrmSubData['downloads']
+) {
+  const sortedDownloads = [...downloads].sort((a, b) => a.sort_order - b.sort_order)
+  const meta: { key: string; value: string }[] = []
+  const cad = sortedDownloads.find(d => /cad|規格書|圖面/i.test(d.file_name))
+  metaPush(meta, 'av_download_catalog', p.catalog_url ?? sortedDownloads.find(d => /型錄|catalog/i.test(d.file_name))?.file_url ?? '')
+  metaPush(meta, 'av_download_manual', p.manual_url ?? sortedDownloads.find(d => /說明書|manual/i.test(d.file_name))?.file_url ?? '')
+  metaPush(meta, 'av_download_cad', cad?.file_url ?? '')
+  const downloadFiles = sortedDownloads
+    .filter(d => d.file_name.trim() && d.file_url.trim())
+    .map(d => ({ name: d.file_name.trim(), url: d.file_url.trim() }))
+  if (p.catalog_url && !downloadFiles.some(d => d.url === p.catalog_url)) {
+    downloadFiles.unshift({ name: '產品型錄', url: p.catalog_url })
+  }
+  if (p.manual_url && !downloadFiles.some(d => d.url === p.manual_url)) {
+    downloadFiles.push({ name: '使用說明書', url: p.manual_url })
+  }
+  metaPush(meta, 'av_download_files', JSON.stringify(downloadFiles))
+  return meta
 }
 
 export function buildWooPayload(
@@ -130,9 +144,7 @@ export function buildWooPayload(
 ): WooPayload {
   const features = [...sub.features].sort((a, b) => a.sort_order - b.sort_order).map(f => f.feature_text.trim()).filter(Boolean)
   const images = [...sub.images].sort((a, b) => a.sort_order - b.sort_order).map(i => wooImageUrl(i.image_url)).filter(Boolean)
-  const downloads = [...sub.downloads]
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map(download => ({ ...download, file_url: directDownloadUrl(download.file_url) }))
+  const downloads = [...sub.downloads].sort((a, b) => a.sort_order - b.sort_order)
 
   const mainImage = wooImageUrl(p.web_main_image_url)
   const allImages = [mainImage, ...images].filter(Boolean)
@@ -158,21 +170,10 @@ export function buildWooPayload(
   }
 
   // 檔案下載
-  const cad = downloads.find(d => /cad|規格書|圖面/i.test(d.file_name))
-  const catalogDownloadUrl = directDownloadUrl(p.catalog_url)
-  metaPush(meta, 'av_download_catalog', catalogDownloadUrl || downloads.find(d => /型錄|catalog/i.test(d.file_name))?.file_url || '')
-  metaPush(meta, 'av_download_manual', p.manual_url ?? downloads.find(d => /說明書|manual/i.test(d.file_name))?.file_url ?? '')
-  metaPush(meta, 'av_download_cad', cad?.file_url ?? '')
-  const downloadFiles = downloads
-    .filter(d => d.file_name.trim() && d.file_url.trim())
-    .map(d => ({ name: d.file_name.trim(), url: d.file_url.trim() }))
-  if (catalogDownloadUrl && !downloadFiles.some(d => d.url === catalogDownloadUrl)) {
-    downloadFiles.unshift({ name: '產品型錄.pdf', url: catalogDownloadUrl })
-  }
-  if (p.manual_url && !downloadFiles.some(d => d.url === p.manual_url)) {
-    downloadFiles.push({ name: '使用說明書', url: p.manual_url })
-  }
-  metaPush(meta, 'av_download_files', JSON.stringify(downloadFiles))
+  meta.push(...buildWooDownloadMeta(p, downloads))
+
+  // 客戶在加入購物車前必須選擇的配件／規格，由官網 CRM 商品購買選項片段呈現。
+  metaPush(meta, 'gh_purchase_options', JSON.stringify(sub.purchaseOptions ?? []))
 
   // 分頁內容
   metaPush(meta, 'av_tab_specs', p.web_spec_html ?? '')
@@ -183,13 +184,13 @@ export function buildWooPayload(
   metaPush(meta, 'av_ncc_no', p.web_ncc_no ?? '')
 
   const payload: WooPayload = {
-    name: makeWebProductName(p),
+    name: p.product_name,
     slug: makeSlug(p),
     type: 'simple',
     status: opts.status,
     sku: ((p.web_sku || p.model) ?? '').trim() || undefined,
     regular_price: regular > 0 ? String(regular) : undefined,
-    description: fullWidthCatalogImages(p.web_description),
+    description: p.web_description ?? '',
     backorders: p.web_allow_backorder ? 'notify' : 'no',
     meta_data: meta,
   }
@@ -212,10 +213,68 @@ export function buildWooPayload(
   return payload
 }
 
+/** 將系列主商品轉成 WooCommerce variable 父商品；售價、SKU、庫存由各 variation 管理。 */
+export function buildWooVariablePayload(
+  primary: CrmProductRow,
+  sub: CrmSubData,
+  categoryIds: number[],
+  attributeName: string,
+  options: string[],
+  opts: { status: 'draft' | 'publish' } = { status: 'draft' }
+): WooPayload {
+  const payload = buildWooPayload(primary, sub, categoryIds, opts)
+  payload.type = 'variable'
+  // 明確清空，才能安全地把既有 simple product 轉成 variable product，
+  // 否則父商品殘留的 SKU 會和第一個 variation 發生重複。
+  payload.sku = ''
+  payload.regular_price = ''
+  payload.sale_price = ''
+  payload.date_on_sale_from = null
+  payload.date_on_sale_to = null
+  delete payload.backorders
+  payload.attributes = [{
+    name: attributeName,
+    visible: true,
+    variation: true,
+    options: Array.from(new Set(options.map(value => value.trim()).filter(Boolean))),
+  }]
+  return payload
+}
+
+/** 每筆 CRM 商品仍保存自己的 SKU、價格、庫存與圖片，作為父商品下的可選變體。 */
+export function buildWooVariationPayload(p: CrmProductRow, attributeName: string, sub?: CrmSubData): WooVariationPayload {
+  const regular = p.web_sale_price && p.web_sale_price > 0 ? p.web_sale_price : p.list_price
+  const promoActive = !!(p.web_promo_price && p.web_promo_price > 0)
+  const fallbackImage = sub?.images
+    ? [...sub.images].sort((a, b) => a.sort_order - b.sort_order)[0]?.image_url
+    : null
+  const image = wooImageUrl(p.web_main_image_url || fallbackImage)
+  const payload: WooVariationPayload = {
+    sku: ((p.web_sku || p.model) ?? '').trim() || undefined,
+    regular_price: regular > 0 ? String(regular) : undefined,
+    manage_stock: true,
+    stock_quantity: Number(p.stock_qty ?? 0),
+    backorders: p.web_allow_backorder ? 'notify' : 'no',
+    attributes: [{ name: attributeName, option: (p.variant_value ?? '').trim() }],
+    meta_data: [
+      { key: 'av_source', value: 'crm' },
+      { key: 'av_crm_id', value: p.id },
+    ],
+  }
+  if (image) payload.image = { src: image }
+  if (promoActive) {
+    payload.sale_price = String(p.web_promo_price)
+    payload.date_on_sale_from = p.web_promo_price_from || null
+    payload.date_on_sale_to = p.web_promo_price_to || null
+  }
+  return payload
+}
+
 /** 上傳前檢查：回傳缺少的必要欄位 */
 export function validateForWeb(p: CrmProductRow, sub: CrmSubData): string[] {
   const missing: string[] = []
   if (!p.product_name?.trim()) missing.push('產品名稱')
+  if (!p.brand?.trim()) missing.push('品牌')
   if (!((p.web_sku || p.model) ?? '').trim()) missing.push('SKU / 型號')
   const price = p.web_sale_price && p.web_sale_price > 0 ? p.web_sale_price : p.list_price
   if (!price || price <= 0) missing.push('網站售價')
@@ -224,21 +283,4 @@ export function validateForWeb(p: CrmProductRow, sub: CrmSubData): string[] {
   if (webCategories.length === 0 && !(p.web_category ?? '').trim()) missing.push('網站分類')
   if (sub.features.filter(f => f.feature_text.trim()).length < 3) missing.push('特色（至少 3 項）')
   return missing
-}
-
-export function buildWooDownloadMeta(
-  product: { catalog_url?: string | null; manual_url?: string | null },
-  downloads: { file_name: string; file_url: string; sort_order?: number | null }[],
-) {
-  const sorted = [...downloads].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0))
-  const catalog = directDownloadUrl(product.catalog_url) || sorted.find(d => /型錄|catalog/i.test(d.file_name))?.file_url || ''
-  const manual = product.manual_url ?? sorted.find(d => /說明書|manual/i.test(d.file_name))?.file_url ?? ''
-  const cad = sorted.find(d => /cad|規格書|圖面/i.test(d.file_name))?.file_url ?? ''
-  const files = sorted.filter(d => d.file_name.trim() && d.file_url.trim()).map(d => ({ name: d.file_name.trim(), url: d.file_url.trim() }))
-  return [
-    { key: 'av_download_catalog', value: catalog },
-    { key: 'av_download_manual', value: manual },
-    { key: 'av_download_cad', value: cad },
-    { key: 'av_download_files', value: JSON.stringify(files) },
-  ]
 }
