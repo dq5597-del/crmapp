@@ -3,13 +3,15 @@ import { createServerSupabaseClient as createClient } from '@/lib/supabase-serve
 import { notFound } from 'next/navigation'
 import PrintDocButtons from '@/components/PrintDocButtons'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const supabase = createClient()
   const { data } = await supabase.from('projects').select('project_name').eq('id', params.id).single()
   return { title: data ? `專案總覽_${data.project_name}` : '專案總覽' }
 }
 
-export default async function ProjectOverviewPrintPage({ params }: { params: { id: string } }) {
+export default async function ProjectOverviewPrintPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
   const { data: project } = await supabase
     .from('projects')

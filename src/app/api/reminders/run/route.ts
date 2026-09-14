@@ -21,7 +21,8 @@ function hm(t: string | null): string { return t ? t.slice(0, 5) : '' }
 
 async function runReminders() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY 未設定' }, { status: 503 })
   const supabase = createClient(url, key)
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY
@@ -208,10 +209,9 @@ async function runReminders() {
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${secret}`) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  if (!secret) return NextResponse.json({ error: 'CRON_SECRET 未設定' }, { status: 503 })
+  const auth = req.headers.get('authorization')
+  if (auth !== `Bearer ${secret}`) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const result = await runReminders()
   if ('error' in result) return NextResponse.json(result, { status: 500 })
   return NextResponse.json(result)

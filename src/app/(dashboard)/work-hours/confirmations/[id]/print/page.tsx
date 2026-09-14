@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type TdHTMLAttributes, type ThHTMLAttributes } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import PrintDocButtons from '@/components/PrintDocButtons'
@@ -18,6 +18,12 @@ type Line = {
 const n = (v: any) => Number(v ?? 0) || 0
 const money = (v: any) => `NT$ ${Math.round(n(v)).toLocaleString()}`
 const hf = (v: any) => (Math.round(n(v) * 10) / 10).toLocaleString('zh-TW')
+const Th = ({ children, className = '', ...props }: ThHTMLAttributes<HTMLTableCellElement>) => (
+  <th {...props} className={`border border-gray-300 bg-gray-50 px-2 py-1.5 text-xs font-medium ${className}`}>{children}</th>
+)
+const Td = ({ children, className = '', ...props }: TdHTMLAttributes<HTMLTableCellElement>) => (
+  <td {...props} className={`border border-gray-300 px-2 py-1.5 text-xs ${className}`}>{children}</td>
+)
 
 export default function WorkHourConfirmationPrintPage() {
   const { id } = useParams<{ id: string }>()
@@ -41,13 +47,6 @@ export default function WorkHourConfirmationPrintPage() {
   if (!row) return <div className="p-10 text-center text-gray-400">找不到這張確認單</div>
 
   const detail: Line[] = row.detail ?? []
-
-  const Th = ({ children, className = '' }: any) => (
-    <th className={`border border-gray-300 bg-gray-50 px-2 py-1.5 text-xs font-medium ${className}`}>{children}</th>
-  )
-  const Td = ({ children, className = '' }: any) => (
-    <td className={`border border-gray-300 px-2 py-1.5 text-xs ${className}`}>{children}</td>
-  )
 
   return (
     <div className="min-h-screen bg-gray-100 py-6">

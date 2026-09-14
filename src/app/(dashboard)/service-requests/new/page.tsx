@@ -3,11 +3,12 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Client, Contact, Equipment } from '@/types'
+import { Contact, Equipment } from '@/types'
 import { ArrowLeft, Save, HardDrive, X } from 'lucide-react'
 
 const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
+type ClientOption = { id: string; company_name: string }
 
 function warrantyStatusFromExpiry(expiry: string | null): '保固內' | '保固外' {
   if (!expiry) return '保固外'
@@ -28,7 +29,7 @@ function NewServiceRequestForm() {
   const searchParams = useSearchParams()
   const equipmentId = searchParams.get('equipment_id')
 
-  const [clients, setClients] = useState<Client[]>([])
+  const [clients, setClients] = useState<ClientOption[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [saving, setSaving] = useState(false)
   const [clientSearch, setClientSearch] = useState('')
@@ -126,7 +127,7 @@ function NewServiceRequestForm() {
     ? clients.filter(c => c.company_name.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients
 
-  function onClientPick(c: Client) {
+  function onClientPick(c: ClientOption) {
     setClientSearch('')
     setShowClientDropdown(false)
     setSourceEquipment(null) // 換客戶了，原本連結的設備跟著清掉，避免連錯人

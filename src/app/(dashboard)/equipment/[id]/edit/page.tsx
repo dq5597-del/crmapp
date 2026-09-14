@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Client, Project } from '@/types'
+import { Project } from '@/types'
 import { ArrowLeft, Save, PackageSearch, Trash2 } from 'lucide-react'
 
 const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -11,6 +11,7 @@ const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
 const optionalLabelClass = 'block text-xs font-medium text-gray-600 mb-1 after:content-["（選填）"] after:font-normal after:text-gray-400 after:ml-1'
 
 type WorkLog = { id: string; work_date: string; name: string; work_item: string | null }
+type ClientOption = { id: string; company_name: string }
 type QuoteItemOption = {
   id: string
   brand: string | null
@@ -27,7 +28,7 @@ export default function EditEquipmentPage() {
 
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [clients, setClients] = useState<Client[]>([])
+  const [clients, setClients] = useState<ClientOption[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([])
   const [quoteItems, setQuoteItems] = useState<QuoteItemOption[]>([])
@@ -148,7 +149,7 @@ export default function EditEquipmentPage() {
     ? clients.filter(c => c.company_name.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients
 
-  function onClientPick(c: Client) {
+  function onClientPick(c: ClientOption) {
     setClientSearch('')
     setShowClientDropdown(false)
     onClientChange(c.id)

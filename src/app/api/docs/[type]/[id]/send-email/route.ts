@@ -6,7 +6,8 @@ export const runtime = 'nodejs'
 
 // POST /api/docs/[type]/[id]/send-email  body: { to: string }
 // 通用單據寄送（訂購/退貨/出貨/詢價/銷貨），內文為品項明細 HTML
-export async function POST(req: NextRequest, { params }: { params: { type: string; id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ type: string; id: string }> }) {
+  const params = await props.params;
   const { to } = await req.json()
   if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
     return NextResponse.json({ error: '請提供正確的收件 Email' }, { status: 400 })

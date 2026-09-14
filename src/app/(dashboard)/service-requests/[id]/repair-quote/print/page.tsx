@@ -5,7 +5,8 @@ import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
 import PrintHeaderQr from '@/components/PrintHeaderQr'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const supabase = createClient()
   const { data: rq } = await supabase
     .from('service_repair_quotes')
@@ -19,7 +20,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   return { title: `維修報價單_${rq.repair_quote_no}` }
 }
 
-export default async function RepairQuotePrintPage({ params }: { params: { id: string } }) {
+export default async function RepairQuotePrintPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
 
   const [{ data: req }, { data: rq }] = await Promise.all([

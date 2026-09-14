@@ -27,7 +27,7 @@ async function getAvgCycleTime(supabase: any) {
   if (!orders || orders.length === 0) return { avgDays: 0, count: 0 }
   const quoteIds = orders.map((o: any) => o.quote_id)
   const { data: quotes } = await supabase.from('quotes').select('id, created_at').in('id', quoteIds)
-  const quoteMap = new Map((quotes ?? []).map((q: any) => [q.id, q.created_at]))
+  const quoteMap = new Map<string, string>((quotes ?? []).map((q: any) => [String(q.id), String(q.created_at)]))
   let totalDays = 0, count = 0
   for (const o of orders) {
     const qCreated = quoteMap.get(o.quote_id)

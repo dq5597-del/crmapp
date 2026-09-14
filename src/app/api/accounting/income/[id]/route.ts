@@ -2,7 +2,8 @@ import { createServerSupabaseClient as createClient } from '@/lib/supabase-serve
 import { NextRequest, NextResponse } from 'next/server'
 
 // PATCH /api/accounting/income/[id]
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
   const body = await req.json()
 
@@ -22,7 +23,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/accounting/income/[id]
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
   const { error } = await supabase.from('accounting_income').delete().eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

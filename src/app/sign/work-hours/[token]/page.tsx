@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { createClient } from '@/lib/supabase'
 import SignaturePad from '@/components/SignaturePad'
 import { CheckCircle2, FileSignature, AlertCircle } from 'lucide-react'
@@ -23,7 +23,8 @@ const n = (v: any) => Number(v ?? 0) || 0
 const nf = (v: number) => Math.round(v).toLocaleString('zh-TW')
 const hf = (v: number) => (Math.round(v * 10) / 10).toLocaleString('zh-TW')
 
-export default function SignWorkHoursPage({ params }: { params: { token: string } }) {
+export default function SignWorkHoursPage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
   const supabase = createClient()
   const [conf, setConf] = useState<any>(null)
   const [company, setCompany] = useState<any>(null)

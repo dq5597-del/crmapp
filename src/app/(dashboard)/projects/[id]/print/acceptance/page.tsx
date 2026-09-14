@@ -5,7 +5,8 @@ import PrintDocButtons from '@/components/PrintDocButtons'
 import DocSignatures from '@/components/DocSignatures'
 import { photoCatLabel } from '@/lib/project-doc-spec'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const supabase = createClient()
   const { data } = await supabase.from('projects').select('project_name').eq('id', params.id).single()
   return { title: data ? `驗收單_${data.project_name}` : '驗收單' }
@@ -13,7 +14,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 
 const BUCKET = 'project-photos'
 
-export default async function AcceptancePrintPage({ params }: { params: { id: string } }) {
+export default async function AcceptancePrintPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
 
   const [{ data: project }, { data: photos }, { data: markers }] = await Promise.all([

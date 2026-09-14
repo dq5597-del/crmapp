@@ -13,7 +13,7 @@ function admin() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-async function requireAdmin(req: NextRequest, sb: ReturnType<typeof createClient>) {
+async function requireAdmin(req: NextRequest, sb: any) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return { ok: false as const, status: 401, msg: '未登入' }
   const { data: { user }, error } = await sb.auth.getUser(token)

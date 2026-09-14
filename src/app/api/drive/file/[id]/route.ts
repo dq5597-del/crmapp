@@ -9,7 +9,8 @@ export const runtime = 'nodejs'
  * 代理顯示 Drive 上的私有檔案 —— 必須是登入的 CRM 使用者才看得到。
  * 這樣照片就不用設成公開連結，不會被外人抓走。
  */
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!driveConfigured()) {
     return NextResponse.json({ error: 'Google Drive 尚未設定' }, { status: 500 })
   }

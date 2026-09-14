@@ -38,7 +38,8 @@ const STATUS_MESSAGES: Record<string, string> = {
   '已結案':       '感謝您的委託，本次叫修案件已結案。如有任何問題歡迎再次聯繫。',
 }
 
-export default async function TrackPage({ params }: { params: { token: string } }) {
+export default async function TrackPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
 
   const { data: req } = await supabase

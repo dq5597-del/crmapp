@@ -16,11 +16,12 @@ type QuoteNewSearchParams = {
   from_inquiry?: string
 }
 
-export default async function NewQuotePage({
-  searchParams,
-}: {
-  searchParams: QuoteNewSearchParams
-}) {
+export default async function NewQuotePage(
+  props: {
+    searchParams: Promise<QuoteNewSearchParams>
+  }
+) {
+  const searchParams = await props.searchParams;
   const sourceInquiryId = searchParams.from_inquiry?.trim()
   let sourceInquiryNo = ''
   let initialQuote: Partial<Quote> | undefined

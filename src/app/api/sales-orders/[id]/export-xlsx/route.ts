@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import ExcelJS from 'exceljs'
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
 
   const [{ data: order }, { data: items }, { data: settings }] = await Promise.all([
@@ -84,25 +85,25 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   r++
 
   ;(items ?? []).forEach((item: any, idx: number) => {
-    const row = sheet.getRow(r)
-    row.values = [
-      idx + 1,
-      item.brand ?? '',
-      item.product_name ?? '',
-      item.model ?? '',
-      item.unit ?? '',
-      Number(item.quantity),
-      Number(item.unit_price),
-      Number(item.quantity) * Number(item.unit_price),
-      item.item_notes ?? '',
-    ]
-    row.eachCell((cell, colNumber) => {
-      cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
-      if (colNumber === 1 || colNumber === 5 || colNumber === 6) cell.alignment = { horizontal: 'center' }
-      if (colNumber === 7 || colNumber === 8) cell.numFmt = '#,##0'
+      const row = sheet.getRow(r)
+      row.values = [
+        idx + 1,
+        item.brand ?? '',
+        item.product_name ?? '',
+        item.model ?? '',
+        item.unit ?? '',
+        Number(item.quantity),
+        Number(item.unit_price),
+        Number(item.quantity) * Number(item.unit_price),
+        item.item_notes ?? '',
+      ]
+      row.eachCell((cell, colNumber) => {
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+        if (colNumber === 1 || colNumber === 5 || colNumber === 6) cell.alignment = { horizontal: 'center' }
+        if (colNumber === 7 || colNumber === 8) cell.numFmt = '#,##0'
+      })
+      r++
     })
-    r++
-  })
 
   const oOrig = Number(order.subtotal ?? order.total_amount)
   const oDisc = oOrig - Number(order.total_amount)

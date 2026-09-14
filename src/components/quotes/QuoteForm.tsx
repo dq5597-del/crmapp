@@ -27,7 +27,9 @@ type MarketPlatform = {
 interface ProductCategory {
   id: string
   main_category: string
+  mid_category?: string | null
   sub_category: string
+  wordpress_path?: string | null
 }
 
 interface QuoteItemForm {
@@ -164,10 +166,6 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
   })
   const [saving, setSaving] = useState(false)
   const [itemNotes, setItemNotes] = useState('')
-  const [isNewMain, setIsNewMain] = useState(false)
-  const [newMainCat, setNewMainCat] = useState('')
-  const [isNewSub, setIsNewSub] = useState(false)
-  const [newSubCat, setNewSubCat] = useState('')
 
   const mainCats = Array.from(new Set(categories.map(c => c.main_category)))
   const subCats = categories.filter(c => c.main_category === mainCat)
@@ -178,50 +176,19 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
   }
 
   function handleMainCatSelect(val: string) {
-    if (val === '__new__') {
-      setIsNewMain(true)
-      setMainCat('')
-      setForm(p => ({ ...p, category_id: '' }))
-      setIsNewSub(true)
-      setNewSubCat('')
-    } else {
-      handleMainCatChange(val)
-    }
-  }
-
-  function cancelNewMain() {
-    setIsNewMain(false)
-    setNewMainCat('')
-    setIsNewSub(false)
-    setNewSubCat('')
+    handleMainCatChange(val)
   }
 
   function handleSubCatSelect(val: string) {
-    if (val === '__new__') {
-      setIsNewSub(true)
-      setNewSubCat('')
-    } else {
-      setForm(p => ({ ...p, category_id: val }))
-    }
+    setForm(p => ({ ...p, category_id: val }))
   }
 
-  const canSave = form.product_name.trim() !== '' && (!isNewMain || newMainCat.trim() !== '') && (!isNewSub || newSubCat.trim() !== '')
+  const canSave = form.product_name.trim() !== '' && !!form.category_id
 
   async function handleSave() {
     if (!canSave) return
     setSaving(true)
-    let categoryId = form.category_id
-    if (isNewMain || isNewSub) {
-      const finalMain = isNewMain ? newMainCat.trim() : mainCat
-      const finalSub = newSubCat.trim()
-      const { data: catData, error: catError } = await supabase.from('product_categories')
-        .insert({ main_category: finalMain, sub_category: finalSub })
-        .select('id')
-        .single()
-      if (catError || !catData) { setSaving(false); return }
-      categoryId = (catData as any).id
-    }
-    const payload = { ...form, category_id: categoryId || null, notes: null, stock_qty: 0 }
+    const payload = { ...form, category_id: form.category_id, web_categories: [], web_category: null, notes: null, stock_qty: 0 }
     const { data, error } = await supabase.from('products').insert(payload).select('*').single()
     if (!error && data) {
       onCreated(data as Product, itemNotes.trim())
@@ -243,35 +210,17 @@ function QuickAddProductModal({ initialName, categories, onClose, onCreated }: Q
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-600 mb-1 block">大分類</label>
-              {isNewMain ? (
-                <div className="flex gap-1">
-                  <input value={newMainCat} onChange={e => setNewMainCat(e.target.value)} className={inputClass} placeholder="輸入新大分類名稱" autoFocus />
-                  <button type="button" onClick={cancelNewMain} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
-                </div>
-              ) : (
-                <select value={mainCat} onChange={e => handleMainCatSelect(e.target.value)} className={inputClass}>
-                  <option value="">— 請選擇 —</option>
-                  {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
-                  <option value="__new__">+ 新增大分類</option>
-                </select>
-              )}
+              <select value={mainCat} onChange={e => handleMainCatSelect(e.target.value)} className={inputClass}>
+                <option value="">— 請選擇官網分類 —</option>
+                {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-xs text-gray-600 mb-1 block">子分類</label>
-              {isNewSub ? (
-                <div className="flex gap-1">
-                  <input value={newSubCat} onChange={e => setNewSubCat(e.target.value)} className={inputClass} placeholder="輸入新子分類名稱" />
-                  {!isNewMain && (
-                    <button type="button" onClick={() => { setIsNewSub(false); setNewSubCat('') }} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
-                  )}
-                </div>
-              ) : (
-                <select value={form.category_id} onChange={e => handleSubCatSelect(e.target.value)} className={inputClass} disabled={!mainCat}>
-                  <option value="">— 請選擇 —</option>
-                  {subCats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
-                  <option value="__new__">+ 新增子分類</option>
-                </select>
-              )}
+              <select value={form.category_id} onChange={e => handleSubCatSelect(e.target.value)} className={inputClass} disabled={!mainCat}>
+                <option value="">— 請選擇 —</option>
+                {subCats.map(c => <option key={c.id} value={c.id}>{c.mid_category ? `${c.mid_category} > ` : ''}{c.sub_category}</option>)}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -468,7 +417,8 @@ export default function QuoteForm({
 
     const { data: categories } = await supabase
       .from('product_categories')
-      .select('id, main_category, sub_category')
+      .select('id, main_category, mid_category, sub_category, wordpress_path')
+      .eq('is_inventory_category', true)
       .order('main_category')
       .order('sub_category')
 
@@ -631,7 +581,8 @@ export default function QuoteForm({
     const insertAt = dropPos.idx + (dropPos.after ? 1 : 0)
     const from = dragIdx
     setItems(prev => {
-      let start = from, end = from + 1
+      const start = from
+      let end = from + 1
       if (prev[start]?.is_category) { while (end < prev.length && !prev[end].is_category) end++ }
       if (insertAt >= start && insertAt <= end) return prev
       const block = prev.slice(start, end)

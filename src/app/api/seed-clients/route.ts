@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 
 const BASE_DIR = 'G:\\我的雲端硬碟\\2.業務部資料\\5.專案資料'
+export const dynamic = 'force-dynamic'
 
 // Folders that are NOT clients
 const SKIP_FOLDERS = new Set(['業主提供資料', '光輝報價單', 'Skill', '公司資料圖錦'])
@@ -32,7 +33,7 @@ function parseQuoteNo(filename: string, dateStr: string | null): string {
 
 function extractProjectName(filename: string): string {
   // Remove (光輝) prefix, remove date suffix, remove extension
-  let name = filename
+  const name = filename
     .replace(/^[\(（]光輝[\)）]/g, '')
     .replace(/_\d{8}\.pdf$/i, '')
     .replace(/\.pdf$/i, '')
@@ -40,6 +41,9 @@ function extractProjectName(filename: string): string {
 }
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: '此本機匯入工具已在正式環境停用' }, { status: 403 })
+  }
   const supabase = createClient()
 
   try {

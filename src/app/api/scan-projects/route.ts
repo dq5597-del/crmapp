@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 const BASE_DIR = 'G:\\我的雲端硬碟\\2.業務部資料\\5.專案資料'
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const supabase = createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: '未登入' }, { status: 401 })
+    const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle()
+    if (!['admin', '管理員'].includes(profile?.role ?? '')) return NextResponse.json({ error: '需管理員權限' }, { status: 403 })
+    if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: '正式環境停用本機掃描' }, { status: 403 })
     const result: { region: string; client: string; files: string[] }[] = []
 
     const regions = fs.readdirSync(BASE_DIR, { withFileTypes: true })

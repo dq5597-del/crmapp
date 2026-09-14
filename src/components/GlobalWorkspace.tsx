@@ -242,8 +242,8 @@ export function GlobalWorkspaceSurface({
 
         <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
           {safeOpen.map(key => {
-            const module = MODULES[key]
-            const Icon = module.icon
+            const workspaceModule = MODULES[key]
+            const Icon = workspaceModule.icon
             const isActive = key === active
             const isSplit = key === split
             return (
@@ -262,7 +262,7 @@ export function GlobalWorkspaceSurface({
                   onClick={() => openModule(key)}
                   className="flex items-center gap-1.5 px-1 py-0.5"
                 >
-                  <Icon size={13} /> {module.label}
+                  <Icon size={13} /> {workspaceModule.label}
                 </button>
                 {isSplit && <span className="rounded bg-emerald-100 px-1 text-[10px] text-emerald-700">右</span>}
                 <button
@@ -299,8 +299,8 @@ export function GlobalWorkspaceSurface({
           {picker && (
             <div className="absolute right-0 top-full z-30 mt-1 grid w-64 grid-cols-2 gap-1 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
               {WORKSPACE_MODULE_KEYS.filter(key => allowedSet.has(key)).map(key => {
-                const module = MODULES[key]
-                const Icon = module.icon
+                const workspaceModule = MODULES[key]
+                const Icon = workspaceModule.icon
                 return (
                   <button
                     key={key}
@@ -309,7 +309,7 @@ export function GlobalWorkspaceSurface({
                     onClick={() => { openModule(key); setPicker(false) }}
                     className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-30"
                   >
-                    <Icon size={14} className="text-gray-400" /> {module.label}
+                    <Icon size={14} className="text-gray-400" /> {workspaceModule.label}
                   </button>
                 )
               })}
@@ -329,8 +329,8 @@ export function GlobalWorkspaceSurface({
       ) : (
         <div className={`grid min-h-0 flex-1 ${split ? 'grid-cols-1 gap-0 lg:grid-cols-2' : 'grid-cols-1'}`}>
           {safeOpen.map(key => {
-            const module = MODULES[key]
-            const Comp = module.Comp
+            const workspaceModule = MODULES[key]
+            const Comp = workspaceModule.Comp
             const isActive = key === active
             const isSplit = key === split
             const visible = isActive || isSplit
@@ -343,7 +343,7 @@ export function GlobalWorkspaceSurface({
               >
                 {isSplit && (
                   <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-4 py-1.5 text-xs text-emerald-700">
-                    <PanelRight size={12} /> 分割檢視：{module.label}
+                    <PanelRight size={12} /> 分割檢視：{workspaceModule.label}
                     <button type="button" onClick={() => setSplit(null)} className="ml-auto hover:text-red-500">
                       <X size={12} />
                     </button>

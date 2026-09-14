@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
 import PrintHeaderQr from '@/components/PrintHeaderQr'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const supabase = createClient()
   const { data: req } = await supabase
     .from('service_requests')
@@ -16,7 +17,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   return { title: `叫修單_${req.service_no}` }
 }
 
-export default async function ServiceRequestPrintPage({ params }: { params: { id: string } }) {
+export default async function ServiceRequestPrintPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
 
   const { data: req } = await supabase

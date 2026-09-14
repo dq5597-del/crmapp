@@ -13,7 +13,7 @@ export default function ContactsTab({ clientId }: { clientId: string }) {
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [form, setForm] = useState({
     name: '', title: '', phone: '', email: '',
-    line_id: '', appearance: '', provided_info: '', notes: ''
+    line_id: '', birthday: '', appearance: '', provided_info: '', notes: ''
   })
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrDone, setOcrDone] = useState(false)

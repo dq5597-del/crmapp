@@ -5,7 +5,8 @@ import { printServiceClient } from '@/lib/print-server'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PublicProductCatalogPage({ params }: { params: { token: string } }) {
+export default async function PublicProductCatalogPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const supabase = printServiceClient()
   if (!supabase) return notFound()
 

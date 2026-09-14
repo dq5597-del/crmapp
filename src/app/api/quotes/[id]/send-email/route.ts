@@ -3,7 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 // POST /api/quotes/[id]/send-email  body: { to: string }
 // 直接把報價單（品項明細內嵌 HTML）寄給客戶
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { to } = await req.json()
   if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
     return NextResponse.json({ error: '請提供正確的收件 Email' }, { status: 400 })

@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 // 常用車站代碼（TDX 台鐵站碼）
-export const STATIONS: Record<string, string> = {
+const STATIONS: Record<string, string> = {
   花蓮: '7000', 台北: '1000', 台東: '7150',
   板橋: '1020', 南港: '0990', 樹林: '1040',
   瑞穗: '7060', 玉里: '7080', 池上: '7110',

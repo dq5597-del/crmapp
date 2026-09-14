@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { preparePhotoAsWebP } from '@/lib/client-image-webp'
 import { ProjectStatus } from '@/types'
-import { Plus, Pencil, Trash2, Briefcase, ChevronDown, X, Camera, ImageIcon, Upload, FileText, ExternalLink, Link2, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Briefcase, ChevronDown, ChevronRight, X, Camera, ImageIcon, Upload, FileText, ExternalLink, Copy, Search } from 'lucide-react'
 import Link from 'next/link'
 import RackDesigner from '@/components/RackDesigner'
 import ProjectCrewSection from '@/components/clients/ProjectCrewSection'
+import ProjectWorkLogsSection from '@/components/clients/ProjectWorkLogsSection'
 import ProjectTasksSection from '@/components/clients/ProjectTasksSection'
 import { formatDate } from '@/lib/utils'
 import { usePermissions } from '@/lib/permissions'
@@ -106,7 +108,6 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
   const camRef  = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -135,40 +136,33 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
     return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
   }
 
-  /** 支援一次選多張照片、依序上傳；任何一張失敗不會中斷其他張，最後統一提示失敗清單 */
-  async function handleUploadFiles(fileList: FileList | File[]) {
-    const files = Array.from(fileList).filter(Boolean)
-    if (files.length === 0) return
+  async function handleUpload(file: File) {
     if (onBeforeUpload && !(await onBeforeUpload())) return
-
     setUploading(true)
-    setUploadProgress({ done: 0, total: files.length })
-    const failed: string[] = []
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
+    try {
+      let uploadFile = file
       try {
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('folder', `專案照片/${cat}`)
-        const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? '上傳失敗')
-
-        const { error: dbErr } = await supabase.from('project_photos').insert({
-          project_id: projectId, category: cat, storage_path: `gdrive:${data.file_id}`, notes: '',
-        })
-        if (dbErr) throw dbErr
-      } catch (e: any) {
-        failed.push(`${file.name}（${e.message}）`)
+        uploadFile = await preparePhotoAsWebP(file)
+      } catch {
+        // 舊版瀏覽器或特殊手機格式無法在前端轉檔時，交由伺服器轉換。
       }
-      setUploadProgress({ done: i + 1, total: files.length })
-    }
+      const fd = new FormData()
+      fd.append('file', uploadFile)
+      fd.append('folder', `專案照片/${cat}`)
+      fd.append('convert_webp', '1')
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
 
-    await fetchPhotos()
+      const { error: dbErr } = await supabase.from('project_photos').insert({
+        project_id: projectId, category: cat, storage_path: `gdrive:${data.file_id}`, notes: '',
+      })
+      if (dbErr) throw dbErr
+      await fetchPhotos()
+    } catch (e: any) {
+      alert('上傳失敗: ' + e.message)
+    }
     setUploading(false)
-    setUploadProgress(null)
-    if (failed.length) alert(`部分照片上傳失敗：\n${failed.join('\n')}`)
   }
 
   async function handleDelete(photo: Photo) {
@@ -210,24 +204,21 @@ function PhotoSection({ projectId, supabase, cats, onBeforeUpload }: {
       {/* Upload Controls */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
-          onChange={e => { const files = e.target.files; if (files?.length) handleUploadFiles(files); e.target.value = '' }} />
-        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
-          onChange={e => { const files = e.target.files; if (files?.length) handleUploadFiles(files); e.target.value = '' }} />
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
         <button type="button" onClick={() => camRef.current?.click()} disabled={uploading}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
           <Camera size={14} /> 拍照上傳
         </button>
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
-          <ImageIcon size={14} /> 開啟舊檔（可多選）
+          <ImageIcon size={14} /> 開啟舊檔
         </button>
-        {uploading && (
-          <span className="text-xs text-gray-400 animate-pulse">
-            上傳中...{uploadProgress ? `（${uploadProgress.done}/${uploadProgress.total}）` : ''}
-          </span>
-        )}
+        {uploading && <span className="text-xs text-gray-400 animate-pulse">轉成 WebP 並上傳中...</span>}
         <span className="ml-auto text-xs text-gray-400">上傳至「{catLabel}」</span>
       </div>
+      <div className="-mt-1 mb-3 text-xs text-gray-400">電腦選圖或手機拍照上傳，都會自動轉成 WebP 檔。</div>
 
       {/* Photo Grid */}
       {loading ? (
@@ -323,7 +314,6 @@ function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' 
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -349,38 +339,28 @@ function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' 
     return supabase.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl
   }
 
-  /** 新檔案存 Google Drive（支援一次選取多個檔案，依序上傳） */
-  async function handleUploadFiles(fileList: FileList | File[]) {
-    const selected = Array.from(fileList).filter(Boolean)
-    if (selected.length === 0) return
+  /** 新檔案存 Google Drive */
+  async function handleUpload(file: File) {
     if (onBeforeUpload && !(await onBeforeUpload())) return
     setUploading(true)
-    setUploadProgress({ done: 0, total: selected.length })
-    const failed: string[] = []
-    for (let i = 0; i < selected.length; i++) {
-      const file = selected[i]
-      try {
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('folder', meta.folder)
-        const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? '上傳失敗')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', meta.folder)
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '上傳失敗')
 
-        const { error: dbErr } = await supabase.from('project_files').insert({
-          project_id: projectId, file_name: file.name, storage_path: `gdrive:${data.file_id}`,
-          file_size: file.size, mime_type: file.type || null, notes: '', category,
-        })
-        if (dbErr) throw dbErr
-      } catch (e: any) {
-        failed.push(`${file.name}（${e.message}）`)
-      }
-      setUploadProgress({ done: i + 1, total: selected.length })
+      const { error: dbErr } = await supabase.from('project_files').insert({
+        project_id: projectId, file_name: file.name, storage_path: `gdrive:${data.file_id}`,
+        file_size: file.size, mime_type: file.type || null, notes: '', category,
+      })
+      if (dbErr) throw dbErr
+      await fetchFiles()
+    } catch (e: any) {
+      alert('上傳失敗: ' + e.message)
     }
-    await fetchFiles()
     setUploading(false)
-    setUploadProgress(null)
-    if (failed.length) alert(`部分檔案上傳失敗：\n${failed.join('\n')}`)
   }
 
   async function handleDelete(f: ProjectFile) {
@@ -399,17 +379,13 @@ function FileSection({ projectId, supabase, onBeforeUpload, category = 'client' 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <input ref={fileRef} type="file" multiple className="hidden"
-          onChange={e => { const fs = e.target.files; if (fs?.length) handleUploadFiles(fs); e.target.value = '' }} />
+        <input ref={fileRef} type="file" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = '' }} />
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
           className={`flex items-center gap-1.5 px-3 py-1.5 ${meta.btnClass} text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors`}>
-          <Upload size={14} /> 上傳檔案（可多選）
+          <Upload size={14} /> 上傳檔案
         </button>
-        {uploading && (
-          <span className="text-xs text-gray-400 animate-pulse">
-            上傳中...{uploadProgress ? `（${uploadProgress.done}/${uploadProgress.total}）` : ''}
-          </span>
-        )}
+        {uploading && <span className="text-xs text-gray-400 animate-pulse">上傳中...</span>}
       </div>
 
       {loading ? (
@@ -459,6 +435,10 @@ type ProjectQuote = {
   created_at: string
 }
 
+type QuoteCopySource = ProjectQuote & {
+  clients: { company_name: string } | { company_name: string }[] | null
+}
+
 const QUOTE_STATUS_COLORS: Record<string, string> = {
   '草稿':   'bg-gray-100 text-gray-600',
   '已送出': 'bg-blue-100 text-blue-700',
@@ -475,13 +455,13 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
 }) {
   const [quotes, setQuotes] = useState<ProjectQuote[]>([])
   const [loading, setLoading] = useState(true)
-
-  // 連結既有報價單（本客戶在「銷售」那邊已經建立、但還沒連結專案的報價單）
-  const [linkerOpen, setLinkerOpen] = useState(false)
-  const [candidates, setCandidates] = useState<(ProjectQuote & { project_id: string | null })[]>([])
-  const [candLoading, setCandLoading] = useState(false)
-  const [candSearch, setCandSearch] = useState('')
-  const [linkingId, setLinkingId] = useState<string | null>(null)
+  const [showCopyDialog, setShowCopyDialog] = useState(false)
+  const [copySources, setCopySources] = useState<QuoteCopySource[]>([])
+  const [copySourcesLoading, setCopySourcesLoading] = useState(false)
+  const [copySearch, setCopySearch] = useState('')
+  const [copyingId, setCopyingId] = useState<string | null>(null)
+  const [copyError, setCopyError] = useState('')
+  const [copySuccess, setCopySuccess] = useState('')
 
   useEffect(() => { fetchQuotes() }, [projectId])
 
@@ -496,42 +476,6 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
     setLoading(false)
   }
 
-  async function toggleLinker() {
-    const next = !linkerOpen
-    setLinkerOpen(next)
-    if (next) {
-      setCandLoading(true)
-      const { data } = await supabase
-        .from('quotes')
-        .select('id, quote_no, project_name, project_id, status, total_amount, created_at')
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false })
-      setCandidates((((data ?? []) as any[]).filter(q => q.project_id !== projectId)) as any)
-      setCandLoading(false)
-    }
-  }
-
-  const filteredCandidates = candidates.filter(q => {
-    if (!candSearch.trim()) return true
-    const s = candSearch.trim().toLowerCase()
-    return q.quote_no?.toLowerCase().includes(s) || (q.project_name ?? '').toLowerCase().includes(s)
-  })
-
-  async function linkQuote(q: ProjectQuote & { project_id: string | null }) {
-    if (q.project_id) {
-      if (!confirm(`「${q.quote_no}」目前已連結其他專案，確定要改連結到「${projectName}」嗎？`)) return
-    }
-    setLinkingId(q.id)
-    const { error } = await supabase
-      .from('quotes')
-      .update({ project_id: projectId, project_name: q.project_name || projectName || null })
-      .eq('id', q.id)
-    setLinkingId(null)
-    if (error) { alert('連結失敗：' + error.message); return }
-    setCandidates(cs => cs.filter(x => x.id !== q.id))
-    fetchQuotes()
-  }
-
   const newQuoteHref = `/quotes/new?client_id=${encodeURIComponent(clientId)}` +
     `&project_id=${encodeURIComponent(projectId)}` +
     `&project_name=${encodeURIComponent(projectName || '')}`
@@ -543,6 +487,60 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
     }
   }
 
+  async function openCopyDialog() {
+    if (onBeforeCreate && !(await onBeforeCreate())) return
+
+    setShowCopyDialog(true)
+    setCopySourcesLoading(true)
+    setCopyError('')
+    setCopySearch('')
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('id, quote_no, project_name, status, total_amount, created_at, clients(company_name)')
+      .order('created_at', { ascending: false })
+      .limit(200)
+
+    if (error) {
+      setCopyError('讀取報價單失敗：' + error.message)
+      setCopySources([])
+    } else {
+      setCopySources((data ?? []) as unknown as QuoteCopySource[])
+    }
+    setCopySourcesLoading(false)
+  }
+
+  async function copyQuoteToProject(source: QuoteCopySource) {
+    if (copyingId) return
+    setCopyingId(source.id)
+    setCopyError('')
+    try {
+      const res = await fetch(`/api/quotes/${source.id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetProjectId: projectId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '複製失敗')
+
+      setShowCopyDialog(false)
+      setCopySuccess(`已將 ${source.quote_no} 複製到此專案`)
+      await fetchQuotes()
+    } catch (err: any) {
+      setCopyError(err.message ?? '複製失敗，請稍後再試')
+    } finally {
+      setCopyingId(null)
+    }
+  }
+
+  const filteredCopySources = copySources.filter(q => {
+    const client = Array.isArray(q.clients) ? q.clients[0] : q.clients
+    const keyword = copySearch.trim().toLowerCase()
+    if (!keyword) return true
+    return q.quote_no.toLowerCase().includes(keyword) ||
+      (q.project_name ?? '').toLowerCase().includes(keyword) ||
+      (client?.company_name ?? '').toLowerCase().includes(keyword)
+  })
+
   return (
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -550,58 +548,16 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
           className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors">
           <Plus size={14} /> 新增報價單
         </Link>
-        <button type="button" onClick={toggleLinker}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-            linkerOpen ? 'bg-teal-50 border-teal-300 text-teal-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-          <Link2 size={14} /> {linkerOpen ? '收起' : '連結既有報價單'}
+        <button type="button" onClick={openCopyDialog}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-teal-300 hover:bg-teal-50 text-teal-700 rounded-lg text-sm font-medium transition-colors">
+          <Copy size={14} /> 複製既有報價單
         </button>
         <span className="text-xs text-gray-400">共 {quotes.length} 張</span>
       </div>
 
-      {linkerOpen && (
-        <div className="mb-4 rounded-xl border border-teal-200 bg-teal-50/40 p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <Search size={14} className="text-gray-400 shrink-0" />
-            <input value={candSearch} onChange={e => setCandSearch(e.target.value)}
-              placeholder="搜尋單號或案名，找到後點「連結」把它併進本專案"
-              className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-400" />
-          </div>
-          {candLoading ? (
-            <div className="text-center py-4 text-gray-400 text-xs">載入中…</div>
-          ) : filteredCandidates.length === 0 ? (
-            <div className="text-center py-4 text-gray-400 text-xs">
-              {candidates.length === 0 ? '此客戶名下沒有其他報價單可連結' : '沒有符合搜尋的報價單'}
-            </div>
-          ) : (
-            <div className="space-y-1.5 max-h-72 overflow-y-auto">
-              {filteredCandidates.map(q => (
-                <div key={q.id} className="flex items-center gap-2 p-2 bg-white border border-gray-100 rounded-lg">
-                  <FileText size={15} className="shrink-0 text-gray-400" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">{q.quote_no}</span>
-                      {q.status && (
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${QUOTE_STATUS_COLORS[q.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {q.status}
-                        </span>
-                      )}
-                      {q.project_id && (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">已連結其他專案</span>
-                      )}
-                    </div>
-                    {q.project_name && <div className="text-xs text-gray-500 truncate mt-0.5">{q.project_name}</div>}
-                  </div>
-                  <div className="shrink-0 text-sm font-semibold text-gray-900">
-                    NT$ {Number(q.total_amount ?? 0).toLocaleString()}
-                  </div>
-                  <button type="button" onClick={() => linkQuote(q)} disabled={linkingId === q.id}
-                    className="shrink-0 flex items-center gap-1 text-xs bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-60">
-                    <Link2 size={12} /> {linkingId === q.id ? '連結中…' : '連結'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+      {copySuccess && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+          {copySuccess}
         </div>
       )}
 
@@ -641,6 +597,65 @@ function ProjectQuotesSection({ projectId, clientId, projectName, supabase, onBe
               <ExternalLink size={14} className="shrink-0 text-gray-300" />
             </Link>
           ))}
+        </div>
+      )}
+
+      {showCopyDialog && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="copy-quote-title">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 id="copy-quote-title" className="font-semibold text-gray-900">複製報價單到此專案</h3>
+                <p className="text-xs text-gray-500 mt-0.5">品項與條款會複製，客戶與案名會改為此專案資料</p>
+              </div>
+              <button type="button" onClick={() => setShowCopyDialog(false)} disabled={!!copyingId}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50" aria-label="關閉">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={copySearch} onChange={e => setCopySearch(e.target.value)} autoFocus
+                  placeholder="搜尋報價單號、客戶名稱或案名"
+                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            </div>
+
+            <div className="overflow-y-auto p-3 flex-1">
+              {copyError && <div className="m-1 mb-3 px-3 py-2 rounded-lg bg-red-50 text-red-700 text-sm">{copyError}</div>}
+              {copySourcesLoading ? (
+                <div className="text-center py-10 text-gray-400 text-sm">載入報價單中...</div>
+              ) : filteredCopySources.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 text-sm">沒有符合的報價單</div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredCopySources.map(q => {
+                    const client = Array.isArray(q.clients) ? q.clients[0] : q.clients
+                    return (
+                      <div key={q.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:border-teal-200">
+                        <FileText size={18} className="shrink-0 text-teal-600" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm text-gray-900">{q.quote_no}</span>
+                            <span className="text-xs text-gray-500">{client?.company_name ?? '未指定客戶'}</span>
+                          </div>
+                          <div className="text-xs text-gray-400 truncate mt-0.5">
+                            {q.project_name || '無案名'} · NT$ {Number(q.total_amount ?? 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => copyQuoteToProject(q)} disabled={!!copyingId}
+                          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                          <Copy size={13} /> {copyingId === q.id ? '複製中...' : '複製'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -764,7 +779,7 @@ function EquipmentMapSection({ projectId, supabase, initLength, initWidth, onBef
     return pt.matrixTransform(svg.getScreenCTM()!.inverse())
   }
 
-  function getSvgPtFromTouch(touch: Touch) {
+  function getSvgPtFromTouch(touch: React.Touch) {
     const svg = svgRef.current!
     const pt = svg.createSVGPoint()
     pt.x = touch.clientX; pt.y = touch.clientY
@@ -1444,85 +1459,7 @@ function EquipmentSection({ projectId, supabase, onBeforeUpload }: {
   )
 }
 
-// ── 本專案安裝的設備（設備清單，獨立頁面的資料，這裡只是連回去看）──
-type ProjectEquipmentRow = {
-  id: string
-  brand: string | null
-  model: string | null
-  serial_no: string | null
-  install_location: string | null
-  warranty_expiry: string | null
-}
-
-function projectEquipWarranty(dateStr: string | null) {
-  if (!dateStr) return { label: '未設定', className: 'bg-gray-100 text-gray-500' }
-  const diffDays = Math.round((new Date(dateStr).getTime() - Date.now()) / 86400000)
-  if (diffDays < 0) return { label: '已過保固', className: 'bg-red-100 text-red-600' }
-  if (diffDays <= 30) return { label: '即將到期', className: 'bg-amber-100 text-amber-700' }
-  return { label: '保固內', className: 'bg-green-100 text-green-700' }
-}
-
-function ProjectEquipmentSection({ projectId, clientId, supabase }: {
-  projectId: string; clientId: string; supabase: ReturnType<typeof createClient>
-}) {
-  const [rows, setRows] = useState<ProjectEquipmentRow[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => { fetchRows() }, [projectId])
-
-  async function fetchRows() {
-    setLoading(true)
-    const { data } = await supabase
-      .from('equipment')
-      .select('id, brand, model, serial_no, install_location, warranty_expiry')
-      .eq('project_id', projectId)
-      .order('installed_date', { ascending: false })
-    setRows((data as ProjectEquipmentRow[]) ?? [])
-    setLoading(false)
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-gray-500">這個專案裝過的設備，之後客戶叫修可以直接從設備清單建單</p>
-        <a
-          href={`/equipment/new?client_id=${encodeURIComponent(clientId)}&project_id=${encodeURIComponent(projectId)}`}
-          className="shrink-0 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          + 新增設備
-        </a>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-4 text-gray-400 text-sm">載入中...</div>
-      ) : rows.length === 0 ? (
-        <div className="text-center py-4 text-gray-400 text-sm">這個專案還沒有登記設備</div>
-      ) : (
-        <div className="space-y-2">
-          {rows.map(r => {
-            const w = projectEquipWarranty(r.warranty_expiry)
-            return (
-              <div key={r.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-gray-100 rounded-xl">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{[r.brand, r.model].filter(Boolean).join(' ') || '未命名設備'}</p>
-                  <p className="text-xs text-gray-400 truncate">
-                    {r.serial_no ? `SN ${r.serial_no}` : '無序號'}{r.install_location ? ` ・ ${r.install_location}` : ''}
-                  </p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${w.className}`}>{w.label}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      <a href="/equipment" className="inline-block mt-3 text-xs text-purple-700 hover:underline">在設備清單看全部、搜尋或叫修 →</a>
-    </div>
-  )
-}
-
 // ── Accordion ───────────────────────────────────────────────
-// 手機操作用滑動式展開（grid-template-rows 0fr→1fr 動畫），不是瞬間開合
 function Accordion({ title, color, defaultOpen = false, children }: {
   title: string; color: typeof BLUE; defaultOpen?: boolean; children: React.ReactNode
 }) {
@@ -1530,40 +1467,11 @@ function Accordion({ title, color, defaultOpen = false, children }: {
   return (
     <div className={`rounded-xl border ${color.border} overflow-hidden`}>
       <button type="button" onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-4 py-3 md:py-2.5 min-h-[44px] ${color.header} text-white text-sm font-medium active:opacity-80`}>
+        className={`w-full flex items-center justify-between px-4 py-2.5 ${color.header} text-white text-sm font-medium`}>
         <span>{title}</span>
-        <ChevronDown size={16} className={`shrink-0 transition-transform duration-300 ${open ? '' : '-rotate-90'}`} />
+        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
-      <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-        <div className="overflow-hidden">
-          <div className={`${color.light} p-4`}>{children}</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * 大分類外殼（上類／下類／中類／設備類…），把好幾個小 Accordion 包在一起，
- * 手機上先收合成一條，點開才展開裡面那幾個小區塊，減少一路捲到底的長列表。
- * 展開動畫跟 Accordion 一樣用 grid-rows，滑動式而非瞬間切換。
- */
-function AccordionGroup({ title, color, defaultOpen = false, children }: {
-  title: string; color: typeof BLUE; defaultOpen?: boolean; children: React.ReactNode
-}) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className={`rounded-xl border-2 ${color.border} overflow-hidden`}>
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-4 py-3 min-h-[44px] ${color.header} text-white text-sm font-semibold active:opacity-80`}>
-        <span>{title}</span>
-        <ChevronDown size={18} className={`shrink-0 transition-transform duration-300 ${open ? '' : '-rotate-90'}`} />
-      </button>
-      <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-        <div className="overflow-hidden">
-          <div className={`${color.light} p-2.5 space-y-2`}>{children}</div>
-        </div>
-      </div>
+      {open && <div className={`${color.light} p-4`}>{children}</div>}
     </div>
   )
 }
@@ -1872,12 +1780,10 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
         end_date: form.end_date || null,
       }
       if (isNewProject) {
-        const { error } = await supabase.from('projects').insert({ id: editingId, ...projectPayload, client_id: clientId })
-        if (error) { alert('建立專案失敗：' + error.message); return }
+        await supabase.from('projects').insert({ id: editingId, ...projectPayload, client_id: clientId })
         setIsNewProject(false)
       } else {
-        const { error } = await supabase.from('projects').update(projectPayload).eq('id', editingId)
-        if (error) { alert('儲存專案失敗：' + error.message); return }
+        await supabase.from('projects').update(projectPayload).eq('id', editingId)
       }
       if (editingId) {
         const surveyPayload = {
@@ -1897,10 +1803,9 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
           await fetch('/api/site-surveys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(surveyPayload) })
         }
       }
-      // 成功才關閉編輯面板；失敗時停留在原畫面並顯示錯誤，避免看起來像「存了但沒變」
-      setEditingId(null)
     } finally {
       setSaving(false)
+      setEditingId(null)
       fetchProjects()
     }
   }
@@ -1918,65 +1823,59 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
   const setSB = (k: keyof SurveyForm) => (v: boolean) =>
     setSurvey(p => ({ ...p, [k]: v }))
 
-  const projectFormFields = (
-    <>
-            <AccordionGroup title="📋 基本資訊和需求" color={BLUE} defaultOpen>
-              <Accordion title="① 基本資訊" color={BLUE} defaultOpen>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="專案名稱 *" span2>
-                    <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
-                  </Field>
-                  <Field label="場景名稱">
-                    <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
-                  </Field>
-                  <Field label="使用者類型">
-                    <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
-                  </Field>
-                  <Field label="專案狀態">
-                    <select value={form.status} onChange={setP('status')} className={inp}>
-                      {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="預算（NT$）">
-                    <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
-                  </Field>
-                  <Field label="專案收入（NT$，毛利分析用）">
-                    <input type="number" value={form.revenue} onChange={setP('revenue')} className={inp} placeholder="未填則以預算計算" />
-                  </Field>
-                  <Field label="設備成本（NT$，毛利分析用）">
-                    <input type="number" value={form.equipment_cost} onChange={setP('equipment_cost')} className={inp} />
-                  </Field>
-                  <Field label="施工日期">
-                    <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
-                  </Field>
-                  <Field label="預計完工日">
-                    <input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} />
-                  </Field>
-                  <Field label="說明／備注" span2>
-                    <textarea rows={2} value={form.description} onChange={setP('description')} className={ta} />
-                  </Field>
-                </div>
-              </Accordion>
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-gray-500">共 {projects.length} 個專案</span>
+        <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
+          <Plus size={14} /> 新增專案
+        </button>
+      </div>
 
-              <Accordion title="② 需求分析" color={BLUE}>
-                <div className="grid grid-cols-1 gap-3">
-                  <Field label="主要功能定位">
-                    <input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" />
-                  </Field>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="設備需求"><textarea rows={2} value={form.equipment_needs} onChange={setP('equipment_needs')} className={ta} /></Field>
-                    <Field label="音響需求"><textarea rows={2} value={form.audio_needs} onChange={setP('audio_needs')} className={ta} /></Field>
-                    <Field label="影像需求"><textarea rows={2} value={form.video_needs} onChange={setP('video_needs')} className={ta} /></Field>
-                    <Field label="互動需求"><textarea rows={2} value={form.interaction_needs} onChange={setP('interaction_needs')} className={ta} /></Field>
-                    <Field label="控制需求"><textarea rows={2} value={form.control_needs} onChange={setP('control_needs')} className={ta} /></Field>
-                    <Field label="其他需求"><textarea rows={2} value={form.other_needs} onChange={setP('other_needs')} className={ta} /></Field>
-                  </div>
-                  <Field label="場地規格">
-                    <textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} />
-                  </Field>
-                </div>
-              </Accordion>
-            </AccordionGroup>
+      {editingId !== null && (
+        <div className="border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
+            <span className="font-semibold text-gray-800 text-sm">{isNewProject ? '新增專案' : '編輯專案'}</span>
+            <button onClick={() => setEditingId(null)}><X size={16} className="text-gray-400" /></button>
+          </div>
+          <div className="p-4 space-y-3">
+
+            <Accordion title="① 上類 — 基本資訊" color={BLUE} defaultOpen>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="專案名稱 *" span2>
+                  <input value={form.project_name} onChange={setP('project_name')} className={inp} placeholder="例：台東延平鄉公所新建案" />
+                </Field>
+                <Field label="場景名稱">
+                  <input value={form.scene_name} onChange={setP('scene_name')} className={inp} placeholder="如：會議室、禮堂" />
+                </Field>
+                <Field label="使用者類型">
+                  <input value={form.user_type} onChange={setP('user_type')} className={inp} placeholder="例：政府機關/企業/教育" />
+                </Field>
+                <Field label="專案狀態">
+                  <select value={form.status} onChange={setP('status')} className={inp}>
+                    {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </Field>
+                <Field label="預算（NT$）">
+                  <input type="number" value={form.budget} onChange={setP('budget')} className={inp} />
+                </Field>
+                <Field label="專案收入（NT$，毛利分析用）">
+                  <input type="number" value={form.revenue} onChange={setP('revenue')} className={inp} placeholder="未填則以預算計算" />
+                </Field>
+                <Field label="設備成本（NT$，毛利分析用）">
+                  <input type="number" value={form.equipment_cost} onChange={setP('equipment_cost')} className={inp} />
+                </Field>
+                <Field label="施工日期">
+                  <input type="date" value={form.start_date} onChange={setP('start_date')} className={inp} />
+                </Field>
+                <Field label="預計完工日">
+                  <input type="date" value={form.end_date} onChange={setP('end_date')} className={inp} />
+                </Field>
+                <Field label="說明／備注" span2>
+                  <textarea rows={2} value={form.description} onChange={setP('description')} className={ta} />
+                </Field>
+              </div>
+            </Accordion>
 
             <Accordion title="📎 單位提供的檔案" color={BLUE}>
               <FileSection
@@ -1987,118 +1886,14 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               />
             </Accordion>
 
-            <AccordionGroup title="🏗️ 場勘資訊與施工限制（7 項）" color={GREEN}>
-              {/* ③④⑤⑥ 場勘資訊：獨立收合欄位 */}
-              <Accordion title="場勘資訊" color={GREEN}>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-medium text-emerald-700 mb-2">③ 場勘基本資訊</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
-                      <Field label="場勘負責人"><input value={survey.surveyor} onChange={setS('surveyor')} className={inp} /></Field>
-                      <Field label="現場聯絡姓名"><input value={survey.contact_name} onChange={setS('contact_name')} className={inp} /></Field>
-                      <Field label="現場聯絡電話"><input value={survey.contact_phone} onChange={setS('contact_phone')} className={inp} /></Field>
-                      <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-emerald-200">
-                    <p className="text-xs font-medium text-emerald-700 mb-2">④ 空間規格資訊</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
-                      <Field label="長度（公尺）"><input type="number" value={survey.space_length} onChange={setS('space_length')} className={inp} /></Field>
-                      <Field label="寬度（公尺）"><input type="number" value={survey.space_width} onChange={setS('space_width')} className={inp} /></Field>
-                      <Field label="高度（公尺）"><input type="number" value={survey.space_height} onChange={setS('space_height')} className={inp} /></Field>
-                      <Field label="容納人數"><input type="number" value={survey.capacity} onChange={setS('capacity')} className={inp} /></Field>
-                      <Field label="天花板類型/材質"><input value={survey.ceiling_type} onChange={setS('ceiling_type')} className={inp} /></Field>
-                      <Field label="牆面材質"><input value={survey.wall_material} onChange={setS('wall_material')} className={inp} /></Field>
-                      <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
-                      <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-emerald-200">
-                      <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
-                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-emerald-200">
-                    <p className="text-xs font-medium text-emerald-700 mb-2">⑤ 電力與網路</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
-                      <Field label="現有插座數量位置"><input value={survey.outlet_count} onChange={setS('outlet_count')} className={inp} /></Field>
-                      <Field label="電壓容量說明"><input value={survey.voltage_capacity} onChange={setS('voltage_capacity')} className={inp} /></Field>
-                      <Field label="電源射頻干擾情況"><input value={survey.rf_interference} onChange={setS('rf_interference')} className={inp} /></Field>
-                      <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
-                      <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-emerald-200">
-                      <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
-                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-emerald-200">
-                    <p className="text-xs font-medium text-emerald-700 mb-2">⑥ 聲學與環境</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
-                      <Field label="環境噪音（dB）"><input type="number" value={survey.ambient_noise_db} onChange={setS('ambient_noise_db')} className={inp} /></Field>
-                      <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
-                      <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
-                      <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-emerald-200">
-                      <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
-                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                    </div>
-                  </div>
-                </div>
-              </Accordion>
-
-              {/* ⑦⑧⑨ 施工限制與現況：獨立收合欄位 */}
-              <Accordion title="施工限制與現況" color={ORG}>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-medium text-orange-700 mb-2">⑦ 施工條件限制</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="col-span-2 flex gap-6 flex-wrap">
-                        <BoolField label="是否禁止酷孔打牆壁" value={survey.no_drilling} onChange={setSB('no_drilling')} />
-                        <BoolField label="是否需要採購/代購材料設備" value={survey.need_procurement} onChange={setSB('need_procurement')} />
-                      </div>
-                      <Field label="特殊施工時間限制"><input value={survey.special_construction_time} onChange={setS('special_construction_time')} className={inp} /></Field>
-                      <Field label="懸挂載重限制"><input value={survey.hanging_limits} onChange={setS('hanging_limits')} className={inp} /></Field>
-                      <Field label="現場施工限制說明" span2><textarea rows={2} value={survey.construction_issues} onChange={setS('construction_issues')} className={ta} /></Field>
-                      <Field label="搜運時間（分鐘）"><input type="number" value={survey.travel_time_minutes} onChange={setS('travel_time_minutes')} className={inp} /></Field>
-                      <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
-                      <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
-                      <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-orange-200">
-                      <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
-                      <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-orange-200">
-                    <p className="text-xs font-medium text-orange-700 mb-2">⑧ 現況設備補充</p>
-                    <div className="grid grid-cols-1 gap-3">
-                      <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
-                      <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
-                      <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
-                      <Field label="單位期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
-                      <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
-                      <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-orange-200">
-                    <p className="text-xs font-medium text-orange-700 mb-2">⑨ 場勘備註</p>
-                    <Field label="場勘備註內容">
-                      <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
-                    </Field>
-                  </div>
-                </div>
-              </Accordion>
-            </AccordionGroup>
+            <Accordion title="🏛️ 業主提供的檔案" color={AMBER}>
+              <FileSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+                category="owner"
+              />
+            </Accordion>
 
             {/* 報價單含售價與進貨成本，依 quotes 權限決定是否顯示（工程人員預設看不到） */}
             <ProjectQuotesAccordion
@@ -2109,65 +1904,173 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               onBeforeCreate={isNewProject ? ensureSaved : undefined}
             />
 
-            <AccordionGroup title="🔧 設備類 — 設備與配置圖（5 項）" color={PURPLE}>
-              <Accordion title="🔩 已安裝設備（設備清單）" color={PURPLE}>
-                <ProjectEquipmentSection
-                  projectId={editingId as string}
-                  clientId={clientId}
-                  supabase={supabase}
-                />
-              </Accordion>
+            <Accordion title="👷 施工團隊（工頭／工班人員）" color={PURPLE}>
+              <ProjectCrewSection
+                projectId={editingId as string}
+                onBeforeSave={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
 
-              <Accordion title="🔧 現場設備記錄" color={PURPLE}>
-                <EquipmentSection
-                  projectId={editingId as string}
-                  supabase={supabase}
-                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
-                />
-              </Accordion>
+            <Accordion title="📊 施工進度（工項清單）" color={PURPLE}>
+              <ProjectTasksSection
+                projectId={editingId as string}
+                onBeforeSave={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
 
-              <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
-                <EquipmentMapSection
-                  projectId={editingId as string}
-                  supabase={supabase}
-                  initLength={survey.space_length}
-                  initWidth={survey.space_width}
-                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
-                />
-              </Accordion>
+            <Accordion title="⏱ 施工工時與派工紀錄" color={PURPLE}>
+              <ProjectWorkLogsSection
+                projectId={editingId as string}
+                onBeforeSave={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
 
-              <Accordion title="🖥️ 桌面設備配置圖" color={PURPLE}>
-                <DeskLayoutSection
-                  projectId={editingId as string}
-                  supabase={supabase}
-                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
-                />
-              </Accordion>
+            <Accordion title="② 上類 — 需求分析" color={BLUE}>
+              <div className="grid grid-cols-1 gap-3">
+                <Field label="主要功能定位">
+                  <input value={form.main_function} onChange={setP('main_function')} className={inp} placeholder="例：多媒體簡報、活動直播、教學互動" />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="設備需求"><textarea rows={2} value={form.equipment_needs} onChange={setP('equipment_needs')} className={ta} /></Field>
+                  <Field label="音響需求"><textarea rows={2} value={form.audio_needs} onChange={setP('audio_needs')} className={ta} /></Field>
+                  <Field label="影像需求"><textarea rows={2} value={form.video_needs} onChange={setP('video_needs')} className={ta} /></Field>
+                  <Field label="互動需求"><textarea rows={2} value={form.interaction_needs} onChange={setP('interaction_needs')} className={ta} /></Field>
+                  <Field label="控制需求"><textarea rows={2} value={form.control_needs} onChange={setP('control_needs')} className={ta} /></Field>
+                  <Field label="其他需求"><textarea rows={2} value={form.other_needs} onChange={setP('other_needs')} className={ta} /></Field>
+                </div>
+                <Field label="場地規格">
+                  <textarea rows={2} value={form.venue_specs} onChange={setP('venue_specs')} className={ta} />
+                </Field>
+              </div>
+            </Accordion>
 
-              <Accordion title="🗄️ 機櫃設計模擬圖" color={PURPLE}>
-                <RackDesigner
-                  projectId={editingId as string}
-                  supabase={supabase}
-                  onBeforeUpload={isNewProject ? ensureSaved : undefined}
-                />
-              </Accordion>
-            </AccordionGroup>
+            <Accordion title="③ 下類 — 場勘基本資訊" color={GREEN}>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="場勘日期"><input type="date" value={survey.survey_date} onChange={setS('survey_date')} className={inp} /></Field>
+                <Field label="場勘負責人"><input value={survey.surveyor} onChange={setS('surveyor')} className={inp} /></Field>
+                <Field label="現場聯絡姓名"><input value={survey.contact_name} onChange={setS('contact_name')} className={inp} /></Field>
+                <Field label="現場聯絡電話"><input value={survey.contact_phone} onChange={setS('contact_phone')} className={inp} /></Field>
+                <Field label="場地地址" span2><input value={survey.venue_address} onChange={setS('venue_address')} className={inp} /></Field>
+              </div>
+            </Accordion>
 
-            <AccordionGroup title="👷 施工人員與派工紀錄和施工進度（2 項）" color={PURPLE}>
-              <Accordion title="👷 施工人員與派工紀錄（工頭／工班人員）" color={PURPLE}>
-                <ProjectCrewSection
-                  projectId={editingId as string}
-                  onBeforeSave={isNewProject ? ensureSaved : undefined}
-                />
-              </Accordion>
+            <Accordion title="④ 下類 — 空間規格資訊" color={GREEN}>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="空間用途" span2><input value={survey.space_usage} onChange={setS('space_usage')} className={inp} /></Field>
+                <Field label="長度（公尺）"><input type="number" value={survey.space_length} onChange={setS('space_length')} className={inp} /></Field>
+                <Field label="寬度（公尺）"><input type="number" value={survey.space_width} onChange={setS('space_width')} className={inp} /></Field>
+                <Field label="高度（公尺）"><input type="number" value={survey.space_height} onChange={setS('space_height')} className={inp} /></Field>
+                <Field label="容納人數"><input type="number" value={survey.capacity} onChange={setS('capacity')} className={inp} /></Field>
+                <Field label="天花板類型/材質"><input value={survey.ceiling_type} onChange={setS('ceiling_type')} className={inp} /></Field>
+                <Field label="牆面材質"><input value={survey.wall_material} onChange={setS('wall_material')} className={inp} /></Field>
+                <Field label="空間形狀"><input value={survey.space_form} onChange={setS('space_form')} className={inp} /></Field>
+                <div className="col-span-2"><BoolField label="是否可施工裝設" value={survey.can_construct} onChange={setSB('can_construct')} /></div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-emerald-200">
+                <p className="text-xs text-emerald-700 font-medium mb-2">📷 空間規格照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_SPACE} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              </div>
+            </Accordion>
 
-              <Accordion title="📊 施工進度（工項清單）" color={PURPLE}>
-                <ProjectTasksSection
-                  projectId={editingId as string}
-                  onBeforeSave={isNewProject ? ensureSaved : undefined}
-                />
-              </Accordion>
-            </AccordionGroup>
+            <Accordion title="⑤ 下類 — 電力與網路" color={GREEN}>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="電源總笱位置說明"><input value={survey.power_panel_location} onChange={setS('power_panel_location')} className={inp} /></Field>
+                <Field label="現有插座數量位置"><input value={survey.outlet_count} onChange={setS('outlet_count')} className={inp} /></Field>
+                <Field label="電壓容量說明"><input value={survey.voltage_capacity} onChange={setS('voltage_capacity')} className={inp} /></Field>
+                <Field label="電源射頻干擾情況"><input value={survey.rf_interference} onChange={setS('rf_interference')} className={inp} /></Field>
+                <Field label="網路設備說明資訊" span2><input value={survey.network_info} onChange={setS('network_info')} className={inp} /></Field>
+                <div className="col-span-2"><BoolField label="是否需要擴充電源容量" value={survey.need_power_expansion} onChange={setSB('need_power_expansion')} /></div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-emerald-200">
+                <p className="text-xs text-emerald-700 font-medium mb-2">📷 電力與網路照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_POWER} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              </div>
+            </Accordion>
+
+            <Accordion title="⑥ 下類 — 聲學與環境" color={GREEN}>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="空間內存在噪音來源" span2><input value={survey.noise_factors} onChange={setS('noise_factors')} className={inp} /></Field>
+                <Field label="環境噪音（dB）"><input type="number" value={survey.ambient_noise_db} onChange={setS('ambient_noise_db')} className={inp} /></Field>
+                <Field label="空間聲學特性"><input value={survey.acoustics} onChange={setS('acoustics')} className={inp} /></Field>
+                <Field label="自然光源情況"><input value={survey.natural_light} onChange={setS('natural_light')} className={inp} /></Field>
+                <Field label="觀眾視角潛在因素"><input value={survey.audience_factors} onChange={setS('audience_factors')} className={inp} /></Field>
+              </div>
+              <div className="mt-4 pt-4 border-t border-emerald-200">
+                <p className="text-xs text-emerald-700 font-medium mb-2">📷 聲學與環境照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_ACOU} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              </div>
+            </Accordion>
+
+            <Accordion title="⑦ 中類 — 施工條件限制" color={ORG}>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 flex gap-6 flex-wrap">
+                  <BoolField label="是否禁止酷孔打牆壁" value={survey.no_drilling} onChange={setSB('no_drilling')} />
+                  <BoolField label="是否需要採購/代購材料設備" value={survey.need_procurement} onChange={setSB('need_procurement')} />
+                </div>
+                <Field label="特殊施工時間限制"><input value={survey.special_construction_time} onChange={setS('special_construction_time')} className={inp} /></Field>
+                <Field label="懸挂載重限制"><input value={survey.hanging_limits} onChange={setS('hanging_limits')} className={inp} /></Field>
+                <Field label="現場施工限制說明" span2><textarea rows={2} value={survey.construction_issues} onChange={setS('construction_issues')} className={ta} /></Field>
+                <Field label="搜運時間（分鐘）"><input type="number" value={survey.travel_time_minutes} onChange={setS('travel_time_minutes')} className={inp} /></Field>
+                <Field label="電梯尺寸規格"><input value={survey.elevator_size} onChange={setS('elevator_size')} className={inp} /></Field>
+                <Field label="停車場距離地點資訊"><input value={survey.parking_location} onChange={setS('parking_location')} className={inp} /></Field>
+                <Field label="下樓到倉庫距離長度"><input value={survey.distance_to_storage} onChange={setS('distance_to_storage')} className={inp} /></Field>
+              </div>
+              <div className="mt-4 pt-4 border-t border-orange-200">
+                <p className="text-xs text-orange-700 font-medium mb-2">📷 施工條件照片</p>
+                <PhotoSection projectId={editingId as string} supabase={supabase} cats={CATS_CONS} onBeforeUpload={isNewProject ? ensureSaved : undefined} />
+              </div>
+            </Accordion>
+
+            <Accordion title="⑧ 中類 — 現況設備補充" color={ORG}>
+              <div className="grid grid-cols-1 gap-3">
+                <Field label="現有 AV 系統需求"><textarea rows={2} value={survey.av_system_needs} onChange={setS('av_system_needs')} className={ta} /></Field>
+                <Field label="現有在場設備說明"><textarea rows={2} value={survey.existing_equipment} onChange={setS('existing_equipment')} className={ta} /></Field>
+                <Field label="其他現場觀察記錄"><textarea rows={2} value={survey.other_observations} onChange={setS('other_observations')} className={ta} /></Field>
+                <Field label="單位期望功能/期望達成目標"><textarea rows={2} value={survey.client_expected_functions} onChange={setS('client_expected_functions')} className={ta} /></Field>
+                <Field label="其他特殊需求說明"><textarea rows={2} value={survey.other_special_needs} onChange={setS('other_special_needs')} className={ta} /></Field>
+                <Field label="初步預算範圍"><input value={survey.preliminary_budget_range} onChange={setS('preliminary_budget_range')} className={inp} /></Field>
+              </div>
+            </Accordion>
+
+            <Accordion title="⑨ 中類 — 場勘備註" color={ORG}>
+              <Field label="場勘備註內容">
+                <textarea rows={4} value={survey.survey_notes} onChange={setS('survey_notes')} className={ta} />
+              </Field>
+            </Accordion>
+
+            <Accordion title="🔧 設備類 — 現場設備記錄" color={PURPLE}>
+              <EquipmentSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="🗺️ 現場設備標示圖" color={PURPLE}>
+              <EquipmentMapSection
+                projectId={editingId as string}
+                supabase={supabase}
+                initLength={survey.space_length}
+                initWidth={survey.space_width}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="🖥️ 桌面設備配置圖" color={PURPLE}>
+              <DeskLayoutSection
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
+
+            <Accordion title="🗄️ 機櫃設計模擬圖" color={PURPLE}>
+              <RackDesigner
+                projectId={editingId as string}
+                supabase={supabase}
+                onBeforeUpload={isNewProject ? ensureSaved : undefined}
+              />
+            </Accordion>
 
             <Accordion title="📷 照片紀錄（施工前／施工中／完工）" color={BLUE}>
               <PhotoSection
@@ -2177,28 +2080,17 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
                 onBeforeUpload={isNewProject ? ensureSaved : undefined}
               />
             </Accordion>
-    </>
-  )
 
-  const projectFormActions = (
-    <>
+          </div>
+
+          <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
             <button onClick={() => setEditingId(null)} className="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-white">取消</button>
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
               {saving ? '儲存中...' : '儲存專案'}
             </button>
-    </>
-  )
-
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-500">共 {projects.length} 個專案</span>
-        {projects.length === 0 && (
-          <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
-            <Plus size={14} /> 新增專案
-          </button>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-8 text-gray-400 text-sm">載入中...</div>
@@ -2248,33 +2140,9 @@ export default function ProjectsTab({ clientId, autoEditProjectId }: { clientId:
               {p.budget && <span>預算：NT${Number(p.budget).toLocaleString()}</span>}
               {p.main_function && <span>功能：{p.main_function}</span>}
             </div>
-          {editingId === p.id && (
-            <div className="border-t border-gray-100">
-              <div className="p-4 space-y-3">
-                {projectFormFields}
-              </div>
-              <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
-                {projectFormActions}
-              </div>
-            </div>
-          )}
           </div>
         ))
       )}
-      {isNewProject && editingId !== null && (
-        <div className="border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="px-4 py-3 bg-gray-50 border-b">
-            <span className="font-semibold text-gray-800 text-sm">新增專案</span>
-          </div>
-          <div className="p-4 space-y-3">
-            {projectFormFields}
-          </div>
-          <div className="px-4 py-3 border-t bg-gray-50 flex justify-end gap-2">
-            {projectFormActions}
-          </div>
-        </div>
-      )}
-
 
     </div>
   )

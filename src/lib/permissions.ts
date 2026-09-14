@@ -23,7 +23,6 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'projects',         label: '專案資料夾',      group: '業務',   href: '/projects',       costLabel: '看專案成本' },
   { key: 'construction',     label: '施工追蹤',        group: '業務',   href: '/construction' },
   { key: 'work-hours',       label: '工時統計',        group: '業務',   href: '/work-hours',     costLabel: '看人工成本' },
-  { key: 'equipment',        label: '設備清單',        group: '業務',   href: '/equipment' },
   { key: 'clients',          label: '客戶資料',        group: '業務',   href: '/clients' },
   { key: 'vendors',          label: '廠商資料',        group: '業務',   href: '/vendors',        costLabel: '看銀行帳戶' },
   { key: 'quotes',           label: '報價單',          group: '業務',   href: '/quotes',         costLabel: '看進貨成本' },
@@ -31,6 +30,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'todos',            label: '任務清單',        group: '業務',   href: '/todos' },
   { key: 'schedule',         label: '每日行程',        group: '業務',   href: '/schedule' },
   { key: 'product-selector', label: '產品篩選／型錄分享', group: '業務', href: '/product-selector' },
+  { key: 'expense-claims',   label: '員工報銷申請',      group: '業務', href: '/expense-claims' },
 
   { key: 'sales-orders',     label: '銷貨單',          group: '進銷存', href: '/sales-orders',   costLabel: '看成本' },
   { key: 'inquiries',        label: '廠商詢價單',      group: '進銷存', href: '/inquiries' },
@@ -45,7 +45,9 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'accounting',       label: '會計（收支/報表）', group: '財務', href: '/accounting/pnl' },
 
   { key: 'service-requests', label: '叫修管理',        group: '服務',   href: '/service-requests', costLabel: '看維修成本' },
-  { key: 'knowledge-base',   label: 'SOP／教材庫',     group: '服務',   href: '/knowledge-base' },
+  { key: 'eip',              label: '規章／公告制度',   group: 'EIP',    href: '/eip' },
+  { key: 'approvals',        label: 'BPM／簽呈中心',    group: 'EIP',    href: '/approvals' },
+  { key: 'internal-control', label: '管理循環／內控',   group: 'EIP',    href: '/internal-control' },
 
   { key: 'hr-employees',     label: '員工資料',        group: '人資',   href: '/hr/employees',    costLabel: '看薪資與身分證' },
   { key: 'hr-attendance',    label: '出勤紀錄',        group: '人資',   href: '/hr/attendance' },
@@ -60,7 +62,7 @@ export const FEATURES: { key: string; label: string; group: string; href?: strin
   { key: 'permissions',      label: '權限管理',        group: '系統' },
 ]
 
-export const FEATURE_GROUPS = ['戰情室', '業務', '進銷存', '財務', '服務', '人資', '系統']
+export const FEATURE_GROUPS = ['戰情室', '業務', '進銷存', '財務', '服務', 'EIP', '人資', '系統']
 
 export type Perm = {
   can_view: boolean
@@ -124,12 +126,12 @@ const ALL: Perm = { can_view: true, can_create: true, can_edit: true, can_delete
 
 /**
  * 取得目前使用者的有效權限。
- * 若權限資料表尚未建立（還沒跑 schema_permissions.sql），一律放行 —— 避免整套系統鎖死。
+ * 權限服務異常時採取 fail-closed，避免因資料庫/RPC 故障意外開放全部功能。
  */
 export function usePermissions() {
   const [perms, setPerms] = useState<PermMap>({})
   const [ready, setReady] = useState(false)
-  const [bypass, setBypass] = useState(false)   // 資料表不存在 → 全開
+  const [bypass] = useState(false) // 保留回傳欄位相容性；正式環境永不繞過權限
   const [role, setRole] = useState<string>('')
   const [title, setTitle] = useState<string>('')
 
@@ -145,9 +147,8 @@ export function usePermissions() {
 
       const { data, error } = await supabase.rpc('my_permissions')
       if (error) {
-        // 權限系統尚未安裝 → 不擋任何人
-        console.warn('權限系統未啟用：', error.message)
-        setBypass(true); setReady(true); return
+        console.error('無法取得權限，已拒絕功能存取：', error.message)
+        setPerms({}); setReady(true); return
       }
       const m: PermMap = {}
       ;(data ?? []).forEach((r: any) => {

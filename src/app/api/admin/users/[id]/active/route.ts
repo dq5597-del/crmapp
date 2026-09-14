@@ -16,7 +16,7 @@ function admin() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-async function requireAdmin(req: NextRequest, sb: ReturnType<typeof createClient>) {
+async function requireAdmin(req: NextRequest, sb: any) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return { ok: false as const, status: 401, msg: '未登入' }
   const { data: { user }, error } = await sb.auth.getUser(token)
@@ -26,7 +26,8 @@ async function requireAdmin(req: NextRequest, sb: ReturnType<typeof createClient
   return { ok: true as const, user }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const sb = admin()
   if (!sb) return NextResponse.json({ error: '系統尚未設定 SUPABASE_SERVICE_ROLE_KEY' }, { status: 500 })
 

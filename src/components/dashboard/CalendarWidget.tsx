@@ -12,8 +12,8 @@ interface Sched {
   title: string
   type: string
   status: string
-  clients?: { company_name: string } | null
-  vendors?: { company_name: string } | null
+  clients?: { company_name: string } | { company_name: string }[] | null
+  vendors?: { company_name: string } | { company_name: string }[] | null
 }
 
 const TYPE_DOT: Record<string, string> = {
@@ -38,6 +38,10 @@ function ymd(d: Date): string {
   return `${y}-${m}-${dd}`
 }
 function hm(t: string | null): string { return t ? t.slice(0, 5) : '' }
+function relationName(value: Sched['clients']): string {
+  const relation = Array.isArray(value) ? value[0] : value
+  return relation?.company_name ?? ''
+}
 
 export default function CalendarWidget({ room = 'sales' }: { room?: string }) {
   const supabase = createClient()
@@ -210,7 +214,7 @@ export default function CalendarWidget({ room = 'sales' }: { room?: string }) {
                     className={`flex-1 min-w-0 truncate text-left ${s.status === '已完成' ? 'line-through text-gray-400' : 'text-gray-800 hover:text-blue-600'}`}
                   >
                     {s.title}
-                    <span className="text-xs text-gray-400 ml-1">{s.clients?.company_name ?? s.vendors?.company_name ?? ''}</span>
+                    <span className="text-xs text-gray-400 ml-1">{relationName(s.clients) || relationName(s.vendors)}</span>
                   </button>
                 )}
                 <span className={`text-[11px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${STATUS_PILL[s.status] ?? ''}`}>{s.status}</span>

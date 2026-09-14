@@ -7,13 +7,15 @@ import EquipmentMapPrint, { EquipmentLegend } from '@/components/EquipmentMapPri
 import RackPrint from '@/components/RackPrint'
 import { EQUIP_TYPES, isMarkerUnlabeled, EquipMarker } from '@/lib/project-doc-spec'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const supabase = createClient()
   const { data } = await supabase.from('projects').select('project_name').eq('id', params.id).single()
   return { title: data ? `設備標示圖_${data.project_name}` : '設備標示圖' }
 }
 
-export default async function DiagramPrintPage({ params }: { params: { id: string } }) {
+export default async function DiagramPrintPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
 
   const [{ data: project }, { data: survey }, { data: markers }, { data: racks }] = await Promise.all([

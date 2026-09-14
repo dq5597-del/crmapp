@@ -1,6 +1,6 @@
 export type ClientStatus = '有需求' | '規劃中' | '服務未完成' | '已完成' | '暫緩'
 export type QuoteStatus = '草稿' | '已確認' | '已轉銷貨單' | '已轉訂購單' | '作廢'
-export type ProjectStatus = '草稿/報價中' | '施工中' | '完工驗收' | '結案' | '暫停' | '取消'
+export type ProjectStatus = '規劃中' | '草稿/報價中' | '施工中' | '完工驗收' | '結案' | '暫停' | '取消'
 export type SalesOrderStatus = '草稿' | '已確認' | '出貨中' | '已完成' | '取消'
 export type PurchaseOrderStatus = '草稿' | '已送出' | '已確認' | '已到貨' | '取消'
 export type UserRole = 'admin' | 'manager' | 'user'
@@ -163,6 +163,8 @@ export interface Quote {
   salesperson_id: string | null
   created_at: string
   updated_at: string
+  win_probability?: number | null
+  expected_close_date?: string | null
   // Relations
   client?: Client
   salesperson?: UserProfile

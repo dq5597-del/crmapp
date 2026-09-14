@@ -13,7 +13,8 @@ export const runtime = 'nodejs'
  *
  * 安全限制：只回傳 image/* 類型；檔案 ID 非猜測可得。
  */
-export async function GET(_req: Request, { params }: { params: { file: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ file: string }> }) {
+  const params = await props.params;
   if (!driveConfigured()) {
     return NextResponse.json({ error: 'Google Drive 尚未設定' }, { status: 500 })
   }

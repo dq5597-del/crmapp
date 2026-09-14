@@ -9,7 +9,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
  *  - 出貨扣庫存 = 寫一筆「出庫」負數異動
  *  - 取消/退回  = 寫一筆「入庫」正數異動沖銷回來（原紀錄保留，審計軌跡完整）
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
   const body = await req.json().catch(() => ({}))
   const action = body?.action ?? 'ship'

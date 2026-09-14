@@ -5,9 +5,9 @@ import { notFound } from 'next/navigation'
 import PrintButtons from './PrintButtons'
 import PrintHeaderQr from '@/components/PrintHeaderQr'
 import { buildQuoteFileName } from '@/lib/utils'
-import { knownBrandLogoUrl } from '@/lib/brand-logos'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const supabase = createClient()
   const { data: quote } = await supabase
     .from('quotes')
@@ -62,7 +62,8 @@ function numToChineseCapital(amount: number): string {
   return `${result}元整`
 }
 
-export default async function QuotePrintPage({ params }: { params: { id: string } }) {
+export default async function QuotePrintPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
 
   const [{ data: quote }, { data: items }, { data: settings }] = await Promise.all([
@@ -238,6 +239,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
           <thead>
             <tr>
               <th style={{ width: 36 }}>編號</th>
+              <th style={{ textAlign: 'left', width: 72 }}>品牌</th>
               <th style={{ textAlign: 'left' }}>產品名稱</th>
               <th style={{ textAlign: 'left', width: 110 }}>規格型號</th>
               <th style={{ width: 44 }}>單位</th>
@@ -252,11 +254,12 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
               <Fragment key={item.id}>
                 {item.is_category ? (
                   <tr className="cat-row">
-                    <td colSpan={8}>{item.product_name}</td>
+                    <td colSpan={9}>{item.product_name}</td>
                   </tr>
                 ) : (
                 <tr>
                   <td className="center">{item.display_no}</td>
+                  <td>{item.brand ?? ''}</td>
                   <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                   <td style={{ color: '#444' }}>{item.model ?? ''}</td>
                   <td className="center">{item.unit}</td>
@@ -269,7 +272,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
                 {/* 備註「下方整列」版本：預設隱藏，切換到 note-mode-row 時才顯示 */}
                 {!item.is_category && !!item.item_notes?.trim() && (
                   <tr className="notes-row">
-                    <td colSpan={8}>備註：{item.item_notes}</td>
+                    <td colSpan={9}>備註：{item.item_notes}</td>
                   </tr>
                 )}
               </Fragment>
@@ -279,25 +282,25 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
             {hasDiscount && (
               <>
                 <tr className="total-row">
-                  <td colSpan={5}>原價合計</td>
+                  <td colSpan={6}>原價合計</td>
                   <td colSpan={3} className="num">NT$ {fmt(origAmt)}</td>
                 </tr>
                 <tr className="total-row">
-                  <td colSpan={5}>折扣</td>
+                  <td colSpan={6}>折扣</td>
                   <td colSpan={3} className="num">- NT$ {fmt(discAmt)}</td>
                 </tr>
               </>
             )}
             <tr className="total-row tax-row tax-top">
-              <td colSpan={5}>未稅金額</td>
+              <td colSpan={6}>未稅金額</td>
               <td colSpan={3} className="num">NT$ {fmt(netAmt)}</td>
             </tr>
             <tr className="total-row tax-row">
-              <td colSpan={5}>營業稅 5%</td>
+              <td colSpan={6}>營業稅 5%</td>
               <td colSpan={3} className="num">NT$ {fmt(taxAmt)}</td>
             </tr>
             <tr className="total-row tax-row tax-bottom">
-              <td colSpan={5}>含稅合計　{totalChinese}</td>
+              <td colSpan={6}>含稅合計　{totalChinese}</td>
               <td colSpan={3} className="num">NT$ {fmt(Number(quote.total_amount))}</td>
             </tr>
           </tfoot>

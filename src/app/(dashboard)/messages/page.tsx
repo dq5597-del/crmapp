@@ -87,7 +87,7 @@ export default function MessagesPage() {
       .channel('chat-rt-' + Math.random().toString(36).slice(2, 8))
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload: any) => {
         const m = payload.new
-        if (m?.thread_id && m.thread_id === activeId) loadMsgs(activeId)
+        if (activeId && m?.thread_id === activeId) loadMsgs(activeId)
         loadThreads()
       })
       .subscribe()

@@ -68,7 +68,7 @@ export default function ReportsPage() {
     const fromTs = dateFrom
     const toTs = dateTo + 'T23:59:59'
 
-    const jobs: Promise<any>[] = []
+    const jobs: PromiseLike<any>[] = []
 
     if (report === 'statement' || report === 'sales') {
       let q = supabase.from('sales_orders')

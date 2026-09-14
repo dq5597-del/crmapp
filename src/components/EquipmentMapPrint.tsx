@@ -1,5 +1,6 @@
 // 靜態版現場設備標示圖（供列印/PDF 使用，無互動；Server Component 可直接渲染）
 import { EQUIP_TYPES, EquipMarker, isMarkerUnlabeled } from '@/lib/project-doc-spec'
+import type { ReactElement } from 'react'
 
 export default function EquipmentMapPrint({ markers, roomL, roomW }: {
   markers: EquipMarker[]
@@ -13,7 +14,7 @@ export default function EquipmentMapPrint({ markers, roomL, roomW }: {
   const lineW = Math.max(L, W) * 0.004
   const colorOf = (t: string) => EQUIP_TYPES.find(e => e.key === t)?.color ?? '#64748b'
 
-  const gridLines: JSX.Element[] = []
+  const gridLines: ReactElement[] = []
   for (let x = 1; x < L; x++) gridLines.push(<line key={`vx${x}`} x1={x} y1={0} x2={x} y2={W} stroke="#e2e8f0" strokeWidth={lineW / 2} />)
   for (let y = 1; y < W; y++) gridLines.push(<line key={`hy${y}`} x1={0} y1={y} x2={L} y2={y} stroke="#e2e8f0" strokeWidth={lineW / 2} />)
 

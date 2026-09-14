@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { DOC_CONFIG, serviceClient, currentUser, canApproveStep } from '@/lib/approvals-server'
+import { DOC_CONFIG, serviceClient, currentUser, canApproveStep, directManagerOf } from '@/lib/approvals-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data: instances, error } = await sb
     .from('approval_instances')
-    .select('id, doc_type, doc_id, doc_no, flow_id, current_step, amount, submitted_by, submitted_at')
+    .select('id, doc_type, doc_id, doc_no, flow_id, current_step, amount, submitted_by, routing_user_id, submitted_at')
     .eq('status', 'pending')
     .order('submitted_at', { ascending: true })
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
@@ -37,12 +37,15 @@ export async function GET() {
   const nameById: Record<string, string> = {}
   for (const p of profiles ?? []) nameById[p.id] = p.full_name
 
-  const mine = instances
-    .filter(i => {
+  const mine = (await Promise.all(instances.map(async i => {
       const step = (steps ?? []).find(s => s.flow_id === i.flow_id && s.step_order === i.current_step)
-      return !!step && canApproveStep(step, user)
-    })
-    .map(i => ({
+      const directManagerId = step?.approver_type === 'direct_manager'
+        ? await directManagerOf(sb, i.routing_user_id ?? i.submitted_by)
+        : null
+      return step && canApproveStep(step, user, directManagerId) ? i : null
+    }))).filter(Boolean) as typeof instances
+
+  const result = mine.map(i => ({
       instance_id: i.id,
       doc_type: i.doc_type,
       doc_type_label: DOC_CONFIG[i.doc_type]?.label ?? i.doc_type,
@@ -53,5 +56,5 @@ export async function GET() {
       submitted_at: i.submitted_at,
     }))
 
-  return NextResponse.json({ ok: true, data: mine })
+  return NextResponse.json({ ok: true, data: result })
 }

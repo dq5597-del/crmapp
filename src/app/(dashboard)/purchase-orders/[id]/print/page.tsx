@@ -6,7 +6,8 @@ import PrintButtons from './PrintButtons'
 import PrintHeaderQr from '@/components/PrintHeaderQr'
 import { buildDocFileName } from '@/lib/utils'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const supabase = createClient()
   const { data: order } = await supabase
     .from('purchase_orders')
@@ -59,7 +60,8 @@ function numToChineseCapital(amount: number): string {
   return `${result}元整`
 }
 
-export default async function PurchaseOrderPrintPage({ params }: { params: { id: string } }) {
+export default async function PurchaseOrderPrintPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createClient()
 
   const [{ data: order }, { data: items }] = await Promise.all([

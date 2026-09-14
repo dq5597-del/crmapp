@@ -41,10 +41,8 @@ export function wooImageUrl(url: string | null | undefined): string {
   if (!u) return ''
   const id = driveFileId(u)
   if (!id) return u
-  const base = (
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') ??
-    ''
-  ) || 'https://crmapp-topaz.vercel.app'
+  const base = process.env.NEXT_PUBLIC_APP_URL
+    || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
+    || 'https://crmapp-topaz.vercel.app'
   return `${base.replace(/\/$/, '')}/api/drive/img/${id}.webp`
 }

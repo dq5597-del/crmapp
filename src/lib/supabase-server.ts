@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export function createServerSupabaseClient() {
@@ -8,8 +8,16 @@ export function createServerSupabaseClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        async getAll() {
+          return (await cookieStore).getAll()
+        },
+        async setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
+          try {
+            const store = await cookieStore
+            cookiesToSet.forEach(({ name, value, options }) => store.set(name, value, options))
+          } catch {
+            // Server Components 不允許寫 cookie；proxy 仍會負責刷新登入狀態。
+          }
         },
       },
     }

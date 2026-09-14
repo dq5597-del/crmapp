@@ -1,56 +1,56 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
-export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
+const replySchema = z.object({
+  items: z.array(z.object({
+    id: z.string().uuid(),
+    vendor_price: z.number().finite().min(0).max(1_000_000_000).nullable(),
+    lead_time_days: z.number().int().min(0).max(3650).nullable(),
+    item_notes: z.string().trim().max(1000).nullable(),
+  })).min(1).max(100),
+}).refine(
+  value => value.items.some(item => item.vendor_price !== null),
+  { message: '請至少填寫一項單價' },
+)
+
+function json(data: unknown, status = 200) {
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  })
+}
+
+export async function POST(req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
+  if (!z.string().uuid().safeParse(params.token).success) return json({ error: '詢價單不存在' }, 404)
   const supabase = createServerSupabaseClient()
-
-  const { data: inquiry } = await supabase
-    .from('inquiries')
-    .select('id, status, token_locked, reply_deadline')
-    .eq('fill_token', params.token)
-    .single()
-
-  if (!inquiry) return NextResponse.json({ error: '詢價單不存在' }, { status: 404 })
-  if (inquiry.token_locked || inquiry.status === '已結案' || inquiry.status === '草稿') {
-    return NextResponse.json({ error: '此詢價單已鎖定或不可回覆' }, { status: 403 })
-  }
-  const today = new Date().toISOString().split('T')[0]
-  if (inquiry.reply_deadline && inquiry.reply_deadline < today) {
-    return NextResponse.json({ error: '此詢價單已超過回覆期限' }, { status: 403 })
+  let rawBody: unknown
+  try {
+    rawBody = await req.json()
+  } catch {
+    return json({ error: '資料格式錯誤' }, 400)
   }
 
-  const body = await req.json()
-  const items: { id: string; vendor_price: number | null; lead_time_days: number | null; item_notes: string | null }[] = body.items ?? []
-  if (!Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: '缺少品項資料' }, { status: 400 })
+  const parsed = replySchema.safeParse(rawBody)
+  if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? '填寫資料不正確' }, 400)
+
+  // 驗證權杖、期限、品項歸屬、寫入與鎖定都在同一個資料庫交易內完成，避免重複送出競態。
+  const { data, error } = await supabase.rpc('submit_inquiry_reply', {
+    p_fill_token: params.token,
+    p_items: parsed.data.items,
+  })
+
+  if (error) {
+    const knownMessage = /詢價單不存在|已鎖定或不可回覆|未設定回覆期限|已超過回覆期限|品項|有效單價|報價內容/.exec(error.message)?.[0]
+    const forbidden = /詢價單不存在|已鎖定或不可回覆|未設定回覆期限|已超過回覆期限/.test(error.message)
+    if (knownMessage) return json({ error: error.message }, forbidden ? 403 : 400)
+    return json({ error: '送出失敗，請稍後再試' }, 500)
   }
 
-  // 逐項更新（僅更新屬於此詢價單的品項）
-  for (const it of items) {
-    const update: Record<string, any> = {}
-    if (it.vendor_price != null && !Number.isNaN(it.vendor_price)) update.vendor_price = it.vendor_price
-    if (it.lead_time_days != null && !Number.isNaN(it.lead_time_days)) update.lead_time_days = it.lead_time_days
-    if (it.item_notes) update.item_notes = it.item_notes
-    if (Object.keys(update).length === 0) continue
-
-    const { error } = await supabase
-      .from('inquiry_items')
-      .update(update)
-      .eq('id', it.id)
-      .eq('inquiry_id', inquiry.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  const { error: e2 } = await supabase
-    .from('inquiries')
-    .update({
-      status: '已回覆',
-      token_locked: true,
-      replied_at: new Date().toISOString(),
-      reply_source: 'link',
-    })
-    .eq('id', inquiry.id)
-  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 })
-
-  return NextResponse.json({ ok: true })
+  return json(data ?? { ok: true })
 }

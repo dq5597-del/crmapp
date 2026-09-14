@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { DOC_CONFIG, serviceClient, currentUser, hashDoc, canApproveStep, isAdmin } from '@/lib/approvals-server'
+import { DOC_CONFIG, serviceClient, currentUser, hashApprovalDocument, canApproveStep, isAdmin, directManagerOf } from '@/lib/approvals-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic'
  * - cancel（撤簽）：僅送簽人（或 admin）
  * 核准前比對 content_hash，送簽後被改過的單一律擋下。
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await currentUser()
   if (!user) return NextResponse.json({ ok: false, error: '未登入' }, { status: 401 })
 
@@ -55,7 +56,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .eq('flow_id', instance.flow_id)
       .eq('step_order', instance.current_step)
       .maybeSingle()
-    if (!step || !canApproveStep(step, user)) {
+    const directManagerId = step?.approver_type === 'direct_manager'
+      ? await directManagerOf(sb, instance.routing_user_id ?? instance.submitted_by)
+      : null
+    if (!step || !canApproveStep(step, user, directManagerId)) {
       return NextResponse.json({ ok: false, error: '您不是此關卡的簽核人' }, { status: 403 })
     }
   }
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (action === 'approve' && instance.content_hash) {
     const { data: doc } = await sb.from(cfg.table).select('*').eq('id', instance.doc_id).maybeSingle()
     if (!doc) return NextResponse.json({ ok: false, error: '找不到原單據' }, { status: 404 })
-    if (hashDoc(doc) !== instance.content_hash) {
+    if ((await hashApprovalDocument(sb, instance.doc_type, doc)) !== instance.content_hash) {
       return NextResponse.json(
         { ok: false, error: '單據內容在送簽後已被修改，請退回並要求重新送簽' },
         { status: 409 },
@@ -73,30 +77,75 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // ── 寫入紀錄 + 更新狀態 ───────────────────────────────
-  const { error: rErr } = await sb.from('approval_records').insert({
+  const { data: newRecord, error: rErr } = await sb.from('approval_records').insert({
     instance_id: instance.id,
     step_order: instance.current_step,
     action,
     actor_id: user.id,
     actor_name: user.name,
     comment: comment || null,
-  })
+  }).select('id').single()
   if (rErr) return NextResponse.json({ ok: false, error: rErr.message }, { status: 500 })
 
-  // v1 單關卡：approve 即完成（多關卡版：未到最後一關則 current_step + 1）
-  const newStatus = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'cancelled'
+  let nextStep: any = null
+  if (action === 'approve') {
+    const { data } = await sb.from('approval_flow_steps')
+      .select('step_order, due_hours')
+      .eq('flow_id', instance.flow_id)
+      .gt('step_order', instance.current_step)
+      .order('step_order', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    nextStep = data
+  }
+  const isAdvancing = action === 'approve' && !!nextStep
+  const newStatus = isAdvancing ? 'pending' : action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'cancelled'
+  const dueAt = nextStep?.due_hours
+    ? new Date(Date.now() + Number(nextStep.due_hours) * 3_600_000).toISOString()
+    : null
 
-  const { error: uErr } = await sb
+  const { data: updatedInstance, error: uErr } = await sb
     .from('approval_instances')
-    .update({ status: newStatus, finished_at: new Date().toISOString() })
+    .update({
+      status: newStatus,
+      current_step: isAdvancing ? nextStep.step_order : instance.current_step,
+      due_at: isAdvancing ? dueAt : null,
+      finished_at: isAdvancing ? null : new Date().toISOString(),
+    })
     .eq('id', instance.id)
     .eq('status', 'pending') // 樂觀鎖：避免同時兩人操作
+    .select('id')
+    .maybeSingle()
   if (uErr) return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 })
+  if (!updatedInstance) {
+    await sb.from('approval_records').delete().eq('id', newRecord.id)
+    return NextResponse.json({ ok: false, error: '此簽呈已由其他人處理，請重新整理' }, { status: 409 })
+  }
 
   // 同步業務表狀態（cancel 後回到未送簽 = null，單據解鎖）
-  await sb.from(cfg.table)
-    .update({ approval_status: action === 'cancel' ? null : newStatus })
-    .eq('id', instance.doc_id)
+  const docPatch: Record<string, unknown> = { approval_status: action === 'cancel' ? null : newStatus }
+  if (!isAdvancing && instance.doc_type === 'leave') {
+    docPatch.status = action === 'approve' ? '已核准' : action === 'reject' ? '已駁回' : '已取消'
+    docPatch.approved_at = new Date().toISOString()
+    docPatch.approver_id = user.id
+  }
+  if (!isAdvancing && instance.doc_type === 'expense_claim') {
+    docPatch.status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'cancelled'
+  }
+  if (!isAdvancing && instance.doc_type === 'payroll') {
+    docPatch.status = action === 'approve' ? '已確認' : '草稿'
+  }
+  const { error: docError } = await sb.from(cfg.table).update(docPatch).eq('id', instance.doc_id)
+  if (docError) {
+    await sb.from('approval_instances').update({
+      status: instance.status,
+      current_step: instance.current_step,
+      due_at: instance.due_at,
+      finished_at: instance.finished_at,
+    }).eq('id', instance.id)
+    await sb.from('approval_records').delete().eq('id', newRecord.id)
+    return NextResponse.json({ ok: false, error: `原單據同步失敗，簽核動作已回復：${docError.message}` }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true, data: { status: newStatus } })
 }

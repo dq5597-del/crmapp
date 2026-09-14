@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { wc, wcConfigured } from '@/lib/woocommerce'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 /**
  * POST /api/web/orders/[id]/invoice
@@ -23,7 +24,13 @@ function svc() {
   return createSupabaseClient(url, key, { auth: { persistSession: false } })
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  const sessionClient = createServerSupabaseClient()
+  const { data: { user } } = await sessionClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: '未登入' }, { status: 401 })
+  const { data: profile } = await sessionClient.from('user_profiles').select('role').eq('id', user.id).maybeSingle()
+  if (!['admin', '管理員', 'accountant'].includes(profile?.role ?? '')) return NextResponse.json({ error: '需管理員或會計權限' }, { status: 403 })
   const supabase = svc()
   if (!supabase) {
     return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY 未設定' }, { status: 500 })

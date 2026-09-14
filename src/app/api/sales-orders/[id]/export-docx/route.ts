@@ -35,7 +35,8 @@ function bodyCell(text: string, width: number, align: (typeof AlignmentType)[key
   })
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
 
   const [{ data: order }, { data: items }, { data: settings }] = await Promise.all([
@@ -75,30 +76,30 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const itemRows: TableRow[] = []
   ;(items ?? []).forEach((item: any, idx: number) => {
-    itemRows.push(new TableRow({
-      children: [
-        bodyCell(String(idx + 1), colWidths[0], AlignmentType.CENTER),
-        bodyCell(item.brand ?? '', colWidths[1]),
-        bodyCell(item.product_name ?? '', colWidths[2]),
-        bodyCell(item.model ?? '', colWidths[3]),
-        bodyCell(item.unit ?? '', colWidths[4], AlignmentType.CENTER),
-        bodyCell(String(item.quantity), colWidths[5], AlignmentType.CENTER),
-        bodyCell(Number(item.unit_price).toLocaleString('zh-TW'), colWidths[6], AlignmentType.RIGHT),
-        bodyCell(Number(item.quantity * item.unit_price).toLocaleString('zh-TW'), colWidths[7], AlignmentType.RIGHT),
-      ],
-    }))
-    if (item.item_notes) {
       itemRows.push(new TableRow({
         children: [
-          new TableCell({
-            columnSpan: 8,
-            borders: cellBorder,
-            children: [new Paragraph({ children: [new TextRun({ text: `備註：${item.item_notes}`, size: 18, color: '666666' })] })],
-          }),
+          bodyCell(String(idx + 1), colWidths[0], AlignmentType.CENTER),
+          bodyCell(item.brand ?? '', colWidths[1]),
+          bodyCell(item.product_name ?? '', colWidths[2]),
+          bodyCell(item.model ?? '', colWidths[3]),
+          bodyCell(item.unit ?? '', colWidths[4], AlignmentType.CENTER),
+          bodyCell(String(item.quantity), colWidths[5], AlignmentType.CENTER),
+          bodyCell(Number(item.unit_price).toLocaleString('zh-TW'), colWidths[6], AlignmentType.RIGHT),
+          bodyCell(Number(item.quantity * item.unit_price).toLocaleString('zh-TW'), colWidths[7], AlignmentType.RIGHT),
         ],
       }))
-    }
-  })
+      if (item.item_notes) {
+        itemRows.push(new TableRow({
+          children: [
+            new TableCell({
+              columnSpan: 8,
+              borders: cellBorder,
+              children: [new Paragraph({ children: [new TextRun({ text: `備註：${item.item_notes}`, size: 18, color: '666666' })] })],
+            }),
+          ],
+        }))
+      }
+    })
 
   const oOrig = Number(order.subtotal ?? order.total_amount)
   const oDisc = oOrig - Number(order.total_amount)
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   const filename = `銷貨單_${order.order_no}_${clientName}.docx`
   const asciiName = filename.replace(/[^\x20-\x7E]/g, '_')
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

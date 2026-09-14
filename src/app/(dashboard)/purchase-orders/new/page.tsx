@@ -160,7 +160,8 @@ export default function NewPurchaseOrderPage() {
     const insertAt = dropPos.idx + (dropPos.after ? 1 : 0)
     const from = dragIdx
     setItems(prev => {
-      let start = from, end = from + 1
+      const start = from
+      let end = from + 1
       if (prev[start]?.is_category) { while (end < prev.length && !prev[end].is_category) end++ }
       if (insertAt >= start && insertAt <= end) return prev
       const block = prev.slice(start, end)
@@ -198,7 +199,7 @@ export default function NewPurchaseOrderPage() {
       item_notes: '',
     })
     setItems(prev => {
-      let next = [...prev]
+      const next = [...prev]
       let rest = picked
       // 從某一列開啟 → 第一個選取帶入該列，其餘往後加
       if (typeof pickerTarget === 'number' && picked.length > 0) {

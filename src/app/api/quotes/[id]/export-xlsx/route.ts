@@ -3,7 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { buildQuoteFileName } from '@/lib/utils'
 import ExcelJS from 'exceljs'
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
 
   const [{ data: quote }, { data: items }, { data: settings }] = await Promise.all([
@@ -95,37 +96,37 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   const itemStartRow = r
   let dispNo = 0
   ;(items ?? []).forEach((item: any) => {
-    const row = sheet.getRow(r)
-    if (item.is_category) {
-      dispNo = 0
-      sheet.mergeCells(`A${r}:H${r}`)
-      const catCell = sheet.getCell(`A${r}`)
-      catCell.value = item.product_name ?? ''
-      catCell.font = { bold: true }
-      catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECECEC' } }
-      row.eachCell(cell => { cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } })
+      const row = sheet.getRow(r)
+      if (item.is_category) {
+        dispNo = 0
+        sheet.mergeCells(`A${r}:H${r}`)
+        const catCell = sheet.getCell(`A${r}`)
+        catCell.value = item.product_name ?? ''
+        catCell.font = { bold: true }
+        catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECECEC' } }
+        row.eachCell(cell => { cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } })
+        r++
+        return
+      }
+      dispNo += 1
+      const amount = Number(item.quantity) * Number(item.unit_price)
+      row.values = [
+        dispNo,
+        item.product_name ?? '',
+        item.model ?? '',
+        item.unit ?? '',
+        Number(item.quantity),
+        Number(item.unit_price),
+        amount,
+        item.item_notes ?? '',
+      ]
+      row.eachCell((cell, colNumber) => {
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+        if (colNumber === 1 || colNumber === 4 || colNumber === 5) cell.alignment = { horizontal: 'center' }
+        if (colNumber === 6 || colNumber === 7) cell.numFmt = '#,##0'
+      })
       r++
-      return
-    }
-    dispNo += 1
-    const amount = Number(item.quantity) * Number(item.unit_price)
-    row.values = [
-      dispNo,
-      item.product_name ?? '',
-      item.model ?? '',
-      item.unit ?? '',
-      Number(item.quantity),
-      Number(item.unit_price),
-      amount,
-      item.item_notes ?? '',
-    ]
-    row.eachCell((cell, colNumber) => {
-      cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
-      if (colNumber === 1 || colNumber === 4 || colNumber === 5) cell.alignment = { horizontal: 'center' }
-      if (colNumber === 6 || colNumber === 7) cell.numFmt = '#,##0'
     })
-    r++
-  })
   const itemEndRow = r - 1
 
   // 折扣明細（原價、折扣）
@@ -172,7 +173,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     })
   }
 
-  void itemStartRow; void itemEndRow
+  void itemStartRow;void itemEndRow
 
   const buffer = await workbook.xlsx.writeBuffer()
   const filename = `${buildQuoteFileName(quote, clientName)}.xlsx`

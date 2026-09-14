@@ -24,7 +24,7 @@ export default function PushInit() {
       try {
         const reg = await navigator.serviceWorker.register('/sw.js')
         if (Notification.permission === 'denied') return
-        let perm = Notification.permission
+        let perm: NotificationPermission = Notification.permission
         if (perm === 'default') perm = await Notification.requestPermission()
         if (perm !== 'granted') return
         let sub = await reg.pushManager.getSubscription()

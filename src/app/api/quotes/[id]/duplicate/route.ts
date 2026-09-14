@@ -2,15 +2,39 @@ import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { generateQuoteNo } from '@/lib/utils'
 
+type TargetProject = {
+  id: string
+  client_id: string
+  project_name: string
+  clients: { contact_name: string | null; phone: string | null; address: string | null } | null
+}
+
 // POST /api/quotes/[id]/duplicate
-// 複製一份報價單：品項與客戶資料一模一樣，日期改今天、單號重新產生、狀態設為草稿。
+// 複製一份報價單：日期改今天、單號重新產生、狀態設為草稿；可指定要歸入的目標專案。
 // 以 select('*') 複製，避免因欄位增減而出錯（schema-agnostic）。
-export async function POST(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
   const sourceId = params.id
+  const body = await req.json().catch(() => null) as { targetProjectId?: unknown } | null
+  const targetProjectId = typeof body?.targetProjectId === 'string' && body.targetProjectId.trim()
+    ? body.targetProjectId.trim()
+    : null
+
+  let targetProject: TargetProject | null = null
+
+  if (targetProjectId) {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, client_id, project_name, clients(contact_name, phone, address)')
+      .eq('id', targetProjectId)
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json({ error: '找不到目標專案' }, { status: 404 })
+    }
+    targetProject = data as unknown as TargetProject
+  }
 
   // 1. 讀原報價單主檔（整列）
   const { data: src, error: e1 } = await supabase
@@ -54,7 +78,19 @@ export async function POST(
   delete baseClone.created_at
   delete baseClone.updated_at
   baseClone.status = '草稿'
+  baseClone.source_quote_id = sourceId
+  baseClone.pdf_url = null
   if ('quote_date' in baseClone) baseClone.quote_date = todayStr
+
+  // 從專案頁複製時，以目標專案及其客戶資料為準，避免殘留來源客戶資訊。
+  if (targetProject) {
+    baseClone.project_id = targetProject.id
+    baseClone.client_id = targetProject.client_id
+    baseClone.project_name = targetProject.project_name
+    baseClone.contact_name = targetProject.clients?.contact_name ?? null
+    baseClone.client_phone = targetProject.clients?.phone ?? null
+    baseClone.client_address = targetProject.clients?.address ?? null
+  }
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const quote_no = generateQuoteNo(today, seq)

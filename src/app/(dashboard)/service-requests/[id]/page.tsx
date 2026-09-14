@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useColWidths, ResizableTH, ColWidthTools } from '@/components/ResizableTable'
 import {
   ServiceRequest, ServiceVendorRepair, ServiceRepairQuote,
-  ServiceRepairQuoteItem, Vendor, ServiceStatus, Product, Equipment
+  ServiceRepairQuoteItem, ServiceStatus, Product, Equipment
 } from '@/types'
 import {
   ArrowLeft, Copy, ExternalLink, CheckCircle, XCircle,
@@ -33,11 +33,17 @@ const ALL_STATUSES: ServiceStatus[] = [
 ]
 
 type TabKey = 'info' | 'vendor' | 'quote' | 'close'
+type VendorOption = {
+  id: string; company_name: string; repair_contact: string | null; repair_phone: string | null
+  repair_email: string | null; repair_address: string | null
+}
 
 interface ProductCategory {
   id: string
   main_category: string
+  mid_category?: string | null
   sub_category: string
+  wordpress_path?: string | null
 }
 
 export default function ServiceRequestDetailPage() {
@@ -49,7 +55,7 @@ export default function ServiceRequestDetailPage() {
   const [vendorRepair, setVendorRepair] = useState<ServiceVendorRepair | null>(null)
   const [repairQuote, setRepairQuote] = useState<ServiceRepairQuote | null>(null)
   const [repairItems, setRepairItems] = useState<ServiceRepairQuoteItem[]>([])
-  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [vendors, setVendors] = useState<VendorOption[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [tab, setTab] = useState<TabKey>('info')
@@ -113,7 +119,7 @@ export default function ServiceRequestDetailPage() {
   const loadProducts = useCallback(async () => {
     const [pRes, cRes] = await Promise.all([
       supabase.from('products').select('*, product_categories(main_category, sub_category)').eq('is_active', true).order('product_name'),
-      supabase.from('product_categories').select('id, main_category, sub_category').order('main_category').order('sub_category'),
+      supabase.from('product_categories').select('id, main_category, mid_category, sub_category, wordpress_path').eq('is_inventory_category', true).order('main_category').order('sub_category'),
     ])
     setProducts(pRes.data ?? [])
     setCategories(cRes.data ?? [])
@@ -500,7 +506,7 @@ function InfoTab({ req, locked, onSave }: {
 function VendorRepairTab({ req, vendorRepair, vendors, locked, onSave }: {
   req: ServiceRequest
   vendorRepair: ServiceVendorRepair | null
-  vendors: Vendor[]
+  vendors: VendorOption[]
   locked: boolean
   onSave: (data: any) => Promise<void>
 }) {
@@ -632,10 +638,6 @@ function RepairQuickAddProductModal({ initialName, categories, onClose, onCreate
   })
   const [saving, setSaving] = useState(false)
   const [itemNotes, setItemNotes] = useState('')
-  const [isNewMain, setIsNewMain] = useState(false)
-  const [newMainCat, setNewMainCat] = useState('')
-  const [isNewSub, setIsNewSub] = useState(false)
-  const [newSubCat, setNewSubCat] = useState('')
 
   const mainCats = Array.from(new Set(categories.map(c => c.main_category)))
   const subCats = categories.filter(c => c.main_category === mainCat)
@@ -646,50 +648,19 @@ function RepairQuickAddProductModal({ initialName, categories, onClose, onCreate
   }
 
   function handleMainCatSelect(val: string) {
-    if (val === '__new__') {
-      setIsNewMain(true)
-      setMainCat('')
-      setForm(p => ({ ...p, category_id: '' }))
-      setIsNewSub(true)
-      setNewSubCat('')
-    } else {
-      handleMainCatChange(val)
-    }
-  }
-
-  function cancelNewMain() {
-    setIsNewMain(false)
-    setNewMainCat('')
-    setIsNewSub(false)
-    setNewSubCat('')
+    handleMainCatChange(val)
   }
 
   function handleSubCatSelect(val: string) {
-    if (val === '__new__') {
-      setIsNewSub(true)
-      setNewSubCat('')
-    } else {
-      setForm(p => ({ ...p, category_id: val }))
-    }
+    setForm(p => ({ ...p, category_id: val }))
   }
 
-  const canSave = form.product_name.trim() !== '' && (!isNewMain || newMainCat.trim() !== '') && (!isNewSub || newSubCat.trim() !== '')
+  const canSave = form.product_name.trim() !== '' && !!form.category_id
 
   async function handleSave() {
     if (!canSave) return
     setSaving(true)
-    let categoryId = form.category_id
-    if (isNewMain || isNewSub) {
-      const finalMain = isNewMain ? newMainCat.trim() : mainCat
-      const finalSub = newSubCat.trim()
-      const { data: catData, error: catError } = await supabase.from('product_categories')
-        .insert({ main_category: finalMain, sub_category: finalSub })
-        .select('id')
-        .single()
-      if (catError || !catData) { setSaving(false); return }
-      categoryId = (catData as any).id
-    }
-    const payload = { ...form, category_id: categoryId || null, notes: null, stock_qty: 0 }
+    const payload = { ...form, category_id: form.category_id, web_categories: [], web_category: null, notes: null, stock_qty: 0 }
     const { data, error } = await supabase.from('products').insert(payload).select('*').single()
     if (!error && data) {
       onCreated(data as Product, itemNotes.trim())
@@ -711,35 +682,17 @@ function RepairQuickAddProductModal({ initialName, categories, onClose, onCreate
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-600 mb-1 block">大分類</label>
-              {isNewMain ? (
-                <div className="flex gap-1">
-                  <input value={newMainCat} onChange={e => setNewMainCat(e.target.value)} className={modalInputClass} placeholder="輸入新大分類名稱" autoFocus />
-                  <button type="button" onClick={cancelNewMain} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
-                </div>
-              ) : (
-                <select value={mainCat} onChange={e => handleMainCatSelect(e.target.value)} className={modalInputClass}>
-                  <option value="">— 請選擇 —</option>
-                  {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
-                  <option value="__new__">+ 新增大分類</option>
-                </select>
-              )}
+              <select value={mainCat} onChange={e => handleMainCatSelect(e.target.value)} className={modalInputClass}>
+                <option value="">— 請選擇官網分類 —</option>
+                {mainCats.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-xs text-gray-600 mb-1 block">子分類</label>
-              {isNewSub ? (
-                <div className="flex gap-1">
-                  <input value={newSubCat} onChange={e => setNewSubCat(e.target.value)} className={modalInputClass} placeholder="輸入新子分類名稱" />
-                  {!isNewMain && (
-                    <button type="button" onClick={() => { setIsNewSub(false); setNewSubCat('') }} className="px-2 text-xs text-gray-400 hover:text-gray-600 shrink-0">取消</button>
-                  )}
-                </div>
-              ) : (
-                <select value={form.category_id} onChange={e => handleSubCatSelect(e.target.value)} className={modalInputClass} disabled={!mainCat}>
-                  <option value="">— 請選擇 —</option>
-                  {subCats.map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
-                  <option value="__new__">+ 新增子分類</option>
-                </select>
-              )}
+              <select value={form.category_id} onChange={e => handleSubCatSelect(e.target.value)} className={modalInputClass} disabled={!mainCat}>
+                <option value="">— 請選擇 —</option>
+                {subCats.map(c => <option key={c.id} value={c.id}>{c.mid_category ? `${c.mid_category} > ` : ''}{c.sub_category}</option>)}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

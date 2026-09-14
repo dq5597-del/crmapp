@@ -2,7 +2,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { StickyNote } from 'lucide-react'
 
-export default async function SharedNotePage({ params }: { params: { token: string } }) {
+export default async function SharedNotePage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
 
   const { data: note } = await supabase

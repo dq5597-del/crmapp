@@ -2,28 +2,51 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { MessageSquareQuote } from 'lucide-react'
 import RfqFillForm from './RfqFillForm'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+export const metadata: Metadata = {
+  title: '廠商詢價回覆',
+  robots: { index: false, follow: false, nocache: true },
+  other: { referrer: 'no-referrer' },
+}
 
-export default async function RfqPublicPage({ params }: { params: { token: string } }) {
+type PublicInquiry = {
+  inquiry_no: string
+  vendor_name: string | null
+  contact_name: string | null
+  inquiry_date: string | null
+  reply_deadline: string | null
+  status: string
+  token_locked: boolean
+  notes: string | null
+  items: Array<{
+    id: string
+    product_name: string
+    model: string | null
+    unit: string
+    quantity: number
+    vendor_price: number | null
+    lead_time_days: number | null
+    item_notes: string | null
+  }>
+}
+
+export default async function RfqPublicPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(params.token)) {
+    return notFound()
+  }
   const supabase = createServerSupabaseClient()
 
-  const { data: inquiry } = await supabase
-    .from('inquiries')
-    .select('id, inquiry_no, vendor_name, contact_name, inquiry_date, reply_deadline, status, token_locked, notes')
-    .eq('fill_token', params.token)
-    .single()
+  // 公開頁只能呼叫資料庫內的限縮 RPC；anon 無法直接讀 inquiries / inquiry_items。
+  const { data } = await supabase.rpc('get_public_inquiry', { p_fill_token: params.token })
+  const inquiry = data as PublicInquiry | null
 
-  if (!inquiry || inquiry.status === '草稿') return notFound()
-
-  const { data: items } = await supabase
-    .from('inquiry_items')
-    .select('id, product_name, model, unit, quantity, vendor_price, lead_time_days, item_notes')
-    .eq('inquiry_id', inquiry.id)
-    .order('sort_order')
+  if (!inquiry) return notFound()
 
   const today = new Date().toISOString().split('T')[0]
-  const expired = !!inquiry.reply_deadline && inquiry.reply_deadline < today
+  const expired = !inquiry.reply_deadline || inquiry.reply_deadline < today
   const locked = inquiry.token_locked || inquiry.status === '已結案'
 
   return (
@@ -68,7 +91,7 @@ export default async function RfqPublicPage({ params }: { params: { token: strin
             <div className="text-sm text-amber-600">如仍可報價，請直接聯絡光輝影音科技業務人員。</div>
           </div>
         ) : (
-          <RfqFillForm token={params.token} items={items ?? []} />
+          <RfqFillForm token={params.token} items={inquiry.items ?? []} />
         )}
 
         <div className="text-center text-xs text-gray-400 mt-8 pb-8">

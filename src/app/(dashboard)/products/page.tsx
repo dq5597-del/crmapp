@@ -1,28 +1,26 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import DOMPurify from 'dompurify'
 import { createClient } from '@/lib/supabase'
-import { fetchAllRows } from '@/lib/fetch-all-rows'
 import { usePermissions } from '@/lib/permissions'
 import { Product, Vendor } from '@/types'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Search, Pencil, Trash2, Package, TrendingUp, ChevronRight, X, Tag, MessageSquareQuote, RefreshCw, Copy, Globe, ExternalLink, CheckCircle2, Upload, FileUp, ScanLine, Printer, ListChecks, ImagePlus, Loader2, Images } from 'lucide-react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import ProductImportModal from '@/components/products/ProductImportModal'
 import BarcodePreview from '@/components/products/BarcodePreview'
 import BarcodeScannerModal from '@/components/products/BarcodeScannerModal'
 import BarcodeLabelModal from '@/components/products/BarcodeLabelModal'
 import ProductFilterFields from '@/components/products/ProductFilterFields'
-import ProductPurchaseOptionFields from '@/components/products/ProductPurchaseOptionFields'
-import ProductHierarchyFields from '@/components/products/ProductHierarchyFields'
 import { knownBrandLogoUrl } from '@/lib/brand-logos'
 import { driveImageUrl } from '@/lib/drive-url'
 import { useDirtyGuard } from '@/lib/useDirtyGuard'
-import { encodeWebsiteCategory, websiteCategoryLeaf } from '@/lib/catalog-drive'
-import { buildCategoryGroupMappings, buildFilterGroups, filterGroupsForCategory, type ProductFilterGroup } from '@/lib/product-filters'
-import { normalizedPurchaseOptionGroups, validatePurchaseOptionGroups, type ProductPurchaseOptionGroup } from '@/lib/product-purchase-options'
+import { CATALOG_DRIVE_ROOT, websiteCategoryLeaf } from '@/lib/catalog-drive'
+import { buildCategoryGroupMappings, buildFilterGroups, buildProductOptionMap, filterGroupsForCategory, matchesGroupedOptions, type ProductFilterGroup } from '@/lib/product-filters'
 
-const GOOGLE_PRODUCT_SHEET_URL = process.env.NEXT_PUBLIC_GOOGLE_PRODUCT_SHEET_URL ?? ''
+const ProductFilterManagerModal = dynamic(() => import('@/components/ProductFilterManagerModal'), { ssr: false })
 
 type MarketPriceRow = {
   product_id: string
@@ -35,6 +33,27 @@ type MarketPriceRow = {
   ok: boolean
   fetched_at: string
 }
+
+type ProductVendorDraft = {
+  id?: string
+  vendor_id: string
+  cost: number | null
+  is_primary: boolean
+  quote_date: string
+}
+
+type VendorQuoteHistoryRow = {
+  id: string
+  vendor_id: string
+  cost: number
+  quoted_at: string
+  source: 'product_edit' | 'inquiry' | 'purchase' | 'import'
+  note: string | null
+  created_at: string
+}
+type VendorOption = { id: string; company_name: string; brand_names: string[] | null }
+
+const localDateValue = () => new Date().toLocaleDateString('sv-SE')
 
 const PLATFORM_LABELS: Record<string, string> = { shopee: '蝦皮', pchome: 'PChome', momo: 'momo' }
 
@@ -216,10 +235,17 @@ interface ProductCategory {
   mid_category: string | null
   sub_category: string
   sort_order: number
+  wordpress_category_id?: number | null
+  wordpress_parent_id?: number | null
+  wordpress_path?: string | null
+  is_active?: boolean
+  is_inventory_category?: boolean
+  is_web_category?: boolean
 }
 
-function productLabelForList(product: Product): string {
-  return [product.brand, product.product_name, product.model ? `(${product.model})` : ''].filter(Boolean).join(' ')
+function productCategoryPath(category: ProductCategory) {
+  return category.wordpress_path
+    || [category.main_category, category.mid_category, category.sub_category].filter(Boolean).join(' > ')
 }
 
 // ============================================================
@@ -229,9 +255,20 @@ function CategoryManagerModal({ onClose, onDone }: { onClose: () => void; onDone
   const supabase = createClient()
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(true)
-  const [newMain, setNewMain] = useState('')
-  const [newSub, setNewSub] = useState('')
   const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [newMain, setNewMain] = useState('')
+  const [newMid, setNewMid] = useState('')
+  const [newSub, setNewSub] = useState('')
+  const [newWebMain, setNewWebMain] = useState('')
+  const [newWebMid, setNewWebMid] = useState('')
+  const [newWebSub, setNewWebSub] = useState('')
+  const [editingWeb, setEditingWeb] = useState<null | {
+    id: string
+    main_category: string
+    mid_category: string
+    sub_category: string
+  }>(null)
 
   async function fetchCats() {
     const { data } = await supabase.from('product_categories').select('*').order('main_category').order('sub_category')
@@ -241,38 +278,165 @@ function CategoryManagerModal({ onClose, onDone }: { onClose: () => void; onDone
 
   useEffect(() => { fetchCats() }, [])
 
-  const existingMains = [...new Set(categories.map(c => c.main_category))]
-
-  async function handleAdd() {
-    if (!newMain.trim() || !newSub.trim()) return
+  async function syncFromWordPress() {
     setSaving(true)
-    await supabase.from('product_categories').insert({ main_category: newMain.trim(), sub_category: newSub.trim() })
-    setNewMain('')
-    setNewSub('')
-    await fetchCats()
+    setMessage('')
+    try {
+      const response = await fetch('/api/wordpress/categories/sync', { method: 'POST' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || '同步失敗')
+      setMessage(`已同步官網 ${result.wordpressTotal} 個分類；系統可選 ${result.selectableCategories} 個分類。`)
+      await fetchCats()
+      onDone()
+    } catch (error: any) {
+      setMessage(`同步失敗：${error?.message ?? '未知錯誤'}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function mutateWebCategory(method: 'POST' | 'PATCH' | 'DELETE', body: Record<string, unknown>) {
+    const response = await fetch('/api/wordpress/categories/manage', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const result = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(result?.error || `同步失敗（HTTP ${response.status}）`)
+    return result
+  }
+
+  async function addWebCategory() {
+    const main = newWebMain.trim()
+    const mid = newWebMid.trim()
+    const sub = newWebSub.trim()
+    if (!main || !sub) {
+      setMessage('請填寫網路分類的大類與小類。')
+      return
+    }
+    setSaving(true)
+    setMessage('')
+    try {
+      const result = await mutateWebCategory('POST', { main_category: main, mid_category: mid, sub_category: sub })
+      setNewWebMain('')
+      setNewWebMid('')
+      setNewWebSub('')
+      setMessage(`已${result.created ? '建立並' : ''}同步網路分類：${productCategoryPath(result.category)}`)
+      await fetchCats()
+      onDone()
+    } catch (error: any) {
+      setMessage(`同步失敗：${error?.message ?? '未知錯誤'}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveWebCategory() {
+    if (!editingWeb) return
+    setSaving(true)
+    setMessage('')
+    try {
+      const result = await mutateWebCategory('PATCH', editingWeb)
+      setEditingWeb(null)
+      setMessage(`已同步修改：${result.wordpressPath}${result.productsUpdated ? `；更新 ${result.productsUpdated} 筆商品` : ''}`)
+      await fetchCats()
+      onDone()
+    } catch (error: any) {
+      setMessage(`同步失敗：${error?.message ?? '未知錯誤'}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function removeWebCategory(category: ProductCategory) {
+    if (!confirm(`確定從光輝系統與官網刪除網路分類「${productCategoryPath(category)}」？有商品使用時系統會阻擋。`)) return
+    setSaving(true)
+    setMessage('')
+    try {
+      await mutateWebCategory('DELETE', { id: category.id })
+      setMessage(`已從官網刪除網路分類：${productCategoryPath(category)}`)
+      await fetchCats()
+      onDone()
+    } catch (error: any) {
+      setMessage(`同步失敗：${error?.message ?? '未知錯誤'}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function addInventoryCategory() {
+    const main = newMain.trim()
+    const mid = newMid.trim() || null
+    const sub = newSub.trim()
+    if (!main || !sub) {
+      setMessage('請填寫進銷存大類與小類。')
+      return
+    }
+    setSaving(true)
+    setMessage('')
+    const existing = categories.find(category =>
+      category.main_category === main
+      && (category.mid_category || null) === mid
+      && category.sub_category === sub)
+    const request = existing
+      ? supabase.from('product_categories').update({ is_inventory_category: true }).eq('id', existing.id)
+      : supabase.from('product_categories').insert({
+          main_category: main,
+          mid_category: mid,
+          sub_category: sub,
+          is_inventory_category: true,
+          is_web_category: false,
+          is_active: true,
+        })
+    const { error } = await request
+    if (error) setMessage(`新增失敗：${error.message}`)
+    else {
+      setNewMain('')
+      setNewMid('')
+      setNewSub('')
+      setMessage(`已新增進銷存分類：${[main, mid, sub].filter(Boolean).join(' > ')}`)
+      await fetchCats()
+      onDone()
+    }
     setSaving(false)
-    onDone()
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('確定刪除此分類？已指定此分類的產品將改為「未分類」。')) return
-    await supabase.from('products').update({ category_id: null }).eq('category_id', id)
-    await supabase.from('product_categories').delete().eq('id', id)
-    fetchCats()
+  async function removeInventoryCategory(category: ProductCategory) {
+    const { count, error: countError } = await supabase
+      .from('products').select('id', { count: 'exact', head: true }).eq('category_id', category.id)
+    if (countError) { setMessage(`檢查失敗：${countError.message}`); return }
+    if ((count ?? 0) > 0) {
+      setMessage(`無法移除：仍有 ${count} 筆產品使用「${productCategoryPath(category)}」。`)
+      return
+    }
+    if (!confirm(`確定移除進銷存分類「${productCategoryPath(category)}」？`)) return
+    setSaving(true)
+    const request = category.is_web_category
+      ? supabase.from('product_categories').update({ is_inventory_category: false }).eq('id', category.id)
+      : supabase.from('product_categories').delete().eq('id', category.id)
+    const { error } = await request
+    setMessage(error ? `移除失敗：${error.message}` : '已移除進銷存分類。')
+    await fetchCats()
     onDone()
+    setSaving(false)
   }
 
-  const grouped = categories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
+  const inventoryCategories = categories.filter(category => category.is_inventory_category !== false)
+  const webCategories = categories.filter(category => category.is_web_category !== false && category.is_active !== false && category.wordpress_category_id != null)
+  const inventoryGrouped = inventoryCategories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
+    if (!acc[c.main_category]) acc[c.main_category] = []
+    acc[c.main_category].push(c)
+    return acc
+  }, {})
+  const webGrouped = webCategories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
     if (!acc[c.main_category]) acc[c.main_category] = []
     acc[c.main_category].push(c)
     return acc
   }, {})
 
-  const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <Tag size={16} className="text-blue-600" />
@@ -282,60 +446,83 @@ function CategoryManagerModal({ onClose, onDone }: { onClose: () => void; onDone
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* 新增分類 */}
-          <div className="bg-blue-50 rounded-xl p-4 space-y-3">
-            <div className="text-sm font-medium text-blue-900">新增分類</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-600 mb-1 block">主分類</label>
-                <input
-                  list="main-cat-list"
-                  value={newMain}
-                  onChange={e => setNewMain(e.target.value)}
-                  placeholder="如：音響、影像、燈光"
-                  className={inputClass}
-                />
-                <datalist id="main-cat-list">
-                  {existingMains.map(m => <option key={m} value={m} />)}
-                </datalist>
-              </div>
-              <div>
-                <label className="text-xs text-gray-600 mb-1 block">子分類</label>
-                <input
-                  value={newSub}
-                  onChange={e => setNewSub(e.target.value)}
-                  placeholder="如：混音器、擴大機"
-                  className={inputClass}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
-                />
-              </div>
+          <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+            <div>
+              <div className="text-sm font-medium text-gray-900">進銷存分類</div>
+              <p className="mt-1 text-xs text-gray-500">供內部料號、庫存與型錄管理使用，不會覆蓋網路分類。</p>
             </div>
-            <button
-              onClick={handleAdd}
-              disabled={saving || !newMain.trim() || !newSub.trim()}
-              className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Plus size={14} /> {saving ? '新增中...' : '新增分類'}
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2">
+              <input value={newMain} onChange={event => setNewMain(event.target.value)} placeholder="大類（必填）" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+              <input value={newMid} onChange={event => setNewMid(event.target.value)} placeholder="中類（選填）" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+              <input value={newSub} onChange={event => setNewSub(event.target.value)} placeholder="小類（必填）" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+              <button type="button" onClick={addInventoryCategory} disabled={saving} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">新增</button>
+            </div>
+            <div className="max-h-56 overflow-y-auto space-y-3">
+              {Object.entries(inventoryGrouped).map(([main, cats]) => (
+                <div key={main}>
+                  <div className="mb-1 px-1 text-xs font-bold text-gray-500">{main}</div>
+                  {cats.map(category => (
+                    <div key={category.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                      <span className="text-sm text-gray-700">{category.mid_category ? `${category.mid_category} > ` : ''}{category.sub_category}</span>
+                      <button type="button" onClick={() => removeInventoryCategory(category)} disabled={saving} className="text-gray-300 hover:text-red-500" aria-label="移除進銷存分類"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* 現有分類 */}
+          <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+            <div className="text-sm font-medium text-blue-900">網路分類（WordPress）</div>
+            <p className="text-xs leading-5 text-blue-700">在這裡新增、修改或刪除網路分類會立即同步到 WordPress，並保存官網分類 ID。進銷存分類不受影響。</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
+              <input value={newWebMain} onChange={event => setNewWebMain(event.target.value)} placeholder="官網大類（必填）" className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm" />
+              <input value={newWebMid} onChange={event => setNewWebMid(event.target.value)} placeholder="官網中類（選填）" className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm" />
+              <input value={newWebSub} onChange={event => setNewWebSub(event.target.value)} placeholder="官網小類（必填）" className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm" />
+              <button type="button" onClick={addWebCategory} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">新增並同步</button>
+            </div>
+            {editingWeb && (
+              <div className="rounded-lg border border-blue-200 bg-white p-3 space-y-2">
+                <div className="text-xs font-medium text-blue-900">修改網路分類</div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <input value={editingWeb.main_category} onChange={event => setEditingWeb(current => current ? { ...current, main_category: event.target.value } : current)} placeholder="官網大類" className="rounded-lg border border-blue-200 px-3 py-2 text-sm" />
+                  <input value={editingWeb.mid_category} onChange={event => setEditingWeb(current => current ? { ...current, mid_category: event.target.value } : current)} placeholder="官網中類（選填）" className="rounded-lg border border-blue-200 px-3 py-2 text-sm" />
+                  <input value={editingWeb.sub_category} onChange={event => setEditingWeb(current => current ? { ...current, sub_category: event.target.value } : current)} placeholder="官網小類" className="rounded-lg border border-blue-200 px-3 py-2 text-sm" />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setEditingWeb(null)} disabled={saving} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600">取消</button>
+                  <button type="button" onClick={saveWebCategory} disabled={saving} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">儲存並同步</button>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={syncFromWordPress}
+              disabled={saving}
+              className="flex items-center gap-1.5 border border-blue-200 bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={saving ? 'animate-spin' : ''} /> {saving ? '同步中...' : '重新讀取官網分類'}
+            </button>
+            {message && <div className={`text-xs ${message.startsWith('同步失敗') ? 'text-red-600' : 'text-green-700'}`}>{message}</div>}
+          </div>
+
           {loading ? (
             <div className="text-center text-gray-400 py-4 text-sm">載入中...</div>
-          ) : Object.keys(grouped).length === 0 ? (
-            <div className="text-center text-gray-400 py-6 text-sm">尚無分類，請先新增</div>
+          ) : Object.keys(webGrouped).length === 0 ? (
+            <div className="text-center text-gray-400 py-6 text-sm">尚未同步官網分類</div>
           ) : (
-            <div className="space-y-4">
-              {Object.entries(grouped).map(([main, cats]) => (
+            <div className="max-h-64 overflow-y-auto space-y-4">
+              {Object.entries(webGrouped).map(([main, cats]) => (
                 <div key={main}>
                   <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 px-1">{main}</div>
                   <div className="space-y-1">
                     {cats.map(c => (
                       <div key={c.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100">
-                        <span className="text-sm text-gray-700">{c.sub_category}</span>
-                        <button onClick={() => handleDelete(c.id)} className="text-gray-300 hover:text-red-500 p-1 transition-colors">
-                          <Trash2 size={13} />
-                        </button>
+                        <span className="text-sm text-gray-700">{c.mid_category ? `${c.mid_category} > ` : ''}{c.sub_category}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-400">WP #{c.wordpress_category_id}</span>
+                          <button type="button" onClick={() => setEditingWeb({ id: c.id, main_category: c.main_category, mid_category: c.mid_category ?? '', sub_category: c.sub_category })} disabled={saving} className="text-gray-300 hover:text-blue-600" aria-label={`修改網路分類 ${productCategoryPath(c)}`}><Pencil size={14} /></button>
+                          <button type="button" onClick={() => removeWebCategory(c)} disabled={saving} className="text-gray-300 hover:text-red-500" aria-label={`刪除網路分類 ${productCategoryPath(c)}`}><Trash2 size={14} /></button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -359,7 +546,7 @@ function CategoryManagerModal({ onClose, onDone }: { onClose: () => void; onDone
 function BatchPriceModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const supabase = createClient()
   const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [vendors, setVendors] = useState<VendorOption[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [selectedVendorId, setSelectedVendorId] = useState('')
   const [selectedBrand, setSelectedBrand] = useState('')
@@ -516,7 +703,6 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPress
         const fd = new FormData()
         fd.append('file', file)
         fd.append('alt_text', file.name.replace(/\.[^.]+$/, ''))
-        fd.append('preset', 'content')
         const res = await fetch('/api/wordpress/media', { method: 'POST', body: fd })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? `${file.name} 上傳失敗`)
@@ -559,14 +745,14 @@ function HtmlCodeEditor({ value, onChange, rows = 8, placeholder, allowWordPress
       {mode === 'code' ? (
         <textarea ref={textareaRef} value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder} className="w-full px-3 py-2 text-xs font-mono outline-none resize-y" />
       ) : (
-        <div className="p-3 text-sm min-h-[100px] [&_table]:border [&_table]:border-collapse [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-gray-200 [&_td]:px-2 [&_td]:py-1 [&_p]:mb-2 [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: value || '<span class="text-gray-300">尚無內容</span>' }} />
+        <div className="p-3 text-sm min-h-[100px] [&_table]:border [&_table]:border-collapse [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-gray-200 [&_td]:px-2 [&_td]:py-1 [&_p]:mb-2 [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value || '<span class="text-gray-300">尚無內容</span>') }} />
       )}
     </div>
   )
 }
 
 export default function ProductsPage() {
-  const { permOf, isAdmin } = usePermissions()
+  const { permOf } = usePermissions()
   const perm = permOf('products')
 
   const supabase = createClient()
@@ -578,14 +764,14 @@ export default function ProductsPage() {
   // 品牌篩選（2026-07 新增）：品牌清單自現有產品歸納，A-Z 簡碼快速定位
   const [brandFilter, setBrandFilter] = useState('')
   const [brandLetter, setBrandLetter] = useState('')
+  const [tagFilters, setTagFilters] = useState<string[]>([])
+  const [showTagFilters, setShowTagFilters] = useState(false)
   const [showBrandDropdown, setShowBrandDropdown] = useState(false)
   // 分頁（2026-07）：產品數已破七百筆，一次全渲染會拖慢整頁操作
   const PER_PAGE = 10
   const [page, setPage] = useState(1)
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const editFormRef = useRef<HTMLDivElement>(null)
-  const productSaveInProgressRef = useRef(false)
-  const [productSaving, setProductSaving] = useState(false)
   // 未存檔提醒
   const guard = useDirtyGuard()
   // 彈跳視窗開啟時：鎖定背景捲動 + 按 ESC 關閉（點背景不關，避免誤觸掉資料）
@@ -634,10 +820,8 @@ export default function ProductsPage() {
   const [batchMarket, setBatchMarket] = useState<{ done: number; total: number } | null>(null)
   const [inventoryMainCategory, setInventoryMainCategory] = useState('')
   const [webMainCategory, setWebMainCategory] = useState('')
-  const [webCategoryInput, setWebCategoryInput] = useState('')
     const [form, setForm] = useState({
         category_id: null as string | null,
-        product_type: 'main' as 'main' | 'child', parent_product_id: null as string | null,
         brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
         list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
@@ -648,8 +832,6 @@ export default function ProductsPage() {
         web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
         web_tab: 'none' as string,
         web_spec_html: '' as string,
-        variant_group_code: '', variant_attribute_name: '顏色', variant_value: '',
-        variant_is_primary: false, web_variation_id: '',
     })
     const [formMode, setFormMode] = useState<'simple' | 'full'>('simple')
     const [showScanner, setShowScanner] = useState(false)
@@ -673,12 +855,16 @@ export default function ProductsPage() {
     const [webFeatures, setWebFeatures] = useState<{ id?: string; feature_text: string }[]>([])
     const [webDownloads, setWebDownloads] = useState<{ id?: string; file_name: string; file_url: string }[]>([])
     const [downloadUploading, setDownloadUploading] = useState<number | null>(null)
-    const [webVendors, setWebVendors] = useState<{ id?: string; vendor_id: string; cost: number | null; is_primary: boolean }[]>([])
+    const [webVendors, setWebVendors] = useState<ProductVendorDraft[]>([])
+    const [originalVendorQuotes, setOriginalVendorQuotes] = useState<Record<string, { cost: number | null; quote_date: string }>>({})
+    const [vendorQuoteHistory, setVendorQuoteHistory] = useState<VendorQuoteHistoryRow[]>([])
+    const [showVendorHistory, setShowVendorHistory] = useState(false)
     const [vendorList, setVendorList] = useState<Vendor[]>([])
     const [filterGroups, setFilterGroups] = useState<ProductFilterGroup[]>([])
+    const [productOptionMap, setProductOptionMap] = useState<Record<string, string[]>>({})
     const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
     const [numericFilterValues, setNumericFilterValues] = useState<Record<string, string>>({})
-    const [purchaseOptionGroups, setPurchaseOptionGroups] = useState<ProductPurchaseOptionGroup[]>([])
+    const [filterManagerOpen, setFilterManagerOpen] = useState(false)
 
     useEffect(() => { fetchAll() }, [])
 
@@ -697,13 +883,13 @@ export default function ProductsPage() {
     }, [])
 
   async function fetchAll() {
-    try {
-    const [pRes, cRes, mRes, groupRes, optionRes, templateGroupRes, categoryTemplateRes, exclusionRes] = await Promise.all([
-      fetchAllRows<Product>((from, to) => supabase.from('products').select('*').order('brand').order('product_name').order('id').range(from, to)),
+    const [pRes, cRes, mRes, groupRes, optionRes, assignmentRes, templateGroupRes, categoryTemplateRes, exclusionRes] = await Promise.all([
+      supabase.from('products').select('*').order('brand').order('product_name'),
       supabase.from('product_categories').select('*').order('main_category').order('sub_category'),
       supabase.from('market_prices').select('*'),
       supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('product_filter_assignments').select('product_id,option_id'),
       supabase.from('product_filter_template_groups').select('template_id,group_id,sort_order'),
       supabase.from('product_category_filter_templates').select('category_id,template_id'),
       supabase.from('product_category_filter_exclusions').select('category_id,group_id'),
@@ -712,6 +898,7 @@ export default function ProductsPage() {
     setCategories(cRes.data ?? [])
     const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [], exclusionRes.data ?? [])
     setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings))
+    setProductOptionMap(buildProductOptionMap(assignmentRes.data ?? []))
     const mm: Record<string, MarketPriceRow[]> = {}
     for (const r of (mRes.data ?? []) as MarketPriceRow[]) {
       if (!mm[r.product_id]) mm[r.product_id] = []
@@ -719,82 +906,67 @@ export default function ProductsPage() {
     }
     setMarketMap(mm)
     setLoading(false)
-    } catch (error) {
-      setLoading(false)
-      alert(`產品資料載入失敗，請重新整理後重試：${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  async function refreshFilterCatalog() {
-    const [groupRes, optionRes, templateGroupRes, categoryTemplateRes, exclusionRes] = await Promise.all([
-      supabase.from('product_filter_groups').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('product_filter_options').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('product_filter_template_groups').select('template_id,group_id,sort_order'),
-      supabase.from('product_category_filter_templates').select('category_id,template_id'),
-      supabase.from('product_category_filter_exclusions').select('category_id,group_id'),
-    ])
-    const mappings = buildCategoryGroupMappings(templateGroupRes.data ?? [], categoryTemplateRes.data ?? [], exclusionRes.data ?? [])
-    setFilterGroups(buildFilterGroups(groupRes.data ?? [], optionRes.data ?? [], mappings))
   }
 
   function getCategoryLabel(catId: string | null) {
     if (!catId) return null
     const c = categories.find(c => c.id === catId)
-    return c ? `${c.main_category} > ${c.sub_category}` : null
+    if (!c) return null
+    return `${productCategoryPath(c)}${c.is_inventory_category === false ? '（非進銷存分類，請重新選擇）' : ''}`
   }
 
     async function loadWebSubData(productId: string) {
-        const [imgRes, dlRes, featRes, vendRes, assignmentRes, numberRes, purchaseGroupRes] = await Promise.all([
+        const [imgRes, dlRes, featRes, vendRes, historyRes, assignmentRes, numberRes] = await Promise.all([
             supabase.from('product_images').select('id,image_url').eq('product_id', productId).order('sort_order'),
             supabase.from('product_downloads').select('id,file_name,file_url').eq('product_id', productId).order('sort_order'),
             supabase.from('product_features').select('id,feature_text').eq('product_id', productId).order('sort_order'),
             supabase.from('product_vendors').select('id,vendor_id,cost,is_primary').eq('product_id', productId).order('sort_order'),
+            supabase.from('product_vendor_quote_history').select('id,vendor_id,cost,quoted_at,source,note,created_at').eq('product_id', productId).order('quoted_at', { ascending: false }).order('created_at', { ascending: false }).limit(100),
             supabase.from('product_filter_assignments').select('option_id').eq('product_id', productId),
             supabase.from('product_filter_numbers').select('group_id,numeric_value').eq('product_id', productId),
-            supabase.from('product_purchase_option_groups').select('*').eq('product_id', productId).order('sort_order'),
         ])
-        const purchaseGroups = purchaseGroupRes.data ?? []
-        const purchaseGroupIds = purchaseGroups.map(group => group.id)
-        const purchaseValueRes = purchaseGroupIds.length
-            ? await supabase.from('product_purchase_option_values').select('*').in('group_id', purchaseGroupIds).order('sort_order')
-            : { data: [] as any[] }
         setWebImages(imgRes.data ?? [])
         setWebDownloads(dlRes.data ?? [])
         setWebFeatures(featRes.data ?? [])
-        setWebVendors(vendRes.data ?? [])
+        const historyRows = (historyRes.data ?? []).map(row => ({ ...row, cost: Number(row.cost) })) as VendorQuoteHistoryRow[]
+        const latestQuoteDate: Record<string, string> = {}
+        for (const row of historyRows) {
+            if (!latestQuoteDate[row.vendor_id]) latestQuoteDate[row.vendor_id] = row.quoted_at
+        }
+        const vendorRows = (vendRes.data ?? []).map(row => ({
+            ...row,
+            cost: row.cost == null ? null : Number(row.cost),
+            quote_date: latestQuoteDate[row.vendor_id] ?? localDateValue(),
+        }))
+        setWebVendors(vendorRows)
+        setOriginalVendorQuotes(Object.fromEntries(vendorRows.map(row => [row.vendor_id, { cost: row.cost, quote_date: row.quote_date }])))
+        setVendorQuoteHistory(historyRows)
         setSelectedOptionIds((assignmentRes.data ?? []).map(row => row.option_id))
         setNumericFilterValues(Object.fromEntries((numberRes.data ?? []).map(row => [row.group_id, String(row.numeric_value)])))
-        setPurchaseOptionGroups(purchaseGroups.map(group => ({
-            id: group.id,
-            name: group.name,
-            description: group.description ?? '',
-            selection_mode: group.selection_mode === 'multiple' ? 'multiple' : 'single',
-            is_required: group.is_required !== false,
-            options: (purchaseValueRes.data ?? []).filter(option => option.group_id === group.id).map(option => ({
-                id: option.id,
-                label: option.label,
-                price_adjustment: Number(option.price_adjustment ?? 0),
-                is_default: option.is_default === true,
-            })),
-        })))
     }
 
     function startEdit(p?: Product) {
-        // 若使用者剛在另一分頁修改篩選器，開啟商品時立即重讀同一套設定。
-        void refreshFilterCatalog()
+        setFilterManagerOpen(false)
+        setShowVendorHistory(false)
         if (p) {
             const pAny = p as any
             const inventoryCategory = categories.find(category => category.id === p.category_id)
-            setInventoryMainCategory(inventoryCategory?.main_category ?? '')
+            const activeInventoryCategory = !!inventoryCategory && inventoryCategory.is_inventory_category !== false
+            setInventoryMainCategory(activeInventoryCategory ? inventoryCategory.main_category : '')
+            const savedWebPath = Array.isArray(pAny.web_categories) && pAny.web_categories[0]?.trim()
+                ? pAny.web_categories[0].trim()
+                : (pAny.web_category?.trim() ?? '')
+            const selectedWebCategory = categories.find(category =>
+                category.is_web_category !== false
+                && category.is_active !== false
+                && productCategoryPath(category) === savedWebPath)
+            setWebMainCategory(selectedWebCategory?.main_category ?? '')
             setForm({
                 category_id: p.category_id, brand: p.brand ?? '', product_name: p.product_name, model: p.model ?? '', unit: p.unit, barcode: pAny.barcode ?? '', product_code: pAny.product_code ?? '', safe_stock: pAny.safe_stock ?? 0,
-                product_type: pAny.product_type === 'child' ? 'child' : 'main', parent_product_id: pAny.parent_product_id ?? null,
                 list_price: p.list_price, cost_price: p.cost_price, stock_qty: p.stock_qty, notes: p.notes ?? '', is_active: p.is_active,
                 width_cm: pAny.width_cm ?? 0, depth_cm: pAny.depth_cm ?? 0, height_cm: pAny.height_cm ?? 0,
                 web_sku: pAny.web_sku ?? '', web_category: pAny.web_category ?? '',
-                web_categories: Array.isArray(pAny.web_categories) && pAny.web_categories.length > 0
-                    ? pAny.web_categories.filter((value: unknown): value is string => typeof value === 'string' && !!value.trim())
-                    : (pAny.web_category?.trim() ? [pAny.web_category.trim()] : []),
+                web_categories: savedWebPath ? [savedWebPath] : [],
                 web_description: pAny.web_description ?? '',
                 web_main_image_url: pAny.web_main_image_url ?? '', web_sale_price: pAny.web_sale_price ?? 0,
                 web_allow_backorder: pAny.web_allow_backorder ?? false, web_bsmi_no: pAny.web_bsmi_no ?? '',
@@ -805,20 +977,15 @@ export default function ProductsPage() {
                 web_promo_price_to: pAny.web_promo_price_to ? String(pAny.web_promo_price_to).slice(0, 16) : '',
                 web_tab: pAny.web_tab ?? 'none',
                 web_spec_html: pAny.web_spec_html ?? '',
-                variant_group_code: pAny.variant_group_code ?? '',
-                variant_attribute_name: pAny.variant_attribute_name ?? '顏色',
-                variant_value: pAny.variant_value ?? '',
-                variant_is_primary: pAny.variant_is_primary ?? false,
-                web_variation_id: pAny.web_variation_id ?? '',
             })
             setPromoEnabled(!!pAny.web_promo_price_from)
             setEditingId(p.id)
             loadWebSubData(p.id)
         } else {
             setInventoryMainCategory('')
+            setWebMainCategory('')
             setForm({
                 category_id: null, brand: '', product_name: '', model: '', unit: '台', barcode: '', product_code: '', safe_stock: 0,
-                product_type: 'main', parent_product_id: null,
                 list_price: 0, cost_price: 0, stock_qty: 0, notes: '', is_active: true,
         width_cm: 0, depth_cm: 0, height_cm: 0,
                 web_sku: '', web_category: '', web_categories: [], web_description: '',
@@ -828,8 +995,6 @@ export default function ProductsPage() {
                 web_promo_price: 0, web_promo_price_from: '', web_promo_price_to: '',
                 web_tab: 'none',
                 web_spec_html: '',
-                variant_group_code: '', variant_attribute_name: '顏色', variant_value: '',
-                variant_is_primary: false, web_variation_id: '',
             })
             setPromoEnabled(false)
             setEditingId('new')
@@ -837,12 +1002,11 @@ export default function ProductsPage() {
             setWebDownloads([])
             setWebFeatures([])
             setWebVendors([])
+            setOriginalVendorQuotes({})
+            setVendorQuoteHistory([])
             setSelectedOptionIds([])
             setNumericFilterValues({})
-            setPurchaseOptionGroups([])
         }
-        setWebMainCategory('')
-        setWebCategoryInput('')
         setWebExpanded(defaultWebExpanded)
         setFormMode('simple')
         setActiveTab('intro')
@@ -857,14 +1021,25 @@ export default function ProductsPage() {
             supabase.from('product_filter_assignments').delete().eq('product_id', productId),
             supabase.from('product_filter_numbers').delete().eq('product_id', productId),
         ])
-        const { error: purchaseDeleteError } = await supabase.from('product_purchase_option_groups').delete().eq('product_id', productId)
-        if (purchaseDeleteError) throw new Error(`無法更新購買選項：${purchaseDeleteError.message}`)
         const imgRows = webImages.filter(r => r.image_url.trim()).map((r, i) => ({ product_id: productId, image_url: r.image_url.trim(), sort_order: i }))
         const dlRows = webDownloads.filter(r => r.file_name.trim() && r.file_url.trim()).map((r, i) => ({ product_id: productId, file_name: r.file_name.trim(), file_url: r.file_url.trim(), sort_order: i }))
         const featRows = webFeatures.filter(r => r.feature_text.trim()).slice(0, 10).map((r, i) => ({ product_id: productId, feature_text: r.feature_text.trim().slice(0, 5), sort_order: i }))
-        const vendRows = webVendors.filter(r => r.vendor_id).map((r, i) => ({ product_id: productId, vendor_id: r.vendor_id, cost: r.cost, is_primary: r.is_primary, sort_order: i }))
-        const validOptionIds = new Set(filterGroups.flatMap(group => group.options.map(option => option.id)))
-        const tagRows = selectedOptionIds.filter(optionId => validOptionIds.has(optionId)).map(optionId => ({ product_id: productId, option_id: optionId }))
+        const validVendors = webVendors.filter(r => r.vendor_id)
+        const hasPrimary = validVendors.some(r => r.is_primary)
+        const vendRows = validVendors.map((r, i) => ({ product_id: productId, vendor_id: r.vendor_id, cost: r.cost, is_primary: r.is_primary || (!hasPrimary && i === 0), sort_order: i }))
+        const quoteRows = validVendors
+            .filter(r => {
+                const original = originalVendorQuotes[r.vendor_id]
+                return r.cost != null && (!original || original.cost !== r.cost || original.quote_date !== r.quote_date)
+            })
+            .map(r => ({
+                product_id: productId,
+                vendor_id: r.vendor_id,
+                cost: r.cost as number,
+                quoted_at: r.quote_date || localDateValue(),
+                source: 'product_edit',
+            }))
+        const tagRows = selectedOptionIds.slice(0, 20).map(optionId => ({ product_id: productId, option_id: optionId }))
         const numberRows = Object.entries(numericFilterValues)
             .filter(([, value]) => value !== '' && Number.isFinite(Number(value)))
             .map(([groupId, value]) => ({ product_id: productId, group_id: groupId, numeric_value: Number(value) }))
@@ -876,46 +1051,18 @@ export default function ProductsPage() {
             tagRows.length > 0 ? supabase.from('product_filter_assignments').insert(tagRows) : Promise.resolve(),
             numberRows.length > 0 ? supabase.from('product_filter_numbers').insert(numberRows) : Promise.resolve(),
         ])
-        const normalizedGroups = normalizedPurchaseOptionGroups(purchaseOptionGroups)
-        for (const [groupIndex, group] of normalizedGroups.entries()) {
-            const { data: createdGroup, error: groupError } = await supabase.from('product_purchase_option_groups').insert({
-                product_id: productId,
-                name: group.name,
-                description: group.description || null,
-                selection_mode: group.selection_mode,
-                is_required: group.is_required,
-                sort_order: groupIndex,
-            }).select('id').single()
-            if (groupError || !createdGroup?.id) throw new Error(groupError?.message ?? `無法儲存購買選項「${group.name}」`)
-            const valueRows = group.options.map((option, optionIndex) => ({
-                group_id: createdGroup.id,
-                label: option.label,
-                price_adjustment: option.price_adjustment,
-                is_default: option.is_default,
-                sort_order: optionIndex,
-            }))
-            const { error: valueError } = await supabase.from('product_purchase_option_values').insert(valueRows)
-            if (valueError) throw new Error(valueError.message)
+        if (quoteRows.length > 0) {
+            const { error } = await supabase.from('product_vendor_quote_history').insert(quoteRows)
+            if (error) throw new Error(`供應商報價歷史寫入失敗：${error.message}`)
         }
-    }
-
-    async function syncWebsiteDownloads(productId: string) {
-        if (!form.web_product_id?.trim()) return
-        const response = await fetch('/api/woocommerce/product-downloads', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product_id: productId }),
-        })
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.error ?? '官網型錄資料同步失敗')
     }
 
 
     async function handleSave() {
         if (!form.product_name.trim()) return
-        const purchaseOptionError = validatePurchaseOptionGroups(purchaseOptionGroups)
-        if (purchaseOptionError) {
-            alert(purchaseOptionError)
+        const selectedVendorIds = webVendors.filter(row => row.vendor_id).map(row => row.vendor_id)
+        if (new Set(selectedVendorIds).size !== selectedVendorIds.length) {
+            alert('同一家供應商不可重複加入，請保留一筆後再儲存。')
             return
         }
         // 型號不可重複（不分大小寫；排除自己）
@@ -927,114 +1074,53 @@ export default function ProductsPage() {
                 return
             }
         }
-        const variantGroup = form.variant_group_code.trim()
-        const variantValue = form.variant_value.trim()
-        const productType = form.product_type === 'child' ? 'child' : 'main'
-        const parentProductId = productType === 'child' ? form.parent_product_id : null
-        if (productType === 'child') {
-            if (!parentProductId) {
-                alert('請搜尋並選擇此子商品所屬的主商品。')
-                return
-            }
-            const parent = products.find(product => product.id === parentProductId)
-            if (!parent || (parent.product_type ?? 'main') !== 'main') {
-                alert('選取的主商品不存在或已不是主商品，請重新選擇。')
-                return
-            }
-            if (!variantValue) {
-                alert('請填寫此子商品的區分選項，例如「紅色」或「白色」。')
-                return
-            }
-            if (!form.variant_attribute_name.trim()) {
-                alert('請填寫子商品區分欄位，例如「顏色」。')
-                return
-            }
-        }
-        if (productType === 'child' && editingId !== 'new' && products.some(product => product.parent_product_id === editingId)) {
-            alert('此商品底下已有子商品，必須先移除子商品關聯，才能改成子商品。')
-            return
-        }
-        if (variantGroup && !variantValue) {
-            alert('填寫系列代碼後，也必須填寫變體選項（例如：黑色）。')
-            return
-        }
-        if (variantValue && !variantGroup && productType !== 'child') {
-            alert('填寫變體選項後，也必須填寫系列代碼。')
-            return
-        }
-        if (variantGroup && !form.variant_attribute_name.trim()) {
-            alert('請填寫變體屬性，例如「顏色」。')
-            return
-        }
+        const selectedWebPath = form.web_categories.find(value => value?.trim())?.trim()
+            || form.web_category?.trim()
+            || ''
+        const effectiveWebCategories = selectedWebPath ? [selectedWebPath] : []
         const payload = {
             ...form,
-            // web_category 保留第一個分類，讓尚未更新的舊流程仍能讀取；新流程使用 web_categories。
-            web_category: form.web_categories[0] ? websiteCategoryLeaf(form.web_categories[0]) : null,
+            // 進銷存分類與網路分類分開保存；網路分類仍維持單選。
+            web_categories: effectiveWebCategories,
+            web_category: effectiveWebCategories[0] ? websiteCategoryLeaf(effectiveWebCategories[0]) : null,
             // 空字串會撞到料號的唯一索引（'' 不算 null），一律轉 null
             product_code: form.product_code.trim() || null,
-            product_type: productType,
-            parent_product_id: parentProductId,
             web_promo_price: promoEnabled ? form.web_promo_price : null,
             web_promo_price_from: promoEnabled && form.web_promo_price_from ? form.web_promo_price_from : null,
             web_promo_price_to: promoEnabled && form.web_promo_price_to ? form.web_promo_price_to : null,
-            variant_group_code: variantGroup || null,
-            variant_attribute_name: form.variant_attribute_name.trim() || '顏色',
-            variant_value: variantValue || null,
-            variant_is_primary: !!variantGroup && form.variant_is_primary,
-            web_variation_id: form.web_variation_id || null,
         }
-        if (productSaveInProgressRef.current) return
-        productSaveInProgressRef.current = true
-        setProductSaving(true)
+        if (editingId === 'new') {
+            const { data, error } = await supabase.from('products').insert(payload).select('id').single()
+            if (error) {
+                console.error('新增產品失敗：', error)
+                alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
+                return
+            }
+            if (data?.id) await syncWebSubData(data.id)
+        } else {
+            const { error } = await supabase.from('products').update(payload).eq('id', editingId)
+            if (error) {
+                console.error('更新產品失敗：', error)
+                alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
+                return
+            }
+            await syncWebSubData(editingId as string)
+        }
+        let catalogWarning = ''
         try {
-            let savedProductId: string | null = null
-            if (editingId === 'new') {
-                const { data, error } = await supabase.from('products').insert(payload).select('id').single()
-                if (error) {
-                    console.error('新增產品失敗：', error)
-                    alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
-                    return
-                }
-                if (data?.id) {
-                    savedProductId = data.id
-                    try { await syncWebSubData(data.id) }
-                    catch (error: any) { alert(`產品已建立，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
-                }
-            } else {
-                savedProductId = editingId as string
-                const { error } = await supabase.from('products').update(payload).eq('id', editingId)
-                if (error) {
-                    console.error('更新產品失敗：', error)
-                    alert(`儲存失敗，產品分類/其他欄位未更新：\n${error.message}`)
-                    return
-                }
-                try { await syncWebSubData(editingId as string) }
-                catch (error: any) { alert(`產品已更新，但購買選項儲存失敗：\n${error?.message ?? '未知錯誤'}`); return }
-            }
-            let websiteDownloadWarning = ''
-            if (savedProductId) {
-                try { await syncWebsiteDownloads(savedProductId) }
-                catch (error: any) { websiteDownloadWarning = error?.message ?? '官網型錄資料同步失敗' }
-            }
-            setEditingId(null)
-            fetchAll()
-            if (websiteDownloadWarning) alert(`產品與篩選器資料已儲存，但官網商品型錄同步失敗：\n${websiteDownloadWarning}`)
-        } finally {
-            productSaveInProgressRef.current = false
-            setProductSaving(false)
+            await organizeCatalogDownloads()
+        } catch (error: any) {
+            catalogWarning = error?.message ?? 'Google Drive 型錄分類失敗'
         }
+        setEditingId(null)
+        fetchAll()
+        if (catalogWarning) alert(`產品已儲存，但型錄資料夾整理失敗：\n${catalogWarning}`)
     }
 
 
   async function handleDelete(id: string) {
     if (!confirm('確定刪除此產品？')) return
-    const { error } = await supabase.from('products').delete().eq('id', id)
-    if (error) {
-      alert(/foreign key|constraint|reference/i.test(error.message)
-        ? '此主商品仍有子商品，請先將子商品改掛其他主商品或改回主商品後再刪除。'
-        : `刪除失敗：${error.message}`)
-      return
-    }
+    await supabase.from('products').delete().eq('id', id)
     fetchAll()
   }
 
@@ -1067,28 +1153,50 @@ export default function ProductsPage() {
 
   async function uploadProductDownload(file: File, index: number) {
     if (file.size > 4 * 1024 * 1024) {
-      alert('單一檔案不可超過 4MB；請先壓縮檔案後再上傳到 av-shop.com。')
+      alert('單一檔案不可超過 4MB；較大的檔案請先上傳到 Google Drive，將權限設為「知道連結的人」，再貼上共用連結。')
       return
     }
     setDownloadUploading(index)
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('title', webDownloads[index]?.file_name.trim() || file.name.replace(/\.[^.]+$/, ''))
-      if (form.web_product_id?.trim()) fd.append('product_id', form.web_product_id.trim())
-      const res = await fetch('/api/wordpress/catalog', { method: 'POST', body: fd })
+      fd.append('folder', CATALOG_DRIVE_ROOT)
+      fd.append('folder_paths', JSON.stringify(getCatalogFolderPaths()))
+      fd.append('public', '1')
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '上傳失敗')
-      if (!data.url) throw new Error('WordPress 沒有回傳產品資料網址')
+      if (!data.public_url) throw new Error('Google Drive 沒有回傳公開下載連結')
+      let downloadUrl = data.public_url as string
+      if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+        const mediaForm = new FormData()
+        mediaForm.append('file', file)
+        const mediaResponse = await fetch('/api/wordpress/media', { method: 'POST', body: mediaForm })
+        const media = await mediaResponse.json()
+        if (!mediaResponse.ok || !media.url) throw new Error(media.error ?? 'PDF 已歸檔至 Drive，但官網 PDF 上傳失敗')
+        downloadUrl = media.url
+      }
       setWebDownloads(current => current.map((row, rowIndex) => rowIndex === index
-        ? { ...row, file_name: row.file_name.trim() || data.file_name || file.name, file_url: data.url }
+        ? { ...row, file_name: row.file_name.trim() || data.file_name || file.name, file_url: downloadUrl }
         : row))
-      if (data.warning) alert(`型錄已存入 av-shop.com，但商品附件資料需要稍後同步：\n${data.warning}`)
     } catch (error: any) {
       alert('產品資料上傳失敗：' + (error?.message ?? '未知錯誤'))
     } finally {
       setDownloadUploading(null)
     }
+  }
+
+  async function organizeCatalogDownloads() {
+    const downloads = webDownloads.filter(row => row.file_name.trim() && row.file_url.trim())
+    if (downloads.length === 0) return
+
+    const res = await fetch('/api/drive/catalog-classify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ downloads, folder_paths: getCatalogFolderPaths() }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error ?? 'Google Drive 型錄分類失敗')
   }
 
   // ── 官網（av-shop.com）同步 ──
@@ -1129,13 +1237,6 @@ export default function ProductsPage() {
     // 料號與原廠條碼是一物一碼，不可複製 —— 留空由使用者重新產生
     clone.product_code = null
     clone.barcode = null
-    clone.web_product_id = null
-    clone.web_product_url = null
-    clone.web_variation_id = null
-    clone.web_synced_at = null
-    clone.web_sync_status = null
-    clone.variant_value = null
-    clone.variant_is_primary = false
     const { data, error } = await supabase.from('products').insert(clone).select('*').single()
     if (error) {
       alert(/duplicate|unique/i.test(error.message)
@@ -1188,7 +1289,13 @@ export default function ProductsPage() {
     setTimeout(() => setBatchMarket(null), 3000)
   }
 
-  const mainCats = [...new Set(categories.map(c => c.main_category))]
+  const inventoryCategories = categories.filter(category => category.is_inventory_category !== false)
+  const webCategories = categories.filter(category =>
+    category.is_web_category !== false
+    && category.is_active !== false
+    && category.wordpress_category_id != null)
+  const mainCats = [...new Set(inventoryCategories.map(c => c.main_category))]
+  const webMainCats = [...new Set(webCategories.map(c => c.main_category))]
 
   // 品牌清單：自產品歸納、去重（大小寫視為同一品牌）、A-Z 排序
   const allBrands = (() => {
@@ -1210,36 +1317,16 @@ export default function ProductsPage() {
       })
     : allBrands
 
-  const productById = useMemo(
-    () => new Map(products.map(product => [product.id, product])),
-    [products],
-  )
-  const childCountByParent = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const product of products) {
-      if (!product.parent_product_id) continue
-      counts.set(product.parent_product_id, (counts.get(product.parent_product_id) ?? 0) + 1)
-    }
-    return counts
-  }, [products])
-  const searchTerms = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
   const filtered = products.filter(p => {
-    const parentProduct = p.parent_product_id ? productById.get(p.parent_product_id) : null
-    const searchText = [
-      p.product_name,
-      p.brand,
-      p.model,
-      (p as any).product_code,
-      (p as any).barcode,
-      parentProduct?.product_name,
-      parentProduct?.model,
-    ].filter(Boolean).join(' ').toLocaleLowerCase()
-    const matchSearch = searchTerms.every(term => searchText.includes(term))
+    const matchSearch = !search ||
+      p.product_name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.brand?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
+      (p.model?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
+      ((p as any).product_code?.toLowerCase() ?? '').includes(search.toLowerCase()) ||
+      ((p as any).barcode?.toLowerCase() ?? '').includes(search.toLowerCase())
     if (!matchSearch) return false
-
-    // 搜尋文字存在時採全域即時搜尋，不讓先前選取的品牌／分類隱藏結果。
-    if (searchTerms.length > 0) return true
     if (brandFilter && (p.brand ?? '').trim().toLowerCase() !== brandFilter.toLowerCase()) return false
+    if (!matchesGroupedOptions(productOptionMap[p.id] ?? [], tagFilters, filterGroups)) return false
     if (catFilter) {
       const cat = categories.find(c => c.id === p.category_id)
       if (cat?.main_category !== catFilter) return false
@@ -1251,26 +1338,129 @@ export default function ProductsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const safePage = Math.min(page, totalPages)
   const paged = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE)
-  useEffect(() => { setPage(1) }, [search, catFilter, brandFilter, brandLetter])
+  useEffect(() => { setPage(1) }, [search, catFilter, brandFilter, brandLetter, tagFilters])
 
-  const categoryGrouped = categories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
+  const categoryGrouped = inventoryCategories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
+    if (!acc[c.main_category]) acc[c.main_category] = []
+    acc[c.main_category].push(c)
+    return acc
+  }, {})
+  const webCategoryGrouped = webCategories.reduce<Record<string, ProductCategory[]>>((acc, c) => {
     if (!acc[c.main_category]) acc[c.main_category] = []
     acc[c.main_category].push(c)
     return acc
   }, {})
 
-  function addWebCategory() {
-    const subCategory = webCategoryInput.trim()
-    const mainCategory = webMainCategory.trim()
-    if (!mainCategory || !subCategory) return
-    const value = encodeWebsiteCategory(mainCategory, subCategory)
-    setForm(current => current.web_categories.some(category => category.toLocaleLowerCase() === value.toLocaleLowerCase())
-      ? current
-      : { ...current, web_categories: [...current.web_categories, value] })
-    setWebCategoryInput('')
+  // Top 5 篩選器與型錄路徑跟隨進銷存產品分類；官網分類獨立單選。
+  const activeFilterCategory = inventoryCategories.find(category => category.id === form.category_id) ?? null
+  const activeProductFilterGroups = filterGroupsForCategory(filterGroups, activeFilterCategory?.id)
+
+  function getCatalogFolderPaths(): string[][] {
+    const paths: string[][] = []
+    const categoryPaths: string[][] = []
+    const brandFolder = form.brand.trim() || '未設定品牌'
+    const selectedCategory = inventoryCategories.find(category => category.id === form.category_id)
+    if (selectedCategory) {
+      categoryPaths.push([CATALOG_DRIVE_ROOT, ...productCategoryPath(selectedCategory).split(/\s*>\s*/).filter(Boolean)])
+    }
+
+    if (categoryPaths.length === 0) categoryPaths.push([CATALOG_DRIVE_ROOT, '未分類', '未分類'])
+    for (const categoryPath of categoryPaths) {
+      paths.push([...categoryPath, brandFolder])
+      for (const group of filterGroups.filter(item => item.input_type === 'multi_select')) {
+        for (const option of group.options.filter(item => selectedOptionIds.includes(item.id))) {
+          paths.push([...categoryPath, '_篩選器', group.name, option.name])
+        }
+      }
+    }
+    return Array.from(new Map(paths.map(path => [JSON.stringify(path), path])).values()).slice(0, 100)
   }
 
   const inputClass = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
+  function renderVendorComparison() {
+    if (!perm.can_cost) {
+      return <div className="rounded-xl bg-gray-100 px-4 py-3 text-sm text-gray-400">供應商報價（無權限查看）</div>
+    }
+    const pricedRows = webVendors.filter(row => row.cost != null)
+    const lowestCost = pricedRows.length > 0 ? Math.min(...pricedRows.map(row => row.cost as number)) : null
+    const sourceLabels: Record<VendorQuoteHistoryRow['source'], string> = {
+      product_edit: '產品編輯', inquiry: '詢價單', purchase: '進貨單', import: '初始建檔',
+    }
+
+    return (
+      <div className="col-span-2 sm:col-span-3 rounded-xl border border-blue-200 bg-blue-50/40 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <div className="text-sm font-semibold text-blue-900">供應商報價比較</div>
+            <div className="text-[11px] text-blue-600 mt-0.5">修改價格並儲存後會自動追加歷史，不會覆蓋舊報價。</div>
+          </div>
+          <div className="flex items-center gap-2">
+            {lowestCost != null && <span className="text-xs text-green-700">目前最低 {formatCurrency(lowestCost)}</span>}
+            {editingId !== 'new' && (
+              <button type="button" onClick={() => setShowVendorHistory(value => !value)} className="px-2.5 py-1.5 rounded-lg border border-blue-200 bg-white text-xs text-blue-700 hover:bg-blue-50">
+                {showVendorHistory ? '收合歷史' : `歷史報價（${vendorQuoteHistory.length}）`}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {webVendors.length === 0 && <div className="rounded-lg border border-dashed border-blue-200 bg-white/70 py-5 text-center text-xs text-gray-400">尚未建立供應商報價</div>}
+          {webVendors.map((row, index) => {
+            const isLowest = row.cost != null && row.cost === lowestCost
+            return (
+              <div key={row.id ?? `new-${index}`} className={`grid grid-cols-1 sm:grid-cols-[70px_minmax(150px,1fr)_130px_120px_110px_28px] items-center gap-2 rounded-lg border px-2.5 py-2 ${isLowest ? 'border-green-200 bg-green-50' : 'border-blue-100 bg-white'}`}>
+                <button type="button" onClick={() => setWebVendors(rows => rows.map((item, rowIndex) => ({ ...item, is_primary: rowIndex === index })))}
+                  className={`rounded px-2 py-1 text-[11px] ${row.is_primary ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-blue-100'}`}>
+                  {row.is_primary ? '主要' : '設主要'}
+                </button>
+                <select value={row.vendor_id} onChange={event => setWebVendors(rows => rows.map((item, rowIndex) => rowIndex === index ? { ...item, vendor_id: event.target.value } : item))} className={inputClass + ' py-1.5 text-xs'}>
+                  <option value="">選擇供應商</option>
+                  {vendorList.map(vendor => (
+                    <option key={vendor.id} value={vendor.id} disabled={webVendors.some((item, rowIndex) => rowIndex !== index && item.vendor_id === vendor.id)}>{vendor.company_name}</option>
+                  ))}
+                </select>
+                <input type="date" aria-label="報價日期" value={row.quote_date} onChange={event => setWebVendors(rows => rows.map((item, rowIndex) => rowIndex === index ? { ...item, quote_date: event.target.value } : item))} className={inputClass + ' py-1.5 text-xs'} />
+                <input type="number" min={0} step="0.01" aria-label="供應商報價" placeholder="報價" value={row.cost ?? ''} onChange={event => setWebVendors(rows => rows.map((item, rowIndex) => rowIndex === index ? { ...item, cost: event.target.value === '' ? null : Number(event.target.value) } : item))} className={inputClass + ` py-1.5 text-xs ${isLowest ? 'font-semibold text-green-700' : ''}`} />
+                <button type="button" disabled={!row.vendor_id || row.cost == null} onClick={() => {
+                  setWebVendors(rows => rows.map((item, rowIndex) => ({ ...item, is_primary: rowIndex === index })))
+                  setForm(current => ({ ...current, cost_price: row.cost as number }))
+                }} className="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-[11px] text-blue-700 hover:bg-blue-50 disabled:opacity-40">
+                  採用為成本
+                </button>
+                <button type="button" aria-label="移除供應商" onClick={() => setWebVendors(rows => rows.filter((_, rowIndex) => rowIndex !== index))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+              </div>
+            )
+          })}
+        </div>
+
+        <button type="button" onClick={() => setWebVendors(rows => [...rows, { vendor_id: '', cost: null, is_primary: rows.length === 0, quote_date: localDateValue() }])} className="mt-3 text-xs font-medium text-blue-700 hover:underline">+ 新增供應商報價</button>
+
+        {showVendorHistory && editingId !== 'new' && (
+          <div className="mt-4 overflow-hidden rounded-lg border border-blue-100 bg-white">
+            {vendorQuoteHistory.length === 0 ? (
+              <div className="py-6 text-center text-xs text-gray-400">尚無歷史報價；本次價格變更儲存後會出現在這裡。</div>
+            ) : (
+              <div className="max-h-52 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 text-gray-500"><tr><th className="px-3 py-2 text-left">報價日期</th><th className="px-3 py-2 text-left">供應商</th><th className="px-3 py-2 text-right">價格</th><th className="px-3 py-2 text-left">來源</th></tr></thead>
+                  <tbody>{vendorQuoteHistory.map(history => (
+                    <tr key={history.id} className="border-t border-gray-50">
+                      <td className="px-3 py-2 text-gray-500">{history.quoted_at}</td>
+                      <td className="px-3 py-2 text-gray-800">{vendorList.find(vendor => vendor.id === history.vendor_id)?.company_name ?? '已停用供應商'}</td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-900">{formatCurrency(history.cost)}</td>
+                      <td className="px-3 py-2 text-gray-400">{sourceLabels[history.source] ?? history.source}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
@@ -1314,17 +1504,6 @@ export default function ProductsPage() {
           <button onClick={() => setShowBatchModal(true)} className="flex items-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 px-4 py-2.5 rounded-xl text-sm font-medium">
             <TrendingUp size={15} /> 批次調價
           </button>
-          {isAdmin && GOOGLE_PRODUCT_SHEET_URL && (
-            <a
-              href={GOOGLE_PRODUCT_SHEET_URL}
-              target="_blank"
-              rel="noreferrer"
-              title="開啟系統管理員專用的 Google 產品同步表"
-              className="flex items-center gap-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 px-4 py-2.5 rounded-xl text-sm font-medium"
-            >
-              <ExternalLink size={15} /> Google 產品表
-            </a>
-          )}
           <button onClick={batchRefreshMarket} disabled={batchMarket != null} className="flex items-center gap-2 border border-orange-200 text-orange-600 hover:bg-orange-50 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-60">
             <RefreshCw size={15} className={batchMarket ? 'animate-spin' : ''} />
             {batchMarket ? `查詢中 ${batchMarket.done}/${batchMarket.total}` : '批次查行情'}
@@ -1390,12 +1569,52 @@ export default function ProductsPage() {
             )}
           </div>
         )}
+        {filterGroups.some(group => group.input_type === 'multi_select') && (
+          <div className="w-full rounded-xl border border-violet-100 bg-violet-50/30 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTagFilters(current => !current)}
+                aria-expanded={showTagFilters}
+                aria-controls="product-tag-filters"
+                className="flex items-center gap-1.5 text-[11px] font-medium text-violet-700 hover:text-violet-900"
+              >
+                <ChevronRight size={14} aria-hidden="true" className={`transition-transform ${showTagFilters ? 'rotate-90' : ''}`} />
+                Tags 篩選{tagFilters.length > 0 ? `（已選 ${tagFilters.length} 項）` : ''}
+                <span className="font-normal text-violet-500">{showTagFilters ? '收合' : '展開'}</span>
+              </button>
+              {tagFilters.length > 0 ? (
+                <button type="button" onClick={() => setTagFilters([])} className="text-[11px] text-violet-600 hover:underline">清除 {tagFilters.length} 項</button>
+              ) : null}
+            </div>
+            <div id="product-tag-filters" hidden={!showTagFilters} className="space-y-2">
+              <p className="text-[11px] text-violet-500">同組 OR、跨組 AND</p>
+            {filterGroups.filter(group => group.input_type === 'multi_select').map(group => (
+              <div key={group.id} className="flex flex-wrap items-center gap-1.5">
+                <span className="w-16 shrink-0 text-[11px] text-gray-400">{group.name}</span>
+                {group.options.map(option => {
+                  const active = tagFilters.includes(option.id)
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setTagFilters(current => active ? current.filter(id => id !== option.id) : [...current, option.id])}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-violet-300'}`}
+                    >{option.name}</button>
+                  )
+                })}
+              </div>
+            ))}
+            </div>
+          </div>
+        )}
       </div>
 
                 {/* 編輯 / 新增表單 — 彈跳視窗（2026-07 改版：原地彈出，不再捲到頁面頂端） */}
                 {editingId !== null && (
-                    <div className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-black/50 p-2 sm:p-4">
-                    <div ref={editFormRef} {...guard.formProps} className="flex h-full min-h-0 w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl sm:rounded-2xl">
+                    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3 sm:p-6">
+                    <div ref={editFormRef} {...guard.formProps} className="bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl">
                         <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3.5 border-b border-gray-100 shrink-0">
                             <div className="font-semibold text-blue-900">{editingId === 'new' ? '新增產品' : '編輯產品'}</div>
                             <div className="flex items-center gap-2">
@@ -1403,27 +1622,15 @@ export default function ProductsPage() {
                                     <button type="button" onClick={() => setFormMode('simple')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'simple' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>進銷存模式</button>
                                     <button type="button" onClick={() => setFormMode('full')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${formMode === 'full' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>官網產品模式</button>
                                 </div>
-                                <button type="button" onClick={() => guard.guardClose(() => setEditingId(null))} title="關閉" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X size={18} /></button>
+                                <button type="button" onClick={() => guard.guardClose(() => setEditingId(null))} title="關閉" className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"><X size={18} /></button>
                             </div>
                         </div>
                         <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1 min-h-0">
 
-                        <ProductHierarchyFields
-                            products={products}
-                            editingId={editingId}
-                            value={{
-                                product_type: form.product_type,
-                                parent_product_id: form.parent_product_id,
-                                variant_attribute_name: form.variant_attribute_name,
-                                variant_value: form.variant_value,
-                            }}
-                            onChange={patch => setForm(current => ({ ...current, ...patch }))}
-                        />
-
                         {formMode === 'simple' ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                 <div className="col-span-2 sm:col-span-3">
-                                    <label className="text-xs text-gray-600 mb-1 block">進銷存分類</label>
+                                    <label className="text-xs text-gray-600 mb-1 block">進銷存分類（單選）</label>
                                     <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
                                         <select
                                             value={inventoryMainCategory}
@@ -1441,7 +1648,11 @@ export default function ProductsPage() {
                                         <select
                                             value={form.category_id ?? ''}
                                             onChange={e => {
-                                                setForm(p => ({ ...p, category_id: e.target.value || null }))
+                                                const category = categories.find(item => item.id === e.target.value)
+                                                setForm(current => ({
+                                                    ...current,
+                                                    category_id: category?.id ?? null,
+                                                }))
                                                 setSelectedOptionIds([])
                                                 setNumericFilterValues({})
                                             }}
@@ -1449,10 +1660,10 @@ export default function ProductsPage() {
                                             className={inputClass + ' disabled:bg-gray-50 disabled:text-gray-400'}
                                         >
                                             <option value="">{inventoryMainCategory ? '再選小類' : '請先選大類'}</option>
-                                            {(categoryGrouped[inventoryMainCategory] ?? []).map(c => <option key={c.id} value={c.id}>{c.sub_category}</option>)}
+                                            {(categoryGrouped[inventoryMainCategory] ?? []).map(c => <option key={c.id} value={c.id}>{c.mid_category ? `${c.mid_category} > ` : ''}{c.sub_category}</option>)}
                                         </select>
                                         <button type="button" onClick={() => setShowCatModal(true)} className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 whitespace-nowrap">
-                                            + 新增分類
+                                            管理分類
                                         </button>
                                     </div>
                                 </div>
@@ -1603,6 +1814,7 @@ export default function ProductsPage() {
                                         {form.list_price > 0 ? `${Math.round((1 - form.cost_price / form.list_price) * 100)}%` : '—'}
                                     </div>
                                 </div>
+                                {renderVendorComparison()}
                                 <div>
                                     <label className="text-xs text-gray-600 mb-1 block">寬 W (cm)</label>
                                     <input type="number" value={form.width_cm} onChange={e => setForm(p => ({ ...p, width_cm: Number(e.target.value) }))} className={inputClass} />
@@ -1722,66 +1934,117 @@ export default function ProductsPage() {
                                                     : <span className="text-gray-400 font-normal text-sm">請於「進銷存模式」填寫品牌／型號／產品名稱</span>}
                                             </div>
 
-                                            <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/40 mb-3">
-                                                <label className="text-xs font-medium text-blue-700 mb-1.5 block">官網分類（可多選）</label>
-                                                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+                                            <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/60 mb-3">
+                                                <label className="text-xs font-medium text-gray-700 mb-1.5 block">進銷存分類（單選）</label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                     <select
-                                                        value={webMainCategory}
+                                                        value={inventoryMainCategory}
                                                         onChange={e => {
-                                                            setWebMainCategory(e.target.value)
-                                                            setWebCategoryInput('')
+                                                            setInventoryMainCategory(e.target.value)
+                                                            setForm(current => ({ ...current, category_id: null }))
+                                                            setSelectedOptionIds([])
+                                                            setNumericFilterValues({})
                                                         }}
                                                         className={inputClass}
-                                                        aria-label="官網分類大類"
+                                                        aria-label="進銷存分類大類"
                                                     >
                                                         <option value="">先選擇大類</option>
                                                         {mainCats.map(main => <option key={main} value={main}>{main}</option>)}
                                                     </select>
                                                     <select
-                                                        value={webCategoryInput}
-                                                        onChange={e => setWebCategoryInput(e.target.value)}
+                                                        value={form.category_id ?? ''}
+                                                        onChange={e => {
+                                                            const category = categories.find(item => item.id === e.target.value)
+                                                            setForm(current => ({
+                                                                ...current,
+                                                                category_id: category?.id ?? null,
+                                                            }))
+                                                            setSelectedOptionIds([])
+                                                            setNumericFilterValues({})
+                                                        }}
                                                         className={inputClass}
-                                                        aria-label="官網分類小類"
-                                                        disabled={!webMainCategory}
+                                                        aria-label="進銷存分類小類"
+                                                        disabled={!inventoryMainCategory}
                                                     >
-                                                        <option value="">{webMainCategory ? '再選擇小類' : '請先選擇大類'}</option>
-                                                        {(categoryGrouped[webMainCategory] ?? []).map(category => (
-                                                            <option key={category.id} value={category.sub_category}>{category.sub_category}</option>
+                                                        <option value="">{inventoryMainCategory ? '再選擇小類' : '請先選擇大類'}</option>
+                                                        {(categoryGrouped[inventoryMainCategory] ?? []).map(category => (
+                                                            <option key={category.id} value={category.id}>{category.mid_category ? `${category.mid_category} > ` : ''}{category.sub_category}</option>
                                                         ))}
                                                     </select>
-                                                    <button type="button" onClick={addWebCategory} disabled={!webCategoryInput} className="px-3 py-2 border border-blue-200 bg-white rounded-lg text-xs text-blue-700 hover:bg-blue-50 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50">加入</button>
                                                 </div>
-                                                <div className="flex flex-wrap gap-1.5 mt-2 min-h-6">
-                                                    {form.web_categories.length === 0 && <span className="text-[11px] text-gray-400">尚未選擇官網分類，可加入多個分類</span>}
-                                                    {form.web_categories.map(category => (
-                                                        <span key={category} className="inline-flex items-center gap-1 rounded-full bg-white border border-blue-100 px-2.5 py-1 text-xs text-blue-700">
-                                                            {category}
-                                                            <button
-                                                                type="button"
-                                                                aria-label={`移除官網分類 ${category}`}
-                                                                onClick={() => setForm(current => ({ ...current, web_categories: current.web_categories.filter(value => value !== category) }))}
-                                                                className="text-blue-400 hover:text-blue-700"
-                                                            ><X size={12} /></button>
-                                                        </span>
-                                                    ))}
+                                                <div className="mt-2 min-h-5 text-[11px] text-gray-500">
+                                                    {activeFilterCategory
+                                                        ? `內部使用：${productCategoryPath(activeFilterCategory)}`
+                                                        : '尚未選擇進銷存分類'}
+                                                </div>
+                                            </div>
+
+                                            <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/40 mb-3">
+                                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                    <label className="text-xs font-medium text-blue-700">網路分類（單選）</label>
+                                                    <button type="button" onClick={() => setShowCatModal(true)} className="text-[11px] text-blue-600 hover:underline">同步／查看官網分類</button>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    <select
+                                                        value={webMainCategory}
+                                                        onChange={e => {
+                                                            setWebMainCategory(e.target.value)
+                                                            setForm(current => ({ ...current, web_category: '', web_categories: [] }))
+                                                        }}
+                                                        className={inputClass}
+                                                        aria-label="網路分類大類"
+                                                    >
+                                                        <option value="">先選擇官網大類</option>
+                                                        {webMainCats.map(main => <option key={main} value={main}>{main}</option>)}
+                                                    </select>
+                                                    <select
+                                                        value={form.web_categories[0] ?? ''}
+                                                        onChange={e => {
+                                                            const category = webCategories.find(item => productCategoryPath(item) === e.target.value)
+                                                            const path = category ? productCategoryPath(category) : ''
+                                                            setForm(current => ({
+                                                                ...current,
+                                                                web_category: category?.sub_category ?? '',
+                                                                web_categories: path ? [path] : [],
+                                                            }))
+                                                        }}
+                                                        className={inputClass}
+                                                        aria-label="網路分類小類"
+                                                        disabled={!webMainCategory}
+                                                    >
+                                                        <option value="">{webMainCategory ? '再選擇官網分類' : '請先選擇官網大類'}</option>
+                                                        {(webCategoryGrouped[webMainCategory] ?? []).map(category => (
+                                                            <option key={category.id} value={productCategoryPath(category)}>{category.mid_category ? `${category.mid_category} > ` : ''}{category.sub_category}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="mt-2 min-h-5 text-[11px] text-blue-700">
+                                                    {form.web_categories[0]
+                                                        ? `推送官網時使用：${form.web_categories[0]}`
+                                                        : '尚未選擇網路分類；未選時不可推送官網'}
                                                 </div>
                                             </div>
 
                                             <div className="mb-3">
                                                 <ProductFilterFields
-                                                    groups={filterGroupsForCategory(filterGroups, form.category_id)}
+                                                    groups={activeProductFilterGroups}
+                                                    hasSelectedCategory={!!activeFilterCategory}
                                                     selectedOptionIds={selectedOptionIds}
                                                     numericValues={numericFilterValues}
                                                     onSelectedOptionIdsChange={setSelectedOptionIds}
                                                     onNumericValuesChange={setNumericFilterValues}
+                                                    activeCategoryLabel={activeFilterCategory ? productCategoryPath(activeFilterCategory) : undefined}
+                                                    onManage={activeFilterCategory ? () => setFilterManagerOpen(true) : undefined}
                                                 />
-                                            </div>
-
-                                            <div className="mb-3">
-                                                <ProductPurchaseOptionFields
-                                                    groups={purchaseOptionGroups}
-                                                    onChange={setPurchaseOptionGroups}
-                                                />
+                                                {activeFilterCategory ? <ProductFilterManagerModal
+                                                    open={filterManagerOpen}
+                                                    categoryId={activeFilterCategory.id}
+                                                    categoryName={activeFilterCategory.sub_category}
+                                                    groups={filterGroups}
+                                                    supabase={supabase}
+                                                    onClose={() => setFilterManagerOpen(false)}
+                                                    onSaved={fetchAll}
+                                                /> : null}
                                             </div>
 
                                             <div className="grid grid-cols-3 gap-3 mb-1">
@@ -1836,28 +2099,9 @@ export default function ProductsPage() {
                                                 <div className="text-[10px] text-gray-400 mt-1.5">「最新商品」上架滿 30 天官網自動轉「熱銷商品」；促銷區塊由限時促銷自動判斷，不需選擇</div>
                                             </div>
 
-                                            <div className="border-t border-gray-100 pt-3">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs text-gray-500">可進貨廠商</span>
-                                                    <span className="text-[11px] text-gray-400">{webVendors.length} 家</span>
-                                                </div>
-                                                <div className="space-y-1.5 mb-2">
-                                                    {webVendors.map((v, i) => (
-                                                        <div key={v.id ?? `new-${i}`} className="flex items-center gap-2 text-xs">
-                                                            <button type="button" onClick={() => setWebVendors(a => a.map((r, ri) => ri === i ? { ...r, is_primary: !r.is_primary } : { ...r, is_primary: false }))}
-                                                                className={`px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap ${v.is_primary ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
-                                                                {v.is_primary ? '主要' : '備用'}
-                                                            </button>
-                                                            <select value={v.vendor_id} onChange={e => setWebVendors(a => a.map((r, ri) => ri === i ? { ...r, vendor_id: e.target.value } : r))} className={inputClass + ' flex-1 text-xs py-1'}>
-                                                                <option value="">選擇廠商</option>
-                                                                {vendorList.map(vd => <option key={vd.id} value={vd.id}>{vd.company_name}</option>)}
-                                                            </select>
-                                                            <input type="number" placeholder="成本" value={v.cost ?? ''} onChange={e => setWebVendors(a => a.map((r, ri) => ri === i ? { ...r, cost: e.target.value ? Number(e.target.value) : null } : r))} className={inputClass + ' w-20 text-xs py-1'} />
-                                                            <button type="button" onClick={() => setWebVendors(a => a.filter((_, ri) => ri !== i))} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <button type="button" onClick={() => setWebVendors(a => [...a, { vendor_id: '', cost: null, is_primary: a.length === 0 }])} className="text-xs text-blue-600 hover:underline">+ 新增供應商</button>
+                                            <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-xs">
+                                                <div className="font-medium text-blue-800">供應商報價：{webVendors.filter(row => row.vendor_id).length} 家</div>
+                                                <button type="button" onClick={() => setFormMode('simple')} className="mt-1.5 text-blue-600 hover:underline">前往進銷存模式比價／查看歷史</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1871,9 +2115,9 @@ export default function ProductsPage() {
                                     <div className="pt-4">
                                         {activeTab === 'intro' && (
                                             <div>
-                                                <label className="text-xs text-gray-500 mb-1 block">官網單一商品－產品介紹（主要內容）</label>
+                                                <label className="text-xs text-gray-500 mb-1 block">完整商品介紹</label>
                                                 <HtmlCodeEditor value={form.web_description} onChange={v => setForm(p => ({ ...p, web_description: v }))} rows={8} placeholder="可直接貼上 HTML，例如 <p>...</p>" allowWordPressImages />
-                                                <div className="mt-1.5 text-[11px] text-gray-400">此欄直接對應 WooCommerce 單一商品頁的主要長描述（description），不是簡短說明。上傳圖片會自動轉存 WordPress 媒體庫。</div>
+                                                <div className="mt-1.5 text-[11px] text-gray-400">上傳圖片會自動等比例調整為 600 × 600 px，轉成 WebP，並存入 WordPress 媒體庫（單張 4MB 內）。</div>
                                             </div>
                                         )}
                                         {activeTab === 'spec' && (
@@ -1887,26 +2131,30 @@ export default function ProductsPage() {
                                                 <div className="flex items-start justify-between gap-3 mb-3">
                                                     <div>
                                                         <div className="text-xs font-medium text-gray-700">產品資料下載</div>
-                                                        <div className="text-[11px] text-gray-400 mt-0.5">檔案會直接存入 av-shop.com WordPress 媒體庫，並連結至官網商品資料與產品篩選器。</div>
+                                                        <div className="text-[11px] text-gray-400 mt-0.5">檔案會存入 Google Drive，並同步顯示在官網單一商品頁。</div>
                                                     </div>
                                                     <span className="text-[11px] text-gray-400 whitespace-nowrap">{webDownloads.length} 個檔案</span>
                                                 </div>
-                                                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 mb-3">
-                                                    <div className="text-[11px] font-medium text-emerald-800 mb-1">av-shop.com 商品型錄</div>
-                                                    <div className="text-[10px] leading-5 text-emerald-700">檔案上傳後會取得官網媒體網址；若商品已同步至 WooCommerce，也會掛到該商品附件。儲存後，產品篩選器會直接顯示型錄連結。</div>
+                                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-3">
+                                                    <div className="text-[11px] font-medium text-amber-800 mb-1">Google Drive 型錄分類位置</div>
+                                                    <div className="space-y-0.5">
+                                                        {getCatalogFolderPaths().map(path => (
+                                                            <div key={path.join('\u0000')} className="text-[11px] text-amber-700">{path.join(' / ')}</div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="text-[10px] text-amber-600 mt-1">路徑依序為大類／小類／品牌。同一份型錄只占一份空間；其他分類會建立捷徑。貼上 Google Drive 連結後，儲存產品也會自動整理。</div>
                                                 </div>
                                                 <div className="text-[11px] text-gray-400 border-t border-gray-100 pt-3 mb-2">支援 PDF、ZIP、Word、Excel、PowerPoint 等格式；單檔 4MB 內可直接上傳。</div>
                                                 <div className="space-y-2 mb-3">
                                                     {webDownloads.map((dl, i) => (
                                                         <div key={dl.id ?? `new-${i}`} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto_auto] gap-2 items-center">
                                                             <input value={dl.file_name} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_name: e.target.value } : r))} placeholder="檔名（如：使用手冊）" className={inputClass + ' text-xs py-1.5'} />
-                                                            <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="av-shop.com 媒體網址" className={inputClass + ' text-xs py-1.5'} />
+                                                            <input value={dl.file_url} onChange={e => setWebDownloads(a => a.map((r, ri) => ri === i ? { ...r, file_url: e.target.value } : r))} placeholder="Google Drive 下載連結" className={inputClass + ' text-xs py-1.5'} />
                                                             <label className="inline-flex items-center justify-center gap-1 px-2.5 py-2 border border-blue-200 rounded-lg text-xs text-blue-700 hover:bg-blue-50 cursor-pointer whitespace-nowrap">
                                                                 {downloadUploading === i ? <Loader2 size={12} className="animate-spin" /> : <FileUp size={12} />}
-                                                                {downloadUploading === i ? '上傳中' : '上傳官網'}
+                                                                {downloadUploading === i ? '上傳中' : '上傳 Drive'}
                                                                 <input
                                                                     type="file"
-                                                                    accept=".pdf,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
                                                                     className="hidden"
                                                                     disabled={downloadUploading != null}
                                                                     onChange={async e => {
@@ -1942,7 +2190,7 @@ export default function ProductsPage() {
                                         onClick={() => setWebExpanded(v => !v)}
                                         className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700"
                                     >
-                                        <span>進階網站設定（SKU／系列變體／主圖／認證字號）</span>
+                                        <span>進階網站設定（SKU／主圖／認證字號）</span>
                                         <ChevronRight size={16} className={`text-gray-400 transition-transform ${webExpanded ? 'rotate-90' : ''}`} />
                                     </button>
                                     {webExpanded && (
@@ -1950,25 +2198,6 @@ export default function ProductsPage() {
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">SKU</label>
                                                 <input value={form.web_sku} onChange={e => setForm(p => ({ ...p, web_sku: e.target.value }))} className={inputClass} />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-600 mb-1 block">系列代碼</label>
-                                                <input value={form.variant_group_code} onChange={e => setForm(p => ({ ...p, variant_group_code: e.target.value }))} className={inputClass} placeholder="同系列填相同代碼" />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-600 mb-1 block">變體屬性</label>
-                                                <input value={form.variant_attribute_name} onChange={e => setForm(p => ({ ...p, variant_attribute_name: e.target.value }))} className={inputClass} placeholder="顏色" />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-600 mb-1 block">變體選項</label>
-                                                <input value={form.variant_value} onChange={e => setForm(p => ({ ...p, variant_value: e.target.value }))} className={inputClass} placeholder="例如：黑色" />
-                                            </div>
-                                            <div className="flex items-center gap-2 pt-5">
-                                                <input type="checkbox" id="variant_is_primary" checked={form.variant_is_primary} onChange={e => setForm(p => ({ ...p, variant_is_primary: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
-                                                <label htmlFor="variant_is_primary" className="text-sm text-gray-700">系列主商品</label>
-                                            </div>
-                                            <div className="col-span-2 sm:col-span-3 text-[11px] text-gray-400 -mt-2">
-                                                同系列每個顏色／型號仍各自一筆商品；官網會合併成同一頁。每個系列只能指定一筆主商品，父商品名稱、介紹、分類與共用圖文以主商品為準。
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-600 mb-1 block">主圖</label>
@@ -2004,9 +2233,9 @@ export default function ProductsPage() {
                                                 <input type="checkbox" id="web_publish" checked={form.web_publish} onChange={e => setForm(p => ({ ...p, web_publish: e.target.checked }))} className="accent-blue-600 w-4 h-4" />
                                                 <label htmlFor="web_publish" className="text-sm text-gray-700">顯示於網站</label>
                                             </div>
-                                            {(form.web_product_id || form.web_product_url || form.web_variation_id) && (
+                                            {(form.web_product_id || form.web_product_url) && (
                                                 <div className="col-span-2 sm:col-span-3 text-xs text-gray-400">
-                                                    網站父商品 ID：{form.web_product_id || '—'}　變體 ID：{form.web_variation_id || '—'}　連結：{form.web_product_url || '—'}
+                                                    網站商品 ID：{form.web_product_id || '—'} 連結：{form.web_product_url || '—'}
                                                 </div>
                                             )}
                                         </div>
@@ -2017,10 +2246,8 @@ export default function ProductsPage() {
 
                         </div>
                         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-gray-100 bg-gray-50 rounded-b-2xl shrink-0">
-                            <button type="button" disabled={productSaving} onClick={() => guard.guardClose(() => setEditingId(null))} className="min-h-11 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">取消</button>
-                            <button type="button" disabled={productSaving} onClick={handleSave} className="flex min-h-11 min-w-24 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-blue-400">
-                                {productSaving ? <><Loader2 size={15} className="animate-spin" /> 儲存中…</> : '儲存'}
-                            </button>
+                            <button onClick={() => guard.guardClose(() => setEditingId(null))} className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white">取消</button>
+                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">儲存</button>
                         </div>
                     </div>
                     </div>
@@ -2056,9 +2283,6 @@ export default function ProductsPage() {
               ) : (
                 paged.map(p => {
                   const catLabel = getCategoryLabel(p.category_id)
-                  const productType = p.product_type === 'child' ? 'child' : 'main'
-                  const parentProduct = p.parent_product_id ? productById.get(p.parent_product_id) : null
-                  const childCount = productType === 'main' ? (childCountByParent.get(p.id) ?? 0) : 0
                   return (
                     <tr key={p.id} className={`border-b border-gray-50 hover:bg-blue-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
                       {cols.image && <td className="px-3 py-2 text-center">
@@ -2087,25 +2311,7 @@ export default function ProductsPage() {
                         </span>
                       </td>}
                       <td className="px-4 py-3 font-medium text-gray-900">
-                        <div className="flex items-center gap-2">
-                          <span>{p.product_name}</span>
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${productType === 'child'
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-blue-100 text-blue-700'}`}>
-                            {productType === 'child' ? '子商品' : '主商品'}
-                          </span>
-                          {productType === 'child' && p.variant_value && (
-                            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-600">{p.variant_value}</span>
-                          )}
-                        </div>
-                        {productType === 'child' && (
-                          <div className="mt-0.5 text-[11px] font-normal text-purple-600">
-                            所屬主商品：{parentProduct ? productLabelForList(parentProduct) : '主商品資料異常'}
-                          </div>
-                        )}
-                        {productType === 'main' && childCount > 0 && (
-                          <div className="mt-0.5 text-[11px] font-normal text-blue-600">{childCount} 個子商品</div>
-                        )}
+                        {p.product_name}
                         {(p as any).product_code && (
                           <div className="text-[11px] font-mono text-gray-400 mt-0.5">{(p as any).product_code}</div>
                         )}

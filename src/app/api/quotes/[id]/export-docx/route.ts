@@ -36,7 +36,8 @@ function bodyCell(text: string, width: number, align: (typeof AlignmentType)[key
   })
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
 
   const [{ data: quote }, { data: items }, { data: settings }] = await Promise.all([
@@ -80,44 +81,44 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   const itemRows: TableRow[] = []
   let dispNo = 0
   ;(items ?? []).forEach((item: any) => {
-    if (item.is_category) {
-      dispNo = 0
+      if (item.is_category) {
+        dispNo = 0
+        itemRows.push(new TableRow({
+          children: [
+            new TableCell({
+              columnSpan: 7,
+              shading: { fill: 'ECECEC' },
+              borders: cellBorder,
+              children: [new Paragraph({ children: [new TextRun({ text: String(item.product_name ?? ''), bold: true, size: 20 })] })],
+            }),
+          ],
+        }))
+        return
+      }
+      dispNo += 1
       itemRows.push(new TableRow({
         children: [
-          new TableCell({
-            columnSpan: 7,
-            shading: { fill: 'ECECEC' },
-            borders: cellBorder,
-            children: [new Paragraph({ children: [new TextRun({ text: String(item.product_name ?? ''), bold: true, size: 20 })] })],
-          }),
+          bodyCell(String(dispNo), colWidths[0], AlignmentType.CENTER),
+          bodyCell(item.product_name ?? '', colWidths[1]),
+          bodyCell(item.model ?? '', colWidths[2]),
+          bodyCell(item.unit ?? '', colWidths[3], AlignmentType.CENTER),
+          bodyCell(String(item.quantity), colWidths[4], AlignmentType.CENTER),
+          bodyCell(Number(item.unit_price).toLocaleString('zh-TW'), colWidths[5], AlignmentType.RIGHT),
+          bodyCell(Number(item.quantity * item.unit_price).toLocaleString('zh-TW'), colWidths[6], AlignmentType.RIGHT),
         ],
       }))
-      return
-    }
-    dispNo += 1
-    itemRows.push(new TableRow({
-      children: [
-        bodyCell(String(dispNo), colWidths[0], AlignmentType.CENTER),
-        bodyCell(item.product_name ?? '', colWidths[1]),
-        bodyCell(item.model ?? '', colWidths[2]),
-        bodyCell(item.unit ?? '', colWidths[3], AlignmentType.CENTER),
-        bodyCell(String(item.quantity), colWidths[4], AlignmentType.CENTER),
-        bodyCell(Number(item.unit_price).toLocaleString('zh-TW'), colWidths[5], AlignmentType.RIGHT),
-        bodyCell(Number(item.quantity * item.unit_price).toLocaleString('zh-TW'), colWidths[6], AlignmentType.RIGHT),
-      ],
-    }))
-    if (item.item_notes) {
-      itemRows.push(new TableRow({
-        children: [
-          new TableCell({
-            columnSpan: 7,
-            borders: cellBorder,
-            children: [new Paragraph({ children: [new TextRun({ text: `備註：${item.item_notes}`, size: 18, color: '666666' })] })],
-          }),
-        ],
-      }))
-    }
-  })
+      if (item.item_notes) {
+        itemRows.push(new TableRow({
+          children: [
+            new TableCell({
+              columnSpan: 7,
+              borders: cellBorder,
+              children: [new Paragraph({ children: [new TextRun({ text: `備註：${item.item_notes}`, size: 18, color: '666666' })] })],
+            }),
+          ],
+        }))
+      }
+    })
 
   const qOrig = Number(quote.subtotal ?? quote.total_amount)
   const qDisc = qOrig - Number(quote.total_amount)
@@ -182,7 +183,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   // HTTP header 只能放 ASCII：中文檔名放 filename*=UTF-8''，filename= 用 ASCII 替代（修 500 ByteString 錯誤）
   const asciiName = filename.replace(/[^\x20-\x7E]/g, '_')
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

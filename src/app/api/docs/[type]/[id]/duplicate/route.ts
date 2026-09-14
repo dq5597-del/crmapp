@@ -66,10 +66,8 @@ function todayParts() {
   return { d, yy, mm, dd, iso: `${d.getFullYear()}-${mm}-${dd}` }
 }
 
-export async function POST(
-  _req: Request,
-  { params }: { params: { type: string; id: string } }
-) {
+export async function POST(_req: Request, props: { params: Promise<{ type: string; id: string }> }) {
+  const params = await props.params;
   const cfg = CONFIG[params.type]
   if (!cfg) return NextResponse.json({ error: '不支援的單據類型' }, { status: 400 })
 
@@ -97,8 +95,8 @@ export async function POST(
   delete clone.updated_at
   if (cfg.resetStatus && 'status' in clone) clone.status = cfg.resetStatus
   ;(cfg.dateFields ?? []).forEach(f => { if (f in clone) clone[f] = iso })
-  ;(cfg.clearFields ?? []).forEach(f => { if (f in clone) clone[f] = null })
-  ;(cfg.falseFields ?? []).forEach(f => { if (f in clone) clone[f] = false })
+    ;(cfg.clearFields ?? []).forEach(f => { if (f in clone) clone[f] = null })
+    ;(cfg.falseFields ?? []).forEach(f => { if (f in clone) clone[f] = false })
   if (cfg.nameField && clone[cfg.nameField]) clone[cfg.nameField] = `${clone[cfg.nameField]}（複製）`
 
   // 4) 有單號的：算流水、撞號重試

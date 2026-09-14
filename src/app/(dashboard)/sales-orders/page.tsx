@@ -121,7 +121,7 @@ export default function SalesOrdersPage() {
     const q = (productSearch[idx] ?? '').toLowerCase()
     // 該列已選品牌 → 只顯示該品牌的產品（2026-07 新增）
     const rowBrand = (items[idx]?.brand ?? '').trim().toLowerCase()
-    let list = rowBrand
+    const list = rowBrand
       ? products.filter(p => ((p.brand ?? '') as string).trim().toLowerCase() === rowBrand)
       : products
     if (!q) return list.slice(0, 20)
@@ -372,7 +372,8 @@ export default function SalesOrdersPage() {
     const insertAt = dropPos.idx + (dropPos.after ? 1 : 0)
     const from = dragIdx
     setItems(prev => {
-      let start = from, end = from + 1
+      const start = from
+      let end = from + 1
       if (prev[start]?.is_category) { while (end < prev.length && !prev[end].is_category) end++ }
       if (insertAt >= start && insertAt <= end) return prev
       const block = prev.slice(start, end)

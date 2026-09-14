@@ -4,7 +4,8 @@ import InquiryForm from '@/components/inquiries/InquiryForm'
 
 export const dynamic = 'force-dynamic'
 
-export default async function InquiryDetailPage({ params }: { params: { id: string } }) {
+export default async function InquiryDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createServerSupabaseClient()
 
   const { data: inquiry } = await supabase
